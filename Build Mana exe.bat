@@ -39,6 +39,8 @@ if errorlevel 1 (
 
 echo.
 echo Done. Your app is: src-tauri\target\release\mana.exe
+echo The bundled avatar is in src-tauri\target\release\assets\avatar.
+echo To move the app, copy mana.exe and the assets folder together.
 echo Right-click it and choose Send to, then Desktop, to make a shortcut.
 start "" explorer "%~dp0src-tauri\target\release"
 pause

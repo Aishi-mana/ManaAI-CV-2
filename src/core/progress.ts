@@ -1,6 +1,9 @@
 // Progress tracking and unlock rules. No imports from the avatar code, so there are no cycles.
+import { integerInRange, isRecord, nonEmptyString, safeKey, stringList, validDate } from "./validation";
+import { readStored, writeStored } from "./persistence";
 
 export type Rule =
+  | { type: "invalid" }
   | { type: "days"; value: number }
   | { type: "messages"; value: number }
   | { type: "skill"; value: number }
@@ -30,19 +33,87 @@ export interface Stats {
 export const EMPTY_STATS: Stats = { firstChat: null, days: [], messages: 0, skill: 0, milestones: {} };
 const STATS_KEY = "mana.stats.v1";
 
+export function validateStats(value: unknown): Stats {
+  const result: Stats = { firstChat: null, days: [], messages: 0, skill: 0, milestones: {} };
+  if (!isRecord(value)) return result;
+  if (validDate(value.firstChat)) result.firstChat = value.firstChat;
+  result.days = stringList(value.days).filter(validDate);
+  if (integerInRange(value.messages, 0)) result.messages = value.messages;
+  if (integerInRange(value.skill, 0)) result.skill = value.skill;
+  if (isRecord(value.milestones)) {
+    for (const [id, date] of Object.entries(value.milestones)) {
+      if (nonEmptyString(id) && safeKey(id) && validDate(date)) result.milestones[id] = date;
+    }
+  }
+  return result;
+}
+
+function validateRule(value: unknown): Rule | null {
+  if (!isRecord(value)) return null;
+  switch (value.type) {
+    case "days": case "messages": case "skill":
+      return integerInRange(value.value, 0) ? { type: value.type, value: value.value } : null;
+    case "milestone":
+      return nonEmptyString(value.id) && safeKey(value.id) ? { type: "milestone", id: value.id } : null;
+    case "season":
+      return Array.isArray(value.months) && value.months.length > 0 && value.months.every((month) => integerInRange(month, 1, 12))
+        ? { type: "season", months: [...new Set<number>(value.months)] } : null;
+    default: return null;
+  }
+}
+
+/** Preserve valid metadata, but invalid unlock rules always stay locked. */
+export function validateCatalog(value: unknown): { items: ItemCatalog; errors: string[] } {
+  const items: ItemCatalog = Object.create(null);
+  const errors: string[] = [];
+  if (!isRecord(value)) return { items, errors: ["items.json must be an object of item IDs and metadata"] };
+  for (const [id, entry] of Object.entries(value)) {
+    if (!/^(base|outfits|hairstyles|accessories)\/[^/\\]+$/.test(id)) {
+      errors.push(`Invalid item ID: ${id}`);
+      continue;
+    }
+    if (!isRecord(entry)) {
+      items[id] = { unlock: { type: "invalid" } };
+      errors.push(`${id}: metadata must be an object`);
+      continue;
+    }
+    const item: ItemInfo = {};
+    if (entry.name !== undefined) {
+      if (nonEmptyString(entry.name)) item.name = entry.name;
+      else errors.push(`${id}: name must be a non-empty string`);
+    }
+    if (entry.tags !== undefined) {
+      item.tags = stringList(entry.tags);
+      if (!Array.isArray(entry.tags) || !entry.tags.every(nonEmptyString)) errors.push(`${id}: tags must be strings`);
+    }
+    if (Object.prototype.hasOwnProperty.call(entry, "unlock")) {
+      const rules = Array.isArray(entry.unlock) ? entry.unlock : [entry.unlock];
+      const validated = rules.map(validateRule);
+      if (validated.some((rule) => rule === null)) {
+        item.unlock = { type: "invalid" };
+        errors.push(`${id}: invalid unlock rule (item stays locked)`);
+      } else {
+        item.unlock = validated as Rule[];
+      }
+    }
+    items[id] = item;
+  }
+  return { items, errors };
+}
+
 export function loadStats(): Stats {
   try {
-    const raw = localStorage.getItem(STATS_KEY);
-    if (raw) return { ...EMPTY_STATS, ...JSON.parse(raw) };
+    const raw = readStored(STATS_KEY);
+    if (raw) return validateStats(JSON.parse(raw));
   } catch {
     /* ignore */
   }
-  return { ...EMPTY_STATS };
+  return validateStats(null);
 }
 
 export function saveStats(s: Stats) {
   try {
-    localStorage.setItem(STATS_KEY, JSON.stringify(s));
+    writeStored(STATS_KEY, JSON.stringify(validateStats(s)));
   } catch {
     /* ignore */
   }
@@ -77,7 +148,7 @@ export function ruleMet(rule: Rule, s: Stats, now: Date): boolean {
     case "skill":
       return s.skill >= rule.value;
     case "milestone":
-      return rule.id in s.milestones;
+      return Object.prototype.hasOwnProperty.call(s.milestones, rule.id);
     case "season":
       return rule.months.includes(now.getMonth() + 1);
     default:
@@ -121,7 +192,7 @@ function describeRule(r: Rule, s: Stats, who: string): string {
     case "season":
       return `Only in ${r.months.map((m) => MONTHS[(m - 1) % 12]).join(", ")}`;
     default:
-      return "Locked";
+      return "Fix this item's invalid unlock rule in items.json";
   }
 }
 

@@ -4,6 +4,8 @@ export interface Msg {
   /** Raw text exactly as the model produced it (includes the [emotion] tag). */
   content: string;
   error?: string;
+  createdAt?: string;
+  diagnostics?: { attempts: { text: string; issue: "repetition" | "capability" | "return-role" | null }[]; comparison?: string };
 }
 
 export interface ChatMessage {

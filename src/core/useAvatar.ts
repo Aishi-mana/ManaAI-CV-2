@@ -19,11 +19,6 @@ export function useAvatarAssets(dir: string) {
       setError("The avatar loads inside the Mana window. Run it with: npm run tauri dev");
       return;
     }
-    if (!dir.trim()) {
-      setStatus("error");
-      setError("Choose your avatar folder in Settings.");
-      return;
-    }
     let cancelled = false;
     let loaded: AvatarAssets | null = null;
     setStatus("loading");

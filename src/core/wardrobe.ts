@@ -68,7 +68,7 @@ function pickRequired(list: Entry[], want: string): string {
   if (exact) return exact.name;
   const def = list.find((e) => e.isDefault);
   if (def) return def.name;
-  return list.find((e) => e.unlocked)?.name ?? want;
+  return "default";
 }
 
 /**
@@ -78,6 +78,7 @@ function pickRequired(list: Entry[], want: string): string {
  */
 export function resolveLoadout(saved: AvatarConfig, w: Wardrobe): AvatarConfig {
   return {
+    ...(saved.looks ? { looks: saved.looks } : {}),
     skin: pickRequired(w.skins, saved.skin),
     outfit: pickRequired(w.outfits, saved.outfit),
     hairstyle: pickRequired(w.hairs, saved.hairstyle),

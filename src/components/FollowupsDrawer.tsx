@@ -1,0 +1,31 @@
+import {useState} from 'react';
+import type {Followup,FollowupState,FollowupSuggestion} from '../core/followups';
+import {newFollowup,validDue} from '../core/followups';
+import {journalClock} from '../core/clock';
+
+function Suggestion({suggestion,ready,onAccept,onDismiss}:{suggestion:FollowupSuggestion;ready:boolean;onAccept:(note:Followup)=>void;onDismiss:()=>void}){
+ const [topic,setTopic]=useState(suggestion.topic),[due,setDue]=useState(suggestion.dueLocal);
+ return <article className="memory-card"><label className="field"><span>Proposed topic</span><input maxLength={300} value={topic} onChange={e=>setTopic(e.target.value)} /></label><label className="field"><span>Eligible after ({suggestion.timeZone})</span><input type="datetime-local" value={due} onChange={e=>setDue(e.target.value)} /></label><details><summary>From your message</summary><p className="memory-content">{suggestion.sourceText}</p></details><div className="chips"><button className="btn primary" disabled={!ready||!topic.trim()||!validDue(due)} onClick={()=>{const note=newFollowup(topic,due,suggestion.timeZone,suggestion);if(note)onAccept(note);}}>Save follow-up</button><button className="btn" disabled={!ready} onClick={onDismiss}>Dismiss suggestion</button></div></article>;
+}
+function NoteCard({note,ready,onUpdate}:{note:Followup;ready:boolean;onUpdate:(note:Followup)=>void}){
+ const [topic,setTopic]=useState(note.topic),[due,setDue]=useState(note.dueLocal);
+ const changed=topic!==note.topic||due!==note.dueLocal;
+ function tomorrow(){const date=journalClock(new Date(),note.timeZone).date;const day=new Date(`${date}T12:00:00Z`);day.setUTCDate(day.getUTCDate()+1);const next=day.toISOString().slice(0,10)+'T'+due.slice(11);setDue(next);onUpdate({...note,topic:topic.trim(),dueLocal:next,status:'pending',lastPromptedAt:undefined});}
+ return <article className="memory-card"><strong>{note.topic} · {note.status}</strong><label className="field"><span>Topic</span><input value={topic} maxLength={300} onChange={e=>setTopic(e.target.value)} /></label><label className="field"><span>Eligible after ({note.timeZone})</span><input type="datetime-local" value={due} onChange={e=>setDue(e.target.value)} /></label>
+ {note.lastPromptedAt&&<p className="hint-soft">Included in a conversation starter's context {new Date(note.lastPromptedAt).toLocaleString()}. Still awaiting your recorded completion.</p>}
+ {note.sourceText&&<details><summary>Original request</summary><p className="memory-content">{note.sourceText}</p></details>}
+ <div className="chips"><button className="btn" disabled={!ready||!changed||!topic.trim()||!validDue(due)} onClick={()=>onUpdate({...note,topic:topic.trim(),dueLocal:due,lastPromptedAt:undefined})}>Save changes</button><button className="btn" disabled={!ready||!topic.trim()||!validDue(due)} onClick={tomorrow}>Postpone to tomorrow</button>
+ {note.status==='pending'?<><button className="btn" disabled={!ready||changed} onClick={()=>onUpdate({...note,status:'done'})}>Mark done</button><button className="btn" disabled={!ready||changed} onClick={()=>onUpdate({...note,status:'dismissed'})}>Dismiss note</button></>:<button className="btn" disabled={!ready||changed} onClick={()=>onUpdate({...note,status:'pending',lastPromptedAt:undefined})}>Reopen</button>}</div></article>;
+}
+export default function FollowupsDrawer({name,state,suggestions,timeZone,ready,onState,onClose}:{name:string;state:FollowupState;suggestions:FollowupSuggestion[];timeZone:string;ready:boolean;onState:(state:FollowupState)=>void;onClose:()=>void}){
+ const [topic,setTopic]=useState(''),[due,setDue]=useState(`${journalClock(new Date(),timeZone).date}T09:00`),[showArchived,setShowArchived]=useState(false);
+ const pending=state.notes.filter(n=>n.status==='pending');
+ const review=(id:string)=>[...new Set([...state.reviewedIds,id])];
+ return <><div className="scrim" onClick={onClose}/><section className="drawer" role="dialog" aria-label="Follow-up notes"><header className="drawer-head"><h2>{name}'s follow-ups</h2><button className="btn" onClick={onClose}>Close</button></header><div className="drawer-body"><p className="hint-soft">Review a topic to revisit later. Due notes become eligible for an occasional conversation starter while Mana is open, enabled and available under the normal timing rules. These are not exact-time alarms or notifications while the app is closed. Only you mark them done.</p>
+ <p className="hint-soft">Try “Let's talk about our game tomorrow” or “Remind me about our game in 30 minutes”. Tomorrow defaults to 09:00 in the journal timezone; edit before saving. Suggestions are not scheduled until accepted.</p>
+ {!!suggestions.length&&<><h3>Suggestions ({suggestions.length})</h3>{suggestions.map(s=><Suggestion key={s.sourceMessageId} suggestion={s} ready={ready} onDismiss={()=>onState({...state,reviewedIds:review(s.sourceMessageId)})} onAccept={note=>onState({notes:[...state.notes,note],reviewedIds:review(s.sourceMessageId)})}/>)}</>}
+ <h3>Add a follow-up</h3><label className="field"><span>Topic</span><input maxLength={300} value={topic} onChange={e=>setTopic(e.target.value)}/></label><label className="field"><span>Eligible after ({timeZone})</span><input type="datetime-local" value={due} onChange={e=>setDue(e.target.value)}/></label><button className="btn primary" disabled={!ready||!topic.trim()||!validDue(due)} onClick={()=>{const note=newFollowup(topic,due,timeZone);if(note){onState({...state,notes:[...state.notes,note]});setTopic('');}}}>Save follow-up</button>
+ <h3>Pending notes ({pending.length})</h3>{!pending.length&&<p>No pending follow-ups.</p>}{[...pending].sort((a,b)=>a.dueLocal.localeCompare(b.dueLocal)).map(note=><NoteCard key={note.id} note={note} ready={ready} onUpdate={next=>onState({...state,notes:state.notes.map(n=>n.id===next.id?{...next,updatedAt:new Date().toISOString()}:n)})}/>)}
+ <label className="check"><input type="checkbox" checked={showArchived} onChange={e=>setShowArchived(e.target.checked)}/><span>Show completed and dismissed notes ({state.notes.length-pending.length})</span></label>{showArchived&&state.notes.filter(n=>n.status!=='pending').map(note=><NoteCard key={note.id} note={note} ready={ready} onUpdate={next=>onState({...state,notes:state.notes.map(n=>n.id===next.id?{...next,updatedAt:new Date().toISOString()}:n)})}/>)}
+ </div></section></>;
+}

@@ -3,16 +3,20 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { DEFAULT_PROMPT } from "../core/settings";
 import type { Settings } from "../core/settings";
 import { inTauri } from "../core/useLlama";
+import BackupPanel from './BackupPanel';
 
 interface Props {
   settings: Settings;
   running: boolean;
   onSave: (s: Settings) => void;
   onClose: () => void;
+  backupReady:boolean;
+  onBackupBusy:(busy:boolean)=>void;
 }
 
-export default function SettingsDrawer({ settings, running, onSave, onClose }: Props) {
+export default function SettingsDrawer({ settings, running, onSave, onClose, backupReady, onBackupBusy }: Props) {
   const [d, setD] = useState<Settings>(settings);
+  const [backupBusy,setBackupBusy]=useState(false);
   const set = <K extends keyof Settings>(key: K, value: Settings[K]) => setD((prev) => ({ ...prev, [key]: value }));
 
   async function browse(key: "exePath" | "modelPath" | "avatarDir") {
@@ -35,16 +39,17 @@ export default function SettingsDrawer({ settings, running, onSave, onClose }: P
 
   return (
     <>
-      <div className="scrim" onClick={onClose} />
+      <div className="scrim" onClick={()=>{if(!backupBusy)onClose();}} />
       <section className="drawer" role="dialog" aria-label="Settings">
         <header className="drawer-head">
           <h2>Settings</h2>
-          <button className="btn" onClick={onClose}>
+          <button className="btn" disabled={backupBusy} onClick={onClose}>
             Close
           </button>
         </header>
 
         <div className="drawer-body">
+          <BackupPanel ready={backupReady&&!running} onBusy={(value)=>{setBackupBusy(value);onBackupBusy(value);}} />
           <h3>Model</h3>
 
           <label className="field">
@@ -102,9 +107,9 @@ export default function SettingsDrawer({ settings, running, onSave, onClose }: P
           <h3>Avatar</h3>
 
           <label className="field">
-            <span>Avatar folder (contains base, eyes, mouth, hairstyles, ...)</span>
+            <span>Custom avatar folder (optional)</span>
             <div className="pathrow">
-              <input value={d.avatarDir} onChange={(e) => set("avatarDir", e.target.value)} spellCheck={false} />
+              <input value={d.avatarDir} onChange={(e) => set("avatarDir", e.target.value)} placeholder="Bundled default avatar" spellCheck={false} />
               {inTauri && (
                 <button className="btn" onClick={() => browse("avatarDir")}>
                   Browse
@@ -112,6 +117,9 @@ export default function SettingsDrawer({ settings, running, onSave, onClose }: P
               )}
             </div>
           </label>
+
+          <p className="hint-soft">Leave the folder empty to use Mana's bundled avatar.</p>
+          <button className="btn" onClick={() => set("avatarDir", "")}>Use bundled avatar</button>
 
           <h3>{d.charName || "Her"} and you</h3>
 
@@ -150,6 +158,7 @@ export default function SettingsDrawer({ settings, running, onSave, onClose }: P
         <footer className="drawer-foot">
           <button
             className="btn primary"
+            disabled={backupBusy}
             onClick={() => {
               onSave(d);
               onClose();

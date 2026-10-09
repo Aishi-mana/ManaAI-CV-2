@@ -1,6 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import mapData from "./avatar-map.json";
+import { validateCatalog } from "./progress";
 import type { ItemCatalog } from "./progress";
+import { isRecord, nonEmptyString, stringList } from "./validation";
+import { readStored, writeStored } from "./persistence";
 
 export type Vowel = "a" | "e" | "i" | "o" | "u";
 
@@ -30,6 +33,15 @@ export interface AvatarConfig {
   outfit: string;
   accessories: string[];
   view: string;
+  looks?: SavedLook[];
+}
+
+export interface SavedLook {
+  name: string;
+  skin: string;
+  hairstyle: string;
+  outfit: string;
+  accessories: string[];
 }
 
 export interface Accessory {
@@ -56,19 +68,43 @@ export interface Layer {
 export const DEFAULT_AVATAR: AvatarConfig = { skin: "default", hairstyle: "default", outfit: "default", accessories: [], view: "full" };
 const CONFIG_KEY = "mana.avatar.v1";
 
+export function validateAvatarConfig(value: unknown): AvatarConfig {
+  const result: AvatarConfig = { ...DEFAULT_AVATAR, accessories: [] as string[] };
+  if (!isRecord(value)) return result;
+  for (const key of ["skin", "outfit", "hairstyle"] as const) {
+    if (nonEmptyString(value[key])) result[key] = value[key];
+  }
+  result.accessories = stringList(value.accessories);
+  if (typeof value.view === "string" && Object.prototype.hasOwnProperty.call(VIEWS, value.view)) result.view = value.view;
+  if (Array.isArray(value.looks)) {
+    const names = new Set<string>();
+    result.looks = [];
+    for (const look of value.looks.slice(0, 30)) {
+      if (!isRecord(look) || !nonEmptyString(look.name) || look.name.trim().length > 60) continue;
+      const name = look.name.trim();
+      if (names.has(name.toLowerCase())) continue;
+      if (![look.skin, look.outfit, look.hairstyle].every(nonEmptyString)) continue;
+      names.add(name.toLowerCase());
+      result.looks.push({ name, skin: look.skin as string, outfit: look.outfit as string,
+        hairstyle: look.hairstyle as string, accessories: stringList(look.accessories) });
+    }
+  }
+  return result;
+}
+
 export function loadAvatarConfig(): AvatarConfig {
   try {
-    const raw = localStorage.getItem(CONFIG_KEY);
-    if (raw) return { ...DEFAULT_AVATAR, ...JSON.parse(raw) };
+    const raw = readStored(CONFIG_KEY);
+    if (raw) return validateAvatarConfig(JSON.parse(raw));
   } catch {
     /* ignore */
   }
-  return { ...DEFAULT_AVATAR };
+  return validateAvatarConfig(null);
 }
 
 export function saveAvatarConfig(c: AvatarConfig) {
   try {
-    localStorage.setItem(CONFIG_KEY, JSON.stringify(c));
+    writeStored(CONFIG_KEY, JSON.stringify(validateAvatarConfig(c)));
   } catch {
     /* ignore */
   }
@@ -89,24 +125,38 @@ export async function loadAvatarAssets(dir: string): Promise<AvatarAssets> {
   const urls = new Map<string, string>();
   let items: ItemCatalog = {};
   let itemsError: string | undefined;
+  let invalidCatalog = false;
   await Promise.all(
     files.map(async (rel) => {
-      const data = await invoke<ArrayBuffer | number[]>("read_avatar_image", { dir, rel });
-      const bytes = data instanceof ArrayBuffer ? data : new Uint8Array(data).buffer;
       if (rel.toLowerCase() === "items.json") {
         try {
+          const data = await invoke<ArrayBuffer | number[]>("read_avatar_image", { dir, rel });
+          const bytes = data instanceof ArrayBuffer ? data : new Uint8Array(data).buffer;
           const parsed = JSON.parse(new TextDecoder().decode(bytes));
-          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) items = parsed as ItemCatalog;
-          else itemsError = "items.json must be an object like { \"outfits/summer\": { ... } }";
+          const validated = validateCatalog(parsed);
+          items = validated.items;
+          itemsError = validated.errors.length ? validated.errors.join("; ") : undefined;
+          invalidCatalog = !isRecord(parsed);
         } catch (e) {
           itemsError = `items.json could not be read: ${e}`;
+          invalidCatalog = true;
         }
         return;
       }
+      const data = await invoke<ArrayBuffer | number[]>("read_avatar_image", { dir, rel });
+      const bytes = data instanceof ArrayBuffer ? data : new Uint8Array(data).buffer;
       urls.set(rel.toLowerCase(), URL.createObjectURL(new Blob([bytes], { type: mimeFor(rel) })));
     }),
   );
-  return { files: files.filter((f) => f.toLowerCase() !== "items.json"), urls, items, itemsError };
+  const assets = { files: files.filter((f) => f.toLowerCase() !== "items.json"), urls, items, itemsError };
+  if (invalidCatalog) {
+    const options = listOptions(assets);
+    for (const id of [
+      ...options.skins.map((n) => `base/${n}`), ...options.outfits.map((n) => `outfits/${n}`),
+      ...options.hairstyles.map((n) => `hairstyles/${n}`), ...options.accessories.map((n) => `accessories/${n}`),
+    ]) items[id] = { unlock: { type: "invalid" } };
+  }
+  return assets;
 }
 
 export function revokeAssets(a: AvatarAssets) {
@@ -171,9 +221,9 @@ export function listOptions(a: AvatarAssets): AvatarOptions {
     else if (top === "outfits" && p.length >= 3) outfits.add(p[1]);
   }
   return {
-    skins: Array.from(skins),
-    hairstyles: Array.from(hairstyles),
-    outfits: Array.from(outfits),
+    skins: Array.from(skins).filter((name) => hasRequiredAsset(a, "skin", name)),
+    hairstyles: Array.from(hairstyles).filter((name) => hasRequiredAsset(a, "hair", name)),
+    outfits: Array.from(outfits).filter((name) => hasRequiredAsset(a, "outfit", name)),
     accessories: listAccessories(a).map((x) => x.name),
   };
 }
@@ -184,13 +234,21 @@ export function skinFiles(a: AvatarAssets, skin: string): string[] {
   return filesIn(a, `base/${skin}`);
 }
 
+/** Required layers must be loaded, not merely present in a directory listing. */
+export function hasRequiredAsset(a: AvatarAssets, slot: "skin" | "outfit" | "hair", name: string): boolean {
+  const files = slot === "skin" ? skinFiles(a, name) : filesIn(a, `${slot === "hair" ? "hairstyles" : "outfits"}/${name}`);
+  const required = slot === "skin" ? "body" : slot === "hair" ? "hair_front" : "outfit";
+  return files.some((f) => stem(lastPart(f)).toLowerCase() === required && a.urls.has(f.toLowerCase()));
+}
+
 /**
- * Her body and outfit are required. If either is missing she is not drawn at all
- * (instead of being drawn bare), and this explains why.
+ * Body, outfit and front hair are required. Missing layers prevent rendering
+ * and produce an explanation for the stage.
  */
 export function requiredProblem(a: AvatarAssets, cfg: AvatarConfig): string | null {
-  if (skinFiles(a, cfg.skin).length === 0) return `Her base body is missing (looked for base/${cfg.skin === "default" ? "body.png" : cfg.skin}). I won't draw her without it.`;
-  if (filesIn(a, `outfits/${cfg.outfit}`).length === 0) return `Her outfit is missing (expected outfits/${cfg.outfit}/outfit.png), so I won't draw her.`;
+  if (!hasRequiredAsset(a, "skin", cfg.skin)) return `Her base body is missing (looked for base/${cfg.skin === "default" ? "body.png" : cfg.skin + "/body.png"}). I won't draw her without it.`;
+  if (!hasRequiredAsset(a, "outfit", cfg.outfit)) return `Her outfit is missing (expected outfits/${cfg.outfit}/outfit.png), so I won't draw her.`;
+  if (!hasRequiredAsset(a, "hair", cfg.hairstyle)) return `Her hairstyle is missing (expected hairstyles/${cfg.hairstyle}/hair_front.png), so I won't draw her.`;
   return null;
 }
 

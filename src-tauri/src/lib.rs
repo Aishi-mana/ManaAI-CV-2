@@ -4,6 +4,236 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use tauri::Manager;
 
+mod avatar_files;
+mod character;
+mod store;
+mod conversation_export;
+
+#[tauri::command]
+fn export_conversation(content: String) -> Result<String, String> {
+    conversation_export::write(Path::new(r"C:\AI\ManaAI-CV-2\exports\conversations"), &content)
+}
+
+#[tauri::command]
+fn export_diary(content: String) -> Result<String, String> {
+    conversation_export::write_named(Path::new(r"C:\AI\ManaAI-CV-2\exports\diary"), &content, "Mana-diary")
+}
+
+#[tauri::command]
+fn export_activity(content: String) -> Result<String, String> {
+    conversation_export::write_named(Path::new(r"C:\AI\ManaAI-CV-2\exports\activities"), &content, "Mana-activity")
+}
+
+#[tauri::command]
+fn export_work(content: String) -> Result<String, String> {
+    conversation_export::write_named(Path::new(r"C:\AI\ManaAI-CV-2\exports\work"), &content, "Mana-work")
+}
+
+#[tauri::command]
+fn export_playtest(content: String) -> Result<String, String> {
+    conversation_export::write_named(Path::new(r"C:\AI\ManaAI-CV-2\exports\playtests"), &content, "Mana-playtest")
+}
+
+#[tauri::command]
+fn initialize_store(
+    app: tauri::AppHandle,
+    state: tauri::State<store::Store>,
+    legacy: std::collections::BTreeMap<String, String>,
+) -> Result<std::collections::BTreeMap<String, String>, String> {
+    let mut slot = state.0.lock().map_err(|e| e.to_string())?;
+    if slot.is_none() {
+        let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        *slot = Some(store::open(&dir.join("mana.sqlite3"))?);
+    }
+    store::initialize(slot.as_mut().unwrap(), &legacy)
+}
+
+#[tauri::command]
+fn save_store(
+    state: tauri::State<store::Store>,
+    values: std::collections::BTreeMap<String, String>,
+) -> Result<(), String> {
+    let mut slot = state.0.lock().map_err(|e| e.to_string())?;
+    store::save(
+        slot.as_mut().ok_or("Database has not been initialized")?,
+        &values,
+    )
+}
+
+/// Holds the llama-server child process (if we started one).
+#[tauri::command]
+fn write_backup_file(path: String, content: String) -> Result<(), String> {
+    use std::io::Write;
+    if content.len() > 20_000_000 {
+        return Err("Backup exceeds 20 MB".into());
+    }
+    let value: serde_json::Value = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+    if value["format"] != "mana-backup" || value["version"] != 1 {
+        return Err("Invalid backup format".into());
+    }
+    // Never silently overwrite another backup or an unrelated file.
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+        .map_err(|e| e.to_string())?;
+    file.write_all(content.as_bytes())
+        .map_err(|e| e.to_string())?;
+    file.sync_all().map_err(|e| e.to_string())
+}
+#[tauri::command]
+fn read_backup_file(path: String) -> Result<String, String> {
+    use std::io::Read;
+    let file = File::open(path).map_err(|e| e.to_string())?;
+    let mut content = String::new();
+    file.take(20_000_001)
+        .read_to_string(&mut content)
+        .map_err(|e| e.to_string())?;
+    if content.len() > 20_000_000 {
+        return Err("Backup exceeds 20 MB".into());
+    }
+    Ok(content)
+}
+
+#[tauri::command]
+fn restore_backup_store(
+    app: tauri::AppHandle,
+    state: tauri::State<store::Store>,
+    values: std::collections::BTreeMap<String, String>,
+    safety_content: String,
+) -> Result<(), String> {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("backups");
+    let mut slot = state.0.lock().map_err(|e| e.to_string())?;
+    restore_with_safety(
+        slot.as_mut().ok_or("Database has not been initialized")?,
+        &values,
+        &dir,
+        safety_content,
+    )
+}
+fn restore_with_safety(
+    connection: &mut rusqlite::Connection,
+    values: &std::collections::BTreeMap<String, String>,
+    dir: &Path,
+    safety_content: String,
+) -> Result<(), String> {
+    std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|e| e.to_string())?
+        .as_nanos();
+    let path = dir.join(format!("before-restore-{stamp}.json"));
+    write_backup_file(path.to_string_lossy().into_owned(), safety_content)?;
+    store::save(connection, values)
+}
+
+#[tauri::command]
+fn list_safety_backups(app: tauri::AppHandle) -> Result<Vec<String>, String> {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("backups");
+    if !dir.exists() {
+        return Ok(Vec::new());
+    }
+    let mut paths = Vec::new();
+    for entry in std::fs::read_dir(dir).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name.starts_with("before-restore-")
+            && name.ends_with(".json")
+            && entry.file_type().map_err(|e| e.to_string())?.is_file()
+        {
+            paths.push(entry.path().to_string_lossy().into_owned());
+        }
+    }
+    paths.sort();
+    paths.reverse();
+    paths.truncate(20);
+    Ok(paths)
+}
+
+#[cfg(test)]
+mod backup_file_tests {
+    use super::{read_backup_file, restore_with_safety, store, write_backup_file};
+    struct Temp(std::path::PathBuf);
+    impl Drop for Temp {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+    fn temp() -> Temp {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path =
+            std::env::temp_dir().join(format!("mana-backup-test-{}-{stamp}", std::process::id()));
+        std::fs::create_dir_all(&path).unwrap();
+        Temp(path)
+    }
+    #[test]
+    fn backup_files_roundtrip_without_overwriting_existing_content() {
+        let dir = temp();
+        let path = dir.0.join("copy.json").to_string_lossy().into_owned();
+        let content = r#"{"format":"mana-backup","version":1,"data":{"message":"你好"}}"#;
+        write_backup_file(path.clone(), content.into()).unwrap();
+        assert_eq!(read_backup_file(path.clone()).unwrap(), content);
+        assert!(write_backup_file(
+            path.clone(),
+            r#"{"format":"mana-backup","version":1}"#.into()
+        )
+        .is_err());
+        assert_eq!(read_backup_file(path).unwrap(), content);
+    }
+    #[test]
+    fn malformed_and_oversize_files_are_rejected() {
+        let dir = temp();
+        let path = dir.0.join("bad.json").to_string_lossy().into_owned();
+        assert!(write_backup_file(path.clone(), "invalid".into()).is_err());
+        assert!(!std::path::Path::new(&path).exists());
+        std::fs::write(&path, "x".repeat(20_000_001)).unwrap();
+        assert!(read_backup_file(path).is_err());
+    }
+    #[test]
+    fn restore_retains_safety_copy_and_does_not_replace_data_on_validation_failure() {
+        let dir = temp();
+        let mut db = store::open(&dir.0.join("data.sqlite3")).unwrap();
+        let original = std::collections::BTreeMap::from([("mana.chat.v1".into(), "[]".into())]);
+        store::save(&mut db, &original).unwrap();
+        let safety = r#"{"format":"mana-backup","version":1,"data":{"mana.chat.v1":[]}}"#;
+        let invalid = std::collections::BTreeMap::from([("unknown".into(), "[]".into())]);
+        let backups = dir.0.join("backups");
+        assert!(restore_with_safety(&mut db, &invalid, &backups, safety.into()).is_err());
+        let snapshot = std::fs::read_dir(&backups)
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap()
+            .path();
+        assert_eq!(std::fs::read_to_string(snapshot).unwrap(), safety);
+        assert_eq!(
+            store::initialize(&mut db, &Default::default()).unwrap()["mana.chat.v1"],
+            "[]"
+        );
+        // If writing the safety copy fails, valid replacement data is still not applied.
+        let file_path = dir.0.join("not-a-directory");
+        std::fs::write(&file_path, "occupied").unwrap();
+        let replacement = std::collections::BTreeMap::from([("mana.chat.v1".into(), "[1]".into())]);
+        assert!(restore_with_safety(&mut db, &replacement, &file_path, safety.into()).is_err());
+        assert_eq!(
+            store::initialize(&mut db, &Default::default()).unwrap()["mana.chat.v1"],
+            "[]"
+        );
+    }
+}
+
 /// Holds the llama-server child process (if we started one).
 #[derive(Default)]
 struct LlamaState(Mutex<Option<Child>>);
@@ -108,65 +338,29 @@ fn llama_log_tail() -> String {
     String::from_utf8_lossy(&data[start..]).to_string()
 }
 
-fn is_image(p: &Path) -> bool {
-    matches!(
-        p.extension()
-            .and_then(|e| e.to_str())
-            .map(|e| e.to_ascii_lowercase())
-            .as_deref(),
-        Some("png") | Some("webp") | Some("jpg") | Some("jpeg")
-    )
-}
-
-/// The optional items.json in the avatar folder (item names and unlock rules).
-fn is_items_file(rel: &str) -> bool {
-    rel.eq_ignore_ascii_case("items.json")
-}
-
-fn collect_images(base: &Path, dir: &Path, out: &mut Vec<String>, depth: u32) {
-    if depth > 6 {
-        return;
-    }
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return;
-    };
-    for entry in entries.flatten() {
-        let p = entry.path();
-        if p.is_dir() {
-            collect_images(base, &p, out, depth + 1);
-        } else if let Ok(rel) = p.strip_prefix(base) {
-            let rel = rel.to_string_lossy().replace('\\', "/");
-            if is_image(&p) || is_items_file(&rel) {
-                out.push(rel);
-            }
-        }
-    }
-}
-
 /// Lists every image under the avatar folder as relative paths ("eyes/eye_happy.png").
 #[tauri::command]
-async fn scan_avatar(dir: String) -> Result<Vec<String>, String> {
-    let base = PathBuf::from(&dir);
-    if !base.is_dir() {
-        return Err(format!("Avatar folder not found: {dir}"));
+async fn scan_avatar(app: tauri::AppHandle, dir: String) -> Result<Vec<String>, String> {
+    avatar_files::scan(&avatar_dir(&app, &dir)?)
+}
+
+fn avatar_dir(app: &tauri::AppHandle, dir: &str) -> Result<PathBuf, String> {
+    if !dir.trim().is_empty() {
+        return Ok(PathBuf::from(dir));
     }
-    let mut out = Vec::new();
-    collect_images(&base, &base, &mut out, 0);
-    out.sort();
-    Ok(out)
+    app.path()
+        .resolve("assets/avatar", tauri::path::BaseDirectory::Resource)
+        .map_err(|e| format!("Could not locate the bundled avatar: {e}"))
 }
 
 /// Returns the raw bytes of one avatar image (only image files, only inside the folder).
 #[tauri::command]
-async fn read_avatar_image(dir: String, rel: String) -> Result<tauri::ipc::Response, String> {
-    if rel.contains("..") {
-        return Err("Invalid image path".into());
-    }
-    let path = PathBuf::from(&dir).join(&rel);
-    if !is_image(&path) && !is_items_file(&rel) {
-        return Err("Not an image file".into());
-    }
-    let bytes = std::fs::read(&path).map_err(|e| format!("Could not read {}: {e}", path.display()))?;
+async fn read_avatar_image(
+    app: tauri::AppHandle,
+    dir: String,
+    rel: String,
+) -> Result<tauri::ipc::Response, String> {
+    let bytes = avatar_files::read(&avatar_dir(&app, &dir)?, &rel)?;
     Ok(tauri::ipc::Response::new(bytes))
 }
 
@@ -175,13 +369,25 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(LlamaState::default())
+        .manage(store::Store::default())
         .invoke_handler(tauri::generate_handler![
             start_llama,
             stop_llama,
             llama_running,
             llama_log_tail,
             scan_avatar,
-            read_avatar_image
+            read_avatar_image,
+            initialize_store,
+            save_store,
+            write_backup_file,
+            export_conversation,
+            export_diary,
+            export_activity,
+            export_work,
+            export_playtest,
+            read_backup_file,
+            restore_backup_store,
+            list_safety_backups
         ])
         .build(tauri::generate_context!())
         .expect("error while building Mana")

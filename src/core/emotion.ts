@@ -1,21 +1,36 @@
 export const EMOTIONS = ["happy", "sad", "excited", "worried", "thinking", "surprised", "embarrassed", "sleepy", "neutral"] as const;
 
+export const REPLY_FORMAT_RULES = `Reply formatting:
+- Write only your reply, without a speaker label or a name followed by a colon.
+- Use exactly one emotion tag, at the very end of the whole reply. Never put emotion tags inside sentences or between paragraphs.`;
+
+const TAGS = [...EMOTIONS, "curious"];
+const emotionPattern = new RegExp(`\\[\\s*(${TAGS.join("|")})\\s*\\]`, "gi");
+
 /**
  * Turns raw model output into display text + emotion.
  * - removes <think>...</think> blocks (reasoning models)
- * - pulls a trailing [emotion] tag off the end
- * - hides a half-typed tag while the reply is still streaming
+ * - removes repeated leading character labels
+ * - removes known emotion tags anywhere, using the last one for the avatar
+ * - hides an unfinished known emotion tag during streaming
  */
-export function cleanReply(raw: string): { text: string; emotion: string | null } {
+export function cleanReply(raw: string, charName = "Mana"): { text: string; emotion: string | null } {
   let t = raw.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/<think>[\s\S]*$/i, "");
   let emotion: string | null = null;
 
-  const m = t.match(/\[\s*([a-zA-Z]+)\s*\]\s*$/);
-  if (m && m.index !== undefined) {
-    emotion = m[1].toLowerCase();
-    t = t.slice(0, m.index);
+  const name = charName.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (name) {
+    t = t.replace(new RegExp(`^(?:\\s*${name}\\s*[:：]\\s*)+`, "i"), "");
   }
-  t = t.replace(/\[\s*[a-zA-Z]*\s*$/, "");
+  t = t.replace(emotionPattern, (_, tag: string) => {
+    emotion = tag.toLowerCase() === "curious" ? "thinking" : tag.toLowerCase();
+    return "";
+  });
+  const unfinished = t.match(/\[\s*([a-zA-Z]*)\s*$/);
+  if (unfinished && TAGS.some((e) => e.startsWith(unfinished[1].toLowerCase()))) {
+    t = t.slice(0, unfinished.index);
+  }
+  t = t.replace(/[ \t]+$/gm, "");
 
   return { text: t.trim(), emotion };
 }

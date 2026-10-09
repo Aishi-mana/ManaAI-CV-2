@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { AvatarConfig } from "../core/avatar";
 import type { Stats } from "../core/progress";
+import { resolveLoadout } from "../core/wardrobe";
 import type { Entry, Wardrobe as WardrobeData } from "../core/wardrobe";
 
 type Tab = "outfit" | "hair" | "skin" | "accessories";
@@ -30,6 +31,22 @@ const REQUIRED_NOTE: Partial<Record<Tab, string>> = {
 
 export default function Wardrobe({ data, cfg, stats, charName, itemsError, onChange, onClose }: Props) {
   const [tab, setTab] = useState<Tab>("outfit");
+  const [lookName, setLookName] = useState("");
+  const [notice, setNotice] = useState("");
+  const looks = cfg.looks ?? [];
+
+  function saveLook() {
+    const name = lookName.trim();
+    if (!name || name.length > 60 || looks.length >= 30) return;
+    if (looks.some((look) => look.name.toLowerCase() === name.toLowerCase())) {
+      setNotice("That name is already saved. Choose another name or delete the old look first.");
+      return;
+    }
+    onChange({ ...cfg, looks: [...looks, { name, skin: cfg.skin, outfit: cfg.outfit,
+      hairstyle: cfg.hairstyle, accessories: [...cfg.accessories] }] });
+    setLookName("");
+    setNotice(`Saved ${name}.`);
+  }
 
   const single =
     tab === "outfit"
@@ -62,6 +79,29 @@ export default function Wardrobe({ data, cfg, stats, charName, itemsError, onCha
             Days together: <b>{stats.days.length}</b> &middot; Messages: <b>{stats.messages}</b> &middot; Coding level: <b>{stats.skill}</b>
           </p>
           {itemsError && <p className="msg-error">{itemsError}</p>}
+
+          <h3>Saved looks ({looks.length}/30)</h3>
+          <p className="hint-soft">Save your current skin, outfit, hair and accessories. Applying a look keeps your current body view. Missing or locked items use available defaults.</p>
+          <label>Look name
+            <input className="input" value={lookName} maxLength={60} onChange={(e) => setLookName(e.target.value)} />
+          </label>
+          <button className="btn" disabled={!lookName.trim() || looks.length >= 30} onClick={saveLook}>Save current look</button>
+          {notice && <p role="status">{notice}</p>}
+          {looks.map((look) => <div className="progress-card" key={look.name}>
+            <b>{look.name}</b>
+            <p className="hint-soft">{look.skin} · {look.outfit} · {look.hairstyle} · {look.accessories.length} accessories</p>
+            <button className="btn" onClick={() => {
+              const next = resolveLoadout({ ...cfg, ...look }, data);
+              const changed = next.skin !== look.skin || next.outfit !== look.outfit || next.hairstyle !== look.hairstyle || next.accessories.length !== look.accessories.length;
+              onChange(next);
+              setNotice(changed ? `Applied ${look.name} with available items. Some saved items are missing or locked.` : `Applied ${look.name}.`);
+            }}>Apply look</button>
+            <button className="btn" onClick={() => {
+              if (!window.confirm(`Delete saved look "${look.name}"?`)) return;
+              onChange({ ...cfg, looks: looks.filter((entry) => entry.name !== look.name) });
+              setNotice(`Deleted ${look.name}.`);
+            }}>Delete look</button>
+          </div>)}
 
           <div className="tabs" role="tablist">
             {TABS.map((t) => (
