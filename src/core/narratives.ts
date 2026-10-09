@@ -3,6 +3,7 @@ import {validateEpisodes} from './episodes';
 import type {Episode} from './episodes';
 import {isRecord,nonEmptyString,integerInRange} from './validation';
 import type {ChatMessage} from './types';
+import {uid} from './types';
 export type NarrativeKind='theme'|'lesson'|'belief';
 export const NARRATIVE_LABELS={theme:'Life theme',lesson:'Lesson',belief:'Belief interpretation'};
 export interface Narrative {id:string;kind:NarrativeKind;content:string;createdAt:string;sources:Episode[];version:number;parentId?:string;useInChat?:true}
@@ -17,6 +18,16 @@ export function validateNarratives(value:unknown):Narrative[]{
 }
 export function loadNarratives():Narrative[]{try{return validateNarratives(JSON.parse(readStored('mana.narratives.v1')??'[]'));}catch{return [];}}
 export const saveNarratives=(entries:Narrative[])=>writeStored('mana.narratives.v1',JSON.stringify(validateNarratives(entries)));
+export function editableNarrativeRevision(source:Narrative,now=new Date()):Narrative|null{
+ const valid=validateNarratives([source])[0];if(!valid||valid.version>=100)return null;
+ return {id:uid(),kind:valid.kind,content:valid.content,createdAt:now.toISOString(),sources:valid.sources,version:valid.version+1,parentId:valid.id};
+}
+export function canSaveNarrative(draft:Narrative,entries:Narrative[]):boolean{
+ if(entries.length>=NARRATIVE_LIMIT||entries.some(n=>n.id===draft.id)||!validateNarratives([draft]).length)return false;
+ if(!draft.parentId)return true;
+ const parent=entries.find(n=>n.id===draft.parentId);
+ return !!parent&&draft.content.trim()!==parent.content.trim();
+}
 export function lessonReplyFocus(context:string):string{
  if(!context.includes('APPLY THE RELEVANT APPROVED LESSON:'))return '';
  return '\n[Current lesson task — applies after general style guidance]\nAnswer the latest lesson/revision question using the supplied approved lesson and its recorded evidence. Give its practical takeaway, a proposed next comparison, and the limit of what was tested. Concrete detail means the recorded outcome and comparison, not extra damage values, JSON syntax or character stats. Keep the preview/full-game distinction explicit. Do not repeat older balance suggestions. New outcomes may differ. General Detailed style does not require a definition or syntax example for this task. Respect explicit user requests and never invent evidence.\n';

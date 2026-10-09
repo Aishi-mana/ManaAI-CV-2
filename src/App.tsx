@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import ChatPanel from "./components/ChatPanel";
 import MoreTools from './components/MoreTools';
+import SkillsDrawer from './components/SkillsDrawer';
+import {loadPractice,savePractice,skillsContext} from './core/skills';
 import NarrativesDrawer from './components/NarrativesDrawer';
-import {loadNarratives,saveNarratives,narrativePayload,narrativeContext,lessonReplyFocus,validateNarratives,NARRATIVE_LIMIT} from './core/narratives';
+import {loadNarratives,saveNarratives,narrativePayload,narrativeContext,lessonReplyFocus,editableNarrativeRevision,canSaveNarrative,validateNarratives,NARRATIVE_LIMIT} from './core/narratives';
 import type {Narrative,NarrativeKind} from './core/narratives';
 import EventsDrawer from './components/EventsDrawer';
 import {loadEvents,saveEvents,changedEventSources,appendEvents} from './core/events';
@@ -70,6 +72,8 @@ const STATUS_LABEL = {
 
 export default function App() {
   const [settings, setSettings] = useState<Settings>(loadSettings);
+  const [practice,setPractice]=useState(loadPractice);
+  const [showSkills,setShowSkills]=useState(false);
   const [narratives,setNarratives]=useState(loadNarratives);
   const [showNarratives,setShowNarratives]=useState(false);
   const [narrativeDraft,setNarrativeDraft]=useState<Narrative|null>(null);
@@ -325,14 +329,14 @@ export default function App() {
         setInitiativeStatus("");
         return;
       }
-      if (document.visibilityState !== "visible" || showNarratives || narrativeDraft || showEvents || showSettings || showMemories || showState || showDiary || showWardrobe || showGoals || showFollowups || showActivities || showChatArchives || showThoughts || thoughtDraft || archiving) return;
+      if (document.visibilityState !== "visible" || showSkills || showNarratives || narrativeDraft || showEvents || showSettings || showMemories || showState || showDiary || showWardrobe || showGoals || showFollowups || showActivities || showChatArchives || showThoughts || thoughtDraft || archiving) return;
       // A due daily journal has priority over initiating a chat.
       if (dueJournalDate(journalRef.current, diaryRef.current)) return;
       void startConversation();
     };
     const timer = window.setInterval(check, 30_000);
     return () => window.clearInterval(timer);
-  }, [initiative, busy, reflecting, reflectionDraft, llama.status, storage.error, companion.state, identity, memories, settings, goals, interests, work, followups, showActivities, showFollowups, showSettings, showMemories, showState, showDiary, showWardrobe, showGoals,showChatArchives,showThoughts,showEvents,showNarratives,narrativeDraft,thoughtDraft,archiving]);
+  }, [initiative, busy, reflecting, reflectionDraft, llama.status, storage.error, companion.state, identity, memories, settings, goals, interests, work, followups, showActivities, showFollowups, showSettings, showMemories, showState, showDiary, showWardrobe, showGoals,showChatArchives,showThoughts,showEvents,showSkills,showNarratives,narrativeDraft,thoughtDraft,archiving]);
 
   async function generateActivityReply(id:string){
     if(abortRef.current||busy||reflecting||storage.error||llama.status!=='ready')return;
@@ -566,6 +570,7 @@ export default function App() {
       + memoryContext(memories, text, recentUserText, settings.charName, settings.userName)
       + (lessonFocus?'':episodeContext(episodes,text))
       + narrativeGuide;
+    const practiceContext=skillsContext(practice,text);
 
     try {
       await streamChat({
@@ -573,7 +578,7 @@ export default function App() {
         temperature: settings.temperature,
         signal: ctrl.signal,
         messages: buildPayload(fillTemplate(settings.systemPrompt, settings) + extra,
-          replyHistory, 24, settings.charName, currentContext,replyStyle),
+          replyHistory, 24, settings.charName, currentContext+practiceContext,replyStyle),
         onToken: (t) => {
           acc += t;
           const snapshot = acc;
@@ -589,7 +594,7 @@ export default function App() {
         // One targeted retry for models that echo the opening instead of answering.
         acc = "";
         setMessages((prev) => prev.map((m) => m.id === botMsg.id ? { ...m, content: "" } : m));
-        const correction = currentContext + (wrongReturn
+        const correction = currentContext + practiceContext + (wrongReturn
           ? "\nCorrection: you reversed the return roles or asked whether the user missed you. The USER returned; you stayed available. Welcome THEM back, never announce 'I'm back' as yourself. Do not ask 'Did you miss me?'. Answer their latest message naturally without assuming how work went."
           : reason === "capability"
           ? "\nYour first attempt claimed an unavailable capability. You cannot see the user, make or bring food/drinks, or play music. Respond to what they told you with grounded support; you may suggest something they could do."
@@ -715,6 +720,7 @@ export default function App() {
           <button className="btn" onClick={()=>setShowThoughts(true)}>Thoughts</button>
           <button className="btn" onClick={()=>setShowEvents(true)}>Event history</button>
           <button className="btn" onClick={()=>setShowNarratives(true)}>Themes &amp; lessons</button>
+          <button className="btn" onClick={()=>setShowSkills(true)}>Skills</button>
           </MoreTools>
         </header>
 
@@ -782,9 +788,13 @@ export default function App() {
         />
       )}
 
+      {showSkills&&<SkillsDrawer entries={practice} work={work} activities={sharedActivities} editable={!busy&&!reflecting&&!storage.error} onChange={next=>{savePractice(next);setPractice(next);}} onClose={()=>setShowSkills(false)}/>}
+
       {showNarratives&&<NarrativesDrawer entries={narratives} episodes={episodes} draft={narrativeDraft} generating={narrativeGenerating} ready={!busy&&!reflecting&&!storage.error&&llama.status==='ready'} error={narrativeError}
         onGenerate={(kind,ids,previous)=>void draftNarrative(kind,ids,previous)} onDraft={setNarrativeDraft} onStop={()=>abortRef.current?.abort()}
-        onSave={()=>{if(!narrativeDraft||busy||reflecting||storage.error||narratives.length>=NARRATIVE_LIMIT)return;const valid=validateNarratives([{...narrativeDraft,createdAt:new Date().toISOString()}])[0];if(!valid)return;const next=[...narratives,valid];saveNarratives(next);setNarratives(next);setNarrativeDraft(null);}}
+        editable={!busy&&!reflecting&&!storage.error}
+        onEdit={source=>{if(busy||reflecting||storage.error||narrativeDraft||narratives.length>=NARRATIVE_LIMIT)return;setNarrativeError('');setNarrativeDraft(editableNarrativeRevision(source));}}
+        onSave={()=>{if(!narrativeDraft||busy||reflecting||storage.error||!canSaveNarrative(narrativeDraft,narratives))return;const valid=validateNarratives([{...narrativeDraft,createdAt:new Date().toISOString()}])[0];if(!valid)return;const next=[...narratives,valid];saveNarratives(next);setNarratives(next);setNarrativeDraft(null);}}
         onDelete={id=>{if(storage.error||busy||reflecting)return;const next=narratives.filter(n=>n.id!==id);saveNarratives(next);setNarratives(next);}}
         onUse={(id,enabled)=>{if(storage.error||busy||reflecting)return;const next=validateNarratives(narratives.map(n=>{if(n.id!==id)return n;const {useInChat,...rest}=n;return enabled?{...rest,useInChat:true}:rest;}));saveNarratives(next);setNarratives(next);}}
         onClose={()=>{if(narrativeGenerating)abortRef.current?.abort();setNarrativeDraft(null);setShowNarratives(false);}}/>}

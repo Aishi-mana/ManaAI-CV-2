@@ -8,6 +8,29 @@ Unreleased changes must not be mistaken for committed or shipped releases.
 
 ## Unreleased — current development
 
+### Confirmed skill practice foundation — 2026-10-09
+
+- Fixed singular/plural record wording in skill counts and next-milestone labels.
+
+- More → Skills records user-confirmed coding, writing and creative practice linked
+  to saved work/activities. Source snapshots, notes, deduplication, count milestones,
+  search/delete, model-off use and backup compatibility. Counts are not proficiency
+  assessments and do not raise wardrobe coding levels.
+
+### Direct interpretation revision editing — 2026-10-09
+
+- Edit as revision opens saved wording without generation, including with the model
+  off. Saving preserves the original and evidence, creates a parent-linked new version
+  and starts with reply approval disabled. Empty/unchanged revisions are blocked.
+- Clarified continued V1.x development; V2 room work is not the next implied milestone.
+
+### Documentation organization — 2026-10-09
+
+- Updated the current repository reference to Aishi-mana/ManaAI-CV-2.
+- Extracted the milestone checklist into ROADMAP.md and created PROJECT_STRUCTURE.md
+  for source responsibilities, runtime data locations and the existing avatar layout.
+  ManaAI.md links to these maintained documents instead of duplicating their content.
+
 ### Recorded continuity and narrative foundations — 2026-10-09
 
 - Recorded event history for newly saved goals/status changes, reviewed work,
@@ -103,7 +126,7 @@ feature inventory or verification history:
 - Voice, skill progression, runnable game/code sandbox, richer autonomous routines,
   persistent room and Manaverse remain future roadmap work.
 
-See [dev log](DEVLOG.md), [current roadmap](ManaAI.md),
+See [dev log](DEVLOG.md), [current roadmap](ROADMAP.md), [project structure](PROJECT_STRUCTURE.md),
 [legacy comparison](Legacy-comparison.md) and [reliability checks](Reliability-checks.md).
 
 ## Updating this file

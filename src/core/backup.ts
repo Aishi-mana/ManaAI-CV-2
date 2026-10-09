@@ -22,6 +22,7 @@ import {validateThoughts} from './thoughts';
 import {validateEvents} from './events';
 import {validateEpisodes} from './episodes';
 import {validateNarratives} from './narratives';
+import {validatePractice} from './skills';
 
 const validators:Record<string,(value:unknown)=>unknown>={
  'mana.settings.v1':validateSettings,'mana.chat.v1':validateChat,'mana.identity.v1':validateIdentity,
@@ -38,6 +39,7 @@ const validators:Record<string,(value:unknown)=>unknown>={
  'mana.events.v1':validateEvents,
  'mana.episodes.v1':validateEpisodes,
  'mana.narratives.v1':validateNarratives,
+ 'mana.skills.v1':validatePractice,
 };
 export interface Backup {format:'mana-backup';version:1;createdAt:string;data:Record<string,unknown>}
 const sorted=(v:unknown):unknown=>Array.isArray(v)?v.map(sorted):isRecord(v)?Object.fromEntries(Object.keys(v).sort().map(k=>[k,sorted(v[k])])):v;
@@ -55,6 +57,7 @@ export function validateBackup(raw:string):Backup {
  if(!Object.prototype.hasOwnProperty.call(data,'mana.events.v1'))data['mana.events.v1']=[];
  if(!Object.prototype.hasOwnProperty.call(data,'mana.episodes.v1'))data['mana.episodes.v1']=[];
  if(!Object.prototype.hasOwnProperty.call(data,'mana.narratives.v1'))data['mana.narratives.v1']=[];
+ if(!Object.prototype.hasOwnProperty.call(data,'mana.skills.v1'))data['mana.skills.v1']=[];
  if(Object.keys(data).length!==Object.keys(validators).length||Object.keys(data).some(k=>!Object.prototype.hasOwnProperty.call(validators,k)))throw new Error('Backup has missing or unknown data sections.');
  for(const [key,validate] of Object.entries(validators)){
    if(JSON.stringify(sorted(data[key]))!==JSON.stringify(sorted(validate(data[key]))))throw new Error(`Invalid data in ${key}. Restore cancelled rather than silently repairing records.`);

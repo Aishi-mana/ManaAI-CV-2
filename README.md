@@ -1,9 +1,12 @@
 # Mana
 
+Repository: [Aishi-mana/ManaAI-CV-2](https://github.com/Aishi-mana/ManaAI-CV-2.git)
+
 A local daughter-companion AI. Step 1: a chat window that launches `llama-server` and talks to your GGUF model.
 
 Project history: [Changelog](docs/CHANGELOG.md) · [Dev log](docs/DEVLOG.md) ·
-[Roadmap and implementation](docs/ManaAI.md). The logs include a retrospective
+[Roadmap](docs/ROADMAP.md) · [Project structure](docs/PROJECT_STRUCTURE.md) ·
+[Vision and implementation](docs/ManaAI.md). The logs include a retrospective
 backfill with stated evidence limits; new meaningful changes should update both logs.
 
 ## Run it
@@ -561,6 +564,27 @@ avatar settings and are included in backup and restore; older backups still work
 Saved wardrobe looks also have a count in the saved data overview and the current-versus-backup preview.
 
 ### Future fixes
+
+Skill practice manual checks passed for model-off saving, survival after restart
+and duplicate blocking on the same source/area. Count/milestone labels now use
+singular “record” for one and plural “records” otherwise. Deletion/recalculation and
+live count recall still have separate manual checks.
+
+**More → Skills** tracks coding, writing and creative practice you confirm from a
+saved work draft or activity with a user contribution. Each source counts once per
+area; optional notes, source snapshots, search and deletion are supported. Stages
+and milestones derive from counts (1/5/10/25/50/100/200), not assessed proficiency.
+Deletion recalculates them. The 200-record limit blocks new entries without pruning.
+Model-off use and backup/restore are supported; older backups start empty. Ordinary
+skill/practice questions receive count-only context, explicitly not mastery evidence.
+This does not change wardrobe coding levels, bond, mood or identity.
+
+Saved interpretations now offer **Edit as revision** to open their wording directly
+without generation, including with the model off. Save creates a new unapproved
+version with the same source evidence and a link to the original. Unchanged/blank
+revisions cannot be saved; discard/close leaves saved versions intact. We remain in
+V1.x development; the completed V1 foundation is not completion of skills, voice,
+multimodality, runnable work or the V2 room.
 
 - Approved lesson replies: the latest manual test with Lesson v4 enabled and v3
   disabled used comparison language and acknowledged that the preview is not the

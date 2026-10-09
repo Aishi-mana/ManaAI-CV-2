@@ -7,6 +7,52 @@ than assigned invented timestamps. No legacy data was migrated by writing this l
 
 ## 2026-10-09 — Establish the historical record
 
+### Skill practice foundation
+
+Manual follow-up passed model-off save (one coding record/stage 1), restart retention
+and duplicate rejection on the same v21 work source under coding. Corrected “1 records”
+to singular in counts/milestones. Deletion/recalculation and live count recall remain
+separate manual checks; no new behavioral tests are needed for this text-only fix.
+
+User selected skills as the next V1.x item. Implemented explicit practice confirmation
+from saved work or activities with user contributions, categorized coding/writing/
+creativity. Kept practice-count stages separate from the legacy wardrobe coding
+stat: draft generation is not executed work or demonstrated competence. One source
+can count once per area, with a snapshot surviving source deletion. Milestones are
+derived from counts and reversible on deletion. Added native storage key, backward
+compatible backup default/count preview and count-only ordinary-chat context.
+No automatic grants, model generation or personality/relationship changes. Manual
+checks still needed: model-off save, duplicate rejection, reopen persistence and deletion.
+
+Validation: 124 frontend tests passed, two live-model tests skipped, 40 Rust tests
+passed, and production build passed. Tests cover deduplication, reversible count
+milestones, source snapshots and old-backup defaults without coding-stat changes.
+
+### Direct interpretation revisions and scope correction
+
+The user requested direct editing and challenged the premature suggestion of moving
+to V2. Added Edit as revision, independent of model availability, with the same
+review editor and preserved source snapshots. A new version links to its parent and
+does not inherit reply approval. Saving rejects empty/unchanged drafts, missing parents
+and full capacity. Original versions remain untouched; opening a draft does not persist
+anything. Editor focus/scroll brings the draft into view. Save/delete/approval use a
+storage/editability guard separate from model readiness. Both generated and manual
+revision saves require changed wording. Current work remains V1.x; voice, skills,
+multimodality and runnable work are still unfinished. Automated checks below verify
+revision invariants; model-off editor behavior still needs manual review.
+
+Validation: 123 frontend tests passed, two live-model tests skipped, production build
+passed. Rust tests were not rerun because this change has no native storage changes.
+
+Documentation follow-up: updated the current repository to
+[Aishi-mana/ManaAI-CV-2](https://github.com/Aishi-mana/ManaAI-CV-2.git). Extracted
+the existing roadmap/checklist into ROADMAP.md without resetting progress. Created
+PROJECT_STRUCTURE.md from inspected source layout, moving the avatar-layout section
+there. ManaAI.md retains vision/design/implementation detail and links to both guides.
+README and changelog navigation now use the new locations. This was documentation
+work; Git remotes were not changed. Verified local link targets and section extraction;
+application tests were not rerun for document-only changes.
+
 Created CHANGELOG.md for user-facing changes and this file for engineering decisions,
 manual findings, validation and deferred work. Git currently contains four early
 2026-10-08 commits; substantial later development remains uncommitted. A working-tree

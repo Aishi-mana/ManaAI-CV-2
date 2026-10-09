@@ -130,6 +130,34 @@ test('lesson task focus follows detailed style and does not affect ordinary narr
  const last=request[1].content;assert.ok(last.indexOf('[Current lesson task')>last.indexOf('[Current reply style]'));assert.match(last,/not extra damage values/);assert.match(last,/full-game distinction explicit/);assert.equal(history.length,2);
 });
 
+test('direct interpretation revisions preserve originals and evidence, start unapproved and reject unchanged saves',()=>{
+ let seq=0;const n=loader({'./types':{uid:()=>`manual-${++seq}`}})('src/core/narratives.ts');
+ const source={eventId:'e',id:'r',kind:'playtest',title:'Preview',outcome:'win in 23 turns',recordedAt:'2026-10-09T12:00:00Z'};
+ const episode={id:'m',kind:'special',content:'Preview victory',tags:['game'],createdAt:source.recordedAt,updatedAt:source.recordedAt,source};
+ const original={id:'n',kind:'lesson',content:'Compare results.',createdAt:source.recordedAt,sources:[episode],version:4,useInChat:true};
+ const draft=n.editableNarrativeRevision(original,new Date('2026-10-09T13:00:00Z'));
+ assert.equal(draft.version,5);assert.equal(draft.parentId,'n');assert.equal(draft.useInChat,undefined);assert.notEqual(draft.id,original.id);assert.equal(draft.sources[0].source.eventId,'e');assert.equal(original.version,4);
+ assert.equal(n.canSaveNarrative(draft,[original]),false);assert.equal(n.canSaveNarrative({...draft,content:'  Compare results.  '},[original]),false);
+ assert.equal(n.canSaveNarrative({...draft,content:'Compare recorded results; full-game behavior is untested.'},[original]),true);
+ assert.equal(n.canSaveNarrative({...draft,content:'Changed.'},[]),false);
+ assert.equal(n.editableNarrativeRevision({...original,version:100}),null);
+ assert.equal(n.canSaveNarrative({...draft,content:'Changed.'},Array.from({length:100},(_,i)=>({...original,id:String(i)}))),false);
+});
+
+test('confirmed skill practice deduplicates by area/source and derives reversible milestones without proficiency changes',()=>{
+ const values=new Map();let seq=0;const load=loader({'./types':{uid:()=>String(++seq)},'./persistence':{readStored:k=>values.get(k)??null,writeStored:(k,v)=>values.set(k,v),flushPersistence:async()=>{},restoreStored:async()=>{}}}),s=load('src/core/skills.ts');
+ const source={id:'w1',kind:'work',title:'JSON design',outcome:'Reviewed draft, not executed',createdAt:'2026-10-09T12:00:00Z'};
+ let entries=s.confirmPractice([],'coding',source,'Reviewed JSON fields');assert.equal(entries.length,1);assert.equal(s.practiceProgress(entries,'coding').stage,1);
+ assert.equal(s.confirmPractice(entries,'coding',source,'Duplicate').length,1);entries=s.confirmPractice(entries,'creativity',source,'Design exercise');assert.equal(entries.length,2);
+ assert.equal(s.practiceProgress(entries.filter(p=>p.skill!=='coding'),'coding').stage,0);
+ const five=Array.from({length:5},(_,i)=>({...entries[0],id:String(i),source:{...source,id:String(i)}}));assert.equal(s.practiceProgress(five,'coding').stage,2);assert.equal(s.practiceProgress(five,'coding').next,10);
+ s.savePractice(entries);assert.equal(s.loadPractice()[0].source.id,'w1');assert.equal(values.has('mana.stats.v1'),false);assert.equal(values.has('mana.relationship.v1'),false);
+ assert.equal(s.validatePractice([entries[0],{...entries[0],id:'duplicate'}]).length,1);
+ assert.equal(s.practiceSources([],[{id:'empty',turns:[]},{id:'active',prompt:'Story',kind:'story',status:'active',createdAt:source.createdAt,turns:[{role:'user',text:'Hello'}]}]).length,1);
+ const b=load('src/core/backup.ts'),backup=b.snapshotBackup();assert.equal(b.validateBackup(JSON.stringify(backup)).data['mana.skills.v1'].length,2);delete backup.data['mana.skills.v1'];assert.equal(b.validateBackup(JSON.stringify(backup)).data['mana.skills.v1'].length,0);
+ assert.match(s.skillsContext(entries,'What skills have we practiced?'),/not proficiency/);assert.equal(s.skillsContext(entries,'Hello'),'');
+});
+
 test('timeline merges event and reviewed memory evidence once, preserves orphaned snapshots and respects local dates',()=>{
  const t=loader()('src/core/timeline.ts');
  const first={eventId:'a',id:'report',kind:'playtest',title:'Dragon preview',outcome:'win',recordedAt:'2026-10-09T16:30:00Z'};
@@ -440,7 +468,7 @@ test("backup roundtrip validates every section and rejects damaged files before 
  const backup=await b.createBackup();const valid=b.validateBackup(JSON.stringify(backup));
  assert.equal(valid.data["mana.diary.v1"][0].deletedAt,"2026-10-09T02:00:00Z");
  assert.match(b.backupCounts(valid),/1 memories/);
- assert.equal(Object.keys(valid.data).length,25);
+ assert.equal(Object.keys(valid.data).length,26);
  const legacy=JSON.parse(JSON.stringify(backup));delete legacy.data["mana.followups.v1"];
  delete legacy.data["mana.shared_activities.v1"];
  assert.equal(b.validateBackup(JSON.stringify(legacy)).data["mana.followups.v1"].notes.length,0);

@@ -446,3 +446,13 @@ fn narrative_versions_preserve_evidence() {
     let restored=super::initialize(&mut connection,&Default::default()).unwrap();
     assert_eq!(restored["mana.narratives.v1"],raw);
 }
+
+#[test]
+fn practice_records_persist_without_granting_coding_stats() {
+    let mut connection=super::open(std::path::Path::new(":memory:")).unwrap();
+    let raw=r#"[{"id":"p","skill":"coding","source":{"id":"draft","kind":"work"}}]"#;
+    super::save(&mut connection,&std::collections::BTreeMap::from([("mana.skills.v1".into(),raw.into())])).unwrap();
+    let restored=super::initialize(&mut connection,&Default::default()).unwrap();
+    assert_eq!(restored["mana.skills.v1"],raw);
+    assert!(!restored.contains_key("mana.stats.v1"));
+}
