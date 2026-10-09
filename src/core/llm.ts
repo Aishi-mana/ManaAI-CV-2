@@ -1,6 +1,7 @@
 import type { ChatMessage, Msg } from "./types";
 import { cleanReply, REPLY_FORMAT_RULES } from "./emotion";
 import { ACTIVITY_GROUNDING } from "./conversation";
+import { imageReportContext, imageFocusedHistory, IMAGE_REPLY_FOCUS, AVATAR_REPLY_FOCUS, hasAvatarComparison } from './vision';
 
 export type Health = "ok" | "loading" | "down";
 const normalize = (text: string) => text.toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
@@ -36,8 +37,9 @@ export async function checkHealth(port: number): Promise<Health> {
  * same-role neighbours merged (some chat templates reject anything else).
  */
 export function buildPayload(system: string, history: Msg[], maxMessages = 24, charName = "Mana", currentContext = "", replyStyle = ""): ChatMessage[] {
-  const cleaned = history.filter(m=>!m.error).map((m) => {
-    if (m.role !== "assistant") return m;
+  const focused=imageFocusedHistory(history);
+  const cleaned = focused.filter(m=>!m.error).map((m) => {
+    if (m.role !== "assistant") return m.imageReport?{...m,content:m.content+imageReportContext(m.imageReport)}:m;
     const reply = cleanReply(m.content, charName);
     return { ...m, content: reply.text ? reply.text + (reply.emotion ? ` [${reply.emotion}]` : "") : "" };
   }).filter((m) => m.content.trim()).slice(-maxMessages);
@@ -69,6 +71,7 @@ export function buildPayload(system: string, history: Msg[], maxMessages = 24, c
   }
   if (latest?.role === "user") latest.content += `\n\n[Current application capabilities and grounding rules]\n${ACTIVITY_GROUNDING}`;
   if (latest?.role === "user" && replyStyle) latest.content += `\n\n${replyStyle}`;
+  if(focused[focused.length-1]?.imageReport&&latest?.role==='user'){latest.content+=`\n\n${IMAGE_REPLY_FOCUS}`;const report=focused[focused.length-1].imageReport!;if(hasAvatarComparison(report.description))latest.content+=`\n\n${AVATAR_REPLY_FOCUS}`;}
   return [{ role: "system", content: prompt }, ...merged];
 }
 

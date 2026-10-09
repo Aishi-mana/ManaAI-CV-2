@@ -456,3 +456,32 @@ fn practice_records_persist_without_granting_coding_stats() {
     assert_eq!(restored["mana.skills.v1"],raw);
     assert!(!restored.contains_key("mana.stats.v1"));
 }
+
+#[test]
+fn speech_preferences_persist_independently_of_chat() {
+    let mut connection=super::open(std::path::Path::new(":memory:")).unwrap();
+    let raw=r#"{"voice":"Microsoft Zira Desktop","automatic":true}"#;
+    super::save(&mut connection,&std::collections::BTreeMap::from([("mana.speech.v1".into(),raw.into())])).unwrap();
+    let restored=super::initialize(&mut connection,&Default::default()).unwrap();
+    assert_eq!(restored["mana.speech.v1"],raw);
+    assert!(!restored.contains_key("mana.chat.v1"));
+}
+
+#[test]
+fn vision_configuration_persists_without_images_or_chat(){
+ let mut connection=super::open(std::path::Path::new(":memory:")).unwrap();
+ let raw=r#"{"modelPath":"vision.gguf","projectorPath":"projector.gguf","port":8081,"gpuLayers":0}"#;
+ super::save(&mut connection,&std::collections::BTreeMap::from([("mana.vision.v1".into(),raw.into())])).unwrap();
+ let restored=super::initialize(&mut connection,&Default::default()).unwrap();assert_eq!(restored["mana.vision.v1"],raw);assert!(!restored.contains_key("mana.chat.v1"));
+}
+
+#[test]
+fn saved_pixels_and_chat_links_survive_reopen_and_explicit_pixel_deletion() {
+ let file=std::env::temp_dir().join(format!("mana-images-{}.sqlite3",std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+ let images=r#"[{"id":"img1","filename":"scene.jpg","dataUrl":"data:image/jpeg;base64,/9j/AA==","createdAt":"2026-10-10T00:00:00Z"}]"#;
+ let chat=r#"[{"id":"u","role":"user","content":"Describe","imageReport":{"filename":"scene.jpg","description":"A scene.","imageId":"img1"}}]"#;
+ {let mut db=open(&file).unwrap();save(&mut db,&values(&[("mana.images.v1",images),("mana.chat.v1",chat)])).unwrap();}
+ {let mut db=open(&file).unwrap();let state=initialize(&mut db,&BTreeMap::new()).unwrap();assert_eq!(state["mana.images.v1"],images);assert_eq!(state["mana.chat.v1"],chat);save(&mut db,&values(&[("mana.images.v1","[]")])).unwrap();}
+ {let mut db=open(&file).unwrap();let state=initialize(&mut db,&BTreeMap::new()).unwrap();assert_eq!(state["mana.images.v1"],"[]");assert_eq!(state["mana.chat.v1"],chat);}
+ std::fs::remove_file(file).unwrap();
+}

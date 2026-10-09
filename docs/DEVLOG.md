@@ -5,7 +5,301 @@ evidence and Git. This records decisions and verification, not every tool call o
 a complete historical audit. Older details without reliable dates are grouped rather
 than assigned invented timestamps. No legacy data was migrated by writing this log.
 
+## 2026-10-10 — Future icon-button enhancement
+
+User requested a future switch from word-heavy buttons to icons, with tooltips. Added a deferred
+V1.x interface-polish checklist to the roadmap: consistent recognizable icons, hover/focus tooltips,
+accessible action names and clear state indicators. Text can remain where an icon would be ambiguous.
+Documentation only; no buttons converted in this update.
+
+## 2026-10-10 — Hands-free manual acceptance complete
+
+User confirmed repaired test 4 passed, completing the earlier tests 1–3. Screenshot shows
+“No speech detected” and the hands-free session stopped with background fan noise; earlier sound-caption
+chat entries remain historical messages. This accepts all four manual foundation checks, not all possible
+noise environments. The repeated stop notice visible in the screenshot remains a minor UI polish item.
+No code changed in this acceptance update.
+
+## 2026-10-10 — Hands-free background noise repair
+
+User confirmed loop tests 1, 2 and 3 passed (automatic send, reply/resume, Stop). Test 4 could
+not pass with fan/background audio: Whisper produced [Music] and [XBOX SOUND], sent into chat.
+User currently has no headphones. Added 700 ms initial background calibration, requiring signal
+above 2.5 times the measured floor (minimum RMS threshold unchanged). UI asks the user to wait
+briefly during calibration. Caption-only bracketed/parenthesized noise and musical symbols are
+blocked before automatic send, stopping the loop with feedback. Ordinary speech mentioning music
+remains allowed. This is heuristic noise handling; real voice-like background or hallucinated plain
+words can still fool it. Build passes; 148 frontend tests pass, 2 optional live tests skipped.
+Retest background-only stop and spoken greeting above the fan is pending. Earlier noisy messages
+are left untouched as chat history. No native or model change.
+
+## 2026-10-10 — Hands-free voice loop
+
+User authorized explicit hands-free mode. Start requires ready chat, available audible voice and no current
+draft/image/review/busy microphone. Whisper input uses amplitude-based SpeechEndpoint: 300 ms sustained
+signal, 1.2 s quiet endpoint, 8 s no-voice timeout, existing 15 s maximum capture. This is heuristic pause
+detection, not a learned VAD. Transcripts automatically call the normal chat send path; the current assistant
+ID baseline prevents replaying history. Chat waits for a new completed assistant reply, starts speech,
+then resumes capture after playback with a 700 ms cooldown. Standard automatic speech is suppressed for
+the session to avoid double playback; saved automatic preference is unchanged. Stop cancels capture/CLI,
+playback and a pending session reply. Hidden app/model loss/errors stop the loop. Session is never persisted.
+Voice input review remains the default outside hands-free; failures to send preserve transcript for review.
+
+Production build and frontend tests pass (147 passed, 2 optional live tests skipped). Endpoint tests cover
+pause, sustained voice, short noise, silence and continuous speech; existing cancellation tests remain.
+No native code change. Full live loop/playback feedback/Stop acceptance is pending; no real microphone
+or synthesized endless conversation was initiated by the agent.
+
+## 2026-10-10 — Voice input layout polish
+
+User authorized de-crowding the growing voice/image controls. Added compact voice-input toolbar with
+collapsed-by-default recognizer/language/path setup, full-width transcription review and bounded scrolling
+for expanded settings/review. Record/Transcribe/Cancel stay accessible while setup is collapsed; errors
+remain visible. Avatar comparison toggle appears only while an image is attached. Whisper capture
+provides a 100 ms display timer and RMS-derived input meter using audio already captured for transcription;
+no additional recording or persistence. Meter clears outside recording, capped timer shows 15 seconds;
+this is signal level, not voice detection or transcription confidence. Windows recognition has no input meter.
+
+Production build passes; 146 frontend tests passed, 2 optional live tests skipped. Existing cancellation test
+updated for the additional meter effect; meaningful signal tests cover silence, invalid samples and clipping.
+No native behavior changed. User subsequently confirmed all four voice-input polish checks passed. Screenshot shows the compact collapsed toolbar and restored chat space; timer/meter and review checks are accepted based on the user report.
+
+## 2026-10-10 — Whisper live recognition confirmed
+
+User reports accurate real-microphone transcription. Screenshots show “Hello Mana, how are you today?”
+and “My name is Aishi” correctly in review, with the first greeting subsequently visible in chat.
+This confirms microphone permissions/capture, local recognition for those phrases and review-to-chat use.
+Record this as successful live phrase recognition, not a measured general accuracy rate. Cancellation,
+silence handling and the automatic 15-second limit remain covered by implementation/automated checks
+rather than a reported complete manual test set. No code changed for this acceptance update.
+
+## 2026-10-10 — Local Whisper transcription
+
+Windows name tuning still misheard live Hello Mana as All were with uncertain alternatives. User authorized a stronger local transcription model. Installed whisper.cpp CPU x64 release b5454 (CLI version 1.9.5) and ggml-small.en.bin (487,614,201 bytes) under ignored data/whisper; model SHA256 verified against publisher metadata: c6138d6d58ecc8322097e0f987c32f1be8bb0a18532a3f88f734d1bbf9c41e5d.
+
+Added explicit WebView microphone capture with permission handling, 15-second cap, 16 kHz mono WAV encoding and silence check. Native Whisper owns one hidden CPU CLI process, a 180-second inference timeout and temporary input/output deletion through session Drop. Normal app exit cleans up; hard crashes can leave temp files. Cancel while permission/launch is pending invalidates late results and closes streams. Review uses the existing edit/add/discard flow; Windows remains a selectable fallback. Whisper paths persist as mana.whisper.v1 and old backups gain default paths; audio/runtime/model are excluded from backup. Installed English model is not automatic language detection or voice training.
+
+Synthetic 3.4-second TTS WAV produced Hello Mana How are you today? in about five seconds on CPU, both console and production-style output-txt paths checked; smoke files deleted. No live microphone was opened during agent checks. Build passes with existing nonfatal chunk-size advisory; frontend 145 pass, 2 optional live tests skipped; Rust 53 pass. Tests cover WAV format/resampling/clipping/silence, old backup compatibility, cancellation during pending microphone permission and session temp cleanup. Real microphone accuracy, permissions and record/transcribe/cancel UI acceptance pending.
+
+## 2026-10-10 — Dictation names and review improvements
+
+User tested live capture successfully but reported Mana becoming Mantle and Hello becoming Pedal.
+This confirms capture-to-draft, not recognition accuracy or the cause of errors. User authorized tuning.
+Added a companion-name/greeting grammar alongside unrestricted dictation, using configured character/user
+names sent as bounded JSON data. No global replacements or automatic corrections. Native result includes
+confidence and up to four alternatives. Frontend keeps recognition in an editable review box; Add to draft
+is explicit and Send is blocked until review is accepted/discarded. Scores are not accuracy percentages.
+This grammar primarily assists isolated names and greetings; arbitrary speech may still struggle.
+Synthetic in-memory “Hello Mana” tested through the production helper with its microphone input replaced
+by a WAV stream yielded exact “Hello Mana”, confidence 0.985, no competing alternative. No microphone
+opened or audio file saved by the check. Build passes, 142 frontend tests passed (2 live tests skipped),
+49 Rust tests passed. Live retest needed for names, ordinary sentences, alternatives and discard.
+
+## 2026-10-10 — Microphone draft input (manual acceptance deferred)
+
+User authorized implementation but cannot test the microphone currently. Added local Windows System.Speech dictation using a hidden owned PowerShell helper; installed recognizers enumerate without listening. Explicit Microphone starts one-phrase recognition from the default device; Cancel discards pending results and kills the helper. Recognition appends to the current draft, preserving edits made while listening; Send remains manual. Native polling enforces a 30-second wall limit and process cleanup on exit, frontend cleanup on unmount. Speech playback is gated while listening. No audio storage or new backup keys; language is session-only.
+
+Read-only inventory found MS-1033-80-DESK (en-US). Synthetic speech generated into an in-memory WAV and transcribed through installed dictation yielded “Hello world” (first phrase); no microphone or speaker used and no audio file created. Frontend tests cover validation, preserving typed text and cancellation during pending launch; native tests cover input validation and idle stop. Real microphone permissions, accuracy and device cancellation remain unverified. Do not mark manual tests passed. Build succeeds with a nonfatal Vite chunk-size advisory; 141 frontend tests pass, 2 optional live tests skipped; 48 Rust tests pass.
+
+## 2026-10-10 — Avatar comparison manual acceptance
+
+User confirmed repaired tests 1, 2 and 4 passed, alongside the prior comparison-off test 3.
+Screenshots show tentative resemblance for Mana artwork, the glasses difference, hair/clothing
+comparison for the cardigan character, and headset/clothing differences for the dark-uniform character.
+All four manual checks are accepted for the avatar-reference foundation. This does not establish
+perfect visual accuracy or verified identity. Remaining tuning examples: the X hair clip is called
+a forehead mark, and a plain white background is called a room. These are recorded limitations,
+not reasons to undo the accepted reference feature. No code changed for this acceptance update.
+
+## 2026-10-10 — Avatar comparison acceptance failures and prompt repair
+
+User reports only test 3 (comparison off) passed. Test 1 falsely called the attached character Aishi;
+test 2 discussed the book without appearance differences; test 4 omitted glasses and invented prior reading.
+The screenshots do not establish whether the underlying vision report compared the reference accurately.
+Code review confirms the reference argument reaches vision; there was no required comparison format or
+comparison-specific final chat instruction. Vision now requests five nonempty sections: Attachment,
+Avatar reference, Similarities, Differences, Resemblance, explicitly checking glasses and headset ornaments.
+Incomplete reports fail visibly and preserve the attachment instead of silently accepting description-only output.
+A marked comparison report adds final chat guidance after brief style: include resemblance plus concrete
+comparison evidence, never infer Aishi identity or invent previous activities. These are model instructions,
+not a guarantee of visual accuracy or compliance. Build passes; frontend 139 passed, 2 optional live tests
+skipped. Retest 1, 2 and 4 remains pending; no live two-image inference was run in this repair.
+
+## 2026-10-10 — Current avatar reference
+
+User requested avatar reference next. Added avatarReference.ts to composite current wardrobe layers with neutral eyes/mouth on white at 640 pixels maximum. Chat checkbox defaults on for the session; missing avatar disables it. Attachment remains first in the two-image vision request, reference second. Comparison asks for similarities/differences and separates headset decorations from anatomy; it cannot prove identity or authorship. Current avatar is regenerated on inspection, not stored as a library entry or affected by stage zoom/blinks/speech. Comparison reports are retained with ordinary image descriptions. Production build and frontend tests pass; manual two-image model acceptance remains pending.
+
+## 2026-10-10 — Saved image attachments
+
+User accepted local image persistence as the next V1.x item after confirming inline test 2 passed.
+Prepared JPEGs now live in SQLite app_state under mana.images.v1, included in validated JSON backups.
+Image reports reference deduplicated pixels by ID; chat and archives show thumbnails. Use image again
+attaches the stored copy for fresh vision inspection. More → Saved images provides search and explicit
+deletion, preserving descriptions and earlier backup copies. Images are saved after successful vision
+inspection and flushed before handing the report to chat. Aborted inspection retains the composer attachment.
+A stop during the persistence flush can leave an unlinked library image, which can be deleted explicitly.
+Limits are 100 images and 8 MB encoded JPEG data; originals are resized to 1280 pixels maximum.
+No automatic pruning, identity recognition or direct pixel input to the chat model is introduced.
+Older backups default to an empty image library; older reports and review-panel text remain description-only.
+
+Validation: production build passes; frontend 136 passed with 2 optional live tests skipped; Rust 46 passed,
+including SQLite reopen and pixel deletion preserving chat links. User confirmed manual desktop tests 1–4 passed: restart retains the thumbnail; Use image again
+performs fresh inspection; backup/restore retains pixels; deleting pixels preserves descriptions.
+Screenshots show the library dropping from one image to zero and restore preview finding one
+image in the backup. Identity recognition remains unverified: Mana describes the library scene
+but remains uncertain after the user identifies the character as Mana. Headset ears are still
+sometimes described as anatomical cat ears; this acceptance covers persistence, not visual accuracy.
+
+## 2026-10-10 — Current image scene grounding
+
+User passed inline attachment tests 1, 3 and 4. Image-only test 2 failed: the stored
+vision report correctly described a brown-haired character in a wedding dress by a
+stone church with petals, but the chat reply described the prior controller/game image.
+The earlier gaming-image reply also falsely identified the character as Aishi and
+invented “our game.” Self-recognition is still unverified; filename influence is possible,
+not established as the sole cause.
+
+Fresh attached-image requests now send only the latest user image turn, omitting earlier
+image/chat guesses. App context keeps identity/current mood/clock but omits unrelated
+work, goals, memory and narrative evidence. Filenames remain in stored UI metadata but
+are excluded from model image context. A final grounding instruction prioritizes current
+description and forbids unconfirmed person/self identity or shared-game claims. Both
+initial and corrective requests use this focus. Normal text follow-ups retain history;
+cross-image comparisons are not a verified feature of this focused path.
+
+Validation: production build and 134 frontend tests passed (two live-model tests skipped).
+Regression uses the gaming→wedding sequence and checks the old scene/filename are absent
+without changing stored history. Native code unchanged. User reported manual re-test #2
+passed: image-only wedding submission now describes brown hair, purple bow, white lace
+dress, pink blossoms and arched windows. A subsequent image-only submission describes
+a character beside a robot in a futuristic workshop rather than carrying over the wedding
+scene. All four inline-attachment checks are now user-passed. Fine detail interpretation
+(such as decorative versus anatomical cat ears) remains a tuning limitation.
+Pixel retention is future work, not added here;
+current restart retention remains question/description only.
+
 ## 2026-10-09 — Establish the historical record
+
+### Local image understanding foundation
+
+Inline attachment follow-up: user authorized moving image entry into chat after the panel
+flow passed. Added Attach image/preview/remove alongside the composer. Sending invokes
+saved vision configuration, verifies capability, starts a separate server when needed,
+then passes bounded report metadata into the existing chat request. Original question
+remains visible; description is collapsible and retained in chat/archive/backup/export.
+History payload includes report text as uncertain source evidence, never image pixels.
+Cancellation/failure keeps the attachment and draft; no chat turn is added before successful
+inspection. Image-only submissions get a default question. The pipeline has a four-minute
+timeout, uses normal generation lock, and stops only its own vision process in finally.
+Existing external servers remain untouched. Normal chat still drives voice/lipsync.
+
+User noted the earlier report confused headset cat-ear decoration with anatomical ears;
+added a grounding reminder without claiming this fully fixes model inference. No confirmed
+self-recognition/reference matching yet. Frontend tests cover history/archive/backup/export
+roundtrip and rejecting pixel fields, existing-server adoption, wrong-port rejection and
+owned cleanup on cancellation. Production build and 133 frontend tests passed (two live
+checks skipped); native commands unchanged from the 45-test validated vision foundation.
+Manual pending: attach/question/Send with automatic vision startup; image-only Send;
+Stop during startup/inference and retry; restart with retained description and no pixels.
+
+User chose to preserve Qwen3 chat and use a separate vision model. Read-only inspection
+found the chat server reports vision false, RTX 5070 Laptop 8 GB with about 3 GB free,
+and an installed Qwen3-VL-8B Q4_K_M plus matching F16 projector. Implemented More → Images
+with independent hidden llama-server ownership, port 8081, CPU/default projector offload
+disabled, local PNG/JPEG decoding/downsize, transient preview, capability check and image
+inference. Discussion explicitly shares uncertain description text with normal chat; it
+does not imply direct vision in the chat model or picture-based identity/authorship.
+Owned server stops on close/exit; existing external servers are disconnected only. Opening
+the panel pauses initiative and automatic journal generation. Settings persist in the
+new generic app_state key mana.vision.v1 and backups; old backups default empty setup.
+
+Live smoke: scripts/vision-smoke.py launched a separate owned CPU server on port 18081
+with the installed pair, verified vision capability, then sent a generated red/blue test
+image. Reply: “Two vertical rectangles side by side: left is red, right is blue.” Passed;
+smoke server was terminated/reaped and chat server remained unchanged. No downloads or
+changes to user's app settings/chat. Runtime log is ignored by Git.
+
+Validation: production build, 130 frontend tests (two live-model checks skipped) and
+45 Rust tests passed. Tests cover inline
+image payload/capability gating, configuration/old backups, bounds and local resizing.
+User reported manual checks 1–4 passed: detected pair startup, real PNG inspection,
+review/Discuss with Mana, and restart with retained setup and cleared image. Shared
+description and conversation correctly remained in saved chat. Screenshots show a
+detailed character/outfit description of Mana Full.png and the subsequent spoken chat
+reply. That reply calls the character “me”; this is an identity inference from textual
+context (including the filename), not verified visual self-recognition. Reference-based
+recognition/provenance remains open. User expressed interest in future inline chat
+attachments. Cancel/close during loading or inference remains a separate manual check;
+CPU inference may be slow and detailed OCR remains unverified.
+Sources: official llama.cpp server and multimodal documentation (GET /props, image_url,
+--mmproj and --no-mmproj-offload).
+
+### Manual read-aloud foundation
+
+Speed/volume follow-up: added integer-bounded rate (-10..10) and volume (0..100) to
+`mana.speech.v1`, passed as JSON into System.Speech before playback. Defaults preserve
+existing behavior (rate 0, volume 100). Old backups missing these two fields are upgraded
+with defaults without changing voice/automatic settings; explicitly invalid values still
+reject restore. Both manual and automatic playback use the preferences captured at start;
+edits apply to the next playback. Volume 0 mutes speech without changing system volume.
+Native viseme timing naturally follows speech rate. Voice controls now use a responsive
+grid and checkbox-specific styling to avoid the generic chat search input's large width.
+
+Validation: 127 frontend tests passed (two live checks skipped), 44 Rust tests passed,
+production build passed. Added preference roundtrip/old-backup/range checks and native
+control rejection; WAV+viseme smoke test uses rate +2 and volume 40. User reported
+manual checks 1–4 passed: normal/slower/faster playback, volume 100/30/0, lipsync/Stop,
+and restart retention with automatic playback using saved controls. User also tried
+speed +10. Screenshot shows Zira Desktop, automatic playback enabled, normal speed
+and volume 100%. Backup restore with these controls remains a separate manual check.
+Sources: Microsoft SpeechSynthesizer Rate and Volume properties.
+
+Lipsync follow-up: the hidden speech helper attaches a C# VisemeReached handler and
+writes bounded numeric timing events on stdout. A Rust reader forwards events with a
+playback ID to the frontend. Current playback alone controls five existing vowel images;
+silence and completion reset the mouth, and Stop invalidates the ID immediately. Older
+events and stale status checks cannot move/reset a newer playback. With a usable Windows
+voice, ordinary chat streaming no longer drives the text-timed mouth; Test/browser fallback
+keep the original preview behavior. Existing artwork limits articulation, and native helper
+startup/device buffering can affect perceived timing. No audio upload or new saved data.
+
+Validation: native WAV synthesis test also verifies nonzero viseme events; all 43 Rust
+tests and 127 frontend tests pass (two live-model tests skipped). Production build passed.
+User reported manual lipsync checks 1–4 passed: Speak on an existing reply animates
+the mouth, automatic playback animates a new reply, Stop voice restores the resting
+mouth, and Speak works with the model off. Restart without replaying mouth motion
+remains a separate manual check. Source: Microsoft System.Speech VisemeReached docs.
+
+Follow-up: added validated `mana.speech.v1` preferences to SQLite and backups; older
+backups default automatic playback off. Voice selection is preserved even if unavailable,
+with an explicit notice rather than substitution. Opt-in automatic playback observes new
+assistant IDs, waits for generation to complete, cleans reply text and consumes each once.
+Loaded history, failed/interrupted replies and occupied/unavailable playback are skipped;
+no delayed queue. Turning the option off stops playback. Frontend checks cover preference
+roundtrip, old backup defaults, streaming completion, replay prevention and skipped replies.
+126 frontend tests passed (two live-model checks skipped), production build and 43
+Rust tests passed. User reported manual follow-up steps 1–4 passed: selected Zira and
+enabled automatic playback, heard a new completed reply, stopped voice playback, and
+restarted with both settings retained and no old-chat replay. Screenshot shows Microsoft
+Zira Desktop selected and automatic read-aloud checked. Backup restore and unavailable
+saved-voice handling remain separate manual checks.
+
+Implemented Windows System.Speech through a hidden, owned PowerShell process. Text
+and voice are JSON on UTF-8 stdin, never interpolated into executable script. Speak
+uses cleaned completed assistant text; errors/debug attempts are excluded. Voice
+enumeration is independent of llama-server. Stop kills/reaps the helper; app exit does
+the same. Browser preview reports desktop-only availability. Kept selection session-only
+for the original slice; the follow-up above adds saved preferences and automatic playback.
+
+Installed voices enumerated (David/Zira Desktop and David/Mark/Zira); local WAV synthesis
+smoke check passed. Frontend: 124 passed, two live tests skipped. Production build passed.
+All 42 Rust tests passed, including Unicode JSON-to-WAV synthesis and owned helper
+cancellation. User reported manual steps 1–3 passed: voice selection, audible Speak
+and Stop voice. Screenshot shows Microsoft Zira Desktop selected; the desktop app
+lists David Desktop and Zira Desktop (voice availability can differ by process).
+Model-off playback, every available voice and app-exit cleanup remain separate manual
+checks. At that stage avatar lipsync was still text-timed; the follow-up above connects
+native speech timing to the mouth.
 
 ### Skill practice foundation
 

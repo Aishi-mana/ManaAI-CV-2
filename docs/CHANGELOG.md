@@ -8,6 +8,115 @@ Unreleased changes must not be mistaken for committed or shipped releases.
 
 ## Unreleased — current development
 
+### Hands-free background noise handling — 2026-10-10
+
+- User confirmed repaired background-noise test 4 passed, completing all four hands-free manual checks.
+
+- User passed manual tests 1–3; fan noise exposed a failure in test 4.
+- Calibrate background level briefly and block caption-only sound output from automatic sending. Background stop needs retesting.
+
+### Hands-free voice mode — 2026-10-10
+
+- Explicit Start/Stop for Whisper listen/pause/transcribe/send/read-aloud/resume. Review mode stays available.
+- Stop on no detected speech, errors, model loss or hidden app; release microphone during reply generation/playback.
+- Session stays off after restart; no saved automatic-voice preference changes. Live loop acceptance pending.
+
+### Voice input layout polish — 2026-10-10
+
+- User confirmed all four manual polish checks passed.
+
+- Collapse recognition setup behind Voice input while keeping recording actions visible.
+- Widen transcription review and show recording time/input level during Whisper capture.
+- Show avatar comparison options only when an image is attached; bound expanded panel height to preserve chat space.
+
+### Local Whisper speech recognition — 2026-10-10
+
+- Add local English Whisper small.en on CPU, with Record/Transcribe/Review and a 15-second recording limit. Windows recognition stays available as fallback.
+- Save executable/model setup paths; exclude audio and model/runtime files from backups. Delete temporary audio/transcripts after processing/cancel/normal exit.
+- Synthetic greeting/sentence passed; user confirmed accurate live “Hello Mana, how are you today?” and “My name is Aishi” transcription.
+
+### Dictation tuning — 2026-10-10
+
+- Assist recognition of configured companion/user names and greetings alongside normal dictation.
+- Review/edit recognized text and select Windows alternatives before Add to draft; uncertain recognition is labelled. No forced word substitutions.
+- Basic live capture confirmed; tuned accuracy still needs retesting. Synthetic “Hello Mana” recognized correctly.
+
+### Microphone draft input — 2026-10-10
+
+- Explicit one-phrase local Windows dictation with installed language selection, cancellation and timeout. Transcripts append to the draft for review; nothing sends automatically or records audio files.
+- Microphone and read-aloud playback avoid simultaneous use. Synthetic audio recognition checked; real microphone manual acceptance deferred by the user.
+
+### Avatar comparison manual acceptance — 2026-10-10
+
+- User confirmed repaired tests 1, 2 and 4 passed; with the earlier comparison-off pass, all four reference checks are accepted. Minor visual wording errors remain tuning items.
+
+### Avatar comparison repair — 2026-10-10
+
+- Require complete comparison sections from vision; incomplete output preserves the attachment for retry.
+- Add final reply guidance for concrete similarities/differences, glasses, tentative resemblance and no unsupported user identity or invented past activity.
+- Manual comparison-off test passed; comparison tests 1, 2 and 4 need retesting after reported failures.
+
+### Current avatar reference — 2026-10-10
+
+- Chat image inspection optionally compares the attachment against a neutral composite of the current avatar. The session checkbox defaults on and follows wardrobe changes, without stage zoom or animation.
+- Vision receives attachment first, reference second, and reports similarities/differences with tentative resemblance. Reference pixels stay transient; saved comparison text remains uncertain. Manual acceptance pending.
+
+### Saved image attachments — 2026-10-10
+
+- User confirmed manual tests 1–4 passed: restart thumbnails, reuse, backup/restore and pixel deletion preserving descriptions.
+
+- New composer attachments retain the inspected JPEG locally, display thumbnails after restart and in archives, and support Use image again for fresh inspection.
+- More → Saved images searches and explicitly deletes pixels without deleting descriptions. Shared image references use one stored copy; older backups can retain deleted pixels.
+- JSON backups include images; old backups restore an empty library. Text exports include descriptions only. Limits: 100 images, 8 MB encoded data, 1280 pixels on the long edge; no automatic pruning.
+- Older description-only records and the separate image review panel do not gain saved pixels retroactively.
+
+
+### Current image grounding fix — 2026-10-10
+
+- Fresh attached-image replies now focus on the latest image description, excluding
+  prior scenes and unrelated saved project context. Image filenames stay in the UI but
+  are withheld from model context; explicit grounding discourages unconfirmed identity
+  and shared-game claims. Stored history and normal text follow-ups remain available.
+
+### Local image understanding foundation — 2026-10-09
+
+- Attach image in the chat composer now sends a question through the saved separate
+  vision setup and then normal Mana chat. Loading/inspection status, Stop and retained
+  attachment on failure. Completed chat stores bounded description metadata with the
+  original question; collapsible source details, search/archive/backup/export support.
+- Pixel previews remain transient. Chat-owned vision server stops after inspection;
+  existing external servers remain running. Reminder distinguishes cat-ear headset
+  decoration from anatomy and keeps identity/authorship claims unverified.
+
+- More → Images starts/connects a separate vision server while keeping the current chat
+  model. Matching model/projector setup, CPU default, user-selected PNG/JPEG preview,
+  bounded local resizing, explicit vision capability check, inspect/cancel and reviewed
+  description-to-chat. Installed Qwen3-VL pair detection, saved setup and old-backup defaults.
+- Image pixels stay transient; only explicitly shared description/question enters chat.
+  No automatic memories, camera access or self-recognition. Owned vision server stops
+  on panel close/app exit; external server stays untouched.
+
+### Manual read-aloud foundation — 2026-10-09
+
+- Saved speech speed (-10 to +10, normal 0) and volume (0–100%, default 100%) controls
+  apply to the next manual/automatic playback. Older backups retain voice and automatic
+  preferences while defaulting the new controls. Voice controls use a compact responsive
+  layout; native timing continues to drive lipsync at the selected speed.
+
+- Windows speech viseme events now drive the avatar mouth during manual and automatic
+  playback. Five existing vowel images approximate articulation; silence/Stop/completion
+  restore the resting expression. Playback IDs reject stale events. Text-only preview
+  remains available; custom voice and refined articulation remain future work.
+
+- Voice selection and opt-in automatic read-aloud now persist across restarts/backups.
+  Old backups restore automatic playback off. New completed replies play once; no
+  startup replay, error playback or queue. Missing saved voices require explicit selection.
+
+- Chat Voice selection and Speak/Stop voice controls use installed Windows voices
+  locally, including with the model off. Completed cleaned replies only; no automatic
+  playback by default. Native helper cancellation and exit cleanup.
+- Custom voice training and singing remain future work.
+
 ### Confirmed skill practice foundation — 2026-10-09
 
 - Fixed singular/plural record wording in skill counts and next-milestone labels.

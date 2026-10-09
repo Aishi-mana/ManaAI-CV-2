@@ -26,7 +26,7 @@ function loader(mocks = {}, globals = {}) {
       return require(id);
     };
     vm.runInNewContext(code, { module, exports: module.exports, require: requireModule,
-      console, TextDecoder, TextEncoder, AbortSignal, ...globals }, { filename: file });
+      console, TextDecoder, TextEncoder, AbortSignal, DOMException, ...globals }, { filename: file });
     return module.exports;
   }
   return load;
@@ -35,6 +35,128 @@ function loader(mocks = {}, globals = {}) {
 function assets(files) {
   return { files, urls: new Map(files.map((f) => [f.toLowerCase(), "blob:" + f])), items: {} };
 }
+
+test('new image requests isolate current scene from old images assistant guesses and filenames',()=>{
+ const load=loader({'./persistence':{}});const llm=load('src/core/llm.ts');
+ const history=[{id:'old',role:'user',content:'Describe',imageReport:{filename:'Mana.png',description:'A headset and game controller.'}},{id:'guess',role:'assistant',content:'You are playing our game.'},{id:'new',role:'user',content:'What do you notice in this image?',imageReport:{filename:'Mana-bride.png',description:'A brown-haired character in a white wedding dress before a stone church and pink petals.'}}];
+ const request=llm.buildPayload('Mana',history,24,'Mana','Current mood: excited','Be brief');
+ assert.equal(request.length,2);assert.match(request[1].content,/wedding dress/);assert.match(request[1].content,/CURRENT attached image/);assert.match(request[1].content,/not automatically the user or Mana/);
+ assert.ok(!JSON.stringify(request).includes('game controller'));assert.ok(!JSON.stringify(request).includes('Mana-bride.png'));assert.ok(!JSON.stringify(request).includes('You are playing our game'));
+ assert.equal(history.length,3);assert.equal(history[0].imageReport.filename,'Mana.png');
+ const followup=llm.buildPayload('Mana',[...history,{id:'followup',role:'user',content:'What color was the dress?'}]);assert.ok(followup.length>2);
+});
+
+test('inline image reports preserve the question and bounded source description across history archives backups and export',()=>{
+ const values=new Map();const load=loader({'./persistence':{readStored:k=>values.get(k)??null,writeStored:(k,v)=>values.set(k,v)}});
+ const settings=load('src/core/settings.ts'),llm=load('src/core/llm.ts'),archives=load('src/core/chatArchives.ts'),backup=load('src/core/backup.ts');
+ const message={id:'image',role:'user',content:'What are these ears?',imageReport:{filename:'avatar.png',description:'Decorative cat-ear headphones.'}};
+ settings.saveChat([message]);assert.equal(settings.loadChat()[0].imageReport.description,message.imageReport.description);
+ const payload=llm.buildPayload('Mana',[message],24);assert.match(payload[1].content,/What are these ears/);assert.match(payload[1].content,/uncertain evidence/);assert.match(payload[1].content,/accessories, not anatomical ears/);assert.equal(message.content,'What are these ears?');
+ const archived=archives.newChatArchive([message]);assert.equal(archived.messages[0].imageReport.filename,'avatar.png');
+ assert.equal(load('src/core/chatSearch.ts').searchChat([message],'Decorative','Mana')[0],'image');
+ assert.equal(backup.validateBackup(JSON.stringify(backup.snapshotBackup())).data['mana.chat.v1'][0].imageReport.filename,'avatar.png');
+ const text=load('src/core/chatExport.ts').conversationText([message],'Mana','Aishi');assert.match(text,/pixels are not embedded/);assert.match(text,/Decorative cat-ear/);
+ const bad=backup.snapshotBackup();bad.data['mana.chat.v1'][0].imageReport.dataUrl='data:image/png;base64,AAAA';assert.throws(()=>backup.validateBackup(JSON.stringify(bad)),/mana.chat/);
+ assert.equal(settings.validateChat([{...message,imageReport:{filename:'x',description:'x'.repeat(8001)}}])[0].imageReport,undefined);
+});
+
+test('inline vision adopts an existing server without stopping it and rejects chat-port reuse',async()=>{
+ const invokes=[];const v=loader({'@tauri-apps/api/core':{invoke:async(...args)=>invokes.push(args)},'./vision':{visionRequest(){},checkVision:async()=>{},analyzeImage:async()=> 'Blue headset'}})('src/core/visionChat.ts');
+ const config={port:8081,modelPath:'m',projectorPath:'p',gpuLayers:0},image={filename:'a.png',dataUrl:'data:image/png;base64,AAAA'};
+ const report=await v.inspectForChat(config,'server',8080,image,'Describe',new AbortController().signal,()=>{});
+ assert.equal(report.description,'Blue headset');assert.equal(invokes.length,0);
+ await assert.rejects(v.inspectForChat({...config,port:8080},'server',8080,image,'',new AbortController().signal,()=>{}),/separate port/);
+});
+
+test('inline vision owns cleanup after loading failures or cancellation and never infers after stop',async()=>{
+ let checks=0,analyses=0;const commands=[];const ctrl=new AbortController();
+ const v=loader({'@tauri-apps/api/core':{invoke:async(name)=>{commands.push(name);if(name==='vision_start')ctrl.abort();}},'./vision':{visionRequest(){},checkVision:async()=>{checks++;throw Error('offline');},analyzeImage:async()=>{analyses++;}}})('src/core/visionChat.ts');
+ await assert.rejects(v.inspectForChat({port:8081,modelPath:'m',projectorPath:'p',gpuLayers:0},'server',8080,{filename:'a',dataUrl:'data'},'',ctrl.signal,()=>{}),/Stopped/);
+ assert.equal(commands.join(','),'vision_start,vision_stop');assert.equal(analyses,0);
+ const missing=loader({'@tauri-apps/api/core':{invoke:async()=>{throw Error('must not start');}},'./vision':{visionRequest(){},checkVision:async()=>{throw Error('offline');}}})('src/core/visionChat.ts');
+ await assert.rejects(missing.inspectForChat({port:8081,modelPath:'',projectorPath:'',gpuLayers:0},'server',8080,{filename:'a',dataUrl:'data'},'',new AbortController().signal,()=>{}),/matching projector/);
+});
+
+test('vision requests require explicit server capability and attach only bounded inline image data',async()=>{
+ const calls=[];const load=loader({'./persistence':{}},{fetch:async(url,options)=>{calls.push({url,options});return url.endsWith('/props')?{ok:true,json:async()=>({modalities:{vision:true}})}:{ok:true,json:async()=>({choices:[{message:{content:'Red on the left, blue on the right.'}}]})};}});
+ const v=load('src/core/vision.ts');const image='data:image/png;base64,AAAA';
+ const answer=await v.analyzeImage(8081,'What colors?',image,new AbortController().signal);
+ assert.match(answer,/Red/);assert.equal(calls.length,2);assert.match(calls[1].url,/127.0.0.1:8081/);
+ const body=JSON.parse(calls[1].options.body);assert.equal(body.messages[1].content[1].image_url.url,image);assert.match(body.messages[0].content,/not instructions/);assert.equal(body.stream,false);
+ for(const invalid of ['https://example.com/a.png','file:///secret','data:text/html;base64,AAAA','data:image/png;base64,'+'A'.repeat(3_000_001)])assert.throws(()=>v.visionRequest('',invalid));
+ const noVision=loader({'./persistence':{}},{fetch:async()=>({ok:true,json:async()=>({modalities:{vision:false}})})})('src/core/vision.ts');
+ await assert.rejects(noVision.analyzeImage(8080,'',image,new AbortController().signal),/does not report image support/);
+ const discussion=v.visionDiscussion('photo.png','What colors?',answer);assert.match(discussion,/not the image itself/);assert.match(discussion,/may contain mistakes/);assert.ok(!discussion.includes('base64'));
+});
+
+test('vision configuration persists and old backups default empty vision configuration without image bytes',()=>{
+ const values=new Map();const load=loader({'./persistence':{readStored:k=>values.get(k)??null,writeStored:(k,v)=>values.set(k,v)}});
+ const v=load('src/core/vision.ts'),b=load('src/core/backup.ts');
+ v.saveVisionSettings({modelPath:'vision.gguf',projectorPath:'projector.gguf',port:8081,gpuLayers:0});assert.equal(v.loadVisionSettings().projectorPath,'projector.gguf');
+ const backup=b.snapshotBackup();assert.equal(b.validateBackup(JSON.stringify(backup)).data['mana.vision.v1'].modelPath,'vision.gguf');delete backup.data['mana.vision.v1'];
+ assert.equal(b.validateBackup(JSON.stringify(backup)).data['mana.vision.v1'].modelPath,'');
+ backup.data['mana.vision.v1']={modelPath:'m',projectorPath:'p',port:0,gpuLayers:0};assert.throws(()=>b.validateBackup(JSON.stringify(backup)),/mana.vision/);
+});
+
+test('vision image preparation rejects oversized or unsupported uploads and downsizes locally',async()=>{
+ let decodes=0,closes=0;const canvas={width:0,height:0,getContext:()=>({fillRect(){},drawImage(){}}),toDataURL:()=> 'data:image/jpeg;base64,AAAA'};
+ const v=loader({'./persistence':{}},{createImageBitmap:async()=>{decodes++;return {width:2560,height:1280,close(){closes++;}};},document:{createElement:()=>canvas}})('src/core/vision.ts');
+ await assert.rejects(v.prepareImage({type:'image/svg+xml',size:100}),/PNG\/JPEG/);
+ await assert.rejects(v.prepareImage({type:'image/png',size:10_000_001}),/10 MB/);assert.equal(decodes,0);
+ assert.equal(await v.prepareImage({type:'image/png',size:1000}),'data:image/jpeg;base64,AAAA');assert.equal(canvas.width,1280);assert.equal(canvas.height,640);assert.equal(closes,1);
+});
+
+test('voice mouth mapping rests on silence and ignores events from stopped or earlier playback',()=>{
+ const m=loader()('src/core/speechMouth.ts');
+ assert.equal(m.visemeMouth(0),null);assert.equal(m.visemeMouth(21),null);
+ assert.equal(m.visemeMouth(1),'a');assert.equal(m.visemeMouth(4),'e');assert.equal(m.visemeMouth(6),'i');assert.equal(m.visemeMouth(8),'o');assert.equal(m.visemeMouth(7),'u');
+ for(const v of [-1,22,NaN,1.5])assert.equal(m.visemeMouth(v),null);
+ assert.equal(m.playbackMouth('new',{playbackId:'old',viseme:1}),undefined);
+ assert.equal(m.playbackMouth('',{playbackId:'old',viseme:1}),undefined);
+ assert.equal(m.playbackMouth('new',{playbackId:'new',viseme:6}),'i');
+ assert.equal(m.playbackMouth('new',{playbackId:'new',viseme:0}),null);
+});
+
+test('speech preferences persist and older backups default automatic playback off',()=>{
+ const values=new Map();const load=loader({'./persistence':{readStored:k=>values.get(k)??null,writeStored:(k,v)=>values.set(k,v)}});
+ const s=load('src/core/speechPreferences.ts'),b=load('src/core/backup.ts');
+ s.saveSpeechPreferences({voice:'Microsoft Zira Desktop',automatic:true});
+ assert.equal(s.loadSpeechPreferences().voice,'Microsoft Zira Desktop');assert.equal(s.loadSpeechPreferences().automatic,true);
+ const backup=b.snapshotBackup();assert.equal(b.validateBackup(JSON.stringify(backup)).data['mana.speech.v1'].automatic,true);
+ delete backup.data['mana.speech.v1'];assert.equal(b.validateBackup(JSON.stringify(backup)).data['mana.speech.v1'].automatic,false);
+ backup.data['mana.speech.v1']={voice:'Zira',automatic:'yes'};assert.throws(()=>b.validateBackup(JSON.stringify(backup)),/mana.speech/);
+ assert.equal(s.validateSpeechPreferences({voice:'x'.repeat(201),automatic:1}).voice,'');
+ s.saveSpeechPreferences({voice:'Zira',automatic:true,rate:-2,volume:35});
+ assert.equal(s.loadSpeechPreferences().rate,-2);assert.equal(s.loadSpeechPreferences().volume,35);
+ const legacy=b.snapshotBackup();legacy.data['mana.speech.v1']={voice:'Zira',automatic:true};
+ const migrated=b.validateBackup(JSON.stringify(legacy)).data['mana.speech.v1'];
+ assert.equal(migrated.voice,'Zira');assert.equal(migrated.automatic,true);assert.equal(migrated.rate,0);assert.equal(migrated.volume,100);
+ for(const invalid of [{rate:11,volume:50},{rate:0,volume:101},{rate:1.5,volume:50},{rate:0,volume:null}]){
+   legacy.data['mana.speech.v1']={voice:'Zira',automatic:true,...invalid};
+   assert.throws(()=>b.validateBackup(JSON.stringify(legacy)),/mana.speech/);
+ }
+ for(const valid of [{rate:-10,volume:0},{rate:10,volume:100}]){
+   const validated=s.validateSpeechPreferences(valid);assert.equal(validated.rate,valid.rate);assert.equal(validated.volume,valid.volume);
+ }
+});
+
+test('automatic speech consumes only new completed cleaned replies once and never replays skipped replies',()=>{
+ const s=loader({'./persistence':{}})('src/core/speechPreferences.ts');
+ const old={id:'old',role:'assistant',content:'Old reply'};const tracker=new s.AutomaticSpeech([old]);
+ const next={id:'next',role:'assistant',content:'Mana: Hello [happy]'};
+ assert.equal(tracker.next([old],false,true,true,'Mana'),null);
+ assert.equal(tracker.next([old,next],true,true,true,'Mana'),null);
+ assert.equal(tracker.next([old,next],false,true,true,'Mana'),'Hello');
+ assert.equal(tracker.next([old,next],false,true,true,'Mana'),null);
+ const error={id:'error',role:'assistant',content:'Partial',error:'Stopped'};
+ assert.equal(tracker.next([old,next,error],false,true,true,'Mana'),null);
+ const disabled={id:'disabled',role:'assistant',content:'Do not read'};
+ assert.equal(tracker.next([disabled],false,false,true,'Mana'),null);
+ assert.equal(tracker.next([disabled],false,true,true,'Mana'),null);
+ const occupied={id:'occupied',role:'assistant',content:'No queue'};
+ assert.equal(tracker.next([occupied],false,true,false,'Mana'),null);
+ assert.equal(tracker.next([occupied],false,true,true,'Mana'),null);
+});
 
 test('context overflow retries older history without dropping current evidence or mutating saved messages',async()=>{
  const sent=[];let calls=0;const load=loader({}, {fetch:async(_url,opts)=>{
@@ -468,7 +590,7 @@ test("backup roundtrip validates every section and rejects damaged files before 
  const backup=await b.createBackup();const valid=b.validateBackup(JSON.stringify(backup));
  assert.equal(valid.data["mana.diary.v1"][0].deletedAt,"2026-10-09T02:00:00Z");
  assert.match(b.backupCounts(valid),/1 memories/);
- assert.equal(Object.keys(valid.data).length,26);
+ assert.equal(Object.keys(valid.data).length,30);
  const legacy=JSON.parse(JSON.stringify(backup));delete legacy.data["mana.followups.v1"];
  delete legacy.data["mana.shared_activities.v1"];
  assert.equal(b.validateBackup(JSON.stringify(legacy)).data["mana.followups.v1"].notes.length,0);
@@ -1890,4 +2012,116 @@ test("an owned server crash clears running state and exposes the log", async () 
   assert.equal(app.render().running, false);
   assert.match(app.render().detail, /GPU allocation failed/);
   app.dispose();
+});
+
+
+test('saved image pixels round-trip and deduplicate without entering chat model payloads',()=>{
+ const values=new Map();const load=loader({'./persistence':{readStored:k=>values.get(k)??null,writeStored:(k,v)=>values.set(k,v)}},{crypto:require('node:crypto').webcrypto});
+ const images=load('src/core/savedImages.ts'),backup=load('src/core/backup.ts'),settings=load('src/core/settings.ts');
+ const image={filename:'scene.jpg',dataUrl:'data:image/jpeg;base64,/9j/AA=='};
+ const retained=images.retainImage([],image);images.saveSavedImages(retained.images);
+ assert.equal(images.loadSavedImages()[0].dataUrl,image.dataUrl);
+ assert.equal(images.retainImage(retained.images,{...image,filename:'renamed.jpg'}).imageId,retained.imageId);
+ const message={id:'u',role:'user',content:'Describe',imageReport:{filename:image.filename,description:'A scene.',imageId:retained.imageId}};
+ settings.saveChat([message]);const restored=backup.validateBackup(JSON.stringify(backup.snapshotBackup()));
+ assert.equal(restored.data['mana.images.v1'][0].dataUrl,image.dataUrl);assert.equal(restored.data['mana.chat.v1'][0].imageReport.imageId,retained.imageId);
+ assert.ok(!JSON.stringify(load('src/core/llm.ts').buildPayload('Mana',[message])).includes(image.dataUrl));
+ images.saveSavedImages([]);assert.equal(settings.loadChat()[0].imageReport.description,'A scene.');assert.equal(images.loadSavedImages().length,0);
+ delete restored.data['mana.images.v1'];assert.equal(backup.validateBackup(JSON.stringify(restored)).data['mana.images.v1'].length,0);
+});
+
+test('image storage refuses capacity overflow and rejects unsafe backup image data',()=>{
+ const load=loader({'./persistence':{readStored:()=>null}},{crypto:require('node:crypto').webcrypto});const images=load('src/core/savedImages.ts');
+ const image={filename:'scene.jpg',dataUrl:'data:image/jpeg;base64,/9j/AA=='};
+ const full=Array.from({length:100},(_,n)=>({id:'i'+n,filename:'x',createdAt:new Date().toISOString(),dataUrl:'data:image/jpeg;base64,/9j/AB=='}));
+ assert.throws(()=>images.retainImage(full,image),/storage is full/);assert.equal(full.length,100);
+ const large='data:image/jpeg;base64,/9j/'+ 'A'.repeat(2_899_996);
+ const capped=Array.from({length:3},(_,n)=>({...full[n],dataUrl:large}));assert.throws(()=>images.retainImage(capped,image),/storage is full/);
+ const backup=load('src/core/backup.ts');for(const dataUrl of ['https://example.com/x.jpg','data:image/svg+xml;base64,AAAA','data:image/jpeg;base64,AAAA']){
+ const raw=backup.snapshotBackup();raw.data['mana.images.v1']=[{...full[0],dataUrl}];assert.throws(()=>backup.validateBackup(JSON.stringify(raw)),/mana.images/);
+ }
+});
+
+
+test('avatar comparison labels attachment first and reference second without proving identity',()=>{
+ const v=loader({'./persistence':{}})('src/core/vision.ts');const image='data:image/jpeg;base64,/9j/AA==',reference='data:image/jpeg;base64,/9j/AB==';
+ const request=v.visionRequest('Who is this?',image,reference),content=request.messages[1].content;
+ assert.equal(content.filter(c=>c.type==='image_url').length,2);assert.equal(content[1].image_url.url,image);assert.equal(content[3].image_url.url,reference);
+ assert.match(request.messages[0].content,/similarities and differences/);assert.match(request.messages[0].content,/never claim proven identity/);assert.match(request.messages[0].content,/accessories, not anatomical ears/);
+ assert.equal(v.visionRequest('Describe',image).messages[1].content.length,2);
+ assert.throws(()=>v.visionRequest('Describe',image,'https://example.com/avatar.png'),/prepared/);
+});
+
+test('avatar reference composites only neutral layers in order and cancels before drawing',async()=>{
+ const layers=[{slot:'static',url:'body'},{slot:'mouth',variant:'mouth_neutral',url:'rest'},{slot:'mouth',variant:'mouth_a',url:'speaking'},{slot:'eyes',variant:'eye_neutral',url:'open'},{slot:'eyes',variant:'eye_closed',url:'blink'},{slot:'static',url:'hair'}];
+ const drawn=[];const canvas={width:0,height:0,getContext:()=>({fillRect(){},drawImage(image){drawn.push(image.source);}}),toDataURL:()=> 'data:image/jpeg;base64,/9j/AA=='};
+ class ImageMock{naturalWidth=1000;naturalHeight=2000;set src(value){this.source=value;this.onload();}}
+ const reference=loader({'./avatar':{buildLayers:()=>layers,EMOTION_MAP:{neutral:{eyes:'eye_neutral',mouth:'mouth_neutral'}}}},{Image:ImageMock,document:{createElement:()=>canvas}})('src/core/avatarReference.ts');
+ const signal=new AbortController();await reference.prepareAvatarReference({}, {},signal.signal);assert.deepEqual(drawn,['body','rest','open','hair']);assert.equal(canvas.width,320);assert.equal(canvas.height,640);
+ signal.abort();drawn.length=0;await assert.rejects(reference.prepareAvatarReference({}, {},signal.signal),/Stopped/);assert.equal(drawn.length,0);
+});
+
+
+test('avatar comparison requires complete evidence sections and takes priority over brief chat style',()=>{
+ const load=loader({'./persistence':{}}),v=load('src/core/vision.ts');
+ assert.throws(()=>v.validateComparisonReport('A character holding a book.'),/complete avatar comparison/);
+ const report='Attachment: Silver hair, headset, no glasses.\nAvatar reference: Silver hair, headset and glasses.\nSimilarities: Hair and headset.\nDifferences: Glasses only on reference.\nResemblance: Similar, identity unconfirmed.';
+ v.validateComparisonReport(report);assert.throws(()=>v.validateComparisonReport(report.replace('Differences: Glasses only on reference.','')),/complete/);
+ const messages=load('src/core/llm.ts').buildPayload('Mana',[{id:'u',role:'user',content:'Who is this?',imageReport:{filename:'x.jpg',description:v.AVATAR_COMPARISON_MARKER+'\n'+report}}],24,'Mana','','Be brief.');
+ assert.ok(messages[1].content.endsWith(v.AVATAR_REPLY_FOCUS));assert.match(messages[1].content,/Never identify the attached character as Aishi/);assert.match(messages[1].content,/Glasses only on reference/);
+ const plain=load('src/core/llm.ts').buildPayload('Mana',[{id:'u',role:'user',content:'Describe',imageReport:{filename:'x.jpg',description:'A book.'}}]);assert.ok(!plain[1].content.includes(v.AVATAR_REPLY_FOCUS));
+});
+
+
+test('dictation preserves current draft and validates transcript and installed languages',()=>{
+ const d=loader()('src/core/dictation.ts');assert.equal(d.reviewedDraft('Typed while listening',' recognized phrase '),'Typed while listening recognized phrase');assert.equal(d.reviewedDraft('Line\n','Hello'),'Line\nHello');assert.equal(d.reviewedDraft('','Hello'),'Hello');assert.throws(()=>d.reviewedDraft('keep',' '),/No usable/);assert.throws(()=>d.reviewedDraft('keep',{}),/invalid/);assert.throws(()=>d.reviewedDraft('keep','a'.repeat(10001)),/shorter/);
+ const list=d.recognitionLanguages([{id:'engine',name:'Windows',language:'en-US'},{id:'',name:'x',language:'en'},null,{id:'x',name:4}]);assert.equal(list.length,1);assert.equal(list[0].id,'engine');assert.equal(d.recognitionLanguages({}).length,0);
+});
+
+
+test('dictation cancellation during launch stops the helper and discards late transcription',async()=>{
+ let resolveLaunch;const launch=new Promise(resolve=>resolveLaunch=resolve),calls=[],texts=[],effects=[];let state=0;
+ const hook=loader({'react':{useRef:value=>({current:value}),useEffect:effect=>effects.push(effect),useState:value=>{const initial=state++===1?[{id:'engine',name:'Windows',language:'en-US'}]:state===3?'engine':value;return [initial,()=>{}];}},'@tauri-apps/api/core':{invoke:async(name)=>{calls.push(name);if(name==='dictation_start')return launch;if(name==='dictation_languages')return [];if(name==='dictation_poll')return {done:true,text:'should not appear'};}}},{setTimeout,clearTimeout})('src/core/useDictation.ts');
+ const d=hook.useDictation(text=>texts.push(text));const cleanup=effects[0]();const starting=d.start();await d.stop();resolveLaunch();await starting;assert.ok(calls.filter(c=>c==='dictation_stop').length>=2);assert.equal(calls.includes('dictation_poll'),false);assert.equal(texts.length,0);cleanup();
+});
+
+
+test('dictation review preserves recognized words without forced replacements and bounds alternatives',()=>{
+ const d=loader()('src/core/dictation.ts');const review=d.dictationReview({text:'Mantle',confidence:0.2,alternatives:['Mana','Mana','Mantle',null,'Hello']});assert.equal(review.text,'Mantle');assert.equal(review.confidence,0.2);assert.equal(review.alternatives.join(','),'Mana,Hello');assert.equal(d.dictationReview({text:'Pedal',confidence:2}).confidence,null);assert.throws(()=>d.dictationReview({text:''}),/No usable/);
+});
+
+
+test('Whisper WAV encoder downsamples microphone audio, clips safely and refuses silence',()=>{
+ const w=loader({'./persistence':{}})('src/core/whisper.ts');const samples=new Float32Array(48000).fill(0.5);const audio=w.encodeWave(samples,48000),bytes=Uint8Array.from(audio),view=new DataView(bytes.buffer);assert.equal(audio.length,32044);assert.equal(view.getUint32(24,true),16000);assert.equal(view.getUint16(22,true),1);assert.equal(view.getUint16(34,true),16);assert.equal(view.getInt16(44,true),16384);
+ assert.throws(()=>w.encodeWave(new Float32Array(16000),16000),/too quiet/);assert.throws(()=>w.encodeWave(new Float32Array(16000*16).fill(0.1),16000),/15 seconds/);assert.throws(()=>w.encodeWave(new Float32Array(100),16000),/too short/);assert.throws(()=>w.encodeWave(samples,NaN),/15 seconds/);
+ const clipped=w.encodeWave(new Float32Array(16000).fill(2),16000);assert.equal(new DataView(Uint8Array.from(clipped).buffer).getInt16(44,true),32767);
+});
+
+test('Whisper setup roundtrips through backups and old backups gain default paths without audio',()=>{
+ const values=new Map(),load=loader({'./persistence':{readStored:k=>values.get(k)??null,writeStored:(k,v)=>values.set(k,v)}}),w=load('src/core/whisper.ts'),backup=load('src/core/backup.ts');w.saveWhisper({exePath:'C:/whisper/whisper-cli.exe',modelPath:'C:/models/small.en.bin'});assert.equal(w.loadWhisper().modelPath,'C:/models/small.en.bin');const b=backup.snapshotBackup();assert.equal(backup.validateBackup(JSON.stringify(b)).data['mana.whisper.v1'].exePath,'C:/whisper/whisper-cli.exe');delete b.data['mana.whisper.v1'];assert.equal(backup.validateBackup(JSON.stringify(b)).data['mana.whisper.v1'].modelPath,w.DEFAULT_WHISPER.modelPath);b.data['mana.whisper.v1']={...w.DEFAULT_WHISPER,audio:[1,2]};assert.throws(()=>backup.validateBackup(JSON.stringify(b)),/mana.whisper/);
+});
+
+
+test('Whisper cancellation while permission is pending closes a late microphone stream',async()=>{
+ let resolvePermission,permissionStarted,stopped=0;const permissionReady=new Promise(resolve=>permissionStarted=resolve);const permission=new Promise(resolve=>resolvePermission=resolve),calls=[],effects=[];
+ const load=loader({'react':{useState:v=>[typeof v==='function'?v():v,()=>{}],useRef:v=>({current:v}),useEffect:fn=>effects.push(fn)},'./persistence':{readStored:()=>null,writeStored:()=>{}},'@tauri-apps/api/core':{invoke:async name=>{calls.push(name);}}},{navigator:{mediaDevices:{getUserMedia:()=>{permissionStarted();return permission;}}},setTimeout,clearTimeout,AudioContext:class{constructor(){assert.fail('cancelled recording must not create context');}}});
+ const w=load('src/core/useWhisper.ts').useWhisper(()=>assert.fail('cancelled text must not reach review'),['Mana']);const cleanups=effects.map(effect=>effect()).filter(cleanup=>typeof cleanup==='function');const cleanup=()=>cleanups.forEach(fn=>fn());const pending=w.start();await permissionReady;await w.cancel();resolvePermission({getTracks:()=>[{stop(){stopped++;}}]});await pending;assert.equal(stopped,1);assert.ok(!calls.includes('whisper_start'));cleanup();
+});
+
+
+test('microphone display level handles silence, invalid samples and clipping',()=>{
+ const w=loader({'./persistence':{}})('src/core/whisper.ts');assert.equal(w.microphoneLevel(new Float32Array()),0);assert.equal(w.microphoneLevel(new Float32Array([0,0])),0);assert.equal(w.microphoneLevel(new Float32Array([NaN,Infinity])),0);assert.equal(w.microphoneLevel(new Float32Array([2,-2])),1);assert.ok(w.microphoneLevel(new Float32Array([0.1,-0.1]))>w.microphoneLevel(new Float32Array([0.01,-0.01])));
+});
+
+
+test('hands-free endpoint waits for sustained voice and a pause, ignoring a short noise burst',()=>{
+ const {SpeechEndpoint}=loader()('src/core/handsFree.ts');const detector=new SpeechEndpoint();detector.step(0,500);detector.step(0,200);assert.equal(detector.step(0.1,100),'wait');for(let i=0;i<4;i++)assert.equal(detector.step(0,300),'wait');assert.equal(detector.step(0.03,300),'wait');assert.equal(detector.step(0,500),'wait');assert.equal(detector.step(0,500),'wait');assert.equal(detector.step(0,200),'finish');
+ const silent=new SpeechEndpoint();let result;for(let i=0;i<16;i++)result=silent.step(0,500);assert.equal(result,'silence');
+ const ongoing=new SpeechEndpoint();ongoing.step(0,500);ongoing.step(0,200);for(let i=0;i<10;i++)assert.equal(ongoing.step(0.03,500),'wait');assert.equal(ongoing.step(0,500),'wait');assert.equal(ongoing.step(0.03,300),'wait');assert.equal(ongoing.step(0,500),'wait');
+});
+
+
+test('hands-free rejects sound captions and steady fan noise while allowing voice above background',()=>{
+ const h=loader()('src/core/handsFree.ts');for(const text of ['[Music]','[XBOX SOUND]','(background noise)','♪♫','[Music] [Noise]'])assert.equal(h.hasSpokenWords(text),false);assert.equal(h.hasSpokenWords('Hello Mana'),true);assert.equal(h.hasSpokenWords('I like music [Music]'),true);
+ const fan=new h.SpeechEndpoint();let decision;for(let i=0;i<16;i++)decision=fan.step(0.025,500);assert.equal(decision,'silence');const voice=new h.SpeechEndpoint();voice.step(0.02,500);voice.step(0.02,200);assert.equal(voice.step(0.08,300),'wait');voice.step(0.02,500);voice.step(0.02,500);assert.equal(voice.step(0.02,200),'finish');
 });

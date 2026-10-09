@@ -9,6 +9,105 @@ Project history: [Changelog](docs/CHANGELOG.md) · [Dev log](docs/DEVLOG.md) ·
 [Vision and implementation](docs/ManaAI.md). The logs include a retrospective
 backfill with stated evidence limits; new meaningful changes should update both logs.
 
+## Hands-free voice mode (V1.x)
+
+**Start hands-free** explicitly enables automatic sending: speak, pause for about 1.2 seconds, then Mana transcribes, sends, reads her reply and resumes listening after playback. Whisper and an installed read-aloud voice are required, with nonzero volume and an empty draft/no attachment/review. The mode is off after restart and never enables itself. **Stop hands-free** cancels capture/transcription, stops reply playback and interrupts its pending chat reply. Windows review mode stays available separately.
+
+Wait briefly for the 700 ms background calibration before speaking. Caption-only results such as [Music] are not automatically sent. Pause detection uses input amplitude above the measured background with a 300 ms voice threshold, not a trained voice detector. Eight seconds without detected speech stops the mode; continuous speech is bounded to 15 seconds per turn. Recognition/playback/model errors and hiding the app also stop it. The microphone is released during chat/playback and there is a brief delay before resuming. Headphones reduce feedback. Recognition may be wrong; use review mode when you need to check wording before sending. No audio enters backups and the existing temporary-file deletion behavior applies. User confirmed all four hands-free checks passed after the background-noise repair.
+
+## Voice input controls
+
+The compact **Voice input** row keeps Record/Transcribe/Cancel accessible. Click **Voice input** to expand recognizer/language settings and Whisper paths. Setup is collapsed by default for each session. While Whisper records, a timer shows elapsed time out of 15 seconds and an input-level meter responds to the captured audio (signal level, not accuracy). Transcription review uses a full-width editable box with Add to draft/Discard. Avatar comparison options appear only with an attached image.
+
+## Local Whisper transcription (V1.x)
+
+Restart Mana, select **Local Whisper (English)**, click **Record microphone**, speak, then **Transcribe recording**. Review/edit the result, **Add to draft**, then Send. Recording stops automatically at 15 seconds; Cancel discards recording/transcription. Windows recognition remains selectable as fallback. Allow the app microphone permission when Windows asks. Whisper setup saves executable/model paths; the installed defaults are `data/whisper/runtime/Release/whisper-cli.exe` and `data/whisper/ggml-small.en.bin` under this checkout. CPU processing leaves the chat GPU available. English only in this first integration.
+
+Runtime/model are downloaded from whisper.cpp releases and its published model repository, ignored by Git and excluded from backups. Capture is held in memory, converted to 16 kHz mono PCM, then passed through a temporary WAV under Mana app data for the CLI. WAV/transcript files are removed on completion, cancellation, failure and normal app exit; a hard crash can leave temporary files. Silence/very quiet clips are rejected. Audio is never added to chat or backups. Whisper does not provide the Windows alternatives/confidence score; review remains necessary because models can mishear or hallucinate.
+
+Synthetic “Hello Mana. How are you today?” transcribed correctly. User also confirmed accurate live “Hello Mana, how are you today?” and “My name is Aishi” transcription. Broader accuracy and remaining manual edge checks are not yet established.
+
+## Microphone input (V1.x)
+
+**Microphone** listens for one phrase using an installed Windows speech language and the default input device. Recognition opens a review box with editable text and any Windows alternatives. Choose **Add to draft**, then press Send yourself. Normal dictation remains available alongside phrases for the configured companion/user names and greetings. Recognizer confidence is a score, not measured accuracy; low scores prompt extra review. **Cancel listening** discards pending recognition. Listening ends after a phrase, 8 seconds of initial silence or a 30-second overall limit. No automatic listening, audio files, audio backups or automatic sending. Read-aloud playback and sending are disabled while listening to avoid feedback. Language selection is session-only. If unavailable, check Windows speech language installation, microphone privacy permissions and default input device. Restart the desktop app for the new native commands.
+
+User confirmed basic live capture works, but reported Mana → Mantle and Hello → Pedal errors. Name/greeting tuning needs a live retest. Installed recognizer enumeration and synthetic audio recognition were checked without opening the microphone.
+
+## Image understanding (V1.x)
+
+The chat checkbox **Compare attached images with current avatar** sends a second, neutral full-body avatar image to vision. It follows the current skin, hair, outfit and accessories, independent of stage zoom, blinking or speech. Comparison is on by default for this session and can be disabled. The reference is transient (not added to Saved images); only its uncertain comparison report is retained. Two-image inspection may take longer on CPU. Comparison reports require sections for both appearances, similarities, differences and resemblance; an incomplete report keeps the attachment for retry. Similarity supports “looks like Mana,” not proven identity or authorship. The separate More → Images review panel still inspects one image.
+
+**In chat:** click **Attach image**, choose a PNG/JPEG, type your question and **Send**.
+The saved vision setup loads automatically when needed. Mana receives the vision
+description and answers normally, including voice/lipsync when enabled. **Stop** cancels
+image inspection; failed/stopped inspections leave the question and attachment for retry.
+An image alone uses “What do you notice in this image?” as the question. CPU loading/
+inspection may take time. Configure the model/projector first in **More → Images**.
+
+The chat keeps your question plus a collapsible **Image** description and filename.
+Descriptions persist through restart, archive, backup and text export and remain marked
+as uncertain vision output. New composer attachments also save the prepared JPEG locally
+(up to 1280 pixels on the long edge), with a thumbnail after restart. Expand **Image**
+and choose **Use image again** to attach the saved copy for a fresh inspection.
+**More → Saved images** searches/deletes saved pixels; descriptions remain in linked
+chat and archives. Images are included in JSON backups, but not text exports.
+The library allows 100 images and 8 MB of encoded image data; identical copies reuse
+one entry. At the limit, delete an image before retrying; nothing is automatically pruned.
+Older description-only messages need the original image reattached. Older backups and
+restore safety copies can still contain images you later delete.
+Fresh image replies focus on that image's report, excluding earlier scenes and unrelated
+project context. Filenames are displayed but not supplied as identity cues to the model.
+Normal text follow-ups retain history; reliable image comparisons remain future work.
+Vision servers launched for a chat attachment stop after inspection; external servers
+remain running. There is no automatic self-recognition or artwork-authorship verification.
+
+Open **More → Images**. Mana keeps her existing chat model and uses a separate local
+llama-server with a vision GGUF and matching projector. The installed Qwen3-VL-8B
+model/projector pair in `Downloads/AI models` is detected when setup is empty; otherwise
+browse to both files. Port defaults to **8081** and GPU layers to **0** (CPU, including
+the projector). CPU inference can take time while the chat model occupies GPU memory.
+
+Click **Start / connect vision**, attach a **PNG/JPEG under 10 MB**, enter a question,
+then **Inspect image**. The preview is resized locally to at most 1280 pixels on its
+long edge. Review the vision description and click **Discuss with Mana** to send it
+into normal chat. The chat model receives the description, not image pixels; the
+description may contain mistakes. The vision model's `/props` must report image support.
+
+This separate review panel keeps its preview transient. Discuss saves the
+description/question as a chat message; model paths/port/GPU settings are in backups.
+Close/Stop stops a vision server Mana launched; an existing external server is only
+disconnected. No camera, desktop capture, self-recognition, authorship verification or
+automatic memories. Setup failures write `vision-server.log` in Mana's app-data folder.
+Restart the desktop app after the native-command update.
+
+## Read-aloud (V1.x)
+
+In the Windows desktop app, open **Voice** in the chat toolbar to choose an installed
+Windows speech voice, then click **Speak** below a completed Mana reply. **Stop voice**
+cancels playback independently of the chat model. Playback also works with the model
+off. Voice selection and **Automatically read new replies** are saved across restarts
+and included in backups. Automatic playback defaults off and reads new completed replies
+once; startup history, streaming replies, errors and diagnostics are not spoken. There
+is no queue: replies completed while voice playback is occupied are skipped. Turning
+automatic playback off stops the current voice. An unavailable saved voice requires
+choosing an installed voice; Mana does not silently substitute one.
+
+**Speed** ranges from slower (-10) through normal (0) to faster (+10); **Volume**
+ranges from 0% (muted) to 100%. Both settings are saved across restarts and backups
+and apply to the next manual or automatic playback. They change Mana's speech output,
+not the Windows master volume. Native mouth timing follows the chosen speed.
+
+Windows PowerShell and System.Speech are used
+locally; no voice download, custom training or audio upload is involved. Missing voices
+or synthesis failures are shown in the chat toolbar. During Windows read-aloud, native
+speech mouth-shape events drive the avatar's five vowel images. Silence, completion and
+Stop voice return to the emotion's resting mouth; earlier playback events are ignored.
+This is approximate articulation using existing artwork, not a full phoneme rig. With
+a Windows voice available, chat streaming alone does not animate speech. The avatar
+Test preview and browser/no-voice fallback retain their text-timed animation.
+Custom Mana voice and singing remain
+future work. Restart the desktop dev app after this native-command update.
+
 ## Run it
 
 ```powershell

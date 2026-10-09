@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Avatar from "./Avatar";
 import { EMOTION_MAP, VIEWS, buildLayers, requiredProblem } from "../core/avatar";
-import type { AvatarConfig } from "../core/avatar";
+import type { AvatarConfig, Vowel } from "../core/avatar";
 import { uid } from "../core/types";
 import type { AvatarState } from "../core/useAvatar";
 import type { Speech } from "../core/useLipSync";
 
 interface Props {
+  voiceMouth?:Vowel|null;
   charName: string;
   emotion: string | null;
   busy: boolean;
@@ -17,7 +18,7 @@ interface Props {
   onOpenWardrobe: () => void;
 }
 
-export default function StagePanel({ charName, emotion, busy, speech, avatar, cfg, onCfg, onOpenWardrobe }: Props) {
+export default function StagePanel({ charName, emotion, busy, speech, voiceMouth, avatar, cfg, onCfg, onOpenWardrobe }: Props) {
   const { assets, status, error, reload } = avatar;
   const layers = useMemo(() => (assets ? buildLayers(assets, cfg) : []), [assets, cfg]);
   const problem = assets ? requiredProblem(assets, cfg) : null;
@@ -33,6 +34,8 @@ export default function StagePanel({ charName, emotion, busy, speech, avatar, cf
   const [preview, setPreview] = useState<string | null>(null);
   const [testSpeech, setTestSpeech] = useState<Speech | null>(null);
   const timer = useRef<number | null>(null);
+
+  useEffect(()=>{if(voiceMouth){setTestSpeech(null);setPreview(null);}},[voiceMouth]);
 
   useEffect(() => {
     if (busy) {
@@ -74,7 +77,7 @@ export default function StagePanel({ charName, emotion, busy, speech, avatar, cf
 
       <div className="avatar-area">
         {status === "ready" && !problem && layers.length > 0 ? (
-          <Avatar layers={layers} emotion={liveEmotion} speech={liveSpeech} view={view} onWheelZoom={wheelZoom} />
+          <Avatar layers={layers} emotion={liveEmotion} speech={liveSpeech} voiceMouth={testSpeech?undefined:voiceMouth} view={view} onWheelZoom={wheelZoom} />
         ) : (
           <p className="avatar-msg">
             {status === "loading" ? "Loading her avatar..." : problem || error || "No images found in the avatar folder."}

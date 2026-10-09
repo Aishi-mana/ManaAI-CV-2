@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import { BLINK, EMOTION_MAP } from "../core/avatar";
-import type { Layer } from "../core/avatar";
+import type { Layer, Vowel } from "../core/avatar";
 import { useLipSync } from "../core/useLipSync";
 import type { Speech } from "../core/useLipSync";
 
 interface Props {
+  voiceMouth?:Vowel|null;
   layers: Layer[];
   emotion: string;
   speech: Speech | null;
@@ -14,10 +15,10 @@ interface Props {
 }
 
 /** The living paper doll: stacked PNG layers + blinking + lip sync + idle bob + zoomable view. */
-export default function Avatar({ layers, emotion, speech, view, onWheelZoom }: Props) {
+export default function Avatar({ layers, emotion, speech, voiceMouth, view, onWheelZoom }: Props) {
   const [blink, setBlink] = useState<"open" | "half" | "closed">("open");
   const [ratio, setRatio] = useState(0.66);
-  const vowel = useLipSync(speech);
+  const vowel = useLipSync(voiceMouth===undefined?speech:null);
 
   // Match the display box to the canvas shape so zooming lines up with the picture.
   const firstUrl = layers[0]?.url;
@@ -53,7 +54,7 @@ export default function Avatar({ layers, emotion, speech, view, onWheelZoom }: P
 
   const look = EMOTION_MAP[emotion] ?? EMOTION_MAP.neutral;
   const activeEyes = blink === "closed" ? BLINK.closed : blink === "half" ? BLINK.half : look.eyes;
-  const activeMouth = vowel ? `mouth_${vowel}` : look.mouth;
+  const activeMouth = voiceMouth===undefined ? (vowel ? `mouth_${vowel}` : look.mouth) : (voiceMouth ? `mouth_${voiceMouth}` : look.mouth);
 
   const fitStyle = { "--ratio": ratio } as CSSProperties;
   const zoomStyle = { "--vs": view.scale, "--vy": `${view.y}%` } as CSSProperties;

@@ -99,6 +99,15 @@ and profile prose. Long-session stability and regression review remain ongoing q
 
 ## V1.x — Growing Mana
 
+### Future interface polish
+
+- [ ] Replace word-heavy action buttons with clear, consistent icons to reduce crowding.
+- [ ] Add descriptive tooltips on hover and keyboard focus, plus accessible names for screen readers.
+- [ ] Keep start/stop, recording, playback and disabled states easy to distinguish; retain text where an icon alone would be ambiguous.
+
+User-requested enhancement, deferred for future implementation; current buttons are unchanged.
+
+
 Current development remains in V1.x. The continuity foundations below do not complete
 all V1.x scope or imply readiness to move to the V2 room. Skills, TTS/singing,
 multimodality, runnable game/code work and broader routines still have open items.
@@ -223,9 +232,22 @@ do not use this context. Identity, mood and relationship stats remain unchanged.
 - [x] Interest enthusiasm foundation (Identity names, editable levels, accepted-goal reinforcement)
 - [x] Skill progression foundation (user-confirmed practice counts, milestones and source snapshots)
 - [ ] Assessed skill competence and verified-execution progression
-- [ ] TTS
+- [x] Manual Windows TTS foundation (installed voice selection, completed reply Speak/Stop)
+- [x] Persistent voice preferences and opt-in automatic playback of new completed replies
+- [x] Saved speech speed and volume (manual/automatic playback, old-backup defaults)
+- [x] Voice-timed mouth foundation (Windows viseme events mapped to five vowel images)
+- [ ] Refined articulation and timing calibration across voices
+- [ ] Custom trained Mana voice / singing
 - [ ] Singing
-- [ ] Image understanding
+- [x] User-selected image understanding foundation (separate local vision model, reviewed description to chat)
+- [x] Inline chat attachments (vision description behind the scenes, normal reply/voice, retry/cancel)
+- [x] Local prepared image persistence, thumbnails, explicit deletion and backup support (V1.x; manual tests 1–4 passed)
+- [x] Explicit hands-free Whisper conversation loop (V1.x; all four manual checks passed after background-noise repair)
+- [x] Compact voice input setup, full-width review, Whisper recording timer and level meter (all four manual checks passed)
+- [x] Local CPU Whisper English transcription with review (V1.x; synthetic smoke and live Mana/Aishi phrases passed; remaining manual edge checks pending)
+- [x] One-phrase microphone transcription to reviewed draft (V1.x; basic live capture confirmed; name/greeting tuning and review implemented, accuracy retest pending)
+- [x] Current avatar visual reference comparison (V1.x; all four manual checks passed after repair)
+- [ ] Improved image understanding, direct multimodal chat and verified image provenance
 - [ ] Self-recognition
 - [ ] Image generation
 - [ ] Artwork provenance/self-recognition

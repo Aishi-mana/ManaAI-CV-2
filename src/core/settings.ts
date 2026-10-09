@@ -4,6 +4,7 @@ import { uid } from "./types";
 import { integerInRange, isRecord, nonEmptyString } from "./validation";
 import { readStored, writeStored } from "./persistence";
 import { validateDiagnostics } from "./conversation";
+import { validateImageReport } from './vision';
 
 export interface Settings {
   exePath: string;
@@ -109,6 +110,7 @@ export function validateChat(value: unknown, limit = 200): Msg[] {
     ids.add(id);
     const message: Msg = { id, role: entry.role, content: entry.content };
     if (typeof entry.error === "string") message.error = entry.error;
+    if(entry.role==='user'&&entry.imageReport!==undefined){const report=validateImageReport(entry.imageReport);if(report)message.imageReport=report;}
     if (entry.role === "assistant") message.diagnostics = validateDiagnostics(entry.diagnostics);
     if (typeof entry.createdAt === "string" && Number.isFinite(Date.parse(entry.createdAt))) message.createdAt = entry.createdAt;
     messages.push(message);

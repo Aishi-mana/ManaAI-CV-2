@@ -5,7 +5,39 @@ Repository: [Aishi-mana/ManaAI-CV-2](https://github.com/Aishi-mana/ManaAI-CV-2.g
 Inspected 2026-10-09. This is a guide to the source layout, not an exhaustive file
 listing. Update it when modules or storage responsibilities move.
 
+Microphone input: `src-tauri/src/dictation.rs` owns the cancellable hidden System.Speech recognition helper and language enumeration. `src/core/useDictation.ts` controls launch/poll/cancel and suppresses late cancelled results; `src/core/dictation.ts` validates recognizer lists and draft transcription. ChatPanel appends accepted text to the current draft. No persisted audio or new storage key.
+
+Local transcription: `src/core/whisper.ts` validates persisted CLI/model setup and encodes bounded 16 kHz PCM WAVs; `useWhisper.ts` owns WebView capture, track/context cleanup and cancellation tokens. `src-tauri/src/whisper.rs` validates audio, owns CPU CLI inference and temporary WAV/text cleanup. `mana.whisper.v1` stores setup in SQLite/backups. Runtime/model live under ignored `data/whisper`; audio exists only in memory or the app-data `transcription-temp` directory while CLI inference runs. Windows recognition and its review UI remain available.
+
 ## Main directories
+
+`src/core/avatarReference.ts` renders current configured layers in neutral expression into a transient 640-pixel JPEG. ChatPanel offers session-only comparison; App passes the reference through visionChat to the two-image vision request. Saved reports mark reference comparison as resemblance evidence only.
+
+Image understanding: `src/components/VisionDrawer.tsx` manages setup/preview/review;
+`src/core/vision.ts` validates saved settings, prepares bounded inline images, checks
+server vision capability and builds text discussion context. `src-tauri/src/vision.rs`
+owns an independent hidden local server and detects the installed Qwen3-VL pair.
+`mana.vision.v1` stores setup in SQLite/backups; the separate review panel is transient
+until the user shares its report text. `scripts/vision-smoke.py` is a manual
+CPU inference check that owns and cleans up a temporary server; its log is ignored.
+`src/core/visionChat.ts` owns per-message startup/inference/cleanup for composer
+attachments. ChatPanel prepares the transient preview; App serializes vision then chat.
+`src/core/savedImages.ts` validates/deduplicates prepared JPEGs under 100-image/8 MB
+encoded-data limits. `mana.images.v1` stores pixels in SQLite and JSON backups.
+`SavedImagesDrawer` searches/deletes pixels; `ImageReportView` displays linked chat/archive
+thumbnails and allows reuse in current chat. Deletion preserves source descriptions.
+Optional `Msg.imageReport` stores filename/description and a saved-image ID, validated with chat and
+retained in archives/backups/export. The request builder supplies uncertain report text.
+
+Read-aloud: `src/core/useSpeech.ts` coordinates chat controls and native status;
+`src-tauri/src/speech.rs` enumerates Windows voices and owns the cancellable hidden
+System.Speech helper. `src/core/speechPreferences.ts` validates saved voice/automatic
+preferences (`mana.speech.v1` in SQLite/backups) and tracks new replies for once-only playback.
+Preferences include voice, automatic playback, integer speech rate and speech volume;
+the native helper applies speed/volume before synthesis.
+`src/core/speechMouth.ts` maps native visemes and rejects stale playback IDs; ChatPanel
+passes mouth updates through App/StagePanel to Avatar. Text-timed useLipSync remains for
+the avatar Test preview and browser/no-voice fallback.
 
 ```text
 ManaAI-CV-2/

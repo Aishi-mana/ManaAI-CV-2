@@ -98,6 +98,17 @@ Planned capabilities include:
 ### Voice
 
 - Text-to-speech.
+- V1.x manual read-aloud foundation implemented: chat Voice selection and completed
+  reply Speak/Stop use local installed Windows voices, even with the model off. Choice
+  and opt-in automatic playback are saved across restarts/backups. Automatic playback
+  defaults off, consumes new completed replies once and never replays loaded history.
+  Windows viseme events now drive the five vowel mouth images during playback; silence,
+  Stop and completion restore the resting expression. Articulation is approximate with
+  existing artwork. Custom training and refined articulation remain future work. Errors
+  and diagnostic attempts are excluded from playback.
+  Saved speed (-10..10, normal 0) and volume (0..100%, default 100%) apply to the next
+  playback. Volume affects speech only; 0% is muted. Older backups default the new
+  fields while retaining voice/automatic choices. Native lipsync timing follows speed.
 - A recognizable Mana voice.
 - Singing.
 - Investigation of local voice/singing systems such as GPT-SoVITS or suitable alternatives.
@@ -129,6 +140,22 @@ She should eventually be able to:
 - continue the conversation later when appropriate.
 
 ### Creativity
+
+The V1.x image-understanding foundation is implemented in More → Images and the chat
+composer. Attach image then Send performs
+inspection behind the scenes and routes its description into normal chat/voice/lipsync.
+The original question and bounded, uncertain image description persist together; prepared JPEG pixels also persist for new composer attachments. Older
+description-only records cannot recover their pixels automatically. Original uploads
+do not. Stop/failure keeps the unsent attachment for retry. Setup remains in More → Images.
+Fresh image replies isolate current scene evidence from earlier image/chat guesses and
+unrelated saved projects; filenames remain visible metadata but are excluded from model
+context. This improves grounding without proving identity recognition or perfect adherence.
+The separate local vision server inspects one user-selected PNG/JPEG and provides a transient
+description for review. Discuss shares that text with Mana's existing chat model;
+this panel preview stays transient; composer attachments are stored locally and in backups. Setup persists separately and defaults to CPU
+mode. This does not establish self-recognition, artwork authorship, image generation,
+camera/desktop access or automatically adopted memories. User confirmation and later
+provenance work remain necessary for those planned capabilities.
 
 Mana should eventually be able to:
 

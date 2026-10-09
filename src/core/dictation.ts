@@ -1,0 +1,6 @@
+export interface RecognitionLanguage{id:string;name:string;language:string}
+export function recognitionLanguages(value:unknown):RecognitionLanguage[]{if(!Array.isArray(value))return [];return value.filter((v):v is RecognitionLanguage=>!!v&&typeof v==='object'&&typeof v.id==='string'&&v.id.trim().length>0&&v.id.length<=500&&typeof v.name==='string'&&typeof v.language==='string');}
+export function reviewedDraft(draft:string,transcript:unknown):string{if(typeof transcript!=='string')throw Error('Dictation returned invalid text.');const text=transcript.trim();if(!text||text.length>10000)throw Error('No usable speech recognized. Try a shorter phrase.');return draft+(draft&&!/\s$/.test(draft)?' ':'')+text;}
+
+export interface DictationReview{text:string;confidence:number|null;alternatives:string[]}
+export function dictationReview(value:{text?:unknown;confidence?:unknown;alternatives?:unknown}):DictationReview{const text=reviewedDraft('',value.text);const confidence=typeof value.confidence==='number'&&Number.isFinite(value.confidence)&&value.confidence>=0&&value.confidence<=1?value.confidence:null;const alternatives=Array.isArray(value.alternatives)?[...new Set(value.alternatives.filter((v):v is string=>typeof v==='string'&&!!v.trim()&&v.length<=10000).map(v=>v.trim()))].filter(v=>v!==text).slice(0,4):[];return {text,confidence,alternatives};}

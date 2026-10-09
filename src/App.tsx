@@ -1,5 +1,12 @@
+import { prepareAvatarReference } from './core/avatarReference';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import ChatPanel from "./components/ChatPanel";
+import VisionDrawer from './components/VisionDrawer';
+import SavedImagesDrawer from './components/SavedImagesDrawer';
+import { loadSavedImages, saveSavedImages, retainImage } from './core/savedImages';
+import { inspectForChat } from './core/visionChat';
+import { loadVisionSettings } from './core/vision';
+import type { ImageAttachment } from './core/vision';
 import MoreTools from './components/MoreTools';
 import SkillsDrawer from './components/SkillsDrawer';
 import {loadPractice,savePractice,skillsContext} from './core/skills';
@@ -48,7 +55,7 @@ import { activityContext } from "./core/activity";
 import { identityContext, memoryContext, loadIdentity, loadMemories, saveIdentity, saveMemories, retrieveMemories, memoriesToReinforce, reinforceMemories } from "./core/character";
 import { loadMemoryReviews, saveMemoryReviews, suggestMemories } from "./core/memorySuggestions";
 import { loadAvatarConfig, saveAvatarConfig } from "./core/avatar";
-import type { AvatarConfig } from "./core/avatar";
+import type { AvatarConfig, Vowel } from "./core/avatar";
 import { cleanReply } from "./core/emotion";
 import { buildPayload, streamChat, echoedChatReply } from "./core/llm";
 import { conversationGuidance, conversationIssue, unsupportedCapability, simpleComparisonPayload } from "./core/conversation";
@@ -71,6 +78,12 @@ const STATUS_LABEL = {
 } as const;
 
 export default function App() {
+  const [showVision,setShowVision]=useState(false);
+  const [savedImages,setSavedImages]=useState(loadSavedImages);
+  const savedImagesRef=useRef(savedImages);savedImagesRef.current=savedImages;
+  const [showSavedImages,setShowSavedImages]=useState(false);
+  const [imageStatus,setImageStatus]=useState('');
+  const [imageError,setImageError]=useState('');
   const [settings, setSettings] = useState<Settings>(loadSettings);
   const [practice,setPractice]=useState(loadPractice);
   const [showSkills,setShowSkills]=useState(false);
@@ -149,6 +162,7 @@ export default function App() {
   const [memoryReviews, setMemoryReviews] = useState(loadMemoryReviews);
   const suggestions = useMemo(() => suggestMemories(messages, memories, memoryReviews, settings.charName), [messages, memories, memoryReviews, settings.charName]);
   const [savedCfg, setSavedCfg] = useState<AvatarConfig>(loadAvatarConfig);
+  const [voiceMouth,setVoiceMouth]=useState<Vowel|null|undefined>(undefined);
   const abortRef = useRef<AbortController | null>(null);
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
@@ -329,14 +343,14 @@ export default function App() {
         setInitiativeStatus("");
         return;
       }
-      if (document.visibilityState !== "visible" || showSkills || showNarratives || narrativeDraft || showEvents || showSettings || showMemories || showState || showDiary || showWardrobe || showGoals || showFollowups || showActivities || showChatArchives || showThoughts || thoughtDraft || archiving) return;
+      if (document.visibilityState !== "visible" || showSavedImages || showVision || showSkills || showNarratives || narrativeDraft || showEvents || showSettings || showMemories || showState || showDiary || showWardrobe || showGoals || showFollowups || showActivities || showChatArchives || showThoughts || thoughtDraft || archiving) return;
       // A due daily journal has priority over initiating a chat.
       if (dueJournalDate(journalRef.current, diaryRef.current)) return;
       void startConversation();
     };
     const timer = window.setInterval(check, 30_000);
     return () => window.clearInterval(timer);
-  }, [initiative, busy, reflecting, reflectionDraft, llama.status, storage.error, companion.state, identity, memories, settings, goals, interests, work, followups, showActivities, showFollowups, showSettings, showMemories, showState, showDiary, showWardrobe, showGoals,showChatArchives,showThoughts,showEvents,showSkills,showNarratives,narrativeDraft,thoughtDraft,archiving]);
+  }, [initiative, busy, reflecting, reflectionDraft, llama.status, storage.error, companion.state, identity, memories, settings, goals, interests, work, followups, showActivities, showFollowups, showSettings, showMemories, showState, showDiary, showWardrobe, showGoals,showChatArchives,showThoughts,showEvents,showSkills,showNarratives,narrativeDraft,thoughtDraft,archiving,showVision,showSavedImages]);
 
   async function generateActivityReply(id:string){
     if(abortRef.current||busy||reflecting||storage.error||llama.status!=='ready')return;
@@ -398,7 +412,7 @@ export default function App() {
 
   useEffect(() => {
     const check = () => {
-      if (busy || reflecting || reflectionDraft || hasChatDraft.current || abortRef.current || llama.status !== "ready" || storage.error || Date.now() < journalRetryAfter.current) return;
+      if (showSavedImages || showVision || busy || reflecting || reflectionDraft || hasChatDraft.current || abortRef.current || llama.status !== "ready" || storage.error || Date.now() < journalRetryAfter.current) return;
       if (Date.now()-journalOpenedAt.current < 120_000) return;
       const date = dueJournalDate(journalRef.current,diaryRef.current);
       if (!date) return;
@@ -410,7 +424,7 @@ export default function App() {
     check();
     const timer = window.setInterval(check,30_000);
     return () => window.clearInterval(timer);
-  }, [busy,reflecting,reflectionDraft,llama.status,journal,diary,identity,memories,goals,work,companion.state,settings,storage.error]);
+  }, [busy,reflecting,reflectionDraft,llama.status,journal,diary,identity,memories,goals,work,companion.state,settings,storage.error,showVision,showSavedImages]);
 
   async function draftThought() {
     if(!thoughts.enabled||thoughts.entries.length>=100||thoughtDraft||busy||reflecting||abortRef.current||storage.error||llama.status!=='ready')return;
@@ -506,7 +520,29 @@ export default function App() {
   const emotion = busy ? lastClean?.emotion ?? "thinking" : stateMood(companion.state);
   const speech = lastBot && lastClean ? { id: lastBot.id, text: lastClean.text } : null;
 
-  async function send(text: string) {
+  async function sendAttachment(text:string,image?:ImageAttachment,compareAvatar=false):Promise<boolean>{
+    if(abortRef.current||reflecting||storage.error||llama.status!=='ready')return false;
+    setImageError('');
+    if(!image){void send(text);return true;}
+    const controller=new AbortController();abortRef.current=controller;setBusy(true);setImageStatus('Checking vision model…');
+    const timeout=setTimeout(()=>controller.abort(),240000);
+    let report:Msg['imageReport'];
+    try{
+      const retained=retainImage(savedImagesRef.current,image);
+      const reference=compareAvatar&&avatar.assets?await prepareAvatarReference(avatar.assets,cfg,controller.signal):undefined;
+      report=await inspectForChat(loadVisionSettings(),settings.exePath,llama.port,image,text,controller.signal,setImageStatus,reference);
+      if(controller.signal.aborted)return false;
+      saveSavedImages(retained.images);savedImagesRef.current=retained.images;setSavedImages(retained.images);
+      await flushPersistence();
+      report.imageId=retained.imageId;
+    }
+    catch(e){setImageError(controller.signal.aborted?'Image request stopped or timed out. Your attachment is still in the composer.':String(e));return false;}
+    finally{clearTimeout(timeout);abortRef.current=null;setBusy(false);setImageStatus('');}
+    if(controller.signal.aborted)return false;
+    void send(text,report);return true;
+  }
+
+  async function send(text: string,imageReport?:Msg['imageReport']) {
     if (abortRef.current || reflecting) return;
     const now = new Date().toISOString();
     lastActivityAt.current = Date.now();
@@ -526,6 +562,7 @@ export default function App() {
       else if (pendingOpening) changeInitiative(resolveInitiative(initiativeRef.current));
     }
     const userMsg: Msg = { id: uid(), role: "user", content: text, createdAt:now };
+    if(imageReport)userMsg.imageReport=imageReport;
     const proposedFollowup=suggestFollowups([userMsg],followupsRef.current,journalRef.current.timeZone)[0];
     if(proposedFollowup)waitingContext+=`\nThe application recognized a proposed follow-up, not an accepted reminder: ${JSON.stringify(proposedFollowup)}. Briefly tell the user they can review/save it in Follow-ups. Do not claim it is scheduled, set an alarm, or promise a notification at an exact time. Due notes only inform normal opt-in conversation starters while the app is open.`;
     const botMsg: Msg = { id: uid(), role: "assistant", content: "", createdAt:now };
@@ -556,7 +593,9 @@ export default function App() {
     // model guesses and generic work excerpts must not compete with that evidence.
     const replyHistory=lessonFocus?history.slice(-1):history;
     const replyStyle=replyStyleReminder(loadPersonality())+lessonFocus;
-    const currentContext = identityContext(identity, settings.charName, settings.userName)
+    const currentContext = imageReport
+      ? identityContext(identity,settings.charName,settings.userName)+internalStateContext(stateForReply)+clockContext(new Date(now),journalRef.current.timeZone,history,companion.state.lastConversationAt)
+      : identityContext(identity, settings.charName, settings.userName)
       + (lessonFocus?'':workContext(work))
       + interestsContext(interests,identity.interests)
       + goalsContext(goals)
@@ -570,7 +609,7 @@ export default function App() {
       + memoryContext(memories, text, recentUserText, settings.charName, settings.userName)
       + (lessonFocus?'':episodeContext(episodes,text))
       + narrativeGuide;
-    const practiceContext=skillsContext(practice,text);
+    const practiceContext=imageReport?'':skillsContext(practice,text);
 
     try {
       await streamChat({
@@ -684,6 +723,7 @@ export default function App() {
         emotion={emotion}
         busy={busy}
         speech={speech}
+        voiceMouth={voiceMouth}
         avatar={avatar}
         cfg={cfg}
         onCfg={changeCfg}
@@ -721,6 +761,8 @@ export default function App() {
           <button className="btn" onClick={()=>setShowEvents(true)}>Event history</button>
           <button className="btn" onClick={()=>setShowNarratives(true)}>Themes &amp; lessons</button>
           <button className="btn" onClick={()=>setShowSkills(true)}>Skills</button>
+          <button className="btn" disabled={busy||reflecting} onClick={()=>setShowVision(true)}>Images</button>
+          <button className="btn" onClick={()=>setShowSavedImages(true)}>Saved images</button>
           </MoreTools>
         </header>
 
@@ -761,11 +803,16 @@ export default function App() {
         </div>}
         {initiativeStatus && <div className="banner" role="status">{initiativeStatus}</div>}
         <ChatPanel
+          savedImages={savedImages}
+          avatarReferenceAvailable={!!avatar.assets}
+          imageStatus={imageStatus}
+          imageError={imageError}
+          onVoiceMouth={setVoiceMouth}
           messages={messages}
           busy={busy}
           ready={llama.status === "ready" && !reflecting}
           charName={settings.charName}
-          onSend={send}
+          onSend={sendAttachment}
           userName={settings.userName}
           onStop={() => abortRef.current?.abort()}
           onDraftChange={(draft) => { hasChatDraft.current = !!draft.trim(); setChatHasDraft(!!draft.trim()); lastActivityAt.current = Date.now(); }}
@@ -773,6 +820,8 @@ export default function App() {
         />
       </main>
 
+      {showSavedImages&&<SavedImagesDrawer images={savedImages} editable={!busy&&!reflecting&&!storage.error} onClose={()=>setShowSavedImages(false)} onDelete={id=>{if(busy||reflecting||storage.error)return;const next=savedImagesRef.current.filter(image=>image.id!==id);saveSavedImages(next);savedImagesRef.current=next;setSavedImages(next);}}/>}
+      {showVision&&<VisionDrawer exePath={settings.exePath} chatPort={llama.port} canDiscuss={llama.status==='ready'&&!busy&&!reflecting&&!storage.error} onBusy={setReflecting} onClose={()=>setShowVision(false)} onDiscuss={text=>{setShowVision(false);void send(text);}}/>}
       {showSettings && (
         <SettingsDrawer
           settings={settings}
@@ -856,7 +905,7 @@ export default function App() {
         onState={next=>{saveThoughts(next);setThoughts(next);}} onGenerate={()=>void draftThought()} onStop={()=>abortRef.current?.abort()}
         onSave={()=>{if(thoughtDraft&&thoughts.entries.length<100){const next={...thoughts,entries:[...thoughts.entries,thoughtDraft]};saveThoughts(next);setThoughts(next);setThoughtDraft(null);}}}
         onClose={()=>{if(thoughtGenerating)abortRef.current?.abort();setThoughtDraft(null);setShowThoughts(false);}}/>}
-      {showChatArchives&&<ChatArchivesDrawer archives={chatArchives} charName={settings.charName} userName={settings.userName}
+      {showChatArchives&&<ChatArchivesDrawer savedImages={savedImages} archives={chatArchives} charName={settings.charName} userName={settings.userName}
         onDelete={id=>{const next=chatArchives.filter(a=>a.id!==id);saveChatArchives(next);setChatArchives(next);}}
         onClose={()=>setShowChatArchives(false)}/>}
     </div>

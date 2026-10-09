@@ -5,6 +5,7 @@ export interface Msg {
   content: string;
   error?: string;
   createdAt?: string;
+  imageReport?: { filename:string; description:string; imageId?:string };
   diagnostics?: { attempts: { text: string; issue: "repetition" | "capability" | "return-role" | null }[]; comparison?: string };
 }
 

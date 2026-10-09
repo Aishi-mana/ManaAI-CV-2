@@ -1,3 +1,4 @@
+import {validateWhisper} from './whisper';
 import {readStored,flushPersistence,restoreStored} from './persistence';
 import {validateSettings,validateChat} from './settings';
 import {validateIdentity,validateMemories} from './character';
@@ -23,6 +24,9 @@ import {validateEvents} from './events';
 import {validateEpisodes} from './episodes';
 import {validateNarratives} from './narratives';
 import {validatePractice} from './skills';
+import {validateSpeechPreferences} from './speechPreferences';
+import {validateVisionSettings} from './vision';
+import {validateSavedImages} from './savedImages';
 
 const validators:Record<string,(value:unknown)=>unknown>={
  'mana.settings.v1':validateSettings,'mana.chat.v1':validateChat,'mana.identity.v1':validateIdentity,
@@ -40,6 +44,10 @@ const validators:Record<string,(value:unknown)=>unknown>={
  'mana.episodes.v1':validateEpisodes,
  'mana.narratives.v1':validateNarratives,
  'mana.skills.v1':validatePractice,
+ 'mana.speech.v1':validateSpeechPreferences,
+ 'mana.vision.v1':validateVisionSettings,
+ 'mana.images.v1':validateSavedImages,
+ 'mana.whisper.v1':validateWhisper,
 };
 export interface Backup {format:'mana-backup';version:1;createdAt:string;data:Record<string,unknown>}
 const sorted=(v:unknown):unknown=>Array.isArray(v)?v.map(sorted):isRecord(v)?Object.fromEntries(Object.keys(v).sort().map(k=>[k,sorted(v[k])])):v;
@@ -48,6 +56,7 @@ export function validateBackup(raw:string):Backup {
  const value:unknown=JSON.parse(raw);
  if(!isRecord(value)||value.format!=='mana-backup'||value.version!==1||typeof value.createdAt!=='string'||!Number.isFinite(Date.parse(value.createdAt))||!isRecord(value.data))throw new Error('Unsupported or malformed Mana backup.');
  const data={...value.data};
+ if(!Object.prototype.hasOwnProperty.call(data,'mana.whisper.v1'))data['mana.whisper.v1']=validateWhisper(null);
  // Existing version-1 backups predate follow-ups. They restore an empty follow-up list.
  if(!Object.prototype.hasOwnProperty.call(data,'mana.followups.v1'))data['mana.followups.v1']=validateFollowups(null);
  if(!Object.prototype.hasOwnProperty.call(data,'mana.shared_activities.v1'))data['mana.shared_activities.v1']=validateSharedActivities(null);
@@ -58,6 +67,16 @@ export function validateBackup(raw:string):Backup {
  if(!Object.prototype.hasOwnProperty.call(data,'mana.episodes.v1'))data['mana.episodes.v1']=[];
  if(!Object.prototype.hasOwnProperty.call(data,'mana.narratives.v1'))data['mana.narratives.v1']=[];
  if(!Object.prototype.hasOwnProperty.call(data,'mana.skills.v1'))data['mana.skills.v1']=[];
+ if(!Object.prototype.hasOwnProperty.call(data,'mana.speech.v1'))data['mana.speech.v1']=validateSpeechPreferences(null);
+ if(!Object.prototype.hasOwnProperty.call(data,'mana.vision.v1'))data['mana.vision.v1']=validateVisionSettings(null);
+ if(!Object.prototype.hasOwnProperty.call(data,'mana.images.v1'))data['mana.images.v1']=[];
+ // Speech preferences before speed/volume retain their old voice and automatic choice.
+ if(isRecord(data['mana.speech.v1'])){
+   const speech={...data['mana.speech.v1']};
+   if(!Object.prototype.hasOwnProperty.call(speech,'rate'))speech.rate=0;
+   if(!Object.prototype.hasOwnProperty.call(speech,'volume'))speech.volume=100;
+   data['mana.speech.v1']=speech;
+ }
  if(Object.keys(data).length!==Object.keys(validators).length||Object.keys(data).some(k=>!Object.prototype.hasOwnProperty.call(validators,k)))throw new Error('Backup has missing or unknown data sections.');
  for(const [key,validate] of Object.entries(validators)){
    if(JSON.stringify(sorted(data[key]))!==JSON.stringify(sorted(validate(data[key]))))throw new Error(`Invalid data in ${key}. Restore cancelled rather than silently repairing records.`);

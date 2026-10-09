@@ -8,6 +8,10 @@ mod avatar_files;
 mod character;
 mod store;
 mod conversation_export;
+mod speech;
+mod dictation;
+mod whisper;
+mod vision;
 
 #[tauri::command]
 fn export_conversation(content: String) -> Result<String, String> {
@@ -370,7 +374,27 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(LlamaState::default())
         .manage(store::Store::default())
+        .manage(speech::Speech::default())
+        .manage(dictation::Dictation::default())
+        .manage(whisper::Whisper::default())
+        .manage(vision::Vision::default())
         .invoke_handler(tauri::generate_handler![
+            vision::vision_start,
+            vision::vision_detect_model,
+            vision::vision_stop,
+            vision::vision_running,
+            whisper::whisper_check,
+            whisper::whisper_start,
+            whisper::whisper_poll,
+            whisper::whisper_stop,
+            dictation::dictation_languages,
+            dictation::dictation_start,
+            dictation::dictation_stop,
+            dictation::dictation_poll,
+            speech::speech_voices,
+            speech::speech_speak,
+            speech::speech_stop,
+            speech::speech_running,
             start_llama,
             stop_llama,
             llama_running,
@@ -394,6 +418,10 @@ pub fn run() {
         .run(|app, event| {
             // Make sure llama-server never outlives the app.
             if let tauri::RunEvent::Exit = event {
+                if let Some(state) = app.try_state::<vision::Vision>() { let _ = vision::stop(&state); }
+                if let Some(state) = app.try_state::<whisper::Whisper>() { let _ = whisper::stop(&state); }
+                if let Some(state) = app.try_state::<dictation::Dictation>() { let _ = dictation::stop(&state); }
+                if let Some(state) = app.try_state::<speech::Speech>() { let _ = speech::stop(&state); }
                 if let Some(state) = app.try_state::<LlamaState>() {
                     if let Ok(mut slot) = state.0.lock() {
                         kill_child(&mut *slot);
