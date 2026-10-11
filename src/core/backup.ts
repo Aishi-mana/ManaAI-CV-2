@@ -1,3 +1,4 @@
+import {validateCustomVoice,upgradeCustomVoice} from './customVoice';
 import {validateWhisper} from './whisper';
 import {readStored,flushPersistence,restoreStored} from './persistence';
 import {validateSettings,validateChat} from './settings';
@@ -48,6 +49,7 @@ const validators:Record<string,(value:unknown)=>unknown>={
  'mana.vision.v1':validateVisionSettings,
  'mana.images.v1':validateSavedImages,
  'mana.whisper.v1':validateWhisper,
+ 'mana.custom_voice.v1':validateCustomVoice,
 };
 export interface Backup {format:'mana-backup';version:1;createdAt:string;data:Record<string,unknown>}
 const sorted=(v:unknown):unknown=>Array.isArray(v)?v.map(sorted):isRecord(v)?Object.fromEntries(Object.keys(v).sort().map(k=>[k,sorted(v[k])])):v;
@@ -56,6 +58,12 @@ export function validateBackup(raw:string):Backup {
  const value:unknown=JSON.parse(raw);
  if(!isRecord(value)||value.format!=='mana-backup'||value.version!==1||typeof value.createdAt!=='string'||!Number.isFinite(Date.parse(value.createdAt))||!isRecord(value.data))throw new Error('Unsupported or malformed Mana backup.');
  const data={...value.data};
+ if(isRecord(data['mana.initiative.v1'])&&!Object.prototype.hasOwnProperty.call(data['mana.initiative.v1'],'music'))data['mana.initiative.v1']={...data['mana.initiative.v1'],music:validateInitiative(null).music};
+ if(isRecord(data['mana.initiative.v1'])&&!Object.prototype.hasOwnProperty.call(data['mana.initiative.v1'],'studio'))data['mana.initiative.v1']={...data['mana.initiative.v1'],studio:validateInitiative(null).studio};
+ const initiative=data['mana.initiative.v1'];
+ if(isRecord(initiative)&&isRecord(initiative.music)&&!Object.prototype.hasOwnProperty.call(initiative.music,'songs'))data['mana.initiative.v1']={...initiative,music:{...initiative.music,songs:validateInitiative(null).music!.songs}};
+ if(isRecord(data['mana.custom_voice.v1']))data['mana.custom_voice.v1']=upgradeCustomVoice(data['mana.custom_voice.v1']);
+ if(!Object.prototype.hasOwnProperty.call(data,'mana.custom_voice.v1'))data['mana.custom_voice.v1']=validateCustomVoice(null);
  if(!Object.prototype.hasOwnProperty.call(data,'mana.whisper.v1'))data['mana.whisper.v1']=validateWhisper(null);
  // Existing version-1 backups predate follow-ups. They restore an empty follow-up list.
  if(!Object.prototype.hasOwnProperty.call(data,'mana.followups.v1'))data['mana.followups.v1']=validateFollowups(null);

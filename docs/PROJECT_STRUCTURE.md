@@ -1,5 +1,11 @@
 # Project structure
 
+Song pool: `src/core/songPool.ts` validates bounded approved clip metadata, normalized title/alias lookup and named request parsing. `musicalMoments.ts` selects enabled songs and hums; pool metadata is nested inside `mana.initiative.v1` and migrated for old backups. `SongPoolPanel.tsx` owns one cancellable audition player and listening approval. `SingingDrawer.tsx` is the More → Songs menu, coordinating pool previews and CPU cover conversion; `backing_gain` controls the original instrumental mix. No audio is embedded in JSON backups. See `docs/SONGS.md`.
+
+Custom voice: `src/core/customVoice.ts` validates `mana.custom_voice.v1` in SQLite/backups and audio/mouth helpers. `CustomVoiceSetup.tsx` configures the existing GPT-SoVITS installation and manages service readiness. `useSpeech.ts` selects native Windows or custom generated audio, suppresses cancelled results and owns Blob/audio/mouth timer cleanup. `src-tauri/src/custom_voice.rs` owns the CPU server and cancellable loopback HTTP request helper; bounded results use a file rather than a stdout pipe to avoid large-audio deadlocks. Normal app exit stops owned processes.
+
+Guide singing: `SingingDrawer.tsx` manages source/segment selection, cancellation, progress and explicit preview. `src-tauri/src/singing.rs` owns one CPU Python job and restricts audio reads to generated WAVs under `exports/singing`. Bundled `scripts/singing_job.py` runs separation and pitch-conditioned Seed-VC in that same process, then optionally remixes backing. Ignored `data/music-tools`, `data/seed-vc` and `data/music-cache` hold local runtime sources/dependencies/model caches. Audio exports and logs are excluded from JSON backups.
+
 Repository: [Aishi-mana/ManaAI-CV-2](https://github.com/Aishi-mana/ManaAI-CV-2.git)
 
 Inspected 2026-10-09. This is a guide to the source layout, not an exhaustive file
@@ -150,3 +156,12 @@ The system is intended to grow naturally as additional visual content is added.
 
 ---
 
+# Voice preset additions
+
+- `src/core/customVoice.ts`: preset references, separate reference/reply languages, persistence and legacy settings migration.
+- `docs/VOICE_PRESETS.md`: controls, transcript review and manual checks.
+- `data/custom-voice/references/`: unchanged approved local style WAVs and source hashes; excluded from backups.
+- `scripts/voice-preset-smoke.py`: isolated local CPU synthesis check for all four profiles.
+
+
+Music Studio stage 1: `musicStudio.ts` validates nested initiative studio metadata and deduplicates discovered media. `SingingDrawer.tsx` now owns the full-size studio view and player; `StudioArtwork.tsx` renders covers/placeholders. Native `singing_library` discovers safe completed exports and reads WAV duration without loading whole audio. New jobs save request metadata for later discovery.

@@ -17,6 +17,7 @@ export function saveSpeechPreferences(value:SpeechPreferences){writeStored('mana
 
 // Seed with loaded history. Observe new IDs during streaming; consume each once at completion.
 export class AutomaticSpeech {
+  emotion:string|null=null;
   private seen:Set<string>;
   private pending=new Set<string>();
   constructor(messages:Msg[]){this.seen=new Set(messages.map(m=>m.id));}
@@ -28,7 +29,7 @@ export class AutomaticSpeech {
     if(!enabled||!available)return null;
     const m=candidates[candidates.length-1];
     if(!m||m.error)return null;
-    const text=cleanReply(m.content,charName).text.trim();
+    const cleaned=cleanReply(m.content,charName);this.emotion=cleaned.emotion;const text=cleaned.text.trim();
     return text&&text.length<=30_000?text:null;
   }
 }

@@ -1,8 +1,10 @@
-export const EMOTIONS = ["happy", "sad", "excited", "worried", "thinking", "surprised", "embarrassed", "sleepy", "neutral"] as const;
+export const EMOTIONS = ["happy", "cheerful", "gentle", "angry", "sad", "excited", "worried", "thinking", "surprised", "embarrassed", "sleepy", "neutral"] as const;
 
 export const REPLY_FORMAT_RULES = `Reply formatting:
 - Write only your reply, without a speaker label or a name followed by a colon.
-- Use exactly one emotion tag, at the very end of the whole reply. Never put emotion tags inside sentences or between paragraphs.`;
+- Use exactly one emotion tag, at the very end of the whole reply. Never put emotion tags inside sentences or between paragraphs.
+- Supported tags for this reply are ${EMOTIONS.map(tag=>`[${tag}]`).join(', ')}. This is the current tag list even if older prompt text lists fewer tags.
+- Choose the tag that fits your reply's delivery: cheerful for upbeat joy, gentle for calm reassurance, worried for concern, sad for sadness, angry for irritation. A user's emotion word is not automatically your emotion. If they explicitly ask for a tone demonstration, use that tone without claiming you actually feel it.`;
 
 const TAGS = [...EMOTIONS, "curious"];
 const emotionPattern = new RegExp(`\\[\\s*(${TAGS.join("|")})\\s*\\]`, "gi");

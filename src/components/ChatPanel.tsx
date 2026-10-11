@@ -1,3 +1,9 @@
+import MusicalMomentsControls from './MusicalMomentsControls';
+import {requestedMusic,musicalNoteClip,musicPath,validateMusicalState,type MusicContext} from '../core/musicalMoments';
+import {requestedSongTitle} from '../core/songPool';
+import type {InitiativeState} from '../core/initiative';
+import {setMediaOccupied} from '../core/mediaActivity';
+import CustomVoiceSetup from './CustomVoiceSetup';
 import { hasSpokenWords } from '../core/handsFree';
 import { useWhisper } from '../core/useWhisper';
 import { open } from '@tauri-apps/plugin-dialog';
@@ -18,6 +24,7 @@ import { prepareImage } from '../core/vision';
 import type { ImageAttachment } from '../core/vision';
 
 interface Props {
+  initiative:InitiativeState;onInitiativeState:(state:InitiativeState)=>void;musicContext:Omit<MusicContext,'visible'|'idle'|'ready'|'muted'>;musicMood:string;onMusicUnavailable:(request:string,titles:string[])=>void;onMusicPlayed:(title:string,kind:'hum'|'song',request?:string)=>void;
   savedImages:SavedImage[];
   avatarReferenceAvailable:boolean;
   imageStatus:string;
@@ -34,7 +41,7 @@ interface Props {
   onCompare: (id: string) => void;
 }
 
-export default function ChatPanel({ messages, busy, ready, charName, userName, onSend, onStop, onDraftChange, onCompare, onVoiceMouth,imageStatus,imageError,savedImages,avatarReferenceAvailable }: Props) {
+export default function ChatPanel({ messages, busy, ready, charName, userName, onSend, onStop, onDraftChange, onCompare, onVoiceMouth,imageStatus,imageError,savedImages,avatarReferenceAvailable,initiative,onInitiativeState,musicContext,musicMood,onMusicPlayed,onMusicUnavailable }: Props) {
   const [handsOn,setHandsOn]=useState(false),[handsStage,setHandsStage]=useState<'capture'|'waiting'|'launching'|'playing'|'cooldown'>('capture'),[handsError,setHandsError]=useState('');
   const handsActive=useRef(false),handsBaseline=useRef(new Set<string>()),handsTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
   const handsTranscript=useRef<((review:import('../core/dictation').DictationReview)=>void)|null>(null);
@@ -55,19 +62,26 @@ export default function ChatPanel({ messages, busy, ready, charName, userName, o
   useEffect(()=>()=>{imageSelection.current++;},[]);
   async function chooseImage(file:File){const token=++imageSelection.current;setPreparing(true);setAttachment(undefined);setAttachmentError('');try{const dataUrl=await prepareImage(file);if(token===imageSelection.current)setAttachment({filename:file.name.slice(0,200),dataUrl});}catch(e){if(token===imageSelection.current)setAttachmentError(String(e));}finally{if(token===imageSelection.current)setPreparing(false);}}
   const speech=useSpeech();
+  const [musicRequest,setMusicRequest]=useState<{id:number;kind:'hum'|'song';text:string;title?:string}|null>(null);
+  const musicRequestId=useRef(0);
+  const musicContextLive={...musicContext,visible:document.visibilityState==='visible',idle:!busy&&!speech.speaking&&!micActive&&!handsOn&&!draft.trim()&&!attachment&&!dictation.review&&!preparing,ready,muted:speech.volume===0};
+  useEffect(()=>{setMediaOccupied(speech.speaking||micActive||handsOn);return()=>setMediaOccupied(false);},[speech.speaking,micActive,handsOn]);
+  useEffect(()=>{if(speech.musicPlaying&&(busy||!ready||micActive||handsOn||draft.trim()||attachment||document.visibilityState!=='visible'))void speech.stop();},[busy,ready,micActive,handsOn,draft,attachment,speech.musicPlaying]);
+  useEffect(()=>{const hide=()=>{if(document.visibilityState==='hidden'&&speech.musicPlaying)void speech.stop();};document.addEventListener('visibilitychange',hide);return()=>document.removeEventListener('visibilitychange',hide);},[speech.musicPlaying]);
+
   useEffect(()=>{onVoiceMouth(speech.available?speech.mouth:undefined);},[speech.available,speech.mouth,onVoiceMouth]);
   const [voiceOpen,setVoiceOpen]=useState(false);
   const autoSpeech=useRef<AutomaticSpeech|null>(null);
   if(!autoSpeech.current)autoSpeech.current=new AutomaticSpeech(messages);
   useEffect(()=>{
     const text=autoSpeech.current!.next(messages,busy,speech.automatic&&!handsOn,speech.available&&!speech.speaking&&!micActive,charName);
-    if(text)void speech.speak(text);
+    if(text)void speech.speak(text,autoSpeech.current!.emotion);
   },[messages,busy,speech.automatic&&!handsOn,speech.available,speech.speaking,charName,micActive,handsOn]);
   function stopHandsFree(reason=''){handsActive.current=false;setHandsOn(false);setHandsError(reason);clearTimeout(handsTimer.current);void whisper.cancel();void speech.stop();if(handsStage==='waiting')onStop();}
   function enableHandsFree(){if(!ready||busy||micActive||draft.trim()||attachment||dictation.review||preparing||!speech.available||speech.speaking||speech.volume===0)return;handsActive.current=true;setHandsOn(true);setHandsStage('capture');setHandsError('');setMicrophoneEngine('whisper');void whisper.start({autoEnd:true});}
   handsTranscript.current=review=>{if(!handsActive.current)return;if(!hasSpokenWords(review.text)){stopHandsFree('No spoken words recognized. Background sound was not sent; try again when ready.');return;}if(!ready||busy||draft.trim()||attachment){dictation.setReview(review);stopHandsFree('Hands-free paused: review the transcription before sending.');return;}handsBaseline.current=new Set(messages.filter(m=>m.role==='assistant').map(m=>m.id));setHandsStage('waiting');followLatest.current=true;setShowLatest(false);void onSend(review.text).then(accepted=>{if(!accepted){dictation.setReview(review);stopHandsFree('Message was not sent. Review the transcription before retrying.');}}).catch(e=>{dictation.setReview(review);stopHandsFree(String(e));});};
   useEffect(()=>{if(!handsOn)return;if(!ready||whisper.error||speech.error){stopHandsFree(whisper.error||speech.error||'Hands-free stopped: model is unavailable.');return;}
-    if(handsStage==='waiting'&&!busy){const reply=messages.filter(m=>m.role==='assistant'&&!handsBaseline.current.has(m.id)).slice(-1)[0];if(!reply)return;const text=cleanReply(reply.content,charName).text.trim();if(reply.error||!text){stopHandsFree(reply.error||'No reply to read aloud.');return;}setHandsStage('launching');void speech.speak(text).then(started=>{if(!handsActive.current)return;if(started)setHandsStage('playing');else stopHandsFree('Reply playback could not start.');});}
+    if(handsStage==='waiting'&&!busy){const reply=messages.filter(m=>m.role==='assistant'&&!handsBaseline.current.has(m.id)).slice(-1)[0];if(!reply)return;const text=cleanReply(reply.content,charName).text.trim();if(reply.error||!text){stopHandsFree(reply.error||'No reply to read aloud.');return;}setHandsStage('launching');void speech.speak(text,cleanReply(reply.content,charName).emotion).then(started=>{if(!handsActive.current)return;if(started)setHandsStage('playing');else stopHandsFree('Reply playback could not start.');});}
     else if(handsStage==='playing'&&!speech.speaking){setHandsStage('cooldown');handsTimer.current=setTimeout(()=>{if(handsActive.current){setHandsStage('capture');void whisper.start({autoEnd:true});}},700);}
   },[handsOn,handsStage,ready,busy,messages,speech.speaking,speech.error,whisper.error]);
   const stopHandsRef=useRef(stopHandsFree);stopHandsRef.current=stopHandsFree;
@@ -101,6 +115,8 @@ export default function ChatPanel({ messages, busy, ready, charName, userName, o
   async function submit() {
     const text = draft.trim()||(attachment?'What do you notice in this image?':'');
     if (!text || busy || !ready||preparing||micActive||dictation.review||handsOn) return;
+    const musical=requestedMusic(text);const songTitle=musical?null:requestedSongTitle(text);
+    if((musical||songTitle)&&!attachment&&speech.volume>0&&!speech.speaking){setDraft('');setMusicRequest({id:++musicRequestId.current,kind:musical??'song',text,title:songTitle??undefined});return;}
     followLatest.current=true;setShowLatest(false);
     const originalDraft=draft,originalAttachment=attachment;
     if(await onSend(text,originalAttachment,compareAvatar&&avatarReferenceAvailable)){
@@ -127,7 +143,12 @@ export default function ChatPanel({ messages, busy, ready, charName, userName, o
           <label>Speed: {speech.rate===0?'Normal':speech.rate<0?`Slower (${speech.rate})`:`Faster (+${speech.rate})`}<input aria-label="Speech speed" type="range" min={-10} max={10} step={1} value={speech.rate} onChange={e=>speech.setRate(Number(e.target.value))}/></label>
           <label>Volume: {speech.volume}%{speech.volume===0?' (muted)':''}<input aria-label="Speech volume" type="range" min={0} max={100} step={1} value={speech.volume} onChange={e=>speech.setVolume(Number(e.target.value))}/></label>
           <span className="hint-soft">{speech.loading?'Loading Windows voices…':'Saved settings · speed and volume apply to the next playback · old replies never replay automatically · no playback queue'}</span>
+          <button className="btn" disabled={!speech.available||speech.speaking||handsOn||micActive} onClick={()=>void speech.speak(`Hello ${userName}. I am ${charName}. Let us try my new voice.`)}>Preview voice</button>
+          <CustomVoiceSetup disabled={speech.speaking||handsOn}/>
         </div>}
+        <div hidden={!voiceOpen}><MusicalMomentsControls initiative={initiative} onInitiative={onInitiativeState} context={musicContextLive} mood={musicMood} playing={speech.musicPlaying} onPlay={speech.playMusic} onStop={()=>void speech.stop()} onPlayed={onMusicPlayed} onUnavailable={onMusicUnavailable} onRequestFailed={text=>setDraft(current=>current||text)} request={musicRequest}/></div>
+        {speech.generating&&<span role="status">Generating custom voice…</span>}
+        {speech.voiceStarting&&<span role="status">Loading GPT-SoVITS…</span>}
         {speech.error&&<span role="status">{speech.error}</span>}
         <ExportChatButton messages={messages} charName={charName} userName={userName} disabled={busy}/>
         <button className="btn" aria-expanded={searchOpen} onClick={()=>{
@@ -161,6 +182,7 @@ export default function ChatPanel({ messages, busy, ready, charName, userName, o
             );
           }
           const { text, emotion } = cleanReply(m.content, charName);
+          const musicClip=musicalNoteClip(text,validateMusicalState(initiative.music).songs);
           const waiting = busy && !text && !m.error;
           return (
             <div key={m.id} ref={node=>{if(node)messageNodes.current.set(m.id,node);else messageNodes.current.delete(m.id);}} className={`row mana${selectedMatch===m.id?' search-selected':''}`}>
@@ -173,7 +195,7 @@ export default function ChatPanel({ messages, busy, ready, charName, userName, o
                   text
                 )}
                 {m.error && <div className="msg-error">{m.error}</div>}
-                {!busy&&!m.error&&text.trim()&&speech.available&&<div><button className="btn" disabled={handsOn||speech.speaking||micActive} onClick={()=>void speech.speak(text)}>Speak</button></div>}
+                {!busy&&!m.error&&text.trim()&&(musicClip||speech.available)&&<div><button className="btn" disabled={handsOn||speech.speaking||micActive||!!draft.trim()||preparing} onClick={()=>void (musicClip?speech.playMusic(musicPath(musicClip,validateMusicalState(initiative.music).songs)):speech.speak(text,emotion))}>{musicClip?'Replay':'Speak'}</button></div>}
                 {m.diagnostics && <details><summary>Reply diagnostics</summary>
                   <p className="hint-soft">Application checks can misfire. These attempts are debug evidence, not accepted chat or memory facts.</p>
                   {m.diagnostics.attempts.map((attempt, i) => <div key={i}><strong>Attempt {i + 1}: {attempt.issue === "capability" ? "Unsupported capability claim" : attempt.issue === "return-role" ? "Incorrect welcome-back roles" : attempt.issue === "repetition" ? "Repeated wording" : "Passed checks"}</strong><p className="memory-content">{attempt.text}</p></div>)}

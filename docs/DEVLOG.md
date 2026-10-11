@@ -1,9 +1,91 @@
 # Mana development log
 
+## 2026-10-11 — Studio accepted; compact song pool
+
+User passed studio tests 1–4 and requested a denser pool for larger collections. Added title/alias search, compact artwork rows, expandable aliases, enabled counts and accessible enable/preview/remove icon buttons with native tooltips. Existing approval, playback and persistence paths remain in use. Singing-quality tuning remains deferred.
+
+## 2026-10-11 — Music Studio stage 1
+
+Replaced the narrow cover drawer with a full-size pastel main view, keeping ChatPanel mounted to preserve chat state. Added nested studio project metadata to existing initiative storage/backups, bounded resized JPEG artwork, safe completed-cover discovery, request metadata for new jobs, and WAV-header duration inspection. The center player owns cancelable WAV loading/Blob cleanup and shared preview occupancy; mix/vocal/instrument selection, seeking, pause/stop and volume are available. Returning to chat pauses media but retains forms and permits the existing conversion job to complete. Deferred distortion and trembling work remains untouched. Browser checks at 1280×720 and 820×560 found and fixed a small-window grid overlap; user acceptance of desktop playback/artwork/conversion remains pending.
+
+## 2026-10-11 — Pastel Music Studio plan agreed
+
+The user confirmed whole-song conversion works but reported high-note distortion. They chose to defer singing-quality tuning and agreed to a full-size, music-player-style studio in Mana's pastel colors. Recorded the library/player layout, album artwork, cover workflow, reviewed chat excerpts without reconversion, saved project settings, export, and later instrument recreation/original generation in [MUSIC_STUDIO_PLAN.md](MUSIC_STUDIO_PLAN.md). This step updates documentation only; no studio implementation was requested yet.
+
+## 2026-10-11 — Whole-song conversion
+
+Added explicit whole-song mode through the Songs UI, native singing job arguments and Python decoding (`offset=0`, no duration crop). Existing Seed-VC chunking handles the longer guide. Complete-vocal outputs are checked for duration and padded only for sub-second tail differences before remix. Demucs stem/model references are released before conversion to reduce concurrent memory use. Long covers can be previewed without becoming eligible for the short chat pool; preview reads are capped at 256 MB. Tested a repeated real-vocal guide of 61.25 seconds with deliberately conflicting start/length inputs: complete output duration passed. Build and 55 native tests passed. No singing quality defaults were changed.
+
+## 2026-10-11 — Conversion stability audition
+
+The user preferred the gentler-pitch cover but still heard trembling. Prepared paired fixed-seed guidance 0.7/0.4 auditions while retaining 60 steps, guide smoothing, Default 2 and quieter backing. The shared Python job accepts optional bounded guidance and seed arguments for offline experiments; UI defaults and approved pool audio are unchanged. Listening quality and voice-identity tradeoffs remain pending.
+
+## 2026-10-11 — Trembling diagnostic and conservative F0 audition
+
+The user found the 60-step cover slightly better but still shaky. Prepared an optional guide-only F0 smoother, preserving source audio, silence and large note boundaries. Synthetic checks retained vibrato and reduced rapid jitter; the actual guide changed minimally and converted-pitch metrics showed no stability improvement. Kept a separate baseline/candidate audition and recorded this negative result instead of replacing approved clips. Production still uses no smoothing. Further timbre/conversion investigation remains open.
+
+## 2026-10-11 — Cover quality comparison
+
+Following successful song-pool manual testing, the user reported that cover singing needs refinement. Prepared matched-RMS guide/vocal/mix comparisons for the latest twelve-second cover, plus a 60-step Seed-VC candidate with the same Default 2 reference and pitch settings. Outputs are finite, audible and unclipped; perceptual quality and separation fidelity remain listening questions. No approved pool audio or production quality default was replaced. `singing_job.py` accepts an optional bounded offline diffusion-step setting, defaulting to the existing 30 steps.
+
+## 2026-10-11 — Song pool and grounded named requests
+
+The user approved the current-reference ten-second sung cover and requested additional songs plus named selection. More → Songs extends the supplied-guide converter with a reviewed short-song pool, case/punctuation-normalized titles and aliases, enable/remove controls and backing gain. Pool metadata lives inside musical initiative state, with backward-compatible backup migration. Generated audio stays external. Unknown titles offer available entries instead of invented performances. Original songwriting and acoustic instrument recreation remain future scope; the speech-derived lyric audition did not pass listening review. See SONGS.md for acceptance checks.
+
 Started 2026-10-09. Backfilled from current project documentation, available session
 evidence and Git. This records decisions and verification, not every tool call or
 a complete historical audit. Older details without reliable dates are grouped rather
 than assigned invented timestamps. No legacy data was migrated by writing this log.
+
+## 2026-10-10 — Four voice delivery selections accepted
+
+User confirmed revised cheerful and gentle both passed. Accepted selections are the current configured main reference for default, the longer thoughtful clip, and revised combined cheerful/gentle files. Updated review manifest with delivery approval while retaining unverified transcript status. No active settings or audio changed. Next runtime work is independent Japanese reference/English reply language support, verified per-preset transcripts and selectable presets.
+
+## 2026-10-10 — User-directed reference revisions
+
+User rejected the rebuilt default because of remaining BGM and explicitly chose the main reference currently configured in Mana. Rejected the longer cheerful delivery; requested earlier audition-cheerful followed by audition-default. Passed the longer thoughtful. Requested earlier audition-gentle followed by audition-thoughtful; clarified via question that this combination belongs to Gentle.
+
+Created ignored exports/voice-review/revised-references with cheerful (8.443 s) and gentle (8.461 s), each with one 250 ms joining pause. Source samples/order preserved; no extra denoising, gain or pitch change. Duration, finite samples and non-clipping checks passed. Previous files and active settings are unchanged. The new combinations need listening/transcript checks; thoughtful remains the passed longer clip. Selection provenance is recorded in manifest.json.
+
+## 2026-10-10 — Approved styles and longer reference candidates
+
+User approved the short style auditions and the approximately eight-second target. Prepared exports/voice-review/references-8s: default 8.136 seconds, cheerful 7.680, thoughtful 8.100 and gentle 8.289. The earlier short audition manifest records style approval separately from unverified transcripts.
+
+Default was reconstructed from the original Fight! MP3 using the same team-play phrase. Measurement found about 3.86% of samples above 0.999 in the existing main_reference.wav, consistent with prior clipping; attenuation cannot restore that waveform. Its original MP3 segment had no such clipping. Kept a byte-preserved previous reference for comparison; the active setting/file remains untouched. Automatic Japanese transcription of the rebuilt default matches the user's corrected wording.
+
+Cheerful/thoughtful candidates are single continuous excerpts from the Bike Ride source at offsets 152.38–160.06 and 311.96–320.06 seconds, with Demucs vocal separation. Gentle uses six complete caring phrases (014/268/048/107/155/159) with 250 ms gaps because a confidently gentle continuous passage was not established. New excerpts/additions need listening comparison; draft ASR has errors and does not certify speaker identity or expression. Originals are available for assessing separation artifacts.
+
+Level-matched candidates toward RMS 0.1 with a 0.95 peak cap; no pitch shifting/time stretching or extra denoising. All candidates measured 7–9 seconds and zero full-scale clipped samples; peaks below 0.57. Source hashes remain unchanged. This is review/export work, not runtime preset installation. Japanese reference-language control, user-verified transcripts and a selectable preset interface remain the next runtime step.
+
+## 2026-10-10 — Voice collection triage and corrected performance feedback
+
+User clarified that slow conversion occurred while ComfyUI was running; after restart a ten-second song generated quickly enough. Generation speed is currently acceptable, so optimization remains optional rather than a reported standalone failure. Chat acoustic singing preference is light guitar or piano accompaniment.
+
+Inspected the supplied Downloads/Yuuki Voice folder: six MP3 sources plus 269 stereo 44.1 kHz WAV cuts, totaling 229.4 seconds. Every WAV cut is below the current GPT-SoVITS 3–10 second reference range (0.221–2.691 seconds). All have roughly 0.1 RMS, suggesting prior normalization; none showed measured full-scale clipping or byte-identical duplicates. These measurements do not establish freedom from background music, artifacts or mixed speakers.
+
+Prepared ignored exports/voice-review with a CSV/JSON catalogue, unchanged copies grouped by provisional styles/content, local Japanese Whisper-small draft transcripts, longer-source review excerpts and four 3.787–4.424 second audition references. Provisional counts: cheerful 43, thoughtful 38, gentle 18, neutral 20, names 31, battle context 43 and reactions/unclear 76. Style labels are based on draft phrase content and acoustic triage, not listening-certified emotional delivery or identity. Short-clip ASR errors/repetitions remain explicitly unverified. Four auditions join only a few complete matching phrases with 250 ms gaps; no denoising/pitch/gain change and no runtime adoption. A single naturally continuous phrase remains preferable when available. Current user-approved reference remains the baseline.
+
+Verified all 269 source hashes remain unchanged, all categorized copies match, and audition WAVs meet duration/finite-sample/non-clipping bounds. Original audio stayed in Downloads; no audio upload. Cached multilingual Whisper-small was used locally, with CUDA for short-clip batches where memory was available. Review needs human listening before final labels/transcripts or cleanup. Cleanup should be selective and compared against originals; training utterances stay separate rather than one WAV per category. Reference/reply language controls remain the next runtime implementation task.
+
+## 2026-10-10 — Custom voice and singing manual acceptance; next direction
+
+User confirmed all four manual checks passed. Five-second singing conversion feels slow. Correcting the main reference transcript improved custom speech; the earlier exported speech sample sounded sleepy. User liked the generated guide backing mix. The confirmed romanized transcript is: “Chiimu purei wa tokui na hou da yo. Shinrai dekiru minna to issho ni nanika o suru no tte sugoku tanoshii shi ne.” This supersedes the automatically guessed English reference transcript for future tuning; do not overwrite the user's runtime settings while documenting it.
+
+Inspection found `prompt_lang` and `text_lang` both hardcoded to English. Next priority is independent Japanese reference / English reply language controls and a verified Japanese-script transcript. Singing currently launches a fresh Python process, reloads separation/conversion models, forces CPU and uses 30 diffusion steps. Warm workers, reference/stem/result caching, measured preview/final quality presets and a VRAM-aware GPU option are proposed, not yet implemented or benchmarked.
+
+User requested two singing surfaces: short occasional humming/acoustic singing in chat, including short renditions of requested songs; and a separate studio for prompt-based original songs or uploaded-song covers with vocals extracted and instrumentation regenerated toward Mana's style. Studio should offer anime-style short arrangements and full-length versions. Chat spontaneity should be explicitly enabled, infrequent and interruptible, with cached approved motifs for responsive playback and no singing over microphone capture or other audio. Voice-only versus light acoustic accompaniment remains a preference to resolve; retain the user's word “acoustic” rather than silently choosing one.
+
+Voice identity plan: a stable default reference, deliberate expression presets from the same speaker, fixed model versions and comparison phrases, then optional dedicated Mana fine-tuning with clean consistent recordings. Speech and singing may need separately tuned models tied to the same voice identity. Pitch/effects alone do not establish a unique speaker identity. Prompt music generation and arrangement changes need a music backend beyond GPT-SoVITS/Seed-VC; the installed ACE-Step setup is a candidate to benchmark, not a verified full-song integration. No new runtime/code change in this acceptance/planning update.
+
+## 2026-10-10 — GPT-SoVITS speech and supplied-guide singing
+
+User chose the existing GPT-SoVITS setup and singing to a supplied guide, then supplied the soundtrack MP3 in Downloads. Inspected local APIs and selected the existing main_reference.wav plus v2 pretrained weights for speech. The draft reference transcript comes from automatic transcription and has not been user-verified. No training or original song composition was performed.
+
+Integrated an owned hidden CPU service, loopback HTTP WAV generation, selectable custom voice, preview, shared preferences, cancellation and approximate audio-energy mouth animation. Generation keeps hands-free in its playback-launch phase until real audio starts. Found and corrected two integration hazards: a full stdout pipe can prevent polling completion, so WAV base64 responses use bounded temporary files; Windows cp1252 logs caused GPT-SoVITS to return silent WAVs after a Unicode print failure, so Python starts with UTF-8 and playback rejects silent samples.
+
+The supplied file includes backing music. Installed Demucs 4.1.0 in a project-local venv inheriting Seed-VC packages, copied Seed-VC sources into ignored project data, and used the same reference for F0-conditioned conversion. Separation and conversion run in a single owned Python process so Stop cannot leave a child conversion process behind. Source files stay unchanged; stems, converted vocals, backing remix and logs are exported. First run downloads weights. CPU conversion is bounded to a selected 1–60 second segment and a 30-minute UI timeout.
+
+Verification: 151 frontend checks passed with two optional live checks skipped; 55 Rust checks passed; frontend build and cargo check passed. Tests cover backup defaults/canonical validation, WAV bounds, silence mouth rest, cancellation during custom launch, and large result-file cleanup. Actual CPU speech produced 5.3 seconds of non-silent 32 kHz audio; native proxy returned 310,672 base64 characters without error. The first segment at offset ten seconds completed technically but its separated vocal was nearly silent, so it was not accepted as a meaningful singing test. Analyzed the 19.87-second guide and selected five seconds starting at one second (separated vocal RMS about 0.14). This vocal segment produced 44.1 kHz converted vocal and backing mix. Added a near-silent vocal guard before conversion and verified that the ten-second segment is rejected. An initial vocal render clipped about 4.4% of samples at PCM encoding; intercepted upstream WAV saving to normalize before encoding, then matched the guide vocal RMS for the backing remix. Final vocal and mix each measured 4.992 seconds, peak at most 0.98 and zero samples above 0.999. Model similarity, music quality and live custom hands-free still require user listening/acceptance. The reference speech, isolated guide and converted audio are available under ignored exports for comparison. Build retains the existing large-chunk advisory.
 
 ## 2026-10-10 — Future icon-button enhancement
 
@@ -498,3 +580,9 @@ For each meaningful development session, add a verified date and record:
 Keep CHANGELOG.md concise and user-facing. Update README.md and ManaAI.md when
 behavior/scope changes. Preserve old findings when resolved, adding the resolution
 instead of silently rewriting a historical failure into a pass.
+# 2026-10-10 — Runtime reference profiles
+
+Connected approved recordings with matching editable transcript drafts. Copied the three style WAVs unchanged into project data and recorded source hashes. Added legacy backup schema expansion, enum validation and independent language arguments through the native request. Production build, 152 frontend checks and 55 Rust checks passed; two optional live checks skipped. Japanese synthesis revealed a missing fastText language model; downloaded the official model and verified its expected MD5. All four Japanese-reference/English-reply synthesis checks then produced non-silent WAVs. Generated delivery quality still needs the user's listening check.
+# 2026-10-11 — Musical moments
+
+Rendered three original synthetic humming/open-vowel guides through the installed Seed-VC pipeline with approved Mana reference recordings and quiet additive acoustic backing. Verified non-silent WAVs with no detected clipping. Added shared custom-audio playback and late-load cancellation, saved musical settings inside initiative state, backward-compatible backups, idle/quiet-hours/pause/mute guards and direct typed requests. Production build and 160 frontend tests passed; two optional live tests skipped. Generated voice identity and musical naturalness still require user listening approval. No singing model was trained.

@@ -237,8 +237,35 @@ do not use this context. Identity, mood and relationship stats remain unchanged.
 - [x] Saved speech speed and volume (manual/automatic playback, old-backup defaults)
 - [x] Voice-timed mouth foundation (Windows viseme events mapped to five vowel images)
 - [ ] Refined articulation and timing calibration across voices
-- [ ] Custom trained Mana voice / singing
-- [ ] Singing
+- [x] Reference-conditioned GPT-SoVITS speech integration (CPU, shared playback/Stop/preferences; all four foundation manual checks passed; broader consistency tuning remains)
+- [x] Songs menu with reviewed short-song pool, named/alias requests, grounded missing-song suggestions and adjustable original backing (user verified)
+- [x] Music Studio direction agreed and documented: full-size pastel music-player view; existing song pool and full-song conversion user-tested
+- [x] Music Studio stage 1: full-size pastel library/player using the existing cover workflow, with basic artwork and saved project settings (user passed tests 1–4; see MUSIC_STUDIO.md)
+- [ ] Music Studio stage 2: artwork, saved project settings, mix/export controls and reviewed chat excerpts without reconversion
+- [ ] Music Studio stage 3: local instrument-recreation workflow, followed by prompt-driven original songs after tool evaluation
+- [ ] Resolve sung high-note distortion and trembling (deferred at the user's request; see MUSIC_STUDIO_PLAN.md)
+- [x] Supplied-guide singing workbench (Demucs + pitch-conditioned Seed-VC, vocal/backing WAV previews; five-second CPU smoke and all four manual checks passed; speed tuning remains)
+- [ ] Custom trained Mana voice and singing quality/timing refinement
+- [x] Independent Japanese/English reference and reply language controls; confirmed main-reference words rendered in Japanese
+- [ ] Stable Mana voice profile and expression references; optional dedicated speech/singing fine-tuning
+- [x] Provisional voice collection catalogue and short audition references (269 cuts; listening/transcript approval pending)
+- [x] Short style auditions approved; longer 7–9 second reference candidates and source comparisons prepared
+- [x] Final default, thoughtful, revised cheerful and gentle delivery selections approved
+- [x] Manual runtime Default/Cheerful/Thoughtful/Gentle presets with persistent selection and matching editable transcripts
+- [ ] Exact style-reference transcript approval and generated delivery listening checks
+- [x] Mana Legacy English reference preset and four manual delivery options; neutral/thoughtful/gentle and revised cheerful auditions approved
+- [x] Supplied Mana v2 Default/Cheerful/Gentle/Sad/Worried/Angry references prepared; automatic per-reply emotion routing connected to Speak, read-aloud and hands-free
+- [ ] Mana v2 same-sentence emotion audition approval and exact reference transcript verification
+- [x] Offline English pilot generated from legacy Mana: 16 training candidates and four separate held-out recordings; prompts and quality metadata saved
+- [ ] Listening approval and exact transcript verification for the pilot, followed by GPT-SoVITS fine-tuning and held-out sentence evaluation
+- [ ] Optional generation timing breakdown, warm singing worker, reference/stem/audio caches and preview/final quality presets (current speed acceptable without competing ComfyUI workload)
+- [ ] VRAM-aware GPU scheduling with CPU fallback; benchmark alongside the chat model
+- [x] Opt-in musical initiative foundation: original wordless piano/guitar candidates, persistent cooldowns, typed requests, shared Stop/mute and microphone coordination
+- [ ] Listening approval and refinement of the three musical candidates; natural sung lyrics and broader original motif library
+- [ ] Short acoustic renditions of requested songs in chat
+- [ ] Separate music studio: prompt-based original songs and uploaded-song covers
+- [ ] Cover vocal extraction, Mana vocal conversion and regenerated Mana-style instrumentation
+- [ ] Anime-style short arrangements and full-length songs; editable lyrics/style, progress/cancel, preview and export
 - [x] User-selected image understanding foundation (separate local vision model, reviewed description to chat)
 - [x] Inline chat attachments (vision description behind the scenes, normal reply/voice, retry/cancel)
 - [x] Local prepared image persistence, thumbnails, explicit deletion and backup support (V1.x; manual tests 1–4 passed)
@@ -307,3 +334,5 @@ do not use this context. Identity, mood and relationship stats remain unchanged.
 
 ---
 
+
+- [x] Whole-song cover conversion and full-cover preview, with the chat pool kept to short excerpts (61.25-second conversion smoke passed; manual full-song review pending).

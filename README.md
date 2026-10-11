@@ -9,6 +9,18 @@ Project history: [Changelog](docs/CHANGELOG.md) · [Dev log](docs/DEVLOG.md) ·
 [Vision and implementation](docs/ManaAI.md). The logs include a retrospective
 backfill with stated evidence limits; new meaningful changes should update both logs.
 
+## Custom speech and guide singing (V1.x experimental)
+
+Open **Voice → Custom voice and singing setup**, verify the reference WAV and its draft transcript, then **Start custom voice**. Select **Mana · GPT-SoVITS** and **Preview voice**, or use an existing reply’s Speak button. Windows voices remain selectable. GPT-SoVITS uses the existing v2 pretrained weights with `C:/AI/GPT-SoVITS/main_reference.wav`; no new voice training was performed. The reference transcript was automatically transcribed and needs listening verification. CPU inference avoids taking the chat model’s GPU allocation. GPT-SoVITS now loads automatically when Mana opens with custom voice selected.
+
+Speed, volume, automatic new-reply playback and hands-free use the selected voice. Custom generation is visible and keeps the hands-free microphone paused. Stop discards late results and stops local playback/request processing; the HTTP backend can finish inference after a client cancellation. **Stop custom service** terminates only Mana’s managed server. Mouth animation uses audio energy plus approximate text vowels, not measured phoneme alignment. Windows voices retain native viseme timing. Silent WAV results are rejected.
+
+Open **More → Songs**. Choose a guide containing the desired words and melody, select a 1–60 second segment or Whole song, and enable vocal separation for a full music mix. **Convert guide** runs Demucs separation followed by Seed-VC with F0 conditioning, no pitch shift, no automatic F0 adjustment and length adjustment 1.0. Converted audio is peak-normalized before WAV encoding, and the converted vocal is matched to the guide level before applying the chosen backing volume (30% by default). This is converted guide singing; it does not generate a new melody or replace the guide’s lyrics. Choose the converted vocal or backing mix, load its audition in the song pool, then press Play. Add it only after listening approval. Stop/Close cancels the owned CPU job and pauses its preview. Completed WAVs, isolated stems and logs stay in `exports/singing`; partial exports may remain after cancellation.
+
+The installed project-local `data/music-tools` environment inherits the existing Seed-VC Python packages and adds Demucs 4.1.0. Seed-VC sources are copied into ignored `data/seed-vc`; model weights download into project caches on first use. The source recording is unchanged. JSON backups include `mana.custom_voice.v1` paths/transcript, but exclude models, audio, exports and service logs. Normal request completion/cancellation removes the temporary custom voice result JSON; a hard crash can leave it under app data. Runtime paths can be changed in setup. The initial exports directory is tied to this checkout.
+
+Verification: frontend build, 151 frontend checks (two optional live checks skipped), and 55 Rust checks passed. Real CPU GPT-SoVITS produced a non-silent 5.3-second/32 kHz speech WAV; the native PowerShell HTTP proxy also returned WAV successfully. A five-second vocal segment starting at one second in the supplied soundtrack completed separation, F0-conditioned conversion and backing remix at 44.1 kHz. The near-instrumental segment at ten seconds is rejected by the quiet-vocal guard. User confirmed all four foundation manual checks passed and liked the singing mix. The corrected Japanese reference transcript improved speech; broader consistency, songs and generation-speed tuning remain open. Reference language is currently hardcoded to English and needs separate control from reply language.
+
 ## Hands-free voice mode (V1.x)
 
 **Start hands-free** explicitly enables automatic sending: speak, pause for about 1.2 seconds, then Mana transcribes, sends, reads her reply and resumes listening after playback. Whisper and an installed read-aloud voice are required, with nonzero volume and an empty draft/no attachment/review. The mode is off after restart and never enables itself. **Stop hands-free** cancels capture/transcription, stops reply playback and interrupts its pending chat reply. Windows review mode stays available separately.
@@ -105,8 +117,7 @@ Stop voice return to the emotion's resting mouth; earlier playback events are ig
 This is approximate articulation using existing artwork, not a full phoneme rig. With
 a Windows voice available, chat streaming alone does not animate speech. The avatar
 Test preview and browser/no-voice fallback retain their text-timed animation.
-Custom Mana voice and singing remain
-future work. Restart the desktop dev app after this native-command update.
+Reference-conditioned custom speech and supplied-guide singing are available experimentally; custom training and quality refinement remain future work. Restart the desktop dev app after this native-command update.
 
 ## Run it
 
@@ -834,3 +845,11 @@ checking and the frontend production build. The lifecycle checks mock desktop co
 Run `cargo test --manifest-path src-tauri/Cargo.toml --lib` for Rust avatar file boundary checks. Avatar reads
 accept relative image paths and root `items.json` only. Scanning and reading resolve filesystem links and reject
 files outside the selected avatar folder; links whose targets remain inside it are supported.
+# Voice presets
+
+Custom voice setup now includes the four approved reference presets and independent Japanese/English reference and reply languages. See [voice preset controls and checks](docs/VOICE_PRESETS.md). Style transcripts remain editable drafts.
+Musical moments: Voice → Humming and little songs provides previews and opt-in occasional original wordless melodies. See [controls and acceptance checks](docs/MUSICAL_MOMENTS.md).
+
+Song-pool workflow and current limitations: [Songs menu](docs/SONGS.md). Approved short clips have titles and aliases; named requests play matching enabled songs and unavailable titles offer pool alternatives.
+
+**More → Songs** now opens the full-size pastel [Music Studio](docs/MUSIC_STUDIO.md): saved covers, artwork, player and the existing cover/chat-pool workflows.

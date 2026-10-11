@@ -3,6 +3,9 @@
   "emotions": {
     "neutral":     { "eyes": "eye_neutral",    "mouth": "mouth_neutral" },
     "happy":       { "eyes": "eye_happy",      "mouth": "mouth_smile" },
+    "cheerful":    { "eyes": "eye_happy",      "mouth": "mouth_happy" },
+    "gentle":      { "eyes": "eye_neutral",    "mouth": "mouth_smile" },
+    "angry":       { "eyes": "eye_thinking",   "mouth": "mouth_sad" },
     "excited":     { "eyes": "eye_excited",    "mouth": "mouth_happy" },
     "sad":         { "eyes": "eye_sad",        "mouth": "mouth_sad" },
     "worried":     { "eyes": "eye_sad",        "mouth": "mouth_sad" },

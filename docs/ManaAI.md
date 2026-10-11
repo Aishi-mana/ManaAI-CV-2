@@ -1,5 +1,18 @@
 # ManaAI
 
+## Custom speech and guide singing (V1.x experimental)
+
+Open **Voice → Custom voice and singing setup**, verify the reference WAV and its draft transcript, then **Start custom voice**. Select **Mana · GPT-SoVITS** and **Preview voice**, or use an existing reply’s Speak button. Windows voices remain selectable. GPT-SoVITS uses the existing v2 pretrained weights with `C:/AI/GPT-SoVITS/main_reference.wav`; no new voice training was performed. The reference transcript was automatically transcribed and needs listening verification. CPU inference avoids taking the chat model’s GPU allocation. Start the service again after restarting Mana.
+
+Speed, volume, automatic new-reply playback and hands-free use the selected voice. Custom generation is visible and keeps the hands-free microphone paused. Stop discards late results and stops local playback/request processing; the HTTP backend can finish inference after a client cancellation. **Stop custom service** terminates only Mana’s managed server. Mouth animation uses audio energy plus approximate text vowels, not measured phoneme alignment. Windows voices retain native viseme timing. Silent WAV results are rejected.
+
+Open **More → Songs**. Choose a guide containing the desired words and melody, select a 1–60 second segment or Whole song, and enable vocal separation for a full music mix. **Convert guide** runs Demucs separation followed by Seed-VC with F0 conditioning, no pitch shift, no automatic F0 adjustment and length adjustment 1.0. Converted audio is peak-normalized before WAV encoding, and the converted vocal matches the guide level before applying the chosen backing volume. This is converted guide singing; it does not generate a new melody or replace the guide’s lyrics. Load the converted vocal or backing mix, then press Play in the audio controls. Stop/Close cancels the owned CPU job and pauses its preview. Completed WAVs, isolated stems and logs stay in `exports/singing`; partial exports may remain after cancellation.
+
+The installed project-local `data/music-tools` environment inherits the existing Seed-VC Python packages and adds Demucs 4.1.0. Seed-VC sources are copied into ignored `data/seed-vc`; model weights download into project caches on first use. The source recording is unchanged. JSON backups include `mana.custom_voice.v1` paths/transcript, but exclude models, audio, exports and service logs. Normal request completion/cancellation removes the temporary custom voice result JSON; a hard crash can leave it under app data. Runtime paths can be changed in setup. The initial exports directory is tied to this checkout.
+
+Verification: frontend build, 151 frontend checks (two optional live checks skipped), and 55 Rust checks passed. Real CPU GPT-SoVITS produced a non-silent 5.3-second/32 kHz speech WAV; the native PowerShell HTTP proxy also returned WAV successfully. A five-second vocal segment starting at one second in the supplied soundtrack completed separation, F0-conditioned conversion and backing remix at 44.1 kHz. The near-instrumental segment at ten seconds is rejected by the quiet-vocal guard. User confirmed all four foundation manual checks passed and liked the singing mix. The corrected Japanese reference transcript improved speech; broader consistency, songs and generation-speed tuning remain open. Reference language is currently hardcoded to English and needs separate control from reply language.
+
+
 Development history is tracked in [CHANGELOG.md](CHANGELOG.md) for user-facing
 changes and [DEVLOG.md](DEVLOG.md) for decisions, verification and known issues.
 The milestone checklist lives in [ROADMAP.md](ROADMAP.md); source and asset layout
@@ -1204,3 +1217,9 @@ The character remains the heart of the project.
 
 The current implementation is maintained in [ManaAI-CV-2](https://github.com/Aishi-mana/ManaAI-CV-2.git).
 
+# Custom voice reference controls
+
+Default, Cheerful, Thoughtful and Gentle are selectable, persistent presets. Japanese references can generate English replies. Each selection uses its own recording and transcript; Default keeps the configured main reference. See [VOICE_PRESETS.md](VOICE_PRESETS.md) for transcript caveats and acceptance checks.
+
+
+Current Songs menu: see [SONGS.md](SONGS.md) for reviewed short-song pool, title/alias requests, missing-song suggestions and backing controls. Original-song generation and acoustic remakes remain future scope.

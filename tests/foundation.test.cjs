@@ -5,6 +5,59 @@ const path = require("node:path");
 const vm = require("node:vm");
 const ts = require("typescript");
 
+test('studio projects retain full-song metadata without admitting external media paths or duplicate imports',()=>{
+ const studio=loader()('src/core/musicStudio.ts');
+ const project={id:'studio-one',title:'My full cover',createdAt:'2026-10-11T00:00:00Z',status:'ready',source:'C:/Music/source.mp3',vocal:'C:/AI/ManaAI-CV-2/exports/singing/one/vocal.wav',mix:'C:/AI/ManaAI-CV-2/exports/singing/one/mix.wav',instrumental:'C:/private.wav',seconds:242,artwork:'data:text/html,unsafe',error:'',settings:{wholeSong:true,start:0,seconds:1,separate:true,backingGain:.3,reference:'approved.wav'}};
+ const state=studio.validateStudio({projects:[project],selectedId:project.id});assert.equal(state.projects[0].seconds,242);assert.equal(state.projects[0].instrumental,'');assert.equal(state.projects[0].artwork,'');assert.equal(studio.durationLabel(242),'4:02');
+ assert.equal(studio.generatedAudioPath('C:/AI/ManaAI-CV-2/exports/singing/../private.wav'),'');
+ assert.equal(studio.mergeDiscovered(state,[{...state.projects[0],id:'studio-duplicate'}]).projects.length,1);
+});
+test('studio library roundtrips in existing initiative backups and older backups gain an empty library',()=>{
+ const values=new Map();const load=loader({'./persistence':{readStored:k=>values.get(k)??null,writeStored:(k,v)=>values.set(k,v)}});const initiative=load('src/core/initiative.ts'),backup=load('src/core/backup.ts'),studio=load('src/core/musicStudio.ts');
+ const state=initiative.validateInitiative(null);state.studio=studio.validateStudio({projects:[{id:'studio-song',title:'Song',createdAt:'2026-10-11T00:00:00Z',status:'ready',seconds:180,vocal:'C:/AI/ManaAI-CV-2/exports/singing/song.wav',settings:{wholeSong:true}}]});initiative.saveInitiative(state);
+ const snapshot=backup.snapshotBackup();assert.equal(backup.validateBackup(JSON.stringify(snapshot)).data['mana.initiative.v1'].studio.projects[0].title,'Song');
+ delete snapshot.data['mana.initiative.v1'].studio;assert.equal(backup.validateBackup(JSON.stringify(snapshot)).data['mana.initiative.v1'].studio.projects.length,0);
+});
+
+test('song names resolve exact normalized titles and aliases, exclude disabled entries, and avoid repeated generic selections',()=>{
+ const load=loader();const pool=load('src/core/songPool.ts'),music=load('src/core/musicalMoments.ts');
+ const songs=pool.validateSongs([{id:'song-first',title:'Little Stars',aliases:['Starlight'],path:'C:/AI/ManaAI-CV-2/exports/singing/first.wav',enabled:true},{id:'song-second',title:'Evening Song',aliases:[],path:'C:/AI/ManaAI-CV-2/exports/singing/second.wav',enabled:true}]);
+ assert.equal(pool.requestedSongTitle('Can you sing "Little Stars" for me?'),'Little Stars');
+ assert.equal(pool.findSong(songs,'STARLIGHT').id,'song-first');assert.equal(pool.findSong(songs,'little-stars').id,'song-first');assert.equal(pool.findSong(songs,'Little Star'),undefined);
+ assert.equal(pool.findSong([{...songs[0],enabled:false}],'Starlight'),undefined);
+ const state={...music.validateMusicalState(null),songs,lastClip:'song-first'};
+ assert.equal(music.chooseMusic(state,'neutral','song',()=>0),'song-second');assert.equal(music.musicPath('song-second',songs),songs[1].path);
+ assert.equal(music.musicalNoteClip('♪ Mana started singing: Evening Song.',songs),'song-second');
+ assert.equal(music.chooseMusic({...state,songs:[]},'neutral','song'),'');assert.equal(music.chooseMusic({...state,songs:[]},'happy'),'bright-hum');
+});
+test('song pool rejects traversal and ambiguous aliases, preserves an intentionally empty pool, and migrates old backups',()=>{
+ const values=new Map();const load=loader({'./persistence':{readStored:k=>values.get(k)??null,writeStored:(k,v)=>values.set(k,v)}});const pool=load('src/core/songPool.ts'),initiative=load('src/core/initiative.ts'),backup=load('src/core/backup.ts');
+ assert.equal(pool.validateSongs([]).length,0);assert.equal(pool.validateSongs(null).length,1);
+ assert.equal(pool.validateSongs([{id:'song-bad',title:'Bad',path:'C:/AI/ManaAI-CV-2/exports/singing/../private.wav'}]).length,0);
+ const first={id:'song-first',title:'First',aliases:['Hello'],path:'C:/AI/ManaAI-CV-2/exports/singing/first.wav',enabled:true};const second={...first,id:'song-second',title:'Second'};
+ assert.equal(pool.validateSongs([first,second]).length,1);
+ const state=initiative.validateInitiative(null);state.music.songs=[first];initiative.saveInitiative(state);
+ const b=backup.snapshotBackup();assert.equal(backup.validateBackup(JSON.stringify(b)).data['mana.initiative.v1'].music.songs[0].title,'First');
+ delete b.data['mana.initiative.v1'].music.songs;assert.equal(backup.validateBackup(JSON.stringify(b)).data['mana.initiative.v1'].music.songs[0].id,'cover-excerpt');
+ state.music.songs=[];initiative.saveInitiative(state);assert.equal(backup.validateBackup(JSON.stringify(backup.snapshotBackup())).data['mana.initiative.v1'].music.songs.length,0);
+});
+
+test('custom voice startup reuses a ready service and shares concurrent cold starts',async()=>{
+ const calls=[];let ready=false;
+ const service=loader({'./customVoice':{loadCustomVoice:()=>({port:9882})},'@tauri-apps/api/core':{invoke:async(name)=>{calls.push(name);if(name==='custom_voice_check'&&!ready)throw Error('not ready');if(name==='custom_voice_server_start')ready=true;}}},{setTimeout})('src/core/customVoiceService.ts');
+ const first=service.ensureCustomVoice();assert.equal(service.ensureCustomVoice(),first);await first;
+ assert.equal(calls.filter(c=>c==='custom_voice_server_start').length,1);
+ await service.ensureCustomVoice();assert.equal(calls.filter(c=>c==='custom_voice_server_start').length,1);
+});
+test('musical chat notes resolve replay clips without treating ordinary replies as music',()=>{
+ const music=loader()('src/core/musicalMoments.ts');
+ assert.equal(music.musicalNoteClip('♪ Mana started humming: Soft little hum.'),'soft-hum');
+ assert.equal(music.musicalNoteClip('♪ Yuuki started a wordless song: A little wordless song.'),'little-song');
+ assert.equal(music.musicalNoteClip('♪ Mana started singing: Mana cover excerpt.'),'cover-excerpt');
+ assert.equal(music.chooseMusic(music.validateMusicalState(null),'neutral','song'),'cover-excerpt');
+ assert.equal(music.musicalNoteClip('I like Soft little hum.'),null);
+});
+
 // Load production TypeScript with mocked desktop boundaries, without new dependencies.
 function loader(mocks = {}, globals = {}) {
   const cache = new Map();
@@ -590,7 +643,7 @@ test("backup roundtrip validates every section and rejects damaged files before 
  const backup=await b.createBackup();const valid=b.validateBackup(JSON.stringify(backup));
  assert.equal(valid.data["mana.diary.v1"][0].deletedAt,"2026-10-09T02:00:00Z");
  assert.match(b.backupCounts(valid),/1 memories/);
- assert.equal(Object.keys(valid.data).length,30);
+ assert.equal(Object.keys(valid.data).length,31);
  const legacy=JSON.parse(JSON.stringify(backup));delete legacy.data["mana.followups.v1"];
  delete legacy.data["mana.shared_activities.v1"];
  assert.equal(b.validateBackup(JSON.stringify(legacy)).data["mana.followups.v1"].notes.length,0);
@@ -1567,6 +1620,12 @@ test("curious emotion tags are hidden and mapped to thinking, including partial 
   assert.equal(cleanReply("[curious] Hi [happy]").emotion, "happy");
 });
 
+test('expanded chat emotion tags stay out of spoken text and update voice and companion mood',()=>{
+ const load=loader({'./persistence':{readStored:()=>null,writeStored(){}}});const emotion=load('src/core/emotion.ts'),voice=load('src/core/customVoice.ts'),state=load('src/core/internalState.ts'),settings=load('src/core/settings.ts');
+ for(const [tag,tone] of [['gentle','gentle'],['cheerful','cheerful'],['angry','angry'],['worried','worried'],['sad','sad']]){const result=emotion.cleanReply(`I am here. [${tag}]`);assert.equal(result.text,'I am here.');assert.equal(result.emotion,tag);assert.equal(voice.emotionVoiceTone(result.emotion),tone);assert.ok(settings.DEFAULT_PROMPT.includes(`[${tag}]`));const next=state.replyState(state.defaultInternalState(),result.emotion);assert.equal(next.mood,tag);}
+ assert.equal(emotion.cleanReply('I am here. [gent').text,'I am here.');assert.equal(emotion.cleanReply('I am here. [cheer').text,'I am here.');assert.equal(emotion.cleanReply('[cheerful] Hi. [gentle]').emotion,'gentle');assert.equal(emotion.cleanReply('Use [a square bracket] in code.').text,'Use [a square bracket] in code.');
+});
+
 test("retrieval recalls sushi for favorite food and prioritizes pinned notes", () => {
   const c = loader()("src/core/character.ts");
   const food = { ...c.newMemory("Favorite food is Sushi.", "user", 3), id: "food" };
@@ -2124,4 +2183,75 @@ test('hands-free endpoint waits for sustained voice and a pause, ignoring a shor
 test('hands-free rejects sound captions and steady fan noise while allowing voice above background',()=>{
  const h=loader()('src/core/handsFree.ts');for(const text of ['[Music]','[XBOX SOUND]','(background noise)','♪♫','[Music] [Noise]'])assert.equal(h.hasSpokenWords(text),false);assert.equal(h.hasSpokenWords('Hello Mana'),true);assert.equal(h.hasSpokenWords('I like music [Music]'),true);
  const fan=new h.SpeechEndpoint();let decision;for(let i=0;i<16;i++)decision=fan.step(0.025,500);assert.equal(decision,'silence');const voice=new h.SpeechEndpoint();voice.step(0.02,500);voice.step(0.02,200);assert.equal(voice.step(0.08,300),'wait');voice.step(0.02,500);voice.step(0.02,500);assert.equal(voice.step(0.02,200),'finish');
+});
+
+
+test('custom voice setup survives backup and older backups get local defaults',()=>{
+ const values=new Map();const load=loader({'./persistence':{readStored:k=>values.get(k)??null,writeStored:(k,v)=>values.set(k,v)}});const voice=load('src/core/customVoice.ts'),backup=load('src/core/backup.ts');
+ voice.saveCustomVoice({...voice.DEFAULT_CUSTOM,referencePath:'C:/voice.wav',referenceText:'Exact reference text.',port:9883});const b=backup.snapshotBackup();assert.equal(backup.validateBackup(JSON.stringify(b)).data['mana.custom_voice.v1'].port,9883);assert.equal(voice.loadCustomVoice().referenceText,'Exact reference text.');delete b.data['mana.custom_voice.v1'];assert.equal(backup.validateBackup(JSON.stringify(b)).data['mana.custom_voice.v1'].port,9882);b.data['mana.custom_voice.v1']={...voice.DEFAULT_CUSTOM,audio:[1]};assert.throws(()=>backup.validateBackup(JSON.stringify(b)),/mana.custom_voice/);assert.equal(voice.validateCustomVoice({port:80}).port,9882);
+});
+
+test('voice presets keep matching transcripts and preserve the default through persistence and legacy backups',()=>{
+ const values=new Map();const load=loader({'./persistence':{readStored:k=>values.get(k)??null,writeStored:(k,v)=>values.set(k,v)}});const voice=load('src/core/customVoice.ts'),backup=load('src/core/backup.ts');
+ const config=voice.validateCustomVoice({...voice.DEFAULT_CUSTOM,referencePath:'C:/my-default.wav',referenceText:'My own transcript.',preset:'gentle'});
+ voice.saveCustomVoice(config);assert.equal(voice.voiceReference(voice.loadCustomVoice()).path,config.references.gentle.path);assert.equal(voice.voiceReference({...config,preset:'default'}).text,'My own transcript.');
+ const b=backup.snapshotBackup();const legacy={...config};for(const key of ['preset','references','referenceLanguage','replyLanguage'])delete legacy[key];b.data['mana.custom_voice.v1']=legacy;
+ const restored=backup.validateBackup(JSON.stringify(b)).data['mana.custom_voice.v1'];assert.equal(restored.referencePath,'C:/my-default.wav');assert.equal(restored.referenceText,'My own transcript.');assert.equal(restored.referenceLanguage,'en');assert.equal(restored.replyLanguage,'en');assert.equal(restored.preset,'automatic');
+ b.data['mana.custom_voice.v1']={...restored,replyLanguage:'invalid'};assert.throws(()=>backup.validateBackup(JSON.stringify(b)),/mana.custom_voice/);
+ b.data['mana.custom_voice.v1']={...restored,references:{...restored.references,gentle:{...restored.references.gentle,extra:'invalid'}}};assert.throws(()=>backup.validateBackup(JSON.stringify(b)),/mana.custom_voice/);
+ const changed=voice.validateCustomVoice(null);changed.references.gentle.text='changed';assert.notEqual(voice.validateCustomVoice(null).references.gentle.text,'changed');
+ const main=voice.validateCustomVoice({...voice.DEFAULT_CUSTOM,preset:'default',referenceText:voice.CONFIRMED_REFERENCE_TEXT,referenceLanguage:'ja'});assert.equal(main.referenceLanguage,'en');assert.equal(main.referenceText,voice.CONFIRMED_REFERENCE_TEXT);assert.match(main.referenceText,/Chiimu purei/);
+ assert.equal(voice.validateCustomVoice({...main,preset:'cheerful',referenceLanguage:'ja'}).referenceLanguage,'en');
+ const japanese={...main,preset:'cheerful',referenceLanguage:'ja',references:{...main.references,cheerful:{...main.references.cheerful,text:'レベルアップおめでとう。やったね！レアアイテムだ！わかったよ。了解だよ。これでおしまい。お疲れ様。'}}};const romanized=voice.validateCustomVoice(japanese);assert.match(romanized.references.cheerful.text,/Reberu appu/);assert.equal(romanized.referenceLanguage,'en');assert.match(japanese.references.cheerful.text,/レベル/);
+ const edited=voice.validateCustomVoice({...japanese,references:{...japanese.references,cheerful:{path:'C:/custom.wav',text:'My edited transcript.'}}});assert.equal(edited.references.cheerful.text,'My edited transcript.');assert.equal(edited.referenceLanguage,'ja');
+});
+
+test('legacy Mana reference and speech-only name pronunciation preserve chat and migrate older preset backups',()=>{
+ const values=new Map();const load=loader({'./persistence':{readStored:k=>values.get(k)??null,writeStored:(k,v)=>values.set(k,v)}});const voice=load('src/core/customVoice.ts'),backup=load('src/core/backup.ts');
+ const config=voice.validateCustomVoice({...voice.DEFAULT_CUSTOM,preset:'legacy'});voice.saveCustomVoice(config);assert.match(voice.voiceReference(voice.loadCustomVoice()).path,/mana-legacy.wav/);
+ const chat='Hello Aishi! Aishiko is another name.';assert.equal(voice.customSpeechText(chat,config),'Hello Eye-shee! Aishiko is another name.');assert.equal(chat,'Hello Aishi! Aishiko is another name.');assert.equal(voice.customSpeechText(chat,{...config,preset:'default'}),chat);assert.equal(voice.customSpeechText(chat,{...config,replyLanguage:'ja'}),chat);
+ const b=backup.snapshotBackup();delete b.data['mana.custom_voice.v1'].references.legacy;const restored=backup.validateBackup(JSON.stringify(b));assert.match(restored.data['mana.custom_voice.v1'].references.legacy.path,/mana-legacy.wav/);
+ assert.equal(voice.customSpeechRate(0,{...config,legacyDelivery:'cheerful'}),2);assert.equal(voice.customSpeechRate(9,{...config,legacyDelivery:'cheerful'}),10);assert.equal(voice.customSpeechRate(0,{...config,legacyDelivery:'gentle'}),0);assert.equal(voice.customSpeechRate(0,{...config,preset:'default',legacyDelivery:'cheerful'}),0);
+ delete b.data['mana.custom_voice.v1'].legacyDelivery;assert.equal(backup.validateBackup(JSON.stringify(b)).data['mana.custom_voice.v1'].legacyDelivery,'neutral');
+});
+
+test('automatic Mana references follow reply emotion without mutating the saved reference or chat',()=>{
+ const values=new Map();const load=loader({'./persistence':{readStored:k=>values.get(k)??null,writeStored:(k,v)=>values.set(k,v)}});const voice=load('src/core/customVoice.ts'),backup=load('src/core/backup.ts'),speech=load('src/core/speechPreferences.ts');const config=voice.validateCustomVoice(null);
+ for(const [emotion,tone] of [['happy','cheerful'],['excited','cheerful'],['worried','worried'],['sad','sad'],['angry','angry'],['sleepy','gentle'],['thinking','default'],['unexpected','default']])assert.equal(voice.voiceReference(config,emotion).path,config.automaticReferences[tone].path);
+ assert.equal(config.preset,'automatic');assert.equal(voice.customSpeechRate(0,config),0);voice.saveCustomVoice(config);assert.equal(voice.loadCustomVoice().preset,'automatic');const b=backup.snapshotBackup();assert.equal(backup.validateBackup(JSON.stringify(b)).data['mana.custom_voice.v1'].automaticReferences.sad.text,config.automaticReferences.sad.text);
+ const m={id:'emotion-new',role:'assistant',content:'I am glad! [excited]'};const tracker=new speech.AutomaticSpeech([]);assert.equal(tracker.next([m],false,true,true,'Mana'),'I am glad!');assert.equal(tracker.emotion,'excited');assert.equal(m.content,'I am glad! [excited]');assert.equal(load('src/core/emotion.ts').cleanReply('Please stop. [angry]').emotion,'angry');
+});
+
+test('approved cheerful replacement migrates the matching reference and preserves custom edits',()=>{
+ const voice=loader({'./persistence':{}})('src/core/customVoice.ts');const old={path:'C:/AI/ManaAI-CV-2/data/custom-voice/references/mana-v2/cheerful.wav',text:"Oh my gosh, look! It's finally happening! No way, we actually did it! Woohoo, yes!"};const config={...voice.DEFAULT_CUSTOM,automaticReferences:{...voice.DEFAULT_CUSTOM.automaticReferences,cheerful:old}};
+ const updated=voice.validateCustomVoice(config);assert.match(updated.automaticReferences.cheerful.path,/cheerful-r2.wav/);assert.match(updated.automaticReferences.cheerful.text,/Fast! Fast! Fast!/);assert.equal(config.automaticReferences.cheerful.path,old.path);
+ const edited=voice.validateCustomVoice({...config,automaticReferences:{...config.automaticReferences,cheerful:{...old,text:'User-edited transcript.'}}});assert.equal(edited.automaticReferences.cheerful.text,'User-edited transcript.');assert.equal(edited.automaticReferences.cheerful.path,old.path);
+});
+
+test('approved Default 2 replaces the matching automatic fallback and preserves custom references',()=>{
+ const voice=loader({'./persistence':{}})('src/core/customVoice.ts');const old={path:'C:/AI/ManaAI-CV-2/data/custom-voice/references/mana-v2/default.wav',text:'Once upon a time, in a faraway kingdom, a brave knight set out on a quest to rescue the lost princess.'};const config={...voice.DEFAULT_CUSTOM,automaticReferences:{...voice.DEFAULT_CUSTOM.automaticReferences,default:old}};
+ const updated=voice.validateCustomVoice(config);assert.match(voice.voiceReference(updated,'neutral').path,/default-r2.wav/);assert.match(voice.voiceReference(updated,'thinking').text,/heavy bag/);assert.equal(updated.automaticReferences.gentle.path,config.automaticReferences.gentle.path);assert.equal(config.automaticReferences.default.path,old.path);
+ const edited=voice.validateCustomVoice({...config,automaticReferences:{...config.automaticReferences,default:{...old,text:'My custom transcript.'}}});assert.equal(edited.automaticReferences.default.text,'My custom transcript.');assert.equal(edited.automaticReferences.default.path,old.path);
+});
+
+test('musical initiative respects idle quiet-hours pause mute and persistent cooldown without rerolling each tick',()=>{
+ const music=loader()('src/core/musicalMoments.ts');const now=new Date('2026-10-11T04:00:00Z');const state={...music.validateMusicalState(null),enabled:true};const context={visible:true,idle:true,ready:true,muted:false,energy:70,timeZone:'Asia/Singapore',openedAt:now.getTime()-600000,lastActivityAt:now.getTime()-600000,pendingInitiative:false};
+ assert.equal(music.musicDue(state,now,context),true);for(const change of [{visible:false},{idle:false},{ready:false},{muted:true},{energy:10},{pendingInitiative:true},{pausedUntil:new Date(now.getTime()+60000).toISOString()},{lastInitiativeAt:now.toISOString()},{lastActivityAt:now.getTime()}])assert.equal(music.musicDue(state,now,{...context,...change}),false);
+ assert.equal(music.musicDue(state,new Date('2026-10-11T15:00:00Z'),context),false);const planned=music.planMusicAttempt(state,'soft-hum',now,()=>.5);assert.equal(Date.parse(planned.nextAttemptAt)-now.getTime(),90*60000);assert.equal(music.musicDue(planned,now,context),false);assert.equal(music.musicDue(planned,new Date(now.getTime()+90*60000),context),true);assert.equal(music.chooseMusic(state,'worried'),'soft-hum');assert.equal(music.chooseMusic(state,'happy'),'bright-hum');assert.equal(music.chooseMusic(state,'neutral','song'),'cover-excerpt');assert.equal(music.requestedMusic('Please hum for me!'),'hum');assert.equal(music.requestedMusic('sing a short song'),'song');assert.equal(music.requestedMusic('sing a specific copyrighted song'),null);
+});
+
+test('musical settings roundtrip and old initiative backups restore with music disabled',()=>{
+ const values=new Map();const load=loader({'./persistence':{readStored:k=>values.get(k)??null,writeStored:(k,v)=>values.set(k,v)}});const initiative=load('src/core/initiative.ts'),backup=load('src/core/backup.ts');const state=initiative.validateInitiative(null);state.music.enabled=true;state.music.cooldownMinutes=45;initiative.saveInitiative(state);const b=backup.snapshotBackup();assert.equal(backup.validateBackup(JSON.stringify(b)).data['mana.initiative.v1'].music.cooldownMinutes,45);delete b.data['mana.initiative.v1'].music;assert.equal(backup.validateBackup(JSON.stringify(b)).data['mana.initiative.v1'].music.enabled,false);
+});
+
+test('Stop cancels a musical load and prevents late audio playback',async()=>{
+ let finish;const waiting=new Promise(r=>finish=r);let count=0,decode=0;const load=loader({'react':{useRef:v=>({current:v}),useEffect(){},useState:v=>{count++;return[count===1?['Zira']:count===2?{voice:'Zira',rate:0,volume:100,automatic:false}:typeof v==='function'?v():v,()=>{}];}},'./persistence':{readStored:()=>null,writeStored(){}},'@tauri-apps/api/event':{listen:async()=>()=>{}},'@tauri-apps/api/core':{invoke:async name=>name==='singing_audio'?waiting:undefined}},{window:{__TAURI_INTERNALS__:{}},AudioContext:class{constructor(){decode++;}},setTimeout,clearTimeout,setInterval,clearInterval,crypto:require('node:crypto').webcrypto})('src/core/useSpeech.ts');const speech=load.useSpeech();const playing=speech.playMusic('clip.wav');await speech.stop();finish(new ArrayBuffer(44));assert.equal(await playing,false);assert.equal(decode,0);
+});
+
+test('custom audio refuses non-WAV and oversize responses and rests during silence',()=>{
+ const voice=loader({'./persistence':{}},{atob:global.atob})('src/core/customVoice.ts');assert.throws(()=>voice.waveBytes(Buffer.from('not audio').toString('base64')),/WAV/);assert.throws(()=>voice.waveBytes('A'.repeat(16000001)),/too large/);const bytes=Buffer.alloc(44);bytes.write('RIFF');bytes.write('WAVE',8);assert.equal(voice.waveBytes(bytes.toString('base64')).length,44);assert.equal(voice.audioMouth(new Float32Array(48000),0,48000,'hello',1),null);assert.equal(voice.audioMouth(new Float32Array(48000).fill(0.1),0,48000,'hello',1),'e');assert.equal(voice.audioMouth(new Float32Array(48000).fill(0.1),2,48000,'hello',1),null);
+});
+
+test('stopping a custom voice launch suppresses its late result and stops the owned request',async()=>{
+ let resolveLaunch;const launch=new Promise(r=>resolveLaunch=r),calls=[],effects=[];let count=0;const load=loader({'react':{useRef:v=>({current:v}),useEffect:e=>effects.push(e),useState:v=>{count++;return[count===1?['Mana · GPT-SoVITS']:count===2?{voice:'Mana · GPT-SoVITS',rate:0,volume:100,automatic:false}:typeof v==='function'?v():v,()=>{}];}},'./persistence':{readStored:()=>null,writeStored(){}},'@tauri-apps/api/event':{listen:async()=>()=>{}},'@tauri-apps/api/core':{invoke:async(name)=>{calls.push(name);if(name==='custom_voice_generate')return launch;if(name==='speech_voices')return [];}}},{window:{__TAURI_INTERNALS__:{}},setTimeout,clearTimeout,setInterval,clearInterval,crypto:require('node:crypto').webcrypto})('src/core/useSpeech.ts');const speech=load.useSpeech();const starting=speech.speak('Hello');await speech.stop();resolveLaunch();assert.equal(await starting,false);assert.ok(calls.filter(c=>c==='custom_voice_stop').length>=2);assert.ok(!calls.includes('custom_voice_poll'));
 });

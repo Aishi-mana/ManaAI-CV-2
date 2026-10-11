@@ -1,5 +1,36 @@
 # Mana changelog
 
+## 2026-10-11 — Compact chat song pool (unreleased)
+
+- Replaced tall pool cards with searchable library-style rows, linked album thumbnails, expandable aliases and icon actions with tooltips/accessibility labels. Long lists scroll within the pool.
+- User confirmed Music Studio acceptance tests 1–4 passed. The new pool appearance still needs a desktop visual check.
+
+## 2026-10-11 — Full-size pastel Music Studio (unreleased)
+
+- More → Songs opens a full-size main view with saved-cover discovery, searchable library, album artwork, mix/vocal/instrument player, seeking and volume. The existing whole-song/excerpt cover workflow and reviewed chat pool remain available.
+- Projects retain settings, truthful completion/interruption status and duration. Metadata/artwork use existing backups; audio remains external. Returning to chat preserves form/selection and pauses playback; pending conversion continues.
+- Stage 1 is implemented; reviewed excerpt extraction without reconversion and new arrangements/original songs remain pending. See [Music Studio](MUSIC_STUDIO.md).
+- Production build passed; 166 frontend and 57 Rust tests passed (two optional live checks skipped). Browser layout checks covered standard and minimum-window layouts; desktop manual acceptance remains pending.
+
+## 2026-10-11 — Whole-song covers (unreleased)
+
+- Songs offers Whole song, converting uploaded audio from beginning to end without the 60-second excerpt limit. Excerpt controls are disabled in this mode, and Stop/Close still cancel processing.
+- Full covers can be auditioned; the chat pool remains limited to approved 1–30 second excerpts. Preview reads support generated WAVs up to 256 MB. Whole-song processing has a two-hour timeout.
+- A real 61.25-second guide conversion preserved the complete output duration while ignoring five-second excerpt settings. Production build and 55 Rust checks passed; manual full-cover review remains pending. Trembling quality work remains unresolved.
+
+## 2026-10-11 — Songs menu and named short songs (unreleased)
+
+- More → Songs now manages a persistent approved short-song pool with titles, aliases, enabled switches, audition and removal. Uploaded guides can be converted with adjustable original-backing volume; only listened-to, explicitly approved 1–30 second clips enter the pool.
+- Typed named-song requests play matching enabled clips; unavailable songs get suggestions from the real pool. Generic requests and musical initiative select enabled songs. Existing backups migrate the starter cover metadata without embedding audio.
+- See [Songs](SONGS.md) for workflow, limits and manual checks.
+- Validation: production build, 164 frontend tests and 55 Rust tests passed; two optional live tests skipped. Manual menu checks remain pending.
+
+## 2026-10-11 — Voice startup and musical replay (unreleased)
+
+- GPT-SoVITS loads on app opening when custom voice is selected, and when switching to it. Existing services are reused; setup's manual Start shares the same startup operation.
+- Humming/song chat notes show Replay and play their clip instead of speaking the descriptive note. Both vocal-only hums passed listening review; the wordless song remains provisional.
+- Production build passed; 162 frontend tests passed and two optional live checks were skipped.
+
 User-facing changes to the current Rust/Tauri and React/TypeScript Mana.
 Started 2026-10-09, retrospectively from project docs, available chat evidence and
 Git history. This is a substantial development record, not a complete transcript.
@@ -7,6 +38,32 @@ Dates below identify known development sessions, not packaged release dates.
 Unreleased changes must not be mistaken for committed or shipped releases.
 
 ## Unreleased — current development
+
+### Voice delivery selection acceptance — 2026-10-10
+
+- User passed revised cheerful and gentle, completing approval of all four delivery selections. Runtime presets and exact transcript checks remain pending; active settings were not changed.
+
+### Longer voice reference candidates — 2026-10-10
+
+- Recorded approval of short style auditions and prepared four 7–9 second review references. Default rebuilt from the unclipped original phrase; cheerful/thoughtful use continuous separated excerpts, gentle uses a small phrase assembly.
+- Preserved previous baseline and source comparisons; active settings remain unchanged. Longer candidates require listening/transcript checks before adoption.
+
+### Voice reference collection review — 2026-10-10
+
+- Prepared provisional labels, draft Japanese transcripts and four short audition references for the user-supplied collection; original files and runtime settings remain unchanged. Final style/speaker/transcript approval and selective cleanup are pending listening review.
+- Recorded corrected feedback: conversion speed is acceptable without the concurrent ComfyUI workload; chat singing should have light guitar or piano accompaniment.
+
+### Custom voice and singing acceptance — 2026-10-10
+
+- User confirmed all four manual checks passed and liked the singing mix. Corrected Japanese reference transcript improved speech; voice consistency and generation speed remain tuning work.
+- Recorded the requested chat humming/acoustic snippets and separate original-song/cover studio roadmap. This update documents plans without enabling spontaneous audio or claiming full-song generation.
+
+### Custom speech and supplied-guide singing — 2026-10-10
+
+- Add reference-conditioned GPT-SoVITS speech to Voice selection, preview, read-aloud, Stop, speed/volume and hands-free. CPU server uses existing pretrained weights/reference; no new training.
+- Add More → Singing for bounded guide segments, vocal separation, pitch-conditioned conversion and vocal/backing WAV previews/exports.
+- Persist custom setup in SQLite/backups, with defaults for older backups; exclude audio/models. Cancel late results and stop owned processes on normal app exit.
+- Real speech/native HTTP proxy and five-second guide separation/conversion/remix smoke tests passed. 151 frontend checks, 55 Rust checks and production frontend build passed; two optional live checks skipped. Listening and live UI acceptance remain pending.
 
 ### Hands-free background noise handling — 2026-10-10
 
@@ -244,3 +301,9 @@ Add concise user-visible changes under Unreleased with a verified date when know
 Keep implementation decisions and test detail in DEVLOG.md. Record limitations
 without marking partial manual checks as universal passes. Introduce a release
 heading only when an actual version/release is designated.
+# 2026-10-10 — Voice presets (unreleased)
+
+Added persistent Default/Cheerful/Thoughtful/Gentle reference selection with per-preset transcript editing and separate Japanese/English reference and reply languages. Singing uses the selected reference. Existing default paths and custom runtime settings are preserved; recognized incorrect main-reference English text is migrated to the user's confirmed Japanese words. Style transcript approval remains pending.
+# 2026-10-11 — Musical initiative foundation (unreleased)
+
+Added opt-in occasional musical moments with persistent cooldowns, journal-timezone quiet hours and initiative pause coordination. Three original wordless piano/guitar candidates are prepared locally through Seed-VC. Voice previews and simple typed humming/singing requests share Stop, volume and mouth playback. Drafts, microphone, hands-free, hidden app state and active work block or stop music. Old backups restore with musical initiative disabled. Listening approval remains pending; lyrics and requested-song covers are future work.

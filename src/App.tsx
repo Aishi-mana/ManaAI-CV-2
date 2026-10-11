@@ -1,3 +1,5 @@
+import {mediaOccupied} from './core/mediaActivity';
+import SingingDrawer from './components/SingingDrawer';
 import { prepareAvatarReference } from './core/avatarReference';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import ChatPanel from "./components/ChatPanel";
@@ -78,6 +80,7 @@ const STATUS_LABEL = {
 } as const;
 
 export default function App() {
+  const [showSinging,setShowSinging]=useState(false);
   const [showVision,setShowVision]=useState(false);
   const [savedImages,setSavedImages]=useState(loadSavedImages);
   const savedImagesRef=useRef(savedImages);savedImagesRef.current=savedImages;
@@ -273,7 +276,7 @@ export default function App() {
 
   async function startConversation(manual = false) {
     const current = initiativeRef.current;
-    if (!current.enabled || current.pending || initiativePaused(current) || busy || reflecting || abortRef.current || reflectionDraft || hasChatDraft.current || storage.error || llama.status !== "ready") return;
+    if (mediaOccupied() || !current.enabled || current.pending || initiativePaused(current) || busy || reflecting || abortRef.current || reflectionDraft || hasChatDraft.current || storage.error || llama.status !== "ready") return;
     const now = new Date();
     if (!manual && !initiativeDue(current, now, journalRef.current.timeZone, journalOpenedAt.current, lastActivityAt.current, companion.state.energy)) return;
     const ctrl = new AbortController();
@@ -343,14 +346,14 @@ export default function App() {
         setInitiativeStatus("");
         return;
       }
-      if (document.visibilityState !== "visible" || showSavedImages || showVision || showSkills || showNarratives || narrativeDraft || showEvents || showSettings || showMemories || showState || showDiary || showWardrobe || showGoals || showFollowups || showActivities || showChatArchives || showThoughts || thoughtDraft || archiving) return;
+      if (document.visibilityState !== "visible" || showSinging || showSavedImages || showVision || showSkills || showNarratives || narrativeDraft || showEvents || showSettings || showMemories || showState || showDiary || showWardrobe || showGoals || showFollowups || showActivities || showChatArchives || showThoughts || thoughtDraft || archiving) return;
       // A due daily journal has priority over initiating a chat.
       if (dueJournalDate(journalRef.current, diaryRef.current)) return;
       void startConversation();
     };
     const timer = window.setInterval(check, 30_000);
     return () => window.clearInterval(timer);
-  }, [initiative, busy, reflecting, reflectionDraft, llama.status, storage.error, companion.state, identity, memories, settings, goals, interests, work, followups, showActivities, showFollowups, showSettings, showMemories, showState, showDiary, showWardrobe, showGoals,showChatArchives,showThoughts,showEvents,showSkills,showNarratives,narrativeDraft,thoughtDraft,archiving,showVision,showSavedImages]);
+  }, [initiative, busy, reflecting, reflectionDraft, llama.status, storage.error, companion.state, identity, memories, settings, goals, interests, work, followups, showActivities, showFollowups, showSettings, showMemories, showState, showDiary, showWardrobe, showGoals,showChatArchives,showThoughts,showEvents,showSkills,showNarratives,narrativeDraft,thoughtDraft,archiving,showVision,showSavedImages,showSinging]);
 
   async function generateActivityReply(id:string){
     if(abortRef.current||busy||reflecting||storage.error||llama.status!=='ready')return;
@@ -412,7 +415,7 @@ export default function App() {
 
   useEffect(() => {
     const check = () => {
-      if (showSavedImages || showVision || busy || reflecting || reflectionDraft || hasChatDraft.current || abortRef.current || llama.status !== "ready" || storage.error || Date.now() < journalRetryAfter.current) return;
+      if (showSinging || showSavedImages || showVision || busy || reflecting || reflectionDraft || hasChatDraft.current || abortRef.current || llama.status !== "ready" || storage.error || Date.now() < journalRetryAfter.current) return;
       if (Date.now()-journalOpenedAt.current < 120_000) return;
       const date = dueJournalDate(journalRef.current,diaryRef.current);
       if (!date) return;
@@ -424,7 +427,7 @@ export default function App() {
     check();
     const timer = window.setInterval(check,30_000);
     return () => window.clearInterval(timer);
-  }, [busy,reflecting,reflectionDraft,llama.status,journal,diary,identity,memories,goals,work,companion.state,settings,storage.error,showVision,showSavedImages]);
+  }, [busy,reflecting,reflectionDraft,llama.status,journal,diary,identity,memories,goals,work,companion.state,settings,storage.error,showVision,showSavedImages,showSinging]);
 
   async function draftThought() {
     if(!thoughts.enabled||thoughts.entries.length>=100||thoughtDraft||busy||reflecting||abortRef.current||storage.error||llama.status!=='ready')return;
@@ -717,7 +720,7 @@ export default function App() {
   const freshAssets = avatar.assets;
 
   return (
-    <div className="app">
+    <div className={`app${showSinging?' studio-open':''}`}>
       <StagePanel
         charName={settings.charName}
         emotion={emotion}
@@ -763,6 +766,7 @@ export default function App() {
           <button className="btn" onClick={()=>setShowSkills(true)}>Skills</button>
           <button className="btn" disabled={busy||reflecting} onClick={()=>setShowVision(true)}>Images</button>
           <button className="btn" onClick={()=>setShowSavedImages(true)}>Saved images</button>
+          <button className="btn" disabled={busy||reflecting} onClick={()=>setShowSinging(true)}>Songs</button>
           </MoreTools>
         </header>
 
@@ -803,6 +807,12 @@ export default function App() {
         </div>}
         {initiativeStatus && <div className="banner" role="status">{initiativeStatus}</div>}
         <ChatPanel
+          initiative={initiative}
+          onInitiativeState={changeInitiative}
+          musicMood={companion.state.mood}
+          musicContext={{energy:companion.state.energy,timeZone:journal.timeZone,openedAt:journalOpenedAt.current,lastActivityAt:lastActivityAt.current,pausedUntil:initiative.pausedUntil,pendingInitiative:!!initiative.pending,lastInitiativeAt:initiative.lastAttemptAt}}
+          onMusicUnavailable={(request,titles)=>{const stamp=new Date().toISOString();const content=titles.length?`I don't have that song ready in my song pool yet. How about ${titles.slice(0,3).join(' or ')}? [gentle]`:`I don't have any songs enabled in my pool yet. We can add one in Songs, or I can hum for you. [gentle]`;const next:Msg[]=[...messagesRef.current,{id:uid(),role:'user',content:request,createdAt:stamp},{id:uid(),role:'assistant',content,createdAt:stamp}];messagesRef.current=next;setMessages(next);saveChat(next);lastActivityAt.current=Date.now();}}
+          onMusicPlayed={(title,kind,request)=>{const stamp=new Date().toISOString();const note:Msg={id:uid(),role:'assistant',content:`♪ ${settings.charName} started ${kind==='hum'?'humming':'singing'}: ${title}. [gentle]`,createdAt:stamp};const extra:Msg[]=request?[{id:uid(),role:'user',content:request,createdAt:stamp},note]:[note];const next=[...messagesRef.current,...extra];messagesRef.current=next;setMessages(next);saveChat(next);lastActivityAt.current=Date.now();}}
           savedImages={savedImages}
           avatarReferenceAvailable={!!avatar.assets}
           imageStatus={imageStatus}
@@ -810,7 +820,7 @@ export default function App() {
           onVoiceMouth={setVoiceMouth}
           messages={messages}
           busy={busy}
-          ready={llama.status === "ready" && !reflecting}
+          ready={llama.status === "ready" && !reflecting && !showSinging}
           charName={settings.charName}
           onSend={sendAttachment}
           userName={settings.userName}
@@ -820,6 +830,7 @@ export default function App() {
         />
       </main>
 
+      <SingingDrawer active={showSinging} initiative={initiative} onInitiative={changeInitiative} onBusy={setReflecting} onClose={()=>setShowSinging(false)}/>
       {showSavedImages&&<SavedImagesDrawer images={savedImages} editable={!busy&&!reflecting&&!storage.error} onClose={()=>setShowSavedImages(false)} onDelete={id=>{if(busy||reflecting||storage.error)return;const next=savedImagesRef.current.filter(image=>image.id!==id);saveSavedImages(next);savedImagesRef.current=next;setSavedImages(next);}}/>}
       {showVision&&<VisionDrawer exePath={settings.exePath} chatPort={llama.port} canDiscuss={llama.status==='ready'&&!busy&&!reflecting&&!storage.error} onBusy={setReflecting} onClose={()=>setShowVision(false)} onDiscuss={text=>{setShowVision(false);void send(text);}}/>}
       {showSettings && (

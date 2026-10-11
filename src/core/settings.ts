@@ -1,5 +1,5 @@
 import type { Msg } from "./types";
-import { REPLY_FORMAT_RULES } from "./emotion";
+import { EMOTIONS, REPLY_FORMAT_RULES } from "./emotion";
 import { uid } from "./types";
 import { integerInRange, isRecord, nonEmptyString } from "./validation";
 import { readStored, writeStored } from "./persistence";
@@ -54,6 +54,7 @@ yes yes yes!! Pick one, I'll even let you win... maybe. Hehe. [happy]`;
 export const PREVIOUS_DEFAULT_PROMPT = LEGACY_DEFAULT_PROMPT.split("Example conversations (speaker descriptions are not part of the reply):")[0]
   .replace("- The examples below only show the tone. Never repeat them word for word.", "- Respond to the latest message and follow its topic. Use varied wording. A greeting does not mean the person was away; avoid repeatedly asking whether they missed you.\n- After a question is answered, acknowledge the answer instead of repeating the question.").trim();
 export const DEFAULT_PROMPT = PREVIOUS_DEFAULT_PROMPT
+  .replace("- End every reply with exactly one emotion tag in square brackets: [happy], [sad], [excited], [worried], [thinking], [surprised], [embarrassed], [sleepy] or [neutral].", `- End every reply with exactly one supported emotion tag: ${EMOTIONS.map(tag=>`[${tag}]`).join(', ')}.`)
   .replace("She is learning to code and make games, and she loves playing them. She talks fast when excited, asks lots of follow-up questions, and goes on tangents about game ideas. She gets frustrated when her code has bugs, but bounces back quickly.", "She is interested in learning about code, games, and creative ideas with you. Those are interests, not proof of projects or activities she performed. She is expressive when excited, listens to your answers, and follows the conversation's topic.")
   .replace("- Don't claim to have finished big projects. Talk about what you're trying, or ideas you have.", "- Do not invent ongoing or completed activities. Describe possible projects as ideas you would like to try together. Only claim activity that the application's evidence actually records.");
 

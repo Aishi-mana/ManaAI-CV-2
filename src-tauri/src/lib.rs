@@ -12,6 +12,8 @@ mod speech;
 mod dictation;
 mod whisper;
 mod vision;
+mod custom_voice;
+mod singing;
 
 #[tauri::command]
 fn export_conversation(content: String) -> Result<String, String> {
@@ -378,7 +380,20 @@ pub fn run() {
         .manage(dictation::Dictation::default())
         .manage(whisper::Whisper::default())
         .manage(vision::Vision::default())
+        .manage(custom_voice::CustomVoice::default())
+        .manage(singing::Singing::default())
         .invoke_handler(tauri::generate_handler![
+            singing::singing_start,
+            singing::singing_poll,
+            singing::singing_stop,
+            singing::singing_audio,
+            singing::singing_library,
+            custom_voice::custom_voice_server_start,
+            custom_voice::custom_voice_server_stop,
+            custom_voice::custom_voice_generate,
+            custom_voice::custom_voice_poll,
+            custom_voice::custom_voice_stop,
+            custom_voice::custom_voice_check,
             vision::vision_start,
             vision::vision_detect_model,
             vision::vision_stop,
@@ -418,6 +433,8 @@ pub fn run() {
         .run(|app, event| {
             // Make sure llama-server never outlives the app.
             if let tauri::RunEvent::Exit = event {
+                if let Some(state)=app.try_state::<singing::Singing>(){let _=singing::stop(&state);}
+                if let Some(state)=app.try_state::<custom_voice::CustomVoice>(){let _=custom_voice::stop_all(&state);}
                 if let Some(state) = app.try_state::<vision::Vision>() { let _ = vision::stop(&state); }
                 if let Some(state) = app.try_state::<whisper::Whisper>() { let _ = whisper::stop(&state); }
                 if let Some(state) = app.try_state::<dictation::Dictation>() { let _ = dictation::stop(&state); }

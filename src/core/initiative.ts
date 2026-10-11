@@ -1,5 +1,7 @@
 import type { ChatMessage, Msg } from "./types";
 import type { Goal } from "./goals";
+import {validateMusicalState,type MusicalState} from './musicalMoments';
+import {validateStudio,type StudioState} from './musicStudio';
 import { cleanReply } from "./emotion";
 import { isRecord, integerInRange } from "./validation";
 import { readStored, writeStored } from "./persistence";
@@ -7,6 +9,8 @@ import { journalClock } from "./clock";
 import { ACTIVITY_GROUNDING, nearDuplicateReply } from "./conversation";
 
 export interface InitiativeState {
+  studio?:StudioState;
+  music?:MusicalState;
   enabled: boolean;
   cooldownMinutes: number;
   lastAttemptAt: string | null;
@@ -18,8 +22,10 @@ export interface InitiativeState {
 }
 const validTime = (v: unknown): v is string => typeof v === "string" && Number.isFinite(Date.parse(v));
 export function validateInitiative(value: unknown): InitiativeState {
-  const state: InitiativeState = { enabled: false, cooldownMinutes: 60, replyMinutes: 5, lastAttemptAt: null, nextAttemptAt: null, pending: null };
+  const state: InitiativeState = { enabled: false, cooldownMinutes: 60, replyMinutes: 5, lastAttemptAt: null, nextAttemptAt: null, pending: null, music:validateMusicalState(null), studio:validateStudio(null) };
   if (!isRecord(value)) return state;
+  state.studio=validateStudio(value.studio);
+  state.music=validateMusicalState(value.music);
   if (typeof value.enabled === "boolean") state.enabled = value.enabled;
   if (integerInRange(value.cooldownMinutes, 15, 240)) state.cooldownMinutes = value.cooldownMinutes;
   if (validTime(value.lastAttemptAt)) state.lastAttemptAt = value.lastAttemptAt;
