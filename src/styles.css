@@ -353,3 +353,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .custom-voice-setup { grid-column: 1 / -1; min-width: 0; }
 .custom-voice-setup summary { cursor: pointer; }
 .custom-voice-setup input { box-sizing: border-box; min-width: 0; }
+
+.pool-track { flex-wrap:wrap; }
+.pool-edit { flex-basis:100%; min-width:0; border-top:1px solid var(--mist-deep); padding-top:8px; }
+
+.stem-row { padding:14px; border:1px solid var(--mist-deep); border-radius:14px; background:#ffffff99; margin:12px 0; font-size:.85rem; }

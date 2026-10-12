@@ -1,7 +1,8 @@
 export interface StudioProject{
  id:string;title:string;createdAt:string;status:'rendering'|'ready'|'error'|'stopped'|'interrupted';
+ stems?:{name:string;path:string;gain:number;muted:boolean}[];
  source:string;vocal:string;mix:string;instrumental:string;seconds:number;artwork:string;error:string;
- settings:{wholeSong:boolean;start:number;seconds:number;separate:boolean;backingGain:number;reference:string};
+ settings:{wholeSong:boolean;start:number;seconds:number;separate:boolean;backingGain:number;vocalGain?:number;reference:string};
 }
 export interface StudioState{projects:StudioProject[];selectedId:string|null}
 export const generatedAudioPath=(value:unknown):string=>{
@@ -15,7 +16,7 @@ export function validateStudio(value:unknown):StudioState{
   if(typeof p.id!=='string'||!/^studio-[a-z0-9-]{1,80}$/.test(p.id)||projects.some(q=>q.id===p.id)||typeof p.title!=='string'||!p.title.trim()||typeof p.createdAt!=='string'||!Number.isFinite(Date.parse(p.createdAt)))continue;
   const settings=p.settings&&typeof p.settings==='object'?p.settings as Record<string,unknown>:{};
   const number=(v:unknown,fallback:number,min:number,max:number)=>typeof v==='number'&&Number.isFinite(v)&&v>=min&&v<=max?v:fallback;
-  projects.push({id:p.id,title:p.title.trim().slice(0,120),createdAt:p.createdAt,status:['rendering','ready','error','stopped','interrupted'].includes(String(p.status))?p.status as StudioProject['status']:'error',source:typeof p.source==='string'?p.source.slice(0,2000):'',vocal:generatedAudioPath(p.vocal),mix:generatedAudioPath(p.mix),instrumental:generatedAudioPath(p.instrumental),seconds:number(p.seconds,0,0,86400),artwork:typeof p.artwork==='string'&&p.artwork.length<=150000&&/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(p.artwork)?p.artwork:'',error:typeof p.error==='string'?p.error.slice(0,1000):'',settings:{wholeSong:settings.wholeSong===true,start:number(settings.start,0,0,3600),seconds:number(settings.seconds,10,1,60),separate:settings.separate!==false,backingGain:number(settings.backingGain,.3,0,1),reference:typeof settings.reference==='string'?settings.reference.slice(0,2000):''}});
+  projects.push({id:p.id,title:p.title.trim().slice(0,120),createdAt:p.createdAt,status:['rendering','ready','error','stopped','interrupted'].includes(String(p.status))?p.status as StudioProject['status']:'error',stems:Array.isArray(p.stems)?p.stems.slice(0,8).flatMap((item:unknown)=>{if(!item||typeof item!=='object')return [];const stem=item as Record<string,unknown>;const path=generatedAudioPath(stem.path);return path&&typeof stem.name==='string'&&['guitar','piano','bass','drums','other','sax','electric-guitar','replacement-piano','electric-guitar-distorted','strings-estimate','winds-estimate','sax-extracted','piano-banquet'].includes(stem.name)?[{name:stem.name,path,gain:number(stem.gain,1,0,1),muted:stem.muted===true}]:[];}):[],source:typeof p.source==='string'?p.source.slice(0,2000):'',vocal:generatedAudioPath(p.vocal),mix:generatedAudioPath(p.mix),instrumental:generatedAudioPath(p.instrumental),seconds:number(p.seconds,0,0,86400),artwork:typeof p.artwork==='string'&&p.artwork.length<=150000&&/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(p.artwork)?p.artwork:'',error:typeof p.error==='string'?p.error.slice(0,1000):'',settings:{wholeSong:settings.wholeSong===true,start:number(settings.start,0,0,3600),seconds:number(settings.seconds,10,1,60),separate:settings.separate!==false,backingGain:number(settings.backingGain,.3,0,1),vocalGain:number(settings.vocalGain,1,0,1),reference:typeof settings.reference==='string'?settings.reference.slice(0,2000):''}});
  }
  return {projects,selectedId:projects.some(p=>p.id===raw.selectedId)?raw.selectedId as string:projects[0]?.id??null};
 }

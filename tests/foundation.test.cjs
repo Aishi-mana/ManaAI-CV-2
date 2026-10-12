@@ -2255,3 +2255,55 @@ test('custom audio refuses non-WAV and oversize responses and rests during silen
 test('stopping a custom voice launch suppresses its late result and stops the owned request',async()=>{
  let resolveLaunch;const launch=new Promise(r=>resolveLaunch=r),calls=[],effects=[];let count=0;const load=loader({'react':{useRef:v=>({current:v}),useEffect:e=>effects.push(e),useState:v=>{count++;return[count===1?['Mana · GPT-SoVITS']:count===2?{voice:'Mana · GPT-SoVITS',rate:0,volume:100,automatic:false}:typeof v==='function'?v():v,()=>{}];}},'./persistence':{readStored:()=>null,writeStored(){}},'@tauri-apps/api/event':{listen:async()=>()=>{}},'@tauri-apps/api/core':{invoke:async(name)=>{calls.push(name);if(name==='custom_voice_generate')return launch;if(name==='speech_voices')return [];}}},{window:{__TAURI_INTERNALS__:{}},setTimeout,clearTimeout,setInterval,clearInterval,crypto:require('node:crypto').webcrypto})('src/core/useSpeech.ts');const speech=load.useSpeech();const starting=speech.speak('Hello');await speech.stop();resolveLaunch();assert.equal(await starting,false);assert.ok(calls.filter(c=>c==='custom_voice_stop').length>=2);assert.ok(!calls.includes('custom_voice_poll'));
 });
+
+test('studio mixing mutes individual stems, preserves duration and prevents clipping',()=>{
+ const {mixWave}=loader()('src/core/studioMix.ts');
+ const buffer=values=>({sampleRate:8,length:values.length,duration:values.length/8,numberOfChannels:1,getChannelData:()=>values});
+ const v=buffer([.8,-.8,0,0]),b=buffer([.8,.8,.4,-.4]);
+ const read=(vg,bg)=>new DataView(mixWave(v,b,vg,bg));
+ assert.equal(read(1,0).getInt16(44,true),Math.round(.8*32767));assert.equal(read(0,1).getInt16(48,true),Math.round(.8*32767));
+ const both=read(1,1);assert.equal(both.getInt16(44,true),32767);assert.equal(both.getInt16(48,true),0);assert.equal(both.getUint32(40,true),16);
+ assert.throws(()=>mixWave(v,{...b,sampleRate:16},1,1),/aligned/);assert.throws(()=>mixWave(v,b,2,1),/gains/);
+});
+
+test('instrument review mixes mute stems and persist only safe estimated-part metadata',()=>{
+ const load=loader(),mix=load('src/core/studioMix.ts'),studio=load('src/core/musicStudio.ts');
+ const audio=values=>({sampleRate:8,length:values.length,duration:values.length/8,numberOfChannels:1,getChannelData:()=>values});
+ const bytes=mix.mixStems([{audio:audio([.2,.2]),gain:1},{audio:audio([.5,.5]),gain:0},{audio:audio([.1,.1]),gain:.5}]);
+ assert.equal(new DataView(bytes).getInt16(44,true),Math.round(.25*32767));
+ const project={id:'studio-stems',title:'Parts',createdAt:'2026-10-12T00:00:00Z',status:'ready',stems:[{name:'guitar',path:'C:/AI/ManaAI-CV-2/exports/singing/guitar.wav',gain:.5,muted:true},{name:'piano',path:'C:/outside.wav'},{name:'invented',path:'C:/AI/ManaAI-CV-2/exports/singing/x.wav'}]};
+ const valid=studio.validateStudio({projects:[project]}).projects[0];assert.equal(valid.stems.length,1);assert.equal(valid.stems[0].gain,.5);assert.equal(valid.stems[0].muted,true);
+ assert.equal(studio.validateStudio(JSON.parse(JSON.stringify({projects:[valid]}))).projects[0].stems[0].path,valid.stems[0].path);
+});
+
+
+test('replacement instrument metadata preserves piano beside guitar-to-piano and electric guitar across backups',()=>{
+ const studio=loader()('src/core/musicStudio.ts');
+ const project={id:'studio-replacements',title:'Replacement mix',createdAt:'2026-10-12T00:00:00Z',status:'ready',stems:['piano','replacement-piano','electric-guitar','electric-guitar-distorted','sax'].map(name=>({name,path:'C:/AI/ManaAI-CV-2/exports/singing/'+name+'.wav',gain:.7,muted:false}))};
+ const first=studio.validateStudio({projects:[project]});
+ const restored=studio.validateStudio(JSON.parse(JSON.stringify(first))).projects[0];
+ assert.deepEqual(restored.stems.map(part=>part.name),['piano','replacement-piano','electric-guitar','electric-guitar-distorted','sax']);
+ assert.ok(restored.stems.every(part=>part.gain===.7&&!part.muted));
+});
+
+
+test('finer extracted parts survive backups with remainder, levels and safe paths',()=>{
+ const studio=loader()('src/core/musicStudio.ts');
+ const names=['guitar','piano','bass','drums','strings-estimate','winds-estimate','other'];
+ const project={id:'studio-finer-parts',title:'Finer parts',createdAt:'2026-10-12T00:00:00Z',status:'ready',stems:names.map(name=>({name,path:'C:/AI/ManaAI-CV-2/exports/singing/'+name+'.wav',gain:name==='winds-estimate'?.4:1,muted:name==='strings-estimate'}))};
+ const state=studio.validateStudio(JSON.parse(JSON.stringify(studio.validateStudio({projects:[project]}))));
+ assert.deepEqual(state.projects[0].stems.map(p=>p.name),names);
+ assert.equal(state.projects[0].stems.find(p=>p.name==='winds-estimate').gain,.4);
+ assert.equal(state.projects[0].stems.find(p=>p.name==='strings-estimate').muted,true);
+ project.stems[4].path='C:/outside.wav';assert.equal(studio.validateStudio({projects:[project]}).projects[0].stems.length,6);
+});
+
+
+test('optional sax and Banquet piano estimates retain labels, muted state and levels in backups',()=>{
+ const {validateStudio}=loader()('src/core/musicStudio.ts');
+ const names=['sax-extracted','piano-banquet','other'];
+ const result=validateStudio({projects:[{id:'optional-extraction',title:'Optional parts',createdAt:'2026-10-12T00:00:00Z',status:'ready',stems:names.map(name=>({name,path:'C:/AI/ManaAI-CV-2/exports/singing/'+name+'.wav',gain:.6,muted:name==='sax-extracted'}))}]});
+ assert.deepEqual(result.projects[0].stems.map(p=>p.name),names);
+ assert.equal(result.projects[0].stems[0].muted,true);
+ assert.equal(result.projects[0].stems[1].gain,.6);
+});

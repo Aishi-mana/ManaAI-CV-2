@@ -47,7 +47,7 @@ Keep incomplete generation capabilities clearly described as future work. Do not
 
 ## Current evidence and deferred work
 
-- Music Studio stage 1 tests 1–4 passed user acceptance on 2026-10-11. The chat pool now uses compact searchable library-style rows and icon actions with tooltips; excerpt extraction remains the next delivery stage.
+- Music Studio stage 1 tests 1–4 passed user acceptance on 2026-10-11. The chat pool now uses compact searchable library-style rows and icon actions with tooltips; reviewed excerpt extraction is now implemented and awaits manual acceptance. Remaining stage 2 mix/export controls and later generation work stay open.
 
 - The user confirmed the song menu/pool works, including adding a second song and named requests.
 - The user confirmed an actual whole-song cover completed faster than expected. Full songs cannot currently enter the short chat pool; this is intentional.
@@ -63,3 +63,9 @@ Keep incomplete generation capabilities clearly described as future work. Do not
 - Select a reviewed short excerpt from a finished cover and request it by title/alias in chat.
 - Retain library/project metadata across restart and make export/media-storage behavior explicit.
 - Validate new instrument-generation tools separately before enabling arrangement recreation or original-song creation.
+
+## Instrument review workflow agreed 2026-10-12
+
+Default: original accompaniment alongside Mana vocal. Upload/convert, separate and review estimated parts, then show an original-part label beside a replacement dropdown. Each row offers playback, mute and gain. Style-based recommendations are overridable suggestions (guitar→sax for jazz, guitar/piano→soft piano for gentle); confidence and mixed/other labels matter. Preview before saving a separate mix/arrangement. Preserve-notes/timing and freer rearrangement are distinct future replacement modes.
+
+Current delivery: Instrument parts tab, aggregate backing review, 1–60 second six-stem preparation, estimated guitar/piano/bass/drums/other rows, individual playback/mute/gain, original mix preview/save, metadata persistence. Substitutions are displayed as unavailable experiments; sampled instruments/transcription need further listening improvement. No automatic instrument identity guarantees or production replacement pipeline yet.
