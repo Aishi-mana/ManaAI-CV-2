@@ -6,8 +6,17 @@ import librosa
 import soundfile as sf
 from scipy.ndimage import median_filter
 SR=24000
+NAM_GUITARS={
+ 'guitar-bright-room':dict(shift=2,input_db=0,release=1.1,brightness=.55,room=.10,delay=0),
+ 'guitar-nam-warm':dict(shift=0,input_db=-6,release=.85,brightness=0,room=.08,delay=0),
+ 'guitar-nam-rhythm':dict(shift=0,input_db=0,release=.65,brightness=.20,room=.04,delay=0),
+ 'guitar-nam-lead':dict(shift=0,input_db=0,release=1.25,brightness=.35,room=.10,delay=.08)}
 EXTRA_PROGRAMS={'acoustic-guitar':25,'nylon-guitar':24,'finger-bass':33,'acoustic-bass':32,'violin':40,'strings':48,'flute':73,'harp':46,'electric-piano':4,'fm-piano':5,'organ':19,'accordion':21,'harpsichord':6,'clavinet':7,'harmonica':22,'ocarina':79,'synth-square':80,'synth-saw':81,'synth-pad':89,'synth-poly':90}
 SEPARATE_VARIANTS={
+ 'guitar-bright-room':('electric-guitar','BlackAndGreenGuitars/Programs/04-green_twang.sfz'),
+ 'guitar-nam-warm':('electric-guitar','BlackAndGreenGuitars/Programs/04-green_twang.sfz'),
+ 'guitar-nam-rhythm':('electric-guitar','BlackAndGreenGuitars/Programs/04-green_twang.sfz'),
+ 'guitar-nam-lead':('electric-guitar','BlackAndGreenGuitars/Programs/04-green_twang.sfz'),
  'weresax-synth':('sax','Weresax/Weresax/Programs/sxnth.sfz'),
  'weresax-saxcordion':('sax','Weresax/Weresax/Programs/saxcordion.sfz'),
  'guitar-black':('electric-guitar','BlackAndGreenGuitars/Programs/07-black_twang.sfz'),
@@ -16,6 +25,23 @@ SEPARATE_VARIANTS={
  'piano-bass':('piano','AccurateSalamander/sfz_daw/Accurate-SalamanderGrandPiano_bass1.5db.sfz')}
 
 DRUM_PROGRAMS={'drums-standard':0,'drums-rock':16,'drums-jazz':32,'drums-brush':40,'drums-electronic':24}
+
+def validate_custom(custom):
+ if custom is None:return {}
+ if not isinstance(custom,dict) or set(custom)-{'pitch','extension'}:raise ValueError('Invalid instrument customizer settings.')
+ for key,value in custom.items():
+  if isinstance(value,bool) or not isinstance(value,(int,float)) or not np.isfinite(value):raise ValueError('Use finite instrument settings.')
+  if key=='pitch' and (int(value)!=value or not -12<=value<=12):raise ValueError('Pitch must be -12 to +12 semitones.')
+  if key=='extension' and not 0<=value<=1.5:raise ValueError('Note extension must be 0–1.5 seconds.')
+ return dict(custom)
+
+def customize_notes(notes,seconds,extension=0):
+ result=[list(n) for n in notes]
+ if not extension:return result
+ for i,n in enumerate(result):
+  next_key=min((v[0] for v in notes[i+1:] if v[2]==n[2] and v[0]>n[0]),default=seconds)
+  n[1]=max(n[1],min(seconds,next_key,n[1]+extension))
+ return result
 
 
 def refine_notes(notes):
@@ -142,10 +168,14 @@ def render_soundfont(notes,seconds,root,program,shift,percussion=False):
   if settings:delete_settings(settings)
   directory.close()
 
-def render_separate(notes,seconds,root,instrument,shift,tone,patch_name=None):
+def render_separate(notes,seconds,root,instrument,shift,tone,patch_name=None,midi_velocities=None,guitar_release=None):
  """Render the supplied SFZ patches in-process, including their sample mappings."""
  import ctypes as c,os
  from scipy.signal import butter,sosfilt
+ if midi_velocities is not None and (len(midi_velocities)!=len(notes) or any(not isinstance(v,(int,np.integer)) or not 1<=v<=127 for v in midi_velocities)):
+  raise ValueError('Supply one MIDI velocity from 1–127 per note.')
+ if guitar_release is not None and (not np.isfinite(guitar_release) or not .1<=guitar_release<=2.):
+  raise ValueError('Use a guitar release between .1 and 2 seconds.')
  patches={'piano':'AccurateSalamander/sfz_daw/Accurate-SalamanderGrandPiano_flat.Recommended.sfz',
  'sax':'Weresax/Weresax/Programs/Sax.sfz','electric-guitar':'BlackAndGreenGuitars/Programs/04-green_twang.sfz'}
  patch=root/'data/instrument-samples'/(patch_name or patches[instrument])
@@ -171,13 +201,17 @@ def render_separate(notes,seconds,root,instrument,shift,tone,patch_name=None):
   rate(synth,SR);block(synth,512);offline(synth)
   if instrument=='electric-guitar':
    # Extend the main picked-note release, leaving release noises/feedback settings alone.
-   patch_text=patch.read_text(encoding='utf-8').replace('ampeg_release=0.25','ampeg_release=0.65',1)
+   release=.65 if guitar_release is None else guitar_release
+   # Combo contains two main guitar globals; explicit auditions set both equally.
+   release_count=2 if guitar_release is not None and patch.name=='10-combo_twang.sfz' else 1
+   patch_text=patch.read_text(encoding='utf-8').replace('ampeg_release=0.25',f'ampeg_release={release}',release_count)
    loaded=load_text(synth,str(patch).encode('utf-8'),patch_text.encode('utf-8'))
   else:loaded=load(synth,str(patch).encode('utf-8'))
   if not loaded:raise ValueError('Cannot load the selected SFZ instrument.')
   frames=round(seconds*SR);audio=np.zeros(frames,dtype=np.float32);events=[]
-  for begin,end,pitch,velocity in notes:
-   events.extend([(max(0,round(begin*SR)),1,int(pitch+shift),int(48+55*np.clip(velocity,0,1))), (min(frames,round(end*SR)),0,int(pitch+shift),0)])
+  for index,(begin,end,pitch,velocity) in enumerate(notes):
+   strike=midi_velocities[index] if midi_velocities is not None else int(48+55*np.clip(velocity,0,1))
+   events.extend([(max(0,round(begin*SR)),1,int(pitch+shift),int(strike)), (min(frames,round(end*SR)),0,int(pitch+shift),0)])
   events.sort();index=0
   for start in range(0,frames,512):
    size=min(512,frames-start)
@@ -336,15 +370,173 @@ def render_drums(path,seconds,root,instrument):
  midi.instruments.append(track)
  return audio,midi,notes
 
-def render(guitar_path,seconds,root,instrument="sax",tone=None,bank="fluidr3",source_name="guitar"):
+def piano_notes(events,seconds):
+ """Keep independent piano voices instead of reducing chords to one melody."""
+ notes=[]
+ for begin,end,pitch,amplitude,*_ in events:
+  begin=max(0,float(begin));end=min(seconds,float(end));pitch=int(pitch);amplitude=float(amplitude)
+  if not all(np.isfinite(v) for v in [begin,end,amplitude]) or not 21<=pitch<=108 or end-begin<.06 or amplitude<.22:continue
+  notes.append([begin,end,pitch,amplitude])
+ notes.sort(key=lambda n:(n[0],n[2]))
+ # A re-strike takes ownership of the same key; its older note-off must not cut it.
+ for i,note in enumerate(notes):
+  following=next((n for n in notes[i+1:] if n[2]==note[2]),None)
+  if following and note[1]>following[0]:note[1]=following[0]
+ return [n for n in notes if n[1]-n[0]>=.04]
+
+
+def filter_piano_notes(notes):
+ """Conservative audition filter; retain polyphony and independent re-strikes."""
+ candidates=[list(n) for n in notes if n[3]>=.40 and (n[1]-n[0]>=.105 or n[3]>=.65)]
+ kept=[]
+ for note in candidates:
+  begin,end,pitch,confidence=note
+  # Weak octave/fifth harmonics at the exact same attack can masquerade as keys.
+  harmonic=any(pitch-low[2] in [12,19,24] and abs(begin-low[0])<=.035
+      and min(end,low[1])-max(begin,low[0])>=.08
+      and low[3]>=.62 and confidence<low[3]*.65 for low in candidates)
+  if not harmonic:kept.append(note)
+ return kept
+
+
+def render_piano_polyphonic(path,seconds,root):
+ """Audition-only piano path preserving overlapping detector events."""
+ sys.path.insert(0,str(root/'data/transcription-packages'))
+ from basic_pitch import build_icassp_2022_model_path,FilenameSuffix
+ from basic_pitch.inference import predict
+ import pretty_midi
+ _,_,events=predict(path,model_or_model_path=build_icassp_2022_model_path(FilenameSuffix.onnx),minimum_note_length=60,minimum_frequency=27.5,maximum_frequency=4186,onset_threshold=.35,frame_threshold=.25)
+ notes=piano_notes(events,seconds)
+ if not notes:raise ValueError('No piano notes detected in this section.')
+ audio=render_separate(notes,seconds,root,'piano',0,None)
+ midi=pretty_midi.PrettyMIDI();track=pretty_midi.Instrument(program=0)
+ for begin,end,pitch,velocity in notes:
+  track.notes.append(pretty_midi.Note(velocity=int(48+55*np.clip(velocity,0,1)),pitch=pitch,start=begin,end=end))
+ midi.instruments.append(track)
+ return audio,midi,notes
+
+
+def render_piano_preserving(path,seconds,root,patch_name=None,custom=None):
+ """Approved piano path: polyphony, decay-aware attacks and source dynamics."""
+ sys.path.insert(0,str(root/'data/transcription-packages'))
+ from basic_pitch import build_icassp_2022_model_path,FilenameSuffix
+ from basic_pitch.inference import predict
+ import pretty_midi
+ _,_,events=predict(path,model_or_model_path=build_icassp_2022_model_path(FilenameSuffix.onnx),minimum_note_length=60,minimum_frequency=27.5,maximum_frequency=4186,onset_threshold=.35,frame_threshold=.25)
+ detected=[n for n in piano_notes(events,seconds) if n[3]>=.40]
+ if not detected:raise ValueError('No usable piano notes detected. Try another section.')
+ source,_=librosa.load(path,sr=SR,duration=seconds);hop=120
+ spectrum=np.abs(librosa.cqt(source,sr=SR,hop_length=hop,fmin=librosa.midi_to_hz(21),n_bins=88))
+ def level(pitch,start,end,percentile=50):
+  first=max(0,round(start*SR/hop));last=min(spectrum.shape[1],max(first+1,round(end*SR/hop)))
+  return float(np.percentile(spectrum[pitch-21,first:last],percentile)) if last>first else 0.
+ notes=[];last={}
+ for row in detected:
+  note=list(row);a,b,p,_=note;previous=last.get(p)
+  pre=level(p,a-.09,a-.025);post=level(p,a+.005,a+.06)
+  if previous is not None and abs(a-previous[1])<=.04 and pre>1e-7 and post/pre<1.1:
+   previous[1]=max(previous[1],b)
+  else:notes.append(note);last[p]=note
+ strengths=[level(p,a+.015,min(b,a+.14),75) for a,b,p,_ in notes]
+ reference=max(float(np.percentile(strengths,90)),1e-9)
+ velocities=[int(round(1+94*float(np.clip(s/reference,0,1)))) for s in strengths]
+ groups={1.:[],.4:[],.18:[],.08:[]}
+ for i,(note,velocity) in enumerate(zip(notes,velocities)):
+  score=min(velocity/95,float(np.clip((note[3]-.4)/.3,0,1)))
+  gain=1. if score>=.75 else .4 if score>=.45 else .18 if score>=.25 else .08
+  groups[gain].append(i)
+ custom=validate_custom(custom);shift=int(custom.get('pitch',0))
+ notes=customize_notes(notes,seconds,custom.get('extension',0))
+ audio=np.zeros(round(seconds*SR),dtype=np.float32)
+ for gain,indices in groups.items():
+  if indices:audio+=render_separate([notes[i] for i in indices],seconds,root,'piano',shift,None,patch_name,midi_velocities=[velocities[i] for i in indices])*gain
+ audio*=10**(1.5/20)
+ if not np.isfinite(audio).all() or np.sqrt(np.mean(audio**2))<1e-6:raise ValueError('No usable piano performance returned.')
+ midi=pretty_midi.PrettyMIDI();track=pretty_midi.Instrument(program=0)
+ for (a,b,p,_),v in zip(notes,velocities):track.notes.append(pretty_midi.Note(velocity=v,pitch=p+shift,start=a,end=b))
+ midi.instruments.append(track)
+ return audio,midi,notes
+
+
+def render_bright_room(notes,guitar,seconds,root,variant='guitar-bright-room',custom=None):
+ """Local NAM guitar presets; default preserves approved brighter +2 profile."""
+ profile=dict(NAM_GUITARS[variant]);custom=validate_custom(custom)
+ if 'pitch' in custom:profile['shift']=int(custom['pitch'])
+ import subprocess,tempfile
+ from scipy.signal import resample_poly,butter,sosfilt,sosfiltfilt,fftconvolve
+ hop=120
+ spectrum=np.abs(librosa.cqt(guitar,sr=SR,hop_length=hop,fmin=librosa.midi_to_hz(40),n_bins=49))
+ rms=librosa.feature.rms(y=guitar,frame_length=1024,hop_length=hop)[0]
+ performed=[list(n) for n in notes]
+ strengths=[]
+ for stage,(extra,relative,peak) in enumerate([(.45,.28,.035),(1.2,.18,.025)]):
+  before=[list(n) for n in performed]
+  for i,n in enumerate(performed):
+   a,b,p,_=n
+   if not 40<=p<=88:continue
+   next_key=min((v[0] for v in before[i+1:] if v[2]==p),default=seconds)
+   limit=min(seconds,b+extra,next_key);first=max(0,round(b*SR/hop))
+   shoulder=max(0,round(max(a,b-.10)*SR/hop))
+   reference=float(np.percentile(spectrum[p-40,shoulder:max(shoulder+1,first+1)],65))
+   floor=max(reference*relative,float(spectrum[p-40].max())*peak,1e-7);stop=first
+   for frame in range(first+1,min(spectrum.shape[1],len(rms),round(limit*SR/hop))):
+    if spectrum[p-40,frame]<floor or rms[frame]<max(float(rms.max())*.025,1e-7):break
+    stop=frame
+   if stop-first>=5:n[1]=max(b,min(limit,stop*hop/SR))
+  if stage==0:
+   for a,b,p,_ in performed:
+    first=max(0,round((a+.015)*SR/hop));last=min(spectrum.shape[1],max(first+1,round(min(b,a+.12)*SR/hop)))
+    strengths.append(float(np.percentile(spectrum[p-40,first:last],75)) if 40<=p<=88 and last>first else 0)
+ reference=max(float(np.percentile(strengths,90)),1e-9)
+ velocities=[int(round(15+85*float(np.clip(s/reference,0,1)))) for s in strengths]
+ performed=customize_notes(performed,seconds,custom.get('extension',0))
+ clean=render_separate(performed,seconds,root,'electric-guitar',profile['shift'],'clean',midi_velocities=velocities,guitar_release=profile['release'])
+ clean*=min(.065/max(float(np.sqrt(np.mean(clean**2))),1e-9),.9/max(float(np.max(np.abs(clean))),1e-9))
+ clean*=10**(profile['input_db']/20)
+ with tempfile.TemporaryDirectory(prefix='mana-nam-') as folder:
+  folder=Path(folder);input_path=folder/'input.wav';output_path=folder/'output.wav'
+  padded=np.pad(resample_poly(clean,2,1),(24000,24000));sf.write(input_path,padded,48000,subtype='PCM_16')
+  job=subprocess.run([str(root/'data/nam/build/tools/Release/render.exe'),str(root/'data/nam/models/jcm800-cab.nam'),str(input_path),str(output_path)],capture_output=True,text=True,errors='replace',timeout=300)
+  if job.returncode:raise ValueError('NAM guitar rendering failed: '+job.stderr[-500:])
+  x,sr=sf.read(output_path)
+  if sr!=48000 or x.shape!=padded.shape or not np.isfinite(x).all():raise ValueError('NAM returned invalid guitar audio.')
+  x=resample_poly(x[24000:24000+len(clean)*2],1,2)
+ rng=np.random.default_rng(42);length=round(.28*SR);t=np.arange(length)/SR;layers=[]
+ for taps in [[(.011,.55),(.019,.38),(.031,.24)],[(.014,.55),(.023,.38),(.037,.24)]]:
+  impulse=rng.normal(0,.0025,length)*np.exp(-t/.055);impulse[:round(.012*SR)]=0
+  for delay,gain in taps:impulse[round(delay*SR)]+=gain
+  wet=sosfilt(butter(2,4500,'lowpass',fs=SR,output='sos'),fftconvolve(x,impulse)[:len(x)])
+  layers.append(x+wet*profile['room'])
+ x=np.mean(layers,axis=0)
+ brightness=profile['brightness']
+ x=x*(1-brightness)+sosfiltfilt(butter(4,330,'highpass',fs=SR,output='sos'),x)*brightness
+ if profile['delay']:
+  delayed=np.zeros_like(x);offset=round(.085*SR)
+  if len(x)>offset:delayed[offset:]=x[:-offset]
+  x+=sosfilt(butter(2,3800,'lowpass',fs=SR,output='sos'),delayed)*profile['delay']
+ x*=min(.065/max(float(np.sqrt(np.mean(x**2))),1e-9),.9/max(float(np.max(np.abs(x))),1e-9))
+ return x,performed
+
+def render(guitar_path,seconds,root,instrument="sax",tone=None,bank="fluidr3",source_name="guitar",custom=None):
+ custom=validate_custom(custom)
+ nam_variant=instrument if instrument in NAM_GUITARS else None
+ bright_room=nam_variant is not None
+ if bright_room:
+  for path in [root/'data/nam/build/tools/Release/render.exe',root/'data/nam/models/jcm800-cab.nam']:
+   if not path.is_file():raise ValueError('NAM guitar needs the local NAM renderer and JCM800 capture. Keep original or choose another guitar.')
  patch_name=None
  if instrument in SEPARATE_VARIANTS:
   instrument,patch_name=SEPARATE_VARIANTS[instrument];bank='separate'
  banks={"sax":"alto_sax","piano":"acoustic_grand_piano","electric-guitar":"electric_guitar_clean"}
- if instrument in DRUM_PROGRAMS:return render_drums(guitar_path,seconds,root,instrument)
+ if instrument in DRUM_PROGRAMS:
+  if custom.get('pitch',0) or custom.get('extension',0):raise ValueError('Pitch and note extension apply to melodic instruments.')
+  return render_drums(guitar_path,seconds,root,instrument)
  if instrument in EXTRA_PROGRAMS:bank="livehq"
  if instrument not in banks and instrument not in EXTRA_PROGRAMS:raise ValueError("Unsupported replacement instrument.")
  if bank not in ['fluidr3','livehq','separate']:raise ValueError('Choose a supported instrument bank.')
+ if instrument=='piano' and bank=='separate' and source_name in ['piano','piano-banquet']:
+  print('Preserving piano chords, sustained overlaps and source dynamics…',flush=True)
+  return render_piano_preserving(guitar_path,seconds,root,patch_name,custom) if custom else render_piano_preserving(guitar_path,seconds,root,patch_name)
  bank_name=banks.get(instrument,'')
  if tone is not None:
   if instrument!='electric-guitar' or tone not in ['clean','distorted']:raise ValueError('Unsupported guitar tone.')
@@ -416,8 +608,14 @@ def render(guitar_path,seconds,root,instrument="sax",tone=None,bank="fluidr3",so
  shift=12 if instrument in ['sax','flute','violin'] and notes and np.median([n[2] for n in notes])<58 else 0
  if instrument in ['finger-bass','acoustic-bass'] and notes:
   while np.median([n[2]+shift for n in notes])>55:shift-=12
+ if not bright_room:
+  notes=customize_notes(notes,seconds,custom.get('extension',0))
+  shift+=int(custom.get('pitch',0))
  if bank=='separate':
-  melody=render_separate(notes,seconds,root,instrument,shift,tone,patch_name)
+  if bright_room:
+   melody,notes=render_bright_room(notes,guitar,seconds,root,nam_variant,custom)
+   shift=int(custom.get('pitch',NAM_GUITARS[nam_variant]['shift']))
+  else:melody=render_separate(notes,seconds,root,instrument,shift,tone,patch_name)
  elif bank=='livehq':
   program={**EXTRA_PROGRAMS,'sax':65,'piano':0,'electric-guitar':30 if tone=='distorted' else 27}[instrument]
   melody=render_soundfont(notes,seconds,root,program,shift)

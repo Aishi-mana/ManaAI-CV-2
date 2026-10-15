@@ -1,0 +1,18 @@
+import {useEffect,useRef,useState} from 'react';
+import {invoke} from '@tauri-apps/api/core';
+import {loadWhisper} from '../core/whisper';
+import {activeLyric,lyricsToLrc,parseLrc,validateLyrics,type LyricLine} from '../core/lyrics';
+import type {StudioProject} from '../core/musicStudio';
+interface Props{project:StudioProject;position:number;busy:boolean;onSave:(lines:LyricLine[])=>void;onBusy:(value:boolean)=>void}
+export default function StudioLyrics(p:Props){
+ const [working,setWorking]=useState(false),[message,setMessage]=useState(''),[editor,setEditor]=useState(false),[draft,setDraft]=useState('');
+ const epoch=useRef(0),alive=useRef(true),current=useRef(p);current.current=p;
+ const lines=validateLyrics(p.project.lyrics),index=activeLyric(lines,p.position),focus=index<0?lines.findIndex(line=>line.start>p.position):index;
+ useEffect(()=>{alive.current=true;return()=>{alive.current=false;epoch.current++;void invoke('lyrics_stop').catch(()=>{});current.current.onBusy(false);};},[]);
+ useEffect(()=>{current.current.onBusy(working);},[working]);
+ async function generate(){if(working||p.busy)return;const token=++epoch.current;setWorking(true);setMessage('Listening to the saved vocal…');try{const config=loadWhisper();await invoke('lyrics_start',{path:p.project.vocal||p.project.mix,exePath:config.exePath,modelPath:config.modelPath});while(alive.current&&epoch.current===token){await new Promise(resolve=>setTimeout(resolve,1000));if(!alive.current||epoch.current!==token)break;const result=await invoke<{done:boolean;lines?:LyricLine[]}>('lyrics_poll');if(!alive.current||epoch.current!==token)break;if(result.done){p.onSave(validateLyrics(result.lines));setMessage('Lyrics ready. Review the wording and timing below.');break;}}}catch(e){if(alive.current&&epoch.current===token)setMessage(String(e));}finally{if(alive.current&&epoch.current===token)setWorking(false);}}
+ return <section className="studio-lyrics" aria-label="Song lyrics"><div className="studio-section-head"><h3>Lyrics</h3><div className="builder-actions"><button className="btn" disabled={working||p.busy||p.project.status!=='ready'||!(p.project.vocal||p.project.mix)||p.project.seconds>3600} onClick={()=>void generate()}>{lines.length?'Regenerate lyrics':'Generate lyrics'}</button><button className="btn" disabled={working} onClick={()=>{setDraft(lyricsToLrc(lines));setEditor(!editor);}}>Edit / paste</button>{working&&<button className="btn" onClick={()=>{epoch.current++;void invoke('lyrics_stop');setWorking(false);setMessage('Lyrics generation stopped.');}}>Stop</button>}</div></div>
+ <p className="hint-soft">Local transcription · estimated wording and timing. English with the current English Whisper model. Generate once; lyrics follow playback and seeking.</p>
+ {lines.length?<div className="karaoke-lines" aria-live="off">{lines.slice(Math.max(0,(focus<0?lines.length-1:focus)-1),Math.max(0,(focus<0?lines.length-1:focus)-1)+3).map(line=><p key={line.start} className={index>=0&&line===lines[index]?'active':''}>{line.text}</p>)}</div>:<p className="hint-soft">Generate lyrics from this song, or paste timed lyrics to sing along.</p>}
+ {editor&&<div><label className="field">Timed lyrics · [mm:ss.xx] words<textarea rows={8} value={draft} maxLength={100000} onChange={e=>setDraft(e.target.value)} placeholder={'[00:10.00]First lyric line\n[00:15.00]Next lyric line'}/></label><button className="btn" disabled={working} onClick={()=>{try{p.onSave(parseLrc(draft,p.project.seconds));setEditor(false);setMessage('Lyrics saved for this song.');}catch(e){setMessage(String(e));}}}>Save lyrics</button></div>}{message&&<p role="status">{message}</p>}{working&&<progress aria-label="Generating lyrics"/>}</section>;
+}

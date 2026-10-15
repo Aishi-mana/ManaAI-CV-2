@@ -2279,10 +2279,10 @@ test('instrument review mixes mute stems and persist only safe estimated-part me
 
 test('replacement instrument metadata preserves piano beside guitar-to-piano and electric guitar across backups',()=>{
  const studio=loader()('src/core/musicStudio.ts');
- const project={id:'studio-replacements',title:'Replacement mix',createdAt:'2026-10-12T00:00:00Z',status:'ready',stems:['piano','replacement-piano','electric-guitar','electric-guitar-distorted','sax'].map(name=>({name,path:'C:/AI/ManaAI-CV-2/exports/singing/'+name+'.wav',gain:.7,muted:false}))};
+ const project={id:'studio-replacements',title:'Replacement mix',createdAt:'2026-10-12T00:00:00Z',status:'ready',stems:['piano','replacement-piano','electric-guitar','electric-guitar-distorted','guitar-bright-room','sax'].map(name=>({name,path:'C:/AI/ManaAI-CV-2/exports/singing/'+name+'.wav',gain:.7,muted:false}))};
  const first=studio.validateStudio({projects:[project]});
  const restored=studio.validateStudio(JSON.parse(JSON.stringify(first))).projects[0];
- assert.deepEqual(restored.stems.map(part=>part.name),['piano','replacement-piano','electric-guitar','electric-guitar-distorted','sax']);
+ assert.deepEqual(restored.stems.map(part=>part.name),['piano','replacement-piano','electric-guitar','electric-guitar-distorted','guitar-bright-room','sax']);
  assert.ok(restored.stems.every(part=>part.gain===.7&&!part.muted));
 });
 
@@ -2301,9 +2301,104 @@ test('finer extracted parts survive backups with remainder, levels and safe path
 
 test('optional sax and Banquet piano estimates retain labels, muted state and levels in backups',()=>{
  const {validateStudio}=loader()('src/core/musicStudio.ts');
- const names=['sax-extracted','piano-banquet','other'];
- const result=validateStudio({projects:[{id:'optional-extraction',title:'Optional parts',createdAt:'2026-10-12T00:00:00Z',status:'ready',stems:names.map(name=>({name,path:'C:/AI/ManaAI-CV-2/exports/singing/'+name+'.wav',gain:.6,muted:name==='sax-extracted'}))}]});
+ const names=['sax-extracted','piano-banquet','keyboard-extracted','electric-piano-extracted','trumpet-extracted','other'];
+ const result=validateStudio({projects:[{id:'studio-optional-extraction',title:'Optional parts',createdAt:'2026-10-12T00:00:00Z',status:'ready',stems:names.map(name=>({name,path:'C:/AI/ManaAI-CV-2/exports/singing/'+name+'.wav',gain:.6,muted:name==='sax-extracted'}))}]});
  assert.deepEqual(result.projects[0].stems.map(p=>p.name),names);
  assert.equal(result.projects[0].stems[0].muted,true);
  assert.equal(result.projects[0].stems[1].gain,.6);
+});
+
+
+test('original song briefs validate limits and preserve prompts and seed through studio backups',()=>{
+ const original=loader()('src/core/originalSong.ts');const studio=loader()('src/core/musicStudio.ts');
+ const brief={prompt:'Cozy piano',lyrics:'[Verse]\nA little light',style:'gentle-piano',instrumental:false,duration:90,seed:42};
+ assert.deepEqual(JSON.parse(JSON.stringify(original.validateOriginalBrief(brief))),brief);
+ for(const change of [{duration:Infinity},{duration:181},{seed:-1},{seed:1.2},{prompt:' '},{style:'unknown'}])assert.equal(original.validateOriginalBrief({...brief,...change}),undefined);
+ assert.equal(original.originalFingerprint(brief),original.originalFingerprint({...brief,duration:120}));
+ assert.notEqual(original.originalFingerprint(brief),original.originalFingerprint({...brief,seed:43}));
+ const project={id:'studio-original-check',title:'Original',createdAt:'2026-10-13T00:00:00Z',kind:'original',original:brief,mix:'C:/AI/ManaAI-CV-2/exports/singing/original-song.wav',generatedLyrics:'A little light'};
+ const restored=studio.validateStudio(JSON.parse(JSON.stringify(studio.validateStudio({projects:[project]})))).projects[0];
+ assert.equal(restored.kind,'original');assert.deepEqual(JSON.parse(JSON.stringify(restored.original)),brief);assert.equal(restored.generatedLyrics,'A little light');assert.equal(restored.vocal,'');
+});
+
+test('cover backups retain lead-only extraction and reference while old covers keep Demucs metadata',()=>{
+ const studio=loader()('src/core/musicStudio.ts');
+ const project={id:'studio-lead-check',title:'Lead cover',createdAt:'2026-10-13T00:00:00Z',settings:{extractor:'mega-lead',reference:studio.SINGING_REFERENCE,separate:true}};
+ const restored=studio.validateStudio(JSON.parse(JSON.stringify(studio.validateStudio({projects:[project]})))).projects[0];
+ assert.equal(restored.settings.extractor,'mega-lead');assert.equal(restored.settings.reference,studio.SINGING_REFERENCE);
+ delete project.settings.extractor;
+ assert.equal(studio.validateStudio({projects:[project]}).projects[0].settings.extractor,'demucs');
+ project.settings.extractor='unknown';
+ assert.equal(studio.validateStudio({projects:[project]}).projects[0].settings.extractor,'demucs');
+});
+
+test('builder timeline aligns unequal tracks with delay, trim, mute and shared peak reduction',()=>{
+ const {mixTimeline}=loader()('src/core/studioMix.ts');
+ const audio=a=>({sampleRate:8,length:a.length,duration:a.length/8,numberOfChannels:1,getChannelData:()=>a});
+ const v=audio([.2,.4,.6]),b=audio([.5,.5]);
+ let wav=new DataView(mixTimeline([{audio:v,gain:1,offset:0},{audio:b,gain:1,offset:.25}]));
+ assert.equal(wav.getUint32(40,true),16);assert.equal(wav.getInt16(44,true),Math.round(.2/1.1*32767));assert.equal(wav.getInt16(52,true),32767);
+ wav=new DataView(mixTimeline([{audio:v,gain:1,offset:-.125},{audio:b,gain:0,offset:0}]));
+ assert.equal(wav.getInt16(44,true),Math.round(.4*32767));assert.equal(wav.getInt16(48,true),Math.round(.6*32767));
+ assert.deepEqual(v.getChannelData(0),[.2,.4,.6]);
+ for(const change of [{offset:NaN},{offset:3601},{gain:2}])assert.throws(()=>mixTimeline([{audio:v,gain:1,offset:0,...change}]));
+ assert.throws(()=>mixTimeline([{audio:v,gain:1,offset:-1}]),/contain audio/);
+});
+
+test('builder tracks roundtrip through studio backups without unsafe files or duplicate vocals',()=>{
+ const studio=loader()('src/core/musicStudio.ts');
+ const t={id:'track-guide',name:'Guide',role:'vocal',path:'C:/AI/ManaAI-CV-2/exports/singing/mana.wav',originalPath:'C:/AI/ManaAI-CV-2/exports/singing/guide.wav',gain:.7,muted:false,offset:-.25,seconds:100,converted:true};
+ const project={id:'studio-builder-test',kind:'builder',title:'Builder',createdAt:'2026-10-14T00:00:00Z',builderTracks:[t,{...t,id:'track-piano',role:'piano',offset:1.5,replacement:'sax'},{...t,id:'track-another-vocal'},{...t,id:'track-unsafe',role:'other',path:'C:/private.wav'}]};
+ const restored=studio.validateStudio(JSON.parse(JSON.stringify(studio.validateStudio({projects:[project]})))).projects[0];
+ assert.equal(restored.kind,'builder');assert.equal(restored.builderTracks.length,2);assert.equal(restored.builderTracks[0].offset,-.25);assert.equal(restored.builderTracks[1].replacement,'sax');assert.equal(restored.builderTracks[1].offset,1.5);assert.equal(restored.builderTracks[0].originalPath,t.originalPath);
+ assert.equal(studio.validateStudio({projects:[{...project,builderTracks:undefined}]}).projects[0].builderTracks.length,0);
+});
+
+test('lyrics validate timestamps, follow playback gaps and roundtrip editable LRC through backups',()=>{
+ const load=loader({'./persistence':{readStored:()=>null,writeStored:()=>{}}}),lyrics=load('src/core/lyrics.ts');
+ const lines=lyrics.validateLyrics([{start:1,end:3,text:' Hello '},{start:5,end:7,text:'World'},{start:-1,end:2,text:'bad'},{start:8,end:7,text:'bad'}]);
+ assert.equal(lines.length,2);assert.equal(lines[0].text,'Hello');assert.equal(lyrics.activeLyric(lines,1),0);assert.equal(lyrics.activeLyric(lines,3),-1);assert.equal(lyrics.activeLyric(lines,5),1);const excerpt=lyrics.excerptLyrics(lines,2,4);assert.equal(excerpt[0].start,0);assert.equal(excerpt[0].end,1);assert.equal(excerpt[1].start,3);assert.equal(excerpt[1].end,4);
+ const round=lyrics.parseLrc(lyrics.lyricsToLrc(lines),10);assert.equal(round[0].start,1);assert.equal(round[1].end,10);
+ assert.throws(()=>lyrics.parseLrc('[00:61]bad',10));assert.throws(()=>lyrics.parseLrc('[00:11]bad',10));assert.throws(()=>lyrics.parseLrc('[00:01]a\n[00:01]b',10));assert.throws(()=>lyrics.parseLrc('untimed text',10));assert.equal(lyrics.parseLrc('',10).length,0);
+ const studio=load('src/core/musicStudio.ts'),backup=load('src/core/backup.ts'),initiative=load('src/core/initiative.ts');
+ const state=initiative.validateInitiative(null);state.studio=studio.validateStudio({projects:[{id:'studio-karaoke',title:'Song',createdAt:'2026-10-14T00:00:00Z',status:'ready',seconds:10,lyrics:lines}]});
+ const snapshot=backup.snapshotBackup();snapshot.data['mana.initiative.v1']=state;
+ const valid=backup.validateBackup(JSON.stringify(snapshot));assert.equal(valid.data['mana.initiative.v1'].studio.projects[0].lyrics[1].text,'World');delete snapshot.data['mana.initiative.v1'].studio.projects[0].lyrics;assert.equal(backup.validateBackup(JSON.stringify(snapshot)).data['mana.initiative.v1'].studio.projects[0].lyrics,undefined);
+});
+test('builder retains multiple backing vocals separately from the unique lead',()=>{
+ const core=loader()('src/core/coverBuilder.ts');const t={name:'Harmony',role:'backing-vocal',path:'C:/AI/ManaAI-CV-2/exports/singing/harmony.wav',originalPath:'C:/AI/ManaAI-CV-2/exports/singing/harmony.wav',gain:.4,offset:1,seconds:10,converted:false};
+ const rows=core.validateBuilderTracks([{...t,id:'track-one'},{...t,id:'track-two',converted:true},{...t,id:'track-lead',role:'vocal'},{...t,id:'track-duplicate-lead',role:'vocal'}]);assert.equal(rows.length,3);assert.equal(rows[0].role,'backing-vocal');assert.equal(rows[1].converted,true);assert.equal(rows[2].role,'vocal');
+});
+
+
+test('NAM guitar variants keep their distinct names and levels through library backups',()=>{
+ const studio=loader()('src/core/musicStudio.ts');
+ const names=['guitar-bright-room','guitar-nam-warm','guitar-nam-rhythm','guitar-nam-lead'];
+ const project={id:'studio-nam-variants',title:'NAM comparison',createdAt:'2026-10-15T00:00:00Z',status:'ready',stems:names.map((name,i)=>({name,path:'C:/AI/ManaAI-CV-2/exports/singing/'+name+'.wav',gain:.2+i*.1,muted:i===1}))};
+ const restored=studio.validateStudio(JSON.parse(JSON.stringify(studio.validateStudio({projects:[project]})))).projects[0];
+ assert.deepEqual(restored.stems.map(p=>p.name),names);
+ assert.deepEqual(restored.stems.map(p=>[p.gain,p.muted]),project.stems.map(p=>[p.gain,p.muted]));
+});
+
+
+test('builder custom pitch and hold settings survive backups and reject invalid values',()=>{
+ const c=loader()('src/core/coverBuilder.ts');
+ const track={id:'track-custom',name:'Piano',role:'piano',path:'C:/AI/ManaAI-CV-2/exports/singing/custom.wav',originalPath:'C:/AI/ManaAI-CV-2/exports/singing/original.wav',seconds:15,gain:1,offset:0,custom:{pitch:-2,extension:.45}};
+ const restored=c.validateBuilderTracks(JSON.parse(JSON.stringify([track])))[0];
+ assert.deepEqual(JSON.parse(JSON.stringify(restored.custom)),track.custom);
+ assert.deepEqual(JSON.parse(JSON.stringify(c.defaultInstrumentCustom('guitar-bright-room'))),{pitch:2,extension:0});
+ assert.deepEqual(JSON.parse(JSON.stringify(c.defaultInstrumentCustom('piano'))),{pitch:0,extension:0});
+ for(const custom of [{pitch:13,extension:0},{pitch:1.5,extension:0},{pitch:0,extension:2}])assert.equal(c.validateBuilderTracks([{...track,custom}])[0].custom,undefined);
+});
+
+
+test('whole-song detected preview covers the entire source with contiguous bounded sections',()=>{
+ const c=loader()('src/core/coverBuilder.ts');
+ const parts=c.detectedPreviewSections(288,90,15,true);
+ assert.equal(parts[0].start,0);
+ assert.equal(parts.at(-1).start+parts.at(-1).seconds,288);
+ assert.ok(parts.every(p=>p.seconds>=1&&p.seconds<=60));
+ for(let i=1;i<parts.length;i++)assert.ok(Math.abs(parts[i].start-parts[i-1].start-parts[i-1].seconds)<1e-9);
+ assert.deepEqual(JSON.parse(JSON.stringify(c.detectedPreviewSections(288,90,15,false))),[{start:90,seconds:15,offset:0}]);
+ for(const args of [[20,15,10,false],[20,0,61,false],[20,-1,10,false],[NaN,0,15,true]])assert.throws(()=>c.detectedPreviewSections(...args));
 });

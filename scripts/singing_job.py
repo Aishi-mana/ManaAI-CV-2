@@ -1,4 +1,4 @@
-"""Owned CPU job: separate a supplied mix, then pitch-conditioned Seed-VC conversion.
+"""Owned cover job: separate a supplied mix, then CPU pitch-conditioned Seed-VC conversion.
 No input files are modified. Models are cached under the project data directory.
 """
 import json, os, sys, traceback
@@ -9,7 +9,10 @@ if hasattr(sys.stdout, "reconfigure"):
 
 
 def run(p):
-    root = Path(__file__).resolve().parents[1]
+    pitch_shift = p.get('semi_tone_shift', 0)
+    if isinstance(pitch_shift, bool) or not isinstance(pitch_shift, int) or not -12 <= pitch_shift <= 12:
+        raise ValueError('Pitch shift must be a whole number between -12 and 12 semitones.')
+    root = Path(p.get('data_root', Path(__file__).resolve().parents[1])).resolve()
     out = Path(p['output']).resolve()
     out.mkdir(parents=True, exist_ok=True)
     os.environ['CUDA_VISIBLE_DEVICES'] = ''
@@ -31,7 +34,24 @@ def run(p):
     if audio.shape[-1] < sr:
         raise ValueError('The selected guide segment is shorter than one second.')
     backing = None
-    if p['separate']:
+    if p['separate'] and p.get('extractor')=='mega-lead':
+        import subprocess
+        separator_input=out/'source-segment.wav'
+        sf.write(separator_input,audio.T,sr,subtype='FLOAT')
+        env=os.environ.copy()
+        env.pop('CUDA_VISIBLE_DEVICES',None)
+        separator=Path(__file__).with_name('cover_lead.py')
+        subprocess.run([sys.executable,str(separator)],input=json.dumps(dict(root=str(root),
+            source=str(separator_input),output=str(out))),text=True,env=env,check=True,
+            creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
+        vocal,_=sf.read(out/'lead-extracted.wav',always_2d=True,dtype='float32')
+        backing,_=sf.read(out/'backing-extracted.wav',always_2d=True,dtype='float32')
+        vocal=vocal.T;backing=backing.T
+        # Keep PCM files unclipped while retaining the lead/backing balance.
+        peak=max(float(np.max(np.abs(vocal))),float(np.max(np.abs(backing))))
+        if peak>.98:
+            vocal*=.98/peak;backing*=.98/peak
+    elif p['separate']:
         print('Separating vocals on CPU (first run downloads Demucs weights)…', flush=True)
         from demucs.pretrained import get_model
         from demucs.apply import apply_model
@@ -106,7 +126,7 @@ def run(p):
             random.seed(seed); np.random.seed(seed); torch.manual_seed(seed)
         inference.main(argparse.Namespace(source=str(guide), target=p['reference'], output=str(out),
             diffusion_steps=steps, length_adjust=1.0, inference_cfg_rate=guidance, f0_condition=True,
-            auto_f0_adjust=False, semi_tone_shift=0, checkpoint=None, config=None, fp16=False))
+            auto_f0_adjust=False, semi_tone_shift=pitch_shift, checkpoint=None, config=None, fp16=False))
     finally:
         torchaudio.save = original_save
         inference.load_models = original_load_models
@@ -120,7 +140,9 @@ def run(p):
             raise RuntimeError('Converted vocal length differs from the full guide by over one second.')
         complete = np.pad(complete,((0,max(0,expected-len(complete))),(0,0)))[:expected]
         sf.write(generated[0],complete,complete_sr,subtype='PCM_16')
-    result = {'vocal': str(generated[0]), 'mix': '', 'seconds':vocal.shape[-1]/sr,'wholeSong':whole_song}
+    result = {'vocal': str(generated[0]), 'mix': '', 'seconds':vocal.shape[-1]/sr,'wholeSong':whole_song,
+              'extractor':p.get('extractor','demucs') if p['separate'] else 'dry',
+              'diffusionSteps':steps,'pitchSmoothing':bool(p.get('pitch_smoothing',False))}
     if pitch_extractor is not None:
         from singing_pitch import pitch_stats
         for label,path in [('baseline',p.get('baseline_vocal')),('candidate',str(generated[0]))]:

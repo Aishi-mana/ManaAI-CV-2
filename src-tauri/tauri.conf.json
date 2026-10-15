@@ -29,11 +29,14 @@
     "resources": {
       "../assets/avatar/": "assets/avatar/",
       "../scripts/singing_job.py": "scripts/singing_job.py",
+        "../scripts/cover_lead.py": "scripts/cover_lead.py",
+        "../scripts/singing_pitch.py": "scripts/singing_pitch.py",
       "../scripts/arrangement_job.py": "scripts/arrangement_job.py",
       "../scripts/arrangement_band.py": "scripts/arrangement_band.py",
       "../scripts/arrangement_replacement.py": "scripts/arrangement_replacement.py",
       "../scripts/fine_separator.py": "scripts/fine_separator.py",
-      "../scripts/optional_separators.py": "scripts/optional_separators.py"
+      "../scripts/optional_separators.py": "scripts/optional_separators.py",
+      "../scripts/original_song_job.py": "scripts/original_song_job.py"
     },
     "icon": [
       "icons/32x32.png",

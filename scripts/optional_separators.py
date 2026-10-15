@@ -11,7 +11,33 @@ def extract(source, root, kind):
     device='cuda' if torch.cuda.is_available() else 'cpu'
     audio=resample_poly(source,147,80).astype(np.float32) # 24k -> 44.1k
     tensor=torch.from_numpy(np.stack([audio,audio]))
-    if kind=='sax-extract':
+    if kind in ['keyboard-extract','electric-piano-extract','trumpet-extract']:
+        sys.path[:0]=[str(root/'data/mega-packages'),str(root/'data/msst-mega')]
+        import yaml
+        from models.bs_roformer.bs_roformer import BSRoformer
+        repo=root/'data/msst-mega'
+        checkpoint=repo/'mvsep_mega_model_bs_roformer_53_stems_v1.ckpt'
+        if hashlib.sha256(checkpoint.read_bytes()).hexdigest()!='c62820893bbf86d4e734f966bd142d9157cfc8bb8e79e9d8f9ea553f3ff3519f':raise ValueError('Mega separator checkpoint checksum mismatch.')
+        config=yaml.safe_load((repo/'mvsep_mega_model_bs_roformer_53_stems.yaml').read_text(encoding='utf-8').replace('!!python/tuple',''))
+        for key in ['freqs_per_bands','multi_stft_resolutions_window_sizes']:config['model'][key]=tuple(config['model'][key])
+        model=BSRoformer(**config['model'])
+        state=torch.load(checkpoint,map_location='cpu',weights_only=True)
+        if 'state_dict' in state:state=state['state_dict']
+        model.load_state_dict(state,strict=True);del state;gc.collect()
+        model.eval().to(device)
+        target={'keyboard-extract':'keys','electric-piano-extract':'digital-piano','trumpet-extract':'trumpet'}[kind]
+        stem_id=config['training']['instruments'].index(target)
+        total=np.zeros((2,len(audio)),np.float32);weights=np.zeros(len(audio),np.float32)
+        with torch.inference_mode():
+            for start in range(0,len(audio),44100*3):
+                chunk=tensor[:,start:start+44100*4];length=chunk.shape[-1]
+                if length<2048:chunk=torch.nn.functional.pad(chunk,(0,2048-length))
+                with torch.autocast(device_type=device,dtype=torch.float16,enabled=device=='cuda'):
+                    output=model(chunk[None].to(device),active_stem_ids=[stem_id])[0,0,:,:length].float().cpu().numpy()
+                weight=np.maximum(np.hanning(length),.001).astype(np.float32)
+                total[:,start:start+length]+=output*weight;weights[start:start+length]+=weight
+        result=torch.from_numpy(total/weights)
+    elif kind=='sax-extract':
         from demucs.states import load_model
         from demucs.apply import apply_model
         checkpoint=root/'data/sax-demucs/filosax_demucs_v3_14.22_SDR.th'
@@ -64,7 +90,7 @@ def extract(source, root, kind):
 
 def separate_parts(source,root,out,kind):
     samples=extract(source,root,kind)
-    label='sax-extracted' if kind=='sax-extract' else 'piano-banquet'
+    label={'sax-extract':'sax-extracted','piano-extract':'piano-banquet','keyboard-extract':'keyboard-extracted','electric-piano-extract':'electric-piano-extracted','trumpet-extract':'trumpet-extracted'}[kind]
     parts=[]
     for name,data in [(label,samples),('other',source-samples)]:
         path=out/(name+'.wav');sf.write(path,data,24000,subtype='FLOAT')

@@ -11,6 +11,7 @@ mod conversation_export;
 mod speech;
 mod dictation;
 mod whisper;
+mod lyrics;
 mod vision;
 mod custom_voice;
 mod singing;
@@ -379,6 +380,7 @@ pub fn run() {
         .manage(speech::Speech::default())
         .manage(dictation::Dictation::default())
         .manage(whisper::Whisper::default())
+        .manage(lyrics::Lyrics::default())
         .manage(vision::Vision::default())
         .manage(custom_voice::CustomVoice::default())
         .manage(singing::Singing::default())
@@ -387,11 +389,13 @@ pub fn run() {
             singing::singing_poll,
             singing::singing_stop,
             singing::singing_audio,
+            singing::singing_import_track,
             singing::singing_library,
             singing::singing_excerpt,
             singing::singing_save_mix,
             singing::singing_export,
             singing::arrangement_start,
+            singing::original_song_start,
             singing::arrangement_validate,
             custom_voice::custom_voice_server_start,
             custom_voice::custom_voice_server_stop,
@@ -403,6 +407,9 @@ pub fn run() {
             vision::vision_detect_model,
             vision::vision_stop,
             vision::vision_running,
+            lyrics::lyrics_start,
+            lyrics::lyrics_poll,
+            lyrics::lyrics_stop,
             whisper::whisper_check,
             whisper::whisper_start,
             whisper::whisper_poll,
@@ -441,6 +448,7 @@ pub fn run() {
                 if let Some(state)=app.try_state::<singing::Singing>(){let _=singing::stop(&state);}
                 if let Some(state)=app.try_state::<custom_voice::CustomVoice>(){let _=custom_voice::stop_all(&state);}
                 if let Some(state) = app.try_state::<vision::Vision>() { let _ = vision::stop(&state); }
+                if let Some(state) = app.try_state::<lyrics::Lyrics>() { let _ = lyrics::stop(&state); }
                 if let Some(state) = app.try_state::<whisper::Whisper>() { let _ = whisper::stop(&state); }
                 if let Some(state) = app.try_state::<dictation::Dictation>() { let _ = dictation::stop(&state); }
                 if let Some(state) = app.try_state::<speech::Speech>() { let _ = speech::stop(&state); }

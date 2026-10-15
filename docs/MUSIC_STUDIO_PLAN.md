@@ -69,3 +69,28 @@ Keep incomplete generation capabilities clearly described as future work. Do not
 Default: original accompaniment alongside Mana vocal. Upload/convert, separate and review estimated parts, then show an original-part label beside a replacement dropdown. Each row offers playback, mute and gain. Style-based recommendations are overridable suggestions (guitar→sax for jazz, guitar/piano→soft piano for gentle); confidence and mixed/other labels matter. Preview before saving a separate mix/arrangement. Preserve-notes/timing and freer rearrangement are distinct future replacement modes.
 
 Current delivery: Instrument parts tab, aggregate backing review, 1–60 second six-stem preparation, estimated guitar/piano/bass/drums/other rows, individual playback/mute/gain, original mix preview/save, metadata persistence. Substitutions are displayed as unavailable experiments; sampled instruments/transcription need further listening improvement. No automatic instrument identity guarantees or production replacement pipeline yet.
+
+
+Original-song stage 1 implemented 2026-10-13: local ACE-Step prompt/lyrics preview then full rendition up to180 seconds; generated guide singer has a separate action into the existing Mana cover workflow. See MUSIC_STUDIO.md for settings, limits, evidence and user acceptance.
+
+2026-10-14: Cover Builder stage 1 implemented: clean vocal conversion, individual imported instrument tracks, manual timing/gain/mute, audition/apply replacements, saved editable mixes and clearer Create/Edit/Chat navigation. See MUSIC_STUDIO.md for limits and acceptance. Automatic tempo alignment and improved replacement expression remain future work.
+
+2026-10-14: Backing-vocal tracks and local, editable line-level karaoke lyrics implemented. Timed lyrics persist in library metadata/backups. Word-level highlighting, automatic alignment and singing transcription quality improvements remain future work.
+
+2026-10-14: Piano-first melody fidelity audition underway: preserve polyphonic detector events rather than a single melody. Whereabout 80–95s isolated comparison ready; wrong-note filtering and listening approval remain before integration.
+
+2026-10-14: Balanced Whereabout piano audition accepted and wired for prepared piano/piano-banquet → Piano with Separate libraries. Existing mix loudness controls remain. Broader recordings and other instrument transcription quality remain future work.
+
+2026-10-14: Guitar first pass audition ready on Reach Out to the Truth9–19s: source-supported sustain and picking dynamics with existing pitches/attacks unchanged. Clean audition approval and subsequent distorted rendering remain pending.
+
+2026-10-15: Controlled Green/Black/Combo guitar patch auditions ready with identical performance and release, clean and distorted. User tone selection pending before additional guitar performance work.
+
+2026-10-15: Brighter moderate-gain guitar amp-style and broad source-shaped EQ auditions ready. Uses transparent DSP speaker approximation; no measured cabinet IR/dedicated amp model installed. Listening approval pending.
+
+2026-10-15: Real NAM Marshall amp+cab audition ready at two input levels using official locally built renderer. Input performance unchanged; listening selection pending. Local runtime commit: 0b3d3c97b0859a3a8c92a8628c4dd89a25eb5842. Capture kept local and excluded from app distribution.
+
+2026-10-15: Approved brighter +2 / NAM small-room guitar integrated as its own replacement option. Guitar polish paused for user app listening; keep existing guitar choices and independent bass controls.
+
+2026-10-15: Expanded local NAM guitar family with Warm crunch, Rock rhythm and Sustained lead. Separate amp/instrument captures are future work; current categories share one guitar full-rig capture. User listening pending.
+
+2026-10-15: Implemented first instrument customizer (pitch and extra hold) and whole-song note auditions. Current NAM presets stay as tone shortcuts; broader effect controls can be added later.

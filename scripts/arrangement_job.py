@@ -28,9 +28,10 @@ def note(midi, duration, style):
 
 def run(p):
     style=p['style']
-    from arrangement_replacement import EXTRA_PROGRAMS,DRUM_PROGRAMS,SEPARATE_VARIANTS
+    from arrangement_replacement import EXTRA_PROGRAMS,DRUM_PROGRAMS,SEPARATE_VARIANTS,validate_custom
     extra_styles=['replace-guitar-'+name for name in [*EXTRA_PROGRAMS,*DRUM_PROGRAMS,*SEPARATE_VARIANTS]]
-    if style not in extra_styles+['sax-extract','piano-extract','fine-stems','piano','gentle-piano','jazz','rock','review-stems','replace-guitar-sax','replace-guitar-piano','replace-guitar-electric-guitar','replace-guitar-electric-guitar-distorted']: raise ValueError('Choose a supported arrangement style.')
+    if style not in extra_styles+['sax-extract','piano-extract','keyboard-extract','electric-piano-extract','trumpet-extract','fine-stems','piano','gentle-piano','jazz','rock','review-stems','replace-guitar-sax','replace-guitar-piano','replace-guitar-electric-guitar','replace-guitar-electric-guitar-distorted']: raise ValueError('Choose a supported arrangement style.')
+    custom=validate_custom(p.get('custom'))
     start=float(p['start']);length=float(p['seconds'])
     if not np.isfinite(start) or start<0 or not 1<=length<=60: raise ValueError('Choose 1–60 seconds.')
     out=Path(p['output']).resolve();out.mkdir(parents=True,exist_ok=True)
@@ -44,7 +45,7 @@ def run(p):
     size=min(len(vocal),len(original));vocal=vocal[:size];original=original[:size]
     if style.startswith('replace-guitar-'):
         source_name=p.get('source_name','guitar')
-        if source_name not in ['guitar','piano','bass','other','drums','strings-estimate','winds-estimate','sax-extracted','piano-banquet']:raise ValueError('Choose a supported source part.')
+        if source_name not in ['guitar','piano','bass','other','drums','strings-estimate','winds-estimate','sax-extracted','piano-banquet','keyboard-extracted','electric-piano-extracted','trumpet-extracted']:raise ValueError('Choose a supported source part.')
         instrument=style.removeprefix('replace-guitar-')
         if (source_name=='drums') != (instrument in DRUM_PROGRAMS):raise ValueError('Drum parts need a drum kit; melodic parts need a melodic instrument.')
         if instrument in EXTRA_PROGRAMS or instrument in DRUM_PROGRAMS:p={**p,'bank':'livehq'}
@@ -57,11 +58,11 @@ def run(p):
         guitar,_=librosa.load(p['guitar'],sr=SR,offset=start,duration=length)
         sf.write(out/'guitar-guide.wav',guitar,SR,subtype='PCM_16')
         print('Transcribing '+source_name+' and rendering sampled '+instrument+'…',flush=True)
-        sax,midi,notes=render(out/'guitar-guide.wav',size/SR,root,instrument,tone=tone,bank=p.get('bank','fluidr3'),source_name=source_name)
+        sax,midi,notes=render(out/'guitar-guide.wav',size/SR,root,instrument,tone=tone,bank=p.get('bank','fluidr3'),source_name=source_name,custom=custom)
         sax=sax[:size];sax*=max(float(np.sqrt(np.mean(guitar**2))),.001)/max(float(np.sqrt(np.mean(sax**2))),.001)
         sax*=min(1,.95/max(float(np.max(np.abs(sax))),.001))
         parts=[];others=np.zeros(size)
-        for part in p.get('stems',[]):
+        for part in p.get('stems') or []:
             if part['name']==source_name:continue
             data,_=librosa.load(part['path'],sr=SR,offset=start,duration=length);data=data[:size];data=np.pad(data,(0,max(0,size-len(data))))
             path=out/(part['name']+'.wav');sf.write(path,data,SR,subtype='PCM_16');parts.append(dict(name=part['name'],path=str(path),gain=part.get('gain',1),muted=part.get('muted',False)));others+=data
@@ -73,11 +74,14 @@ def run(p):
         import shutil
         attribution=root/('data/instrument-samples/'+('SeparateLibraries' if p.get('bank')=='separate' else 'LiveHQNatural' if p.get('bank')=='livehq' else 'FluidR3_GM')+'/ATTRIBUTION.txt')
         if attribution.exists():shutil.copyfile(attribution,out/'INSTRUMENT_ATTRIBUTION.txt')
+        if label in ['guitar-bright-room','guitar-nam-warm','guitar-nam-rhythm','guitar-nam-lead']:
+            nam_credit=root/'data/nam/models/ATTRIBUTION.txt'
+            if nam_credit.is_file():shutil.copyfile(nam_credit,out/'NAM_ATTRIBUTION.txt')
         midi.write(str(out/'guitar-transcription.mid'));(out/'notes.json').write_text(json.dumps(notes),encoding='utf-8')
         return dict(vocal=str(out/'mana-vocal.wav'),mix=str(out/'arrangement-mix.wav'),seconds=size/SR,stems=parts)
-    if style in ['sax-extract','piano-extract']:
+    if style in ['sax-extract','piano-extract','keyboard-extract','electric-piano-extract','trumpet-extract']:
         if length>30:raise ValueError('Use a 1–30 second section for optional extraction.')
-        print('Extracting '+('sax' if style=='sax-extract' else 'Banquet piano')+' from original accompaniment…',flush=True)
+        print('Extracting '+{'sax-extract':'sax','piano-extract':'Banquet piano','keyboard-extract':'keyboard','electric-piano-extract':'electric piano','trumpet-extract':'trumpet'}[style]+' from original accompaniment…',flush=True)
         from optional_separators import separate_parts
         parts=separate_parts(original,data_root,out,style)
         sf.write(out/'mana-vocal.wav',vocal,SR,subtype='FLOAT')

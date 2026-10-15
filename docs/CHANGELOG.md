@@ -586,3 +586,85 @@ Checked standalone CLAP versus separator-checkpoint text projection/embedding we
 Changed Music Studio finer extraction to an experimental audition. It creates preview-only outputs, provides separate strings/winds/remainder audition buttons, and requires an explicit Keep this audition in library action. It no longer automatically inserts a new library project on extraction success. Library cap checked before saving; changing the selected project or generating another preview clears the audition. Clear text warns about leakage/noise and unconfirmed instrument presence. Existing files, covers, voices, replacements and standard part separation remain available. Frontend build passed.
 
 Next quality work must compare a more suitable separator or model on controlled mixtures plus real audible instrument sections, and obtain listening approval before treating finer source extraction as usable. Numerical file checks or louder normalization must not substitute for recognizable separated audio.
+
+
+### Optional sax and Banquet piano extraction connected — 2026-10-13
+
+Music Studio → Review instrument parts → Optional instrument extraction now offers Audition sax and Audition Banquet piano for saved 1–30 second accompaniment sections. Both use the full saved accompaniment, including on a project with existing Demucs parts. Each generates an extracted part and a signed remainder that reconstruct the original accompaniment, rather than adding an overlapping estimate on top of original stems. Preview each part and Keep this audition in library to save a separate project. Existing covers/Demucs parts remain in their original projects. The saved extraction project has standard Include in mix checkboxes, volume, replacement choices, Preview checked/all and Save mix; sax-extracted and piano-banquet labels/mute/levels survive validation/backups and reviewed-mix saves.
+
+Added bundled scripts/optional_separators.py: verified sax-specific Demucs checkpoint and strict-loaded Banquet piano checkpoint; local GPU when available, CPU fallback. Banquet uses isolated dependencies and a retained 10-second recorded piano query under data/separator-references/piano.wav. Bounded eight-second windows with overlap-add prevent large GPU allocation; output is aligned to the 24k job audio. No audio uploads or automatic model downloads. Backend rejects oversized ranges and missing model/query files before creating a job. Owned-job Stop behavior is reused. Existing strings/winds AudioSep audition remains experimental and separately available; broad winds/strings are not declared ready.
+
+Validation: frontend build passed; existing frontend suite passed 170 checks with two optional skipped, and the new optional-extractor backup test passed. 59 Rust tests passed. Production sax and piano extraction modes on a three-second Whereabout section passed finite/aligned audio and exact extracted-plus-remainder reconstruction within 1e-6. Model hashes and strict loading verified. User in-app checks pending: audition/save sax, audition/save Banquet piano, checkbox previews/save/reopen, and invalid range/Stop.
+
+
+### Unified separator menu; keyboard/trumpet research — 2026-10-13
+
+Merged standard and optional extraction controls into one visible Separate instruments panel at the top of Review instrument parts. One Separator dropdown lists standard Demucs guitar/piano/bass/drums, alternate Banquet piano, dedicated sax Demucs, and AudioSep strings/winds explicitly experimental. Shared start/duration controls and one Audition selected separator action replace the scattered prepare/extract buttons. Standard Demucs now follows the same preview-only audition and explicit Save audition to library flow. Per-part preview buttons show all returned parts; audition title identifies which result is loaded. Original projects and mix-checkbox workflows remain unchanged. Standard limit 60 seconds; optional limit 30; existing preflight/backend validation retained.
+
+Keyboard/trumpet research: official MVSep Mega 53 model release https://github.com/ZFTurbo/Music-Source-Separation-Training/releases/tag/v1.0.21 supports keys, digital-piano, piano, organ, synth, trumpet, brass and other families. Author recommends at least 16GB VRAM, warns individual-stem quality may be below specialized models and outputs can overlap. Laptop is 8GB, so do not declare compatibility or integration before bounded/CPU trial and listening review. The hosted newer version differs from public weights; no audio uploaded. Keyboard should be labeled by subtype rather than silently equated to acoustic piano. New targets remain next-stage auditions, not enabled menu entries.
+
+Validation: build passed, frontend regression suite 171 passed with two optional skipped. UI checks pending: find all four choices in the one menu, audition/save standard parts, audition/save optional piano or sax, and verify duration errors/Stop and original project preservation.
+
+
+### Mega-53 keyboard/trumpet candidate audition — 2026-10-13
+
+Downloaded official MSST source and MVSep Mega-53 v1 release https://github.com/ZFTurbo/Music-Source-Separation-Training/releases/tag/v1.0.21 . Verified release SHA256: config 7e198062a251587088adb91215a4f44ab59e67bd62fcc805cf54d6e7dfc51103; checkpoint c62820893bbf86d4e734f966bd142d9157cfc8bb8e79e9d8f9ea553f3ff3519f. Checkpoint size 1368919887 bytes. Three inference dependencies isolated in data/mega-packages; existing runtimes unchanged. Strict model loading passed with official configuration; tuple tags safely converted to tuples without evaluating arbitrary YAML objects.
+
+Runner data/mega_separator_audition.py uses upstream active_stem_ids to run only trumpet, digital-piano, keys, organ and synth outputs, four-second windows/three-second hop with overlap-add, inference/autocast float16 and batch one. RTX5070 laptop 8GB peak allocated memory about 2.858GB for this test. This validates short selected-output inference only, not official full 53-stem/long-window memory behavior.
+
+Known four-second LiveHQ trumpet plus Rhodes/electric-piano mixture: SI-SDR improvement +17.668dB trumpet, +14.125dB digital-piano, +16.441dB keys. Organ nearly absent; synth not a correct target for this mixture. These are sample-based controls, not a live performance. Whereabout 80–90 second real accompaniment produced useful-audition-sized keys/digital-piano output and near-silent trumpet, without asserting instrument presence from amplitude. Raw/aligned finite results, truths, original, level-adjusted listening copies and report in exports/singing/mega-keyboard-trumpet-audition. Controlled test about 2.14s inference; song about .90s, excluding model loading/rendering/download. Keys/digital-piano overlap and are alternative estimates, not additive stems. Listening approval pending. No app/menu integration or audio upload.
+
+
+### Keyboard, electric piano and trumpet wired — 2026-10-13
+
+Added Keyboard / keys, Electric piano and Trumpet choices to unified Review instrument parts → Separate instruments. Uses approved Mega-53 model locally with one selected output, four-second/three-second-hop overlap-add, GPU autocast and CPU fallback. Existing verified models/dependencies remain in project data; no downloads/audio uploads during extraction. Each 1–30 second audition creates its named extracted part and a signed remainder preserving the saved accompaniment. Explicit preview/save remains required; originals kept. Saved parts support checkbox/volume, replacement instruments, preview checked/all, reviewed-mix saving and backup labels. Keyboard and electric piano are alternatives with possible overlap, explained in menu.
+
+Backend preflight checks range and model/config presence before spawning a job. Production verifies checkpoint SHA256 and strict weights load. New labels: keyboard-extracted, electric-piano-extracted, trumpet-extracted. Bundled optional separator script refreshed via Rust build.
+
+Validation: frontend build passed; 171 frontend checks passed with two optional skipped; 59 Rust tests passed. Extended backup test preserves new labels alongside sax/piano with muted state/levels. All three production modes on a three-second Whereabout section passed finite aligned audio and extracted-plus-remainder reconstruction within 1e-6. Listening approval was obtained on earlier Mega-53 auditions; in-app control/save checks remain: all three appear and audition, save with original retained, checkbox/volume preview then save/reopen, invalid range and Stop.
+
+
+### Original-song generation stage 1 — 2026-10-13
+
+Added Original song tab to the full-size Music Studio. Inputs: title, 1–2000 character prompt, Gentle piano/Light acoustic guitar/Jazz/Anime-inspired rock/Synth-pop, instrumental toggle, optional English lyrics up to 6000 characters, 10–180 second full duration, seed 0–2147483647. First make an approximately 15-second preview; full generation is enabled only for matching prompt/lyrics/style/instrumental/seed. Duration and title can change without invalidating the creative settings. Longer song is a newly generated rendition, not an exact extension of the preview. Actual generated duration is read from the WAV.
+
+Reuses existing read-only C:/AI/acestep.cpp/build/Release/ace-lm.exe and ace-synth.exe plus installed GGUF models in C:/AI/Manaverse-BGM-Generator/models. No new model downloads or changes to the other projects. New bundled scripts/original_song_job.py plans caption/lyrics/audio codes then renders with base Q8 model at 50 steps. Original generated audio and request/enriched plan/seed metadata live in exports/singing/original-*; preview jobs are excluded from discovery and do not enter library automatically. Full songs persist as original projects and are rediscovered with actual title/duration/prompt/seed/lyrics. Audio stays external to JSON backups.
+
+Instrumental is the default. Lyrical generation uses a generated guide singer, explicitly not Mana voice. Play generated audio/Generated lyrics are available after generation. Create Mana cover opens the existing cover form with generated audio, voice separation and whole-song conversion selected; the user reviews conversion settings and starts the established Mana voice pipeline. Saved lyrical originals expose the same action under Song details. No silent voice conversion or claim that ACE-Step output is Mana. Original instrumentals play/export directly; source review/mix needs separated singing stems. Chat pool approval remains separate.
+
+New original_song_start native command validates inputs/runtime/model presence before job creation and shares the owned singing-job slot. Cancellation kills only the original job's owned process tree on Windows, covering the native child; other singing job behavior remains unchanged. Frontend timeout is 30 minutes. No local web server required. Original-only draft actions do not edit library metadata before a saved project exists.
+
+Validation: local 15-second instrumental native audition rendered 14.24s stereo48k WAV; production lyrical draft with original test lyrics rendered 14.24s finite WAV; production 60-second instrumental rendered exactly60s and retained request/results. Frontend build passed; 172 frontend checks passed, two optional skipped. 61 Rust tests passed, including original request boundary validation, actual owned child-process cancellation, and original mix-only discovery compatibility. Metadata/seed/lyrics backup and preview fingerprint test passed. Listening quality and manual UI acceptance remain for the user. High-note/trembling voice conversion issue remains deferred.
+
+Manual checks: (1) restart Mana, Original song tab, make/play short preview; (2) create 30–60 second full song, reopen/restart and verify metadata/play/export; (3) turn off Instrumental, use own lyrics or blank for automatic English lyrics, preview then open Create Mana cover; (4) change prompt/seed to require a new preview, reject invalid duration/seed, and Stop during generation.
+
+### Approved lead-only → zero-shot Seed-VC cover flow — 2026-10-13
+New Music Studio covers default to Mega lead-only extraction, Seed-VC's F0-enabled 44.1 kHz singing model, 50 steps, guidance 0.7, seed42 and conservative guide pitch smoothing at original key. The approved eight-second derived singing reference is copied to stable `data/custom-voice/references/mana-v2/singing.wav` with provenance; chat voice configuration is unchanged. Create-cover form exposes Lead only (recommended) / Voice & harmonies (Demucs), plus a checkbox to use Mana's singing reference or the selected chat reference. Dry vocal input can skip separation.
+Lead extraction runs in a hidden owned subprocess using the installed Mega checkpoint and short overlapping windows; its GPU model exits before CPU Seed-VC conversion. Stop now terminates the cover worker's owned process tree. Missing separator setup is rejected before native job folder creation; worker verifies the checkpoint checksum and refuses silent fallback. Resource bundle includes cover_lead.py and singing_pitch.py; explicit project data root supports packaged workers. Lead and backing are scaled together if necessary before PCM encoding to prevent clipping. Backing is original mix minus the combined-vocal estimate, rather than original mix minus lead, to avoid deliberately retaining the original singer's backing harmonies. Extraction remains estimated and can contain artifacts. Input files and old cover audio remain unchanged.
+Cover metadata/backups/discovery preserve extractor choice; old entries without this field retain Demucs metadata. FCPE remains an audition fallback and is not integrated or selected as production default. Original-song guide-to-cover uses the same Create cover flow.
+Validation: 173 frontend tests passed, two optional skipped; build passed; 61 Rust tests passed including owned-process-tree termination. Production 30s whole-input smoke verified GPU extraction → CPU conversion, valid duration and finite/unclipped guide, backing, vocal and mix. Output `exports/singing/production-lead-cover-smoke-2026-10-13`. Listening approval of this production run remains a manual check.
+Manual acceptance after restarting Mana:
+1. Create a Whereabout excerpt starting170s, length30s, Lead only and Mana singing reference enabled; listen to Mana vocal for the approved stability.
+2. Play Full mix and Instruments; confirm alignment, backing volume and absence of obvious doubled original lead.
+3. Test Whole song or a dry sung guide with separation disabled, then reopen Music Studio and verify older covers still play.
+4. Stop while extracting; confirm processing stops and another cover can start. Demucs remains selectable for comparison.
+
+## 2026-10-14 — Cover Builder
+
+Added clean-vocal-to-Mana conversion with individually imported instrument tracks, timing/volume/mute controls, replacement auditions and editable saved covers. Simplified Music Studio navigation and folded advanced cover settings. Build, 175 frontend and 63 native checks passed; desktop listening acceptance pending.
+
+## 2026-10-14 — Backing voices and karaoke lyrics
+
+Fixed direct-track replacement crashes caused by null companion stems. Added multiple backing-vocal imports with optional Mana conversion, and saved/editable timed lyrics in the main song player. Lyrics use local Whisper and highlight whole lines during playback.
+
+## 2026-10-14 — Approved piano melody and dynamics
+
+Prepared piano tracks using the Salamander library now retain polyphonic chords, repair unsupported repeat attacks and use source-guided soft-note dynamics. Integrated the user-approved Whereabout audition method; other sources and instruments retain their existing renderer.
+
+- Added separate Bright room guitar · NAM · +2 replacement in Cover Builder and Edit tracks, using the approved brighter/small-room tone and local NAM capture. Bass remains independently controlled; existing guitars retained. Verified rendering, backups and builds.
+
+- Added Warm crunch, Rock rhythm and Sustained lead NAM guitar options, using the existing local JCM800 capture with separate voicings/effects. Existing Bright room +2 retained; other instrument libraries unchanged.
+
+- Cover Builder: added detected-note/hit previews for the selected original-instrument interpretation, selectable1–60s sections and a separate original-recording preview. Audition without applying a replacement.
+
+- Cover Builder: whole-song detected-note previews with seeking; melodic instrument customizer for pitch and extra note hold, preset reset and saved per-track tuning. NAM +2 can now be overridden directly.
