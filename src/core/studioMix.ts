@@ -2,6 +2,15 @@
 export function mixWave(vocal:AudioBuffer,backing:AudioBuffer,vocalGain:number,backingGain:number):ArrayBuffer{
  return mixStems([{audio:vocal,gain:vocalGain},{audio:backing,gain:backingGain}]);
 }
+// Audition only the selected lead section, with the candidate harmony at zero
+// relative offset. Draft track offsets are applied when adding it to the mix.
+export function mixHarmonyPreview(lead:AudioBuffer,harmony:AudioBuffer,start:number,seconds:number,leadGain:number,harmonyGain:number):ArrayBuffer{
+ if(!Number.isFinite(start)||start<0||!Number.isFinite(seconds)||seconds<1||seconds>3600||start+seconds>lead.duration+1/lead.sampleRate)throw Error('Choose a harmony section within the lead.');
+ if(lead.sampleRate!==harmony.sampleRate||Math.abs(harmony.duration-seconds)>.2)throw Error('Harmony and lead section are not aligned.');
+ const frames=Math.round(seconds*lead.sampleRate),first=Math.round(start*lead.sampleRate);
+ const clip=(audio:AudioBuffer,offset:number)=>({sampleRate:audio.sampleRate,length:frames,duration:frames/audio.sampleRate,numberOfChannels:audio.numberOfChannels,getChannelData:(channel:number)=>audio.getChannelData(channel).subarray(offset,offset+frames)}) as AudioBuffer;
+ return mixStems([{audio:clip(lead,first),gain:leadGain},{audio:clip(harmony,0),gain:harmonyGain}]);
+}
 export function mixStems(parts:{audio:AudioBuffer;gain:number}[]):ArrayBuffer{
  if(!parts.length||parts.some(p=>!Number.isFinite(p.gain)||p.gain<0||p.gain>1))throw Error('Use gains between 0 and 1.');
  const rate=parts[0].audio.sampleRate;

@@ -1187,3 +1187,242 @@ Added Instrument customizer to melodic replacement choices: pitch -12..+12 whole
 Settings travel with the generated preview candidate and only persist on Use replacement. Applied track.custom survives builder library saves/backups; reopening restores selected applied replacement and settings. Pitch/hold or replacement changes invalidate pending candidate. Keep original recording safe; Restore original clears applied custom metadata. Old tracks without settings keep prior preset defaults. Piano approved dynamics/timing chain unchanged at default; NAM profile defaults copied before override, never mutated.
 
 Verification: frontend180passed2optional skipped(182total), native66passed, production build successful. Regression checks cover invalid tuning (native/Python), hold boundaries and input immutability, saved settings and defaults, whole-song288s contiguous bounded coverage and invalid excerpts. Real prepared-piano15s render retains71notes with+2MIDI and extended ends; NAM19s render honors pitch0 override of+2, finite exact-length output and defaults unchanged. First new test failed on cross-VM object prototypes, fixed test comparison to use serialized values; no runtime failure. Native build/resource refresh completed. Manual tests pending: whole song scrub late section; Piano/Other same-section comparison; pitch/hold generate then apply; reopen saved builder and reset/restore.
+
+2026-10-15: Began bass-specific melody/performance audition on existing ReachOut19s bass stem. No production bass-routing change. scripts/audition-bass-performance.py uses pYIN30.87–246.95Hz after700Hz lowpass at12k;10ms frames,5frame median,<=30ms same-pitch dropout fill, source onset plus25%envelope rise for repeated attacks, no octave folding. Source RMS picking strength maps to MIDI22–105. Identical44candidate notes rendered as LiveHQ fingered(program33) and picked(program34); previous generic finger-bass produced46notes. Counts are not evidence of transcription correctness. Original audio not mixed into recreated bass.
+
+Auditions exports/singing/bass-performance-2026-10-15 include original, previous, fingered candidate and picked candidate, each full0–19s and9–19s excerpts. Shared per-file gain for full and excerpt, target.065RMS/peak<.9; finite exact19s outputs verified. Optional explicit MIDI velocities added to render_soundfont with validation; default velocity behavior unchanged. Synthetic known E2/A2 with.5s silence returns correct register and preserved rest (boundaries0.03–1.05s,1.53–2.5s). First harness import used underscores instead of actual hyphenated script, rerun with runpy passed. User listening pending before integration or more refinement. Bass bank is existing LiveHQ, not NAM/JCM800.
+
+2026-10-15: User prefers fingered bass tone, hears hard stops and incorrect melody; picked sound retained as alternate candidate. New auditions exports/singing/bass-sustain-melody-2026-10-15. Hold-only preserves44existing pitches/attacks/velocities, extends41ends with source-key CQT and RMS support, max350ms and80ms overlap into next different note; no same-key overlap or blanket reverb. Separate melody pass uses longer4096-frame pYIN window, <=80ms same-pitch dropout fill over source energy, source attack alignment within70ms;36notes instead of44, not evidence of correctness and may smooth fast playing. Same revised performance rendered LiveHQ fingered33/picked34 with source-driven dynamics. Original not blended into candidates. Full19s and9–19s clips at matched.065RMS, finite exactlength and peak<.9. Tests: hold-only pitches/attacks unchanged, source list immutable, synthetic E2/A2/rest preserved, zero input does not extend holds. App routing/defaults unchanged pending listening. scripts/audition-bass-sustain.py and report retain parameters/notes.
+
+2026-10-15: User prefers first bass pass over sustain/melody revision. New release-only audition keeps exact first44-note pitches, starts, note-off times and MIDI velocities, with no detection rerun. render_soundfont optional release_scale default1 (unchanged), validated1–8; FluidSynth volume-envelope release generator38 timecents channel offset1200*log2(scale), confirmed local bundled headers expose generator/API. First candidate no-offset output matches previous fingered WAV bit-for-bit. Fingered2x/4x release and picked2x in exports/singing/bass-release-only-2026-10-15, full19s and9–19s. Nominal envelope multiplier, no extra note hold or reverb; tails may overlap different pitches, cut at19s for comparison. All output exactlength/finite/peak<.9/RMSmatched. Notes snapshot immutable;4x waveform differs from default. App routing/defaults unchanged; awaiting user listening.
+
+2026-10-15: Phrase review with approved finger-bass4xrelease fixed. Initial conservative YIN+harmonic-source audit found no sufficiently supported pitch changes/new notes; three disagreements were uncertain octave estimates (stability.57–.75), left untouched. Do not claim a corrected pitch melody. Actual audition adjusts15of44 attacks25–100ms earlier toward low-band source attacks with same-key spectral support, avoids same-key overlapping reattack and caps preceding noteoff if needed. Original44pitches and velocities unchanged; note durations positive, source metadata immutable. Source evidence is heuristic and can reflect separation bleed, listening needed.
+
+Exports/singing/bass-phrase-review-2026-10-15 includes finger-reviewed/picked-reviewed full19s/9–19s, original9–19s and three paired source/candidate phrases9–12/12–15/15–19. Fixed4xrelease; finite exact output, RMS.065/peak<.9. Report lists all accepted/rejected pitch candidates and attack corrections. Script audition-bass-phrase-check.py. App unchanged. Verification asserts pitch/velocity equality,44notes and bounded timing changes. User listening pending.
+
+2026-10-15: User hears skipped tones in improved bass timing candidate. Gap-only recovery audition exports/singing/bass-missing-tones-2026-10-15 retains all44accepted notes/timing/velocities and4xrelease.5ms-hop pYIN>=.2confidence, source RMS floor4%, YIN agreement>=65%within55cents, uncovered runs>=45ms, suppress immediate same-pitch neighbors. Recovered two candidate tones:12.070–12.135s MIDI33,17.035–17.110s MIDI30.46total notes, new tones assigned softer source-derived velocities. Not a claim all skipped notes fixed or source identities verified; separation bleed may introduce false positives. Fingered/picked full19s and9–19s renders, original reference copied. Exactlength finite/no clipping, original note/velocity pair inclusion asserted. App/defaults unchanged. User listening pending. scripts/audition-bass-missing-tones.py and report preserve details.
+
+2026-10-15: User still misses fast continuous bass riffs. New separate audition exports/singing/bass-fast-riffs-2026-10-15 uses1024-frame pYIN with2.5ms hop,7.5ms median,min25ms runs (previous min80ms/50ms median),>=.08prob/source energy. Retains accepted notes before9.36s, only replaces9.36–19s region; new51candidate notes there vs31previous, counts do not establish correctness. Same-key envelope rises split only45ms+ picks. Two identical-MIDI fingered comparisons: all4xrelease, or quick notes<150ms at1.5xrelease and sustained4x. Earlier timing/velocities retained. No original blended; permissive detector may add false notes or step through slides. App unchanged pending listening.
+
+Rendered full19s/9–19s original and candidates; finite exact456000samples/no clipping, RMSmatched. Report notes/velocities/results stored. Synthetic five120ms E2/G2/A2/G2/E2 sequence returned5notes with all expected pitches and trailing silence retained. Script audition-bass-fast-riffs.py. User listening pending; no claim complete riff recovery.
+
+2026-10-15: User preferred fast-run shorter tails and authorized another pass. exports/singing/bass-fast-articulation-2026-10-15 compares source-guided articulation with preferred previous short-tail candidate.14source-low-band envelope-supported attack adjustments (-55/+15ms limits) and4same-pitch detector-fragment merges reduce64notes to60. Merge only<=40ms gap, no measured new pick within25ms, and continuous source RMS above floor; no bridging silence. Earlier phrase before9.36s unchanged. Pitches retained, no new confident pitch correction claimed. Original velocities preserved except merged retrigger's duplicate removed. Tail policy remains1.5x for<150ms quick notes/4x sustained; merged duration can change classification.
+
+Full19s/9–19s fingered and picked outputs, original9–19s and previous-short-tails reference copied. Exact456000finite samples, matchedRMS and peak<.9. Source separation may obscure real attacks; merge/attack edits remain listening candidates. Synthetic silence test ensures no merge across real silence, prior phrase equality and positive lengths checked.18edits logged with notes/velocities and gains in report; script audition-bass-fast-articulation.py. App defaults unchanged, user listening pending.
+
+2026-10-16: Integrated approved bass tracking/articulation into source Bass -> Finger bass and new Picked bass. scripts/bass_replacement.py extracts reusable algorithms from auditions (no export-fixture imports). Slow pYIN preserves held phrases; fast1024-frame/2.5ms tracking handles clustered quick notes. Fast regions now identified adaptively (>=3confident short notes,>=2pitches in650ms with context/region merging), not hardcoded9.36s. Slow notes outside those regions retained, source-supported attack adjustments and same-key retrigger repair applied generically. Thus arbitrary-song integration is not bit-identical to hand-bounded audition. Quick<150ms notes1.5xrelease, sustained4x; explicit source-driven velocities, no original audio blended. Release classification before user extra-hold edits; custom pitch/hold applied to MIDI/rendered audio. No NAM used for bass.
+
+Added Picked bass LiveHQ program34 to both menus/native allowlist/Pythonprogrammap/stem persistence; fingered33 retained. Source must be Bass for specialized route, other source->bass retains existing generic method. Acoustic bass unchanged. Detected-note preview with source Bass now auditions new untuned finger-bass method rather than old piano-rendered generic melody. Cover Builder applied metadata/save and Edit tracks previews/saving use native existing orchestration. New module bundled as resource, source/bundle hashes verified equal.
+
+Verification: production/native build passed, frontend181passed2optional skipped(183total), native66passed, Python null-stem/default-preservation and bass-route/custom-forwarding regression passed. Adaptive-region regression checks fast notes/slow spans/empty regions/input immutability. Actual19s source rendered as fingered default and picked custom+2/hold.1s; exact finite456000samples, MIDI shift matches control, normalized unclipped exports/report at exports/singing/bass-integration-2026-10-16. Manual app listening pending: Bass->Finger bass; Bass->Picked bass; custom pitch/hold then generate/apply; save/reopen mix. Presets retain original tracks and other instrument routes.
+
+2026-10-16: Started sax phrasing audition from existing approved Elvis Special Theme60–75s sax-specific extraction (not clean ground truth). scripts/audition-sax-phrasing.py compares existing generic transcription (56notes) to sax110–1000Hz pYIN with5ms hop/1024frame,15ms median/min50ms runs (64candidate notes,pitches60–82). Fill<=80ms same-key dropouts only over source RMS;45source-energy-supported neighboring note connections with25ms overlap and no same-key overlap. Source-based MIDI25–105; existing Weresax patch unchanged, no extra octave shift or source blended. More notes/connections do not establish correctness; bleed/vibrato may mislead.
+
+Auditions exports/singing/sax-phrasing-elvis-2026-10-16: original-extracted-sax.wav, previous-sax.wav, phrased-sax.wav. All exact15s finite/peak<.9/RMS.065. Initial length assertion exposed source resampling endpoint rounding; source fixed to360000frames after checking discrepancy<=4samples, original file unchanged. Report records input length and note/dynamics data. Synthetic A4/C5 plus200ms silence preserved pitches and real breath, no false connection. App defaults unchanged; audition listening pending before wiring.
+
+2026-10-16: User rejects new sax detector's tone/pitch changes, prefers previous generic56-note melody. New audition exports/singing/sax-endings-2026-10-16 preserves all56pitches, attacks, default confidence velocities, same Weresax patch. Two separate candidates: softer-release changes only SFZ releaseCC104from20to32 (~.316s→.505s plus.001base); connected-notes retains default patch and fills<=100ms gaps only over source RMS gate, with20ms overlap on different keys and5ms gap before same-key reattack.43connections; no extra note detection or source blended. Report retains old/connected notes and edits. No app route/default change; optional sax_release_cc renderer argument defaultsNone.
+
+Verification: default previous-sax regeneration bit-for-bit equals earlier preferred WAV;56notes/pitches/attacks/velocities unchanged and input note list immutable. All output finite exact15s/RMSmatched/peak<.9. Synthetic zero source does not join notes, continuous source supports connection, same-key attack not overlapped. User listening pending. Original reference copied alongside candidates;60–75s source passage.
+
+2026-10-16: User prefers softer sax release, requests more overlap and a more realistic sax. Auditions exports/singing/sax-tone-options-2026-10-16 preserve accepted56note pitches/attacks/confidence velocities. Combine softerCC10432 with source-energy-gated connections:43joins, different-key overlap20→60ms, same-key gap preserved. weresax-soft-overlap.wav; same connected MIDI through existing LiveHQ alto65 and tenor66 (native patch envelopes differ, not controlled identical release). No source blended, exact15s finite/RMSmatched/peak<.9. Original/previous softer reference preserved.
+
+Additional weresax-soft-overlap-expression.wav tests existing patch controls11018,11135,11232,1135,11660,1228 (small delayed pitch/vibrato/noise expression). Same notes; optional sax_controls added to in-process renderer, controls defaultunset. No continuous breath automation implemented, no new library/model downloaded. Output difference and metadata pitch/attack equality verified. App production routes remain unchanged pending user audition.
+
+Official research: https://audiomodeling.com/products/swam-saxophones supports physical-modeled sax dynamics/legato/vibrato and standalone/VST3, etc; https://kb.audiomodeling.com/support/solutions/articles/206000050973-is-it-possible-to-control-swam-instruments-using-only-note-on-velocity- explains continuous expressionCC11 requirement. SWAM is a possible separate engine/host-integration project, not a drop-in SFZ or NAM capture and no purchase/download initiated. Existing sample patch static note-on playback limits realism; audition current controls/banks before deciding upgrade.
+
+2026-10-16: User prefers LiveHQ tenor audition sound, wants Weresax retained as another sax category, hears source noise affecting transcription and is interested in SWAM. Preference recorded; no sax production/default switch yet. Keep both local banks; do not delete Weresax. A better synthesis engine cannot remove false MIDI notes or infer which source noise is not sax.
+
+Official SWAM check: https://audiomodeling.com/products/swam-saxophones lists soprano/alto/tenor/baritone, standalone/VST3 and physical-model expression, displayedUS$249 estimate(finalcurrency/taxatcheckout),15-daytrial. https://audiomodeling.com/free-trial/ states fully featured15day/no credit card; Software Center account login/install/TRY flow. No purchase/account creation/download/activation initiated. Continuous expressionCC11 needed, not plain note-on playback; host/controlled MIDI rendering must be tested before promising unattended Mana integration.
+
+Prepared exports/singing/swam-sax-trial-2026-10-16/sax-fixed-expression.mid and sax-with-expression.mid with preferred56notes and supported overlaps. FixedCC11=90 vs source-RMS-smoothedCC11range15–110 (20ms sampling/40ms Gaussian smoothing; end0), no new pitches, original audio not bundled. MIDI reread verifies56notes/CC11. README describes MIDI timeline0–15s/source60–75s and no SWAM audio yet. Production code unchanged this turn. Next: user may install desktoptrial, then test same MIDI inSWAMTenor and compare withLiveHQ before integration/purchase.
+
+2026-10-16: User passed on SWAM and authorized integration of preferred LiveHQ tenor plus Weresax alternative, softer endings/overlap and conservative false-note guard. Added explicit sax-tenor (Tenor sax · Live HQ) and sax-weresax (Alto sax · Weresax) to Builder and Edit tracks. Existing generic sax/bank choice retained for old projects. Both reuse the preferred previous generic56-note transcription, not rejected new pYIN sax detector. Source-backed gap repair<=100ms,60ms overlap for different keys,5ms gap before same key. Weresax releaseCC32; LiveHQ tenor program66 with1.6x nominal envelope release, a modest release adjustment from earlier LiveHQ audition. Pitches/attacks/confidence strengths retained; custom pitch/extra-hold still applied after phrasing. No new software/SWAM integration/download or deletion of banks.
+
+scripts/sax_replacement.py includes narrowly gated note rejection: duration<100ms AND confidence<.45 AND source spectral flatness>.50, never quietness alone. This targets short broad noise-like events; it does not clean source audio or guarantee all false pitches removed. Known Elvis fixture retains all56pitches/attacks. Module bundled, native style/stem allowlists and frontend persistence/save filtering include new identifiers; readable labels; actual LiveHQ attribution selected for tenor despite explicit variant forcing its own backend. Old sax route unchanged.
+
+Verification: production frontend build successful; native66passed; frontend182passed2optional skipped(184total). Final local executable build pending: Windows locks running target/debug/mana.exe (confirmed running Mana process); two build attempts cannot replace it. User asked to save drafts/close Mana before retry. Bundled Python resources already match source, but new native style allowlist needs completed executable build. Python regression quiet pitched note retained, white-noise short weak event rejected, silence not connected, source note metadata immutable. Actual15s both variants finite exact360000samples; pitches/attacks match preferred56notes, MIDI+2 matches pitch control and hold.05 applied, exports/report at exports/singing/sax-integration-2026-10-16. Manual tests pending: Tenor/Weresax preview; compare softer connections; pitch/hold regeneration; apply/save/reopen. Original source noise can still influence transcription.
+
+2026-10-16: User closed Mana; final cargo build now succeeded, completing explicit LiveHQ Tenor/Weresax Alto sax update. Bundled sax_replacement.py hash matches source. Earlier frontend184total/182passed2optional skipped and native66passed remain applicable; no code changed after those checks. Previous executable lock resolved. Ready for user app listening/manual preview-customize-save checks.
+
+2026-10-16: First drum refinement audition from ReachOut19s separated drum stem. scripts/audition-drum-detail.py uses five independent transient bands35–140/140–450/450–2200/2200–5000/5000–11000Hz,2.5ms frames, grouped candidate onsets, class-specific spacing and source-relative velocities25–110. Kick90ms spacing reduces ringing doubles; snare55ms/toms70ms/highs30ms. Conservative tonal low-mid tom estimate, high-tail+time-to-next-high estimate for open hats/crash, suppress some snare->hat bleed. Initial heuristic overclassified toms/kicks; stricter thresholds reduced final labels to70kick/35snare/56closedhat/19openhat/4lowtom, versus old88kick/65snare/58closedhat. Counts/labels not ground truth, missed hits can remain. No grid quantization or original blending.
+
+exports/singing/drum-detail-2026-10-16 includes original-drums, previous-rock-kit, detailed-rock-kit and detailed-standard-kit, full19s and9–19s clips. Same new hit list for both kits; original extracted stem may contain bleed. All exact456000finite samples, matchedRMS/peak<.9. Synthetic kick60Hz and snare-noise transients detected near correct times/classes; silence produces no events. Production unchanged pending listening, no new dependencies/instrument bank. Report stores notes/velocities/gains/method.
+
+2026-10-16: User prefers previous drums and requests independent cymbal audition. scripts/audition-cymbal-layer.py keeps previous153kick/snare MIDI events/pitches/strengths unchanged. New cymbal lane estimates snare/closedhat/openhat/crash/ride activity via whitened high-spectrum NNLS on local rock-kit rendered templates, positive activity rises/grouped classification. First run overlabelled43crashes; conservative top15%crash score plus>=.6strength/500ms spacing yields final54closedhat/6openhat/2crash/38ride candidates. Counts are heuristic, not source-confirmed identities. Explicit held times60/350/1200/650ms respectively, capped before next same-key event so old noteoffs cannot cut new hits. Old generic closed-hat lane replaced, not doubled.
+
+exports/singing/cymbal-layer-2026-10-16 includes source-high-range (3500Hz highpass, NOT clean cymbal extraction; snare hiss remains), cymbal-candidates, previous-kick-snare, combined-candidate and original-drums, full19s/9–19s. Combined uses bounded.5–2xcymbal gain estimated from source-high/whole-source RMS ratio; approximation includes snare energy. Individual reference clips level-matched for comparison; no source audio in reconstruction. All exactlengthfinite/unclipped within float tolerance. Report notes/evidence/levels/heldtimes retained. Production unchanged pending user listening.
+Verification follow-up: known closed-hat/crash template attacks detected within80ms, positive note durations; initial all-silence test exposed whitening divide-by-zero, fixed with explicit silence/short-source return and absolute denominator floor. Rerun passes. Nonfinite source rejects. Existing nonzero-song audition unaffected by this guard.
+
+2026-10-16: User hears only1–2cymbals in strict audition. New exports/singing/cymbal-fuller-2026-10-16 loosens selection using same template evidence: removes top15%/.6strength crash gate, permits>=.1strength/.22share dominant labels, crash spacing200ms instead500ms, ride65ms/hats35ms. Candidate labels33crash/31ride/51closedhat/6openhat versus prior2crash; this is permissive coverage, not improved accuracy evidence. Increased quiet-hit MIDI55+55sqrt(strength), note holds80/500/1800/1000ms capped before same-key retrigger. Same prior153kick/snare notes/strengths unchanged. No old hats doubled and no source blended.
+
+Full19s/9–19s fuller-cymbals, crash-ride-only (no hats), combined-candidate. Source-high listening reference remains previous folder; no clean cymbal isolation claimed. Exactfinite456000samples, RMS.065/no clipping. Regression verifies moderate crash evidence survives,200ms repeat bound, noteoff capped, empty evidence/input immutability and kick/snare metadata equality. Report/script audition-cymbal-fuller.py retained. App unchanged; false/mislabelled cymbals may increase. User listening pending.
+
+2026-10-16: User prefers fuller cymbals but hears overhits; authorized trimming. New exports/singing/cymbal-cleaner-2026-10-16 retains preferred timing/voices/ringing direction, removes24weak/near-duplicate crash/ride triggers:33→22crash,31→18ride;51closedhat/6openhat unchanged. Crash/ride strength<.20removed; strongest samevoice300mscrash/90msride wins; crossmetal<100ms suppressed only weaker<65%. Surviving starts/pitches/strengths unchanged, noteoffs restored to original heldlength up to nextsamekey. Old153kick/snare exact metadata unchanged, cymbal mix-balance estimate unchanged, no source blended/gridquantization. Quiet real cymbals may be lost; no accuracy claim.
+
+cleaner-cymbals,cleaner-crash-ride,combined-candidate full19s/9–19s, previouscombined9–19s copied. Exactfinite456000samples, RMSmatched/no clipping. Synthetic regression stronger hit wins/weak removed/longring restored/inputimmutable/empty valid; reportmetadata verifies hats/kick/snare preserved. Script audition-cymbal-cleaner.py. App untouched pending listening.
+
+2026-10-16: User approves cleaner cymbal pattern, requests drums stronger than cymbals. Balance-only auditions exports/singing/drum-balance-2026-10-16 lower full cymbal lane(including hats) -3/-6dB relative previous. Previous153kick/snare samples/events/velocities and shared master gain.709264 fixed; no per-version RMS normalization/compression or note changes. Surviving cymbal ringing unchanged. previous-balance reproduction within onePCM16step verifies baseline; all exact456000finite samples/no clipping. Full19s/9–19s previous-balance,cymbals-minus-3db,cymbals-minus-6db. Report stores accepted note lists/levels/gains. Source not blended. App unchanged pending balance choice/integration; previous cleaner pattern now preferred.
+
+2026-10-16: User selects cymbal -6dB relative balance and moves to kick/snare. Preserve cleaner cymbal pattern and selected balance for future integration; app still old method. First kick/snare audition keeps prior153events/timing/lengths fixed, maps source pervoice first55ms band RMS to MIDI50–115kick/35–115snare with.8exponent (actual61–115). Compares existing LiveHQ Rock16 versus Standard0 with same new dynamics; drum-average RMS matched to preferred old rock, master/cymbal gain fixed, no per-file normalization or compression. Originalsource not blended.
+
+exports/singing/kick-snare-dynamics-2026-10-16 includes previous/rock-source-dynamics/standard-source-dynamics as solo kick-snare and combined tracks, full19s/9–19s. All finiteexact456000samples/unclipped, no extra shared safety reduction needed. Previous combined reproduces accepted -6dB baseline within onePCM16step. Synthetic louder/quieter kick test produces ordered source-driven velocities; note lists immutable. Report stores velocities/program/matchgains. Script audition-kick-snare-dynamics.py. App untouched, user listening pending; hit-pattern correction remains separate.
+
+Kick/snare test follow-up: single-class synthetic fixture exposed empty percentile input for an absent snare class; helper now skips missing classes. Louder/quieter, empty list and accepted-baseline tests rerun passed. Both-class song audition unaffected.
+
+2026-10-16: Integrated approved Rock source-following kick/snare plus cleaner cymbals at -6dB into existing drums-rock replacement. New reusable scripts/drum_replacement.py contains template NNLS evidence, fuller/trimmed cymbal selection, source-dynamic kick/snare velocity mapping, accepted reference balance capped.5–2x then -6dB. No audition file/notes imported at runtime. Previous generic kick/snare detection remains its timing basis, source55ms band-RMS drives pervoice velocity; average kick/snare RMS calibrated to old rock so cymbal relationship follows audition. Hi-hat/crash/ride notes have ringing holds capped before same-key retrigger. No source audio blended and no new dependencies/banks. Existing Standard/Jazz/Brush/Electronic rendering paths untouched. Builder/Edit tracks still use Rock drums choice with descriptive hint. Other kits retained.
+
+Rock route emits detected MIDI hits/velocities; calibrated audio lane gains are baked into rendered WAV, not encoded as separate MIDI lane automation. Raw result peak safety.95 scales all equally when needed; existing arrangement/mix pipeline handles final level. New script resource bundled. Silence/nonfinite guard and old note detector errors avoid invented beat output.
+
+Verification: frontend182passed2optional skipped(184total), native66passed, production/native builds successful. Python regressions rock-specific dispatch, other-kit legacy routing, helper silence and selection invariants passed. Actual19sfixture uses250hits (153kick/snare+97cymbals), exact accepted events; rendered result at auditionmaster gain matches approved rock-source-dynamics combined within onePCM16step. Export/report exports/singing/rock-drums-integration-2026-10-16. Final UI help text rebuilt after tests; manual checks pending: Drums→Rock preview; cymbals remain behind kick/snare; apply/save/reopen; other kits retained.
+
+2026-10-16: User authorized ensemble/arrangement check before strings/winds. scripts/audition-full-arrangement.py renders current production routes on prepared ReachOut19s guitar/piano/bass/drum stems, retains original Other/mixed and existing saved Mana vocal. Replacements each matched to own source stem RMS, no time offset, source piano quiet(possible separator bleed). Compare preferred Bright-room+2 vs explicitpitch0 guitar against identical improved piano/bass/Rockdrums(-6dBcymbal). No sax inserted into ReachOut; Elvis60–75s recreated tenor paired with its matching original BackingMono. Original source parts in comparison mixes explicitly retained; not fully regenerated backing. No new voice generation.
+
+exports/singing/full-arrangement-2026-10-16 contains reach-source-backing/reach-rebuilt-plus2/reach-rebuilt-pitch0 and corresponding existing-Mana mixes full19s/9–19s; elvis-source-ensemble/elvis-tenor-ensemble15s; individual rebuilt ReachOut stems/MIDI. Master gain shared within each comparison group, no individual mix normalization/compression; -6dB cymbal relation preserved inside drumstem. Full-context rendering then excerpt crop avoids independent section reanalysis. Report gains/RMS/peak/note counts retained. All8fullclips finite/exactlength/no clipping, six10s excerpts bit-identical to fullclip slice verified. App/library/approved presets unchanged. User listening pending for ensemble balance/pitch compatibility before further instrument work.
+# 2026-10-16 — Short strings comparison
+
+Reused cached replacement notes and existing baseline audio for a 7.7-second string-ensemble connection audition. Checked finite audio, matching duration, and unchanged note pitches/attacks. No full arrangements regenerated; no app preset changes. Audition: `exports/singing/strings-connections-2026-10-16`.
+
+# 2026-10-16 — Strings melody comparison
+
+Reused `full-arrangement-2026-10-16/reach-guitar.mid` to render a short string candidate at source pitch, alongside the actual separated guitar and previous connected-string audition. Verified finite, equal-length audio and common peak protection. No expensive extraction/transcription rerun or app changes. Outputs: `exports/singing/strings-guitar-notes-2026-10-16`.
+
+# 2026-10-16 — Cleaner strings audition
+
+Prepared one cached-note string cleanup candidate: one brief weakly supported detour removed, low-support sustained notes softened, remaining pitches/attacks retained. Compared against existing updated strings with matched RMS. Output `exports/singing/strings-cleanup-2026-10-16`; no app defaults changed, no separation/transcription rerun.
+
+# 2026-10-16 — Approved strings integrated
+
+Added strings-only source-supported holds, conservative weak-detour filtering, reduced low-support note velocities, nearby-note overlap and LiveHQ 1.5× release. Shared hold preparation extracted from NAM renderer without changing guitar math. New helper bundled; MIDI preserves explicit string velocities; tuning applies after cleanup. Regression suite and native build passed. No full arrangement/voice regeneration; saved clips unchanged. Four manual app checks documented in MUSIC_STUDIO.md.
+
+# 2026-10-16 — Focused flute audition
+
+Reused existing flute notes and baseline for one short phrasing comparison. Candidate softens entrances and lightly connects nearby notes without changing pitches/attacks or filling phrase rests. Outputs `exports/singing/flute-phrasing-2026-10-16`. No app changes/build or model reruns; listening pending.
+
+# 2026-10-16 — Flute octave audition
+
+Prepared one conservative register-continuity candidate from cached notes: D3→D4 at 2.11s, source supports both octave candidates. Audition labelled as a trial, not verified transcription. Existing softer phrasing retained, no app changes. Output `exports/singing/flute-pitch-check-2026-10-16`.
+
+# 2026-10-16 — Approved flute integrated
+
+Bundled flute_replacement.py and wired only the Flute route to approved register continuity, softer entries and connected release. MIDI mirrors rendered corrected pitches/dynamics; custom tuning remains available. Tests cover octave correction, silence protection, unchanged input and entrance fades; approved fixture retains all attacks with just D3→D4 at 2.11s. Python regression checks and app build passed. No full mix or transcription regeneration.
+
+# 2026-10-16 — Solo violin audition
+
+Reused old violin notes/audio for one short bowing comparison; softer phrase entrances and connected release, fixed melody/register. Output `exports/singing/violin-bowing-2026-10-16`. No separation, transcription, full mix or app change. Listening pending.
+
+# 2026-10-16 — Violin note correction audition
+
+Reused cached notes, tested source-supported local octave correction while retaining softer bowing and overall register. One change at source 2.11s; weak-detour screening removed none. Output `exports/singing/violin-notes-2026-10-16`. App unchanged pending listening.
+
+# 2026-10-16 — Softer weak violin notes
+
+Prepared one short cached-note dynamics trial after user heard extra notes. Three low-source-support notes softened; no new removals/pitch changes. Outputs `exports/singing/violin-weak-notes-2026-10-16`; app unchanged pending listening.
+
+# 2026-10-16 — Violin overlap trial
+
+Prepared cached-note independent-sustain comparison after weak-note softening hid audible notes. Keeps original corrected pitches/attacks and previous volume balance, follows source-supported tails. No new polyphonic transcription or app changes. Audition output `exports/singing/violin-overlap-2026-10-16`.
+
+# 2026-10-16 — Source-audio melody focus
+
+Prepared short original-audio filtering comparison at user's request to hear less overlap. Cached-pitch harmonic mask, source phase retained, no synthesis. Explicit caveat: detector-guided listening aid, not clean separation or independent note truth. Output `exports/singing/source-melody-focus-2026-10-16`; app and original source unchanged.
+
+# 2026-10-16 — Upper violin melody candidate
+
+Short cached-note register trial keeps upper melody instead of following bass-like octave drops near end. Two E3→E4 changes added to prior single D3→D4 correction; original-source harmonic support checked but ambiguous. Previous volume balance preserved, no note deletion or model rerun. Output `exports/singing/violin-upper-melody-2026-10-16`. App unchanged.
+
+# 2026-10-16 — Focused-guide violin
+
+Corrected direction after user clarified extra notes are extractor bleed. Transcribed only approved melody-focused 7.7s source (eight events) and rendered solo violin, without cached mixed-source overlaps or register-lifting experiments. Saved source comparison/MIDI/notes under `exports/singing/violin-focused-guide-2026-10-16`; app unchanged.
+
+# 2026-10-16 — Approved focused-guide violin integrated
+
+Bundled solo violin filtering/retranscription pipeline; source-guided harmonic focus precedes final violin note detection, avoiding prior overlap and register-lifting trials. Original audio retained, no extra accompaniment. Final pitch/extension customization passed through once. Tests for filter safety, silent source, recursion guard/tuning passthrough and existing routes passed; native build passed. Saved audio unchanged; no new full cover generated.
+
+# 2026-10-16 — Trumpet audition
+
+Verified trumpet is currently extraction-only, then prepared short LiveHQ replacement tone/phrasing comparison using saved focused-guide notes. No model/transcription rerun. Outputs `exports/singing/trumpet-phrasing-2026-10-16`; app unchanged pending user listening.
+
+# 2026-10-16 — Phrased trumpet replacement
+
+Integrated approved LiveHQ trumpet phrasing into renderer, Builder/Edit tracks choices, Rust style allowlist and saved-stem validators. Program56, accents/short connections/release as audition, tuning preserved, MIDI reflects explicit velocities. Python checks, frontend suite, native66 tests and builds passed; targeted library roundtrip added. No existing audio rewritten or full arrangement regenerated.
+
+# 2026-10-16 — Vocal melody harmonica audition
+
+Prepared user-selected Whereabouts lead-only vocal170–182s as harmonica using existing extraction, short monophonic pitch track and source dynamics. No accompaniment/voice/separation rerender.31notes saved alongside reference audio at `exports/singing/whereabout-vocal-harmonica-2026-10-16`; app unchanged.
+
+# 2026-10-16 — Held-vowel harmonica cleanup
+
+Prepared one short cached-note audition reducing false retriggers on extended vocals.31→26events through source-energy-guarded repeated-key merging and brief semitone-tail absorption. Outputs `exports/singing/whereabout-harmonica-held-vowels-2026-10-16`; app unchanged, no model rerun.
+
+# 2026-10-16 — Vocal-to-instrument feature
+
+Added Cover Builder vocal melody controls for lead/backing vocal, seven LiveHQ choices starting harmonica, preview and separate-track addition with timing/tuning retained. Original vocal preserved. Instrument-only preview/save allowed by muting unconverted lead when instrument melody exists. Added native/Python vocal-source validation, bundled pYIN/held-vowel helper and backup regression.184 frontend passed/2optional skipped;66native passed; Python regression and exact approved26-note fixture passed;2s production smoke passed; frontend/native builds passed. No full-song rendering.
+
+# 2026-10-16 — Ocarina audition
+
+User passed vocal-to-instrument feature. Reused cleaned cached vocal melody for one8s LiveHQ ocarina phrasing comparison, fixed notes/register, gentler entries and sustain. Outputs `exports/singing/ocarina-phrasing-2026-10-16`; no model reruns, app unchanged.
+
+# 2026-10-16 — Ocarina phrasing and expanded vocal melody choices
+
+Integrated approved ocarina phrasing for regular/vocal replacements. Expanded vocal melody to all melodic Builder options and added missing Builder keyboard/synth/sample variants; source vocal preserved, no automatic harmony generation. Vocal dispatch uses actual LiveHQ/sfizz/NAM backends. Native/Python validation excludes drums/unsupported targets. Python all-backend mocked dispatch/tuning and phrase tests passed;184frontend passed/2optional skipped,66native passed; both builds passed. No full audio regenerated. New helper bundled.
+
+# 2026-10-16 — Electric piano audition
+
+Prepared one8s LiveHQ electric-piano dynamics/decay comparison from saved vocal notes; no new transcription or full arrangement. Candidate follows vocal attack energy, keeps exact notes/timing and allows longer instrument release. Outputs `exports/singing/electric-piano-phrasing-2026-10-16`; app unchanged.
+
+# 2026-10-16 — Electric piano touch follow-up
+
+Prepared short gentler-touch/duration-aware decay candidate from cached notes and source velocities, compared with prior dynamic-decay audition. Output `exports/singing/electric-piano-touch-2026-10-16`. App unchanged, no transcription or full-song rendering.
+
+# 2026-10-17 — Electric piano integration completed
+
+Resumed verification after automatic approval review hit usage limit on previous turn. Approved gentle source-driven electric-piano dynamics and quick/held decay now shared by regular replacement and vocal melody. Helper bundled; pitch/hold and MIDI retained. Python regressions and native build passed. Production velocities/release grouping verified against approved cached audition, no audio rerender. Existing saved covers untouched. Docs updated and four manual checks recorded in MUSIC_STUDIO.md.
+
+# 2026-10-17 — Repeated held vocal notes investigation
+
+User clarified same-key retriggers in Vocal→Electric piano. Added source-energy-guarded same-pitch merge only to that route, tests passed. Cached current production note lists checked without retranscription/full render:119→118 notes in last chunk,73→73 in previous chunk. Requested timestamp/phrase to confirm exact issue and avoid flattening real repeated syllables. User-specific fix verification pending.
+
+# 2026-10-17 — Located vocal piano retriggers at36s
+
+Confirmed rounding-boundary vibrato fragments in saved current vocal→electric-piano result around37s. Cached9s pitch diagnostic, added electric-piano-only voiced-run hysteresis/median/stable-change confirmation; kept breaths and clear pitch changes. Focused previous/fixed comparison rendered from cached trace, not fullsong. Python regressions and native build passed; previous exe lock resolved. User listening pending.
+
+# 2026-10-17 — Warm pad audition
+
+Prepared short cached-note warm synth pad comparison with softer phrase envelopes, no new notes/model runs/full mix. Output `exports/singing/warm-pad-phrasing-2026-10-17`; app unchanged awaiting listening.
+
+# 2026-10-17 — Synth lead comparison
+
+Kept plain warm pad per user preference. Prepared one short bright saw-lead phrasing comparison from same cached notes, outputs `exports/singing/synth-lead-phrasing-2026-10-17`. App unchanged, no model/full-song rerun.
+
+# 2026-10-17 — Clearer saw lead integrated
+
+Wired user-approved lead articulation into regular and vocal paths; retained plain warm pad. Added bundled synth_lead_replacement.py, explicit MIDI velocities, customization preserved. Python instrument regressions and native build passed. No model/full-song rerun; saved songs unchanged.
+
+# 2026-10-17 — First vocal harmony audition
+
+Prepared8s scale-aware third-above backing part from saved Seed-VC Mana vocal/cached notes. Estimated C#major, quiet−12dB mix; isolated listening part also available. No voice generation/extraction rerun, app unchanged. Outputs `exports/singing/vocal-harmony-third-2026-10-17`; key/timbre limitations documented, user listening pending.
+
+# 2026-10-17 — Harmony voice regeneration trial
+
+Resynthesized only authorized8s backing harmony via existing Seed-VC/Mana singing reference after user heard robotic pitch shifting. Lead preserved, quiet−12dB mix, isolated old/new backing voices for comparison. Output `exports/singing/vocal-harmony-regenerated-2026-10-17`. Finite/duration/peak checks passed, app unchanged; listening pending.
+
+# 2026-10-17 — Backing harmony feature
+
+Integrated approved regenerated-third harmony into Cover Builder as1–30s preview/add backing-vocal track, Auto/manual key,25% default volume and correct section/lead offset. Source lead retained; same shared singing job lifecycle, generated harmony excluded from auto library discovery. Shared vocal pitch tracker refactor passed existing regressions.185frontend passed/2optional skipped,67native passed; Python harmony orchestration and instrument checks passed; production/native builds passed. No additional model/full-song generation. Builder text encoding repaired. Manual checks documented.
+
+# 2026-10-17 — Harmony valid-range bug
+
+Diagnosed user screenshot/job1792197824804: valid15–30s selection rejected because resampler returned one extra frame. Added metadata-based range validation and≤2frame output alignment; tests passed and exact source selection reproduced successfully without model generation. Build status reported separately.
+
+# 2026-10-17 — Third below audition
+
+Prepared authorized8s regenerated lower backing harmony using saved Mana lead and existing note/key data. Same CPU Seed-VC settings as approved upper audition; lead retained, quiet−12dB mix and solo listening clip. Outputs `exports/singing/vocal-harmony-below-2026-10-17`; checks passed, no app changes awaiting listening.
+
+# 2026-10-17 — Harmony direction choice
+
+Integrated approved third-below beside existing third-above; UI selector, native request validation/serialization, Python scale intervals and job metadata updated. Preserve direction on range/key changes; invalidate stale candidate and name generated track by direction.185frontend passed/2optional skipped,67native passed, Python above/below tests passed, both builds passed. No model/full-song rerender; docs updated.
+
+# 2026-10-17 — Harmony blend audition controls
+
+Added lead+candidate section mix preview and backing-level slider before adding a harmony track, chosen level retained on add. Pure crop/mix helper validates alignment and preserves inputs. Session cache reuses above/below candidates by source/section/key/direction to avoid duplicate generation.186frontend passed/2optional skipped, production and native builds passed. No new model/audio generation. Docs updated.
+

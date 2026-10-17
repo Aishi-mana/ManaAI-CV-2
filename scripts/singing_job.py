@@ -9,6 +9,9 @@ if hasattr(sys.stdout, "reconfigure"):
 
 
 def run(p):
+    if p.get('harmony_key') is not None:
+        from vocal_harmony import run_harmony
+        return run_harmony(p)
     pitch_shift = p.get('semi_tone_shift', 0)
     if isinstance(pitch_shift, bool) or not isinstance(pitch_shift, int) or not -12 <= pitch_shift <= 12:
         raise ValueError('Pitch shift must be a whole number between -12 and 12 semitones.')

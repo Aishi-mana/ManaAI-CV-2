@@ -2402,3 +2402,71 @@ test('whole-song detected preview covers the entire source with contiguous bound
  assert.deepEqual(JSON.parse(JSON.stringify(c.detectedPreviewSections(288,90,15,false))),[{start:90,seconds:15,offset:0}]);
  for(const args of [[20,15,10,false],[20,0,61,false],[20,-1,10,false],[NaN,0,15,true]])assert.throws(()=>c.detectedPreviewSections(...args));
 });
+
+
+test('fingered and picked bass stems preserve safe paths and mix levels across backups',()=>{
+ const studio=loader()('src/core/musicStudio.ts');
+ const project={id:'studio-bass-options',title:'Bass',createdAt:'2026-10-16T00:00:00Z',status:'ready',stems:['finger-bass','picked-bass'].map(name=>({name,path:'C:/AI/ManaAI-CV-2/exports/singing/'+name+'.wav',gain:.65,muted:false}))};
+ const result=studio.validateStudio(JSON.parse(JSON.stringify(studio.validateStudio({projects:[project]})))).projects[0];
+ assert.deepEqual(result.stems.map(s=>s.name),['finger-bass','picked-bass']);
+ assert.ok(result.stems.every(s=>s.gain===.65));
+});
+
+
+test('explicit tenor and Weresax choices retain separate stem identities in backups',()=>{
+ const studio=loader()('src/core/musicStudio.ts');
+ const project={id:'studio-sax-options',title:'Sax',createdAt:'2026-10-16T00:00:00Z',status:'ready',stems:['sax-tenor','sax-weresax'].map(name=>({name,path:'C:/AI/ManaAI-CV-2/exports/singing/'+name+'.wav',gain:.7,muted:false}))};
+ const result=studio.validateStudio(JSON.parse(JSON.stringify(studio.validateStudio({projects:[project]})))).projects[0];
+ assert.deepEqual(result.stems.map(s=>s.name),['sax-tenor','sax-weresax']);
+});
+
+test('trumpet replacement stem survives library backup validation',()=>{
+ const studio=loader()('src/core/musicStudio.ts');
+ const stem={name:'trumpet',path:'C:/AI/ManaAI-CV-2/exports/singing/trumpet.wav',gain:.65,muted:false};
+ const project={id:'studio-trumpet',title:'Trumpet',createdAt:'2026-10-16T00:00:00Z',status:'ready',stems:[stem]};
+ const result=studio.validateStudio(JSON.parse(JSON.stringify(studio.validateStudio({projects:[project]})))).projects[0];
+ assert.deepEqual(JSON.parse(JSON.stringify(result.stems)),[stem]);
+});
+
+test('vocal melody stays a separate editable instrument track in builder backups',()=>{
+ const builder=loader()('src/core/coverBuilder.ts');
+ const base='C:/AI/ManaAI-CV-2/exports/singing/';
+ const vocal={id:'track-source',name:'Lead',role:'vocal',path:base+'lead.wav',originalPath:base+'lead.wav',gain:1,muted:true,offset:2,seconds:12,converted:false};
+ const melody={...vocal,id:'track-melody',name:'Harmonica',role:'other',path:base+'harmonica.wav',originalPath:base+'harmonica.wav',muted:false,replacement:'harmonica',custom:{pitch:2,extension:.1}};
+ const tracks=builder.validateBuilderTracks(JSON.parse(JSON.stringify([vocal,melody])));
+ assert.equal(tracks.length,2);
+ assert.equal(tracks[0].originalPath,vocal.originalPath);
+ assert.equal(tracks[1].role,'other');
+ assert.equal(tracks[1].offset,2);
+ assert.equal(tracks[1].replacement,'harmonica');
+ assert.equal(tracks[1].custom.pitch,2);
+});
+
+test('generated harmony retains quiet backing level and section offset in builder backup',()=>{
+ const builder=loader()('src/core/coverBuilder.ts');
+ const base='C:/AI/ManaAI-CV-2/exports/singing/';
+ const tracks=builder.validateBuilderTracks([{id:'track-lead',name:'Mana',role:'vocal',path:base+'lead.wav',originalPath:base+'original.wav',gain:1,muted:false,offset:2,seconds:60,converted:true},{id:'track-harmony',name:'Third above',role:'backing-vocal',path:base+'harmony.wav',originalPath:base+'harmony.wav',gain:.25,muted:false,offset:17,seconds:10,converted:true}]);
+ assert.equal(tracks.length,2);assert.equal(tracks[0].path,base+'lead.wav');
+ assert.equal(tracks[1].role,'backing-vocal');assert.equal(tracks[1].gain,.25);assert.equal(tracks[1].offset,17);assert.equal(tracks[1].converted,true);
+});
+
+test('harmony blend previews crop the lead section and retain chosen relative level',()=>{
+ const {mixHarmonyPreview}=loader()('src/core/studioMix.ts');
+ const buffer=(samples,rate=10)=>({sampleRate:rate,length:samples.length,duration:samples.length/rate,numberOfChannels:1,getChannelData:()=>samples});
+ const leadData=new Float32Array(100).fill(.8);leadData.fill(.2,30,50);
+ const lead=buffer(leadData),backing=buffer(new Float32Array(20).fill(.4));
+ const mix=new DataView(mixHarmonyPreview(lead,backing,3,2,1,.25));
+ assert.equal(mix.getUint32(40,true),20*4);
+ assert.ok(Math.abs(mix.getInt16(44,true)/32767-.3)<.0001);
+ const solo=new DataView(mixHarmonyPreview(lead,backing,3,2,1,0));
+ assert.ok(Math.abs(solo.getInt16(44,true)/32767-.2)<.0001);
+ assert.equal(leadData[0],Math.fround(.8));assert.equal(leadData[30],Math.fround(.2));
+ assert.throws(()=>mixHarmonyPreview(lead,backing,9,2,1,.25),/within/);
+ assert.throws(()=>mixHarmonyPreview(lead,buffer(new Float32Array(20),20),3,2,1,.25),/aligned/);
+ assert.throws(()=>mixHarmonyPreview(lead,backing,3,2,1,2),/gains/);
+ const fullLead=buffer(new Float32Array(400).fill(.2));
+ const fullHarmony=buffer(new Float32Array(400).fill(.4));
+ const whole=new DataView(mixHarmonyPreview(fullLead,fullHarmony,0,40,1,.25));
+ assert.equal(whole.getUint32(40,true),400*4);
+ assert.ok(Math.abs(whole.getInt16(44,true)/32767-.3)<.0001);
+});

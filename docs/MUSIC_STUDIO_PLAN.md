@@ -94,3 +94,9 @@ Original-song stage 1 implemented 2026-10-13: local ACE-Step prompt/lyrics previ
 2026-10-15: Expanded local NAM guitar family with Warm crunch, Rock rhythm and Sustained lead. Separate amp/instrument captures are future work; current categories share one guitar full-rig capture. User listening pending.
 
 2026-10-15: Implemented first instrument customizer (pitch and extra hold) and whole-song note auditions. Current NAM presets stay as tone shortcuts; broader effect controls can be added later.
+
+2026-10-16: Bass method integrated with adaptive fast regions and fingered/picked timbres; app listening pending. Next proposed instrument pass is sax phrasing.
+
+2026-10-16: SWAM declined. Integrated explicit LiveHQ tenor/Weresax sax options with approved phrasing direction, existing melody and narrow noise guard. App listening pending; source extraction errors remain separate.
+
+2026-10-16: Approved Rock drum/cymbal method integrated; actual fixture matches audition. Manual app listening pending. Other kits preserved.

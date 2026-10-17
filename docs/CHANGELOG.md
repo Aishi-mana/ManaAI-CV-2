@@ -668,3 +668,65 @@ Prepared piano tracks using the Salamander library now retain polyphonic chords,
 - Cover Builder: added detected-note/hit previews for the selected original-instrument interpretation, selectable1–60s sections and a separate original-recording preview. Audition without applying a replacement.
 
 - Cover Builder: whole-song detected-note previews with seeking; melodic instrument customizer for pitch and extra note hold, preset reset and saved per-track tuning. NAM +2 can now be overridden directly.
+
+- Integrated bass-specific slow/fast tracking and refined attacks for Bass → Finger bass/Picked bass. Quick notes use shorter releases, sustained notes4× release; pitch/hold customizer retained. Added Picked bass to Builder and Edit tracks; updated bass detected-note preview and saved metadata.
+
+- Added separate Live HQ Tenor sax and Weresax Alto sax choices with softer releases, source-supported overlap and conservative short-noise note rejection. Preferred melody method retained; pitch/hold customization and saved identities supported.
+
+- Rock drums now uses approved source-following kick/snare dynamics and trimmed cymbal layer at −6 dB, with ringing tails retained. Other drum kits unchanged; preview/save workflow retained.
+# 2026-10-16
+
+- String ensemble replacements now use smoother connected holds and conservative cleanup of weak passing notes, with softer dynamics for uncertain notes. Existing saved audio is retained.
+
+# 2026-10-16 — Flute
+
+- Flute replacements now have softer entrances, smoother connections and conservative correction of isolated octave jumps. Saved songs remain unchanged until a new replacement is made.
+
+# 2026-10-16 — Solo violin
+
+- Violin replacements now use a melody-focused audio guide to reduce notes picked up from other layers, with softer phrase entrances. Pitch and extension controls remain available.
+
+# 2026-10-16 — Trumpet
+
+- Added Trumpet · Live HQ replacements with phrased attacks and sustain, pitch/extension customization, and saved-library support.
+
+# 2026-10-16 — Vocal melody instruments
+
+- Cover Builder can turn a clean vocal melody into harmonica, flute, trumpet, violin, strings, ocarina or piano as a separate track, with pitch/hold controls and smoother held vocals.
+- Mute the source vocal to preview and save the instrumental melody mix without converting it to Mana’s voice.
+
+# 2026-10-16 — Gentler ocarina and vocal instrument choices
+
+- Ocarina now has gentler entrances and connected sustain.
+- Vocal-to-instrument melody supports the other melodic Builder instruments, including guitars, bass, keyboards, synths and sax variants; original vocals remain separate.
+
+# 2026-10-17 — Electric piano touch
+
+- Electric piano replacements and vocal-melody tracks now use gentler source-following key strength, shorter decay on quick notes and longer decay on held notes. Pitch and extra-hold controls remain available.
+
+# 2026-10-17 — Held vocal electric-piano notes
+
+- Reduced repeated electric-piano strikes caused by vocal vibrato crossing pitch boundaries, while retaining sustained pitch changes and vocal rests. Applies to newly generated vocal-melody previews.
+
+# 2026-10-17 — Synth lead articulation
+
+- Synth lead/saw replacements and vocal melody now use clearer accents and tighter release. Warm pad keeps its existing plain sound.
+
+# 2026-10-17 — Backing harmony
+
+- Cover Builder can regenerate a short third-above harmony in Mana’s singing voice, with Auto or chosen song key, preview and a separate quiet backing-vocal track.
+- Harmony tracks retain their own volume, mute and timing controls while preserving the lead.
+
+# 2026-10-17 — Harmony range fix
+
+- Fixed valid harmony sections being rejected as out of range because of one-sample resampling rounding.
+
+# 2026-10-17 — Upper/lower harmony
+
+- Cover Builder now offers Third above and Third below for regenerated backing harmonies, with the existing key, preview and separate-track controls.
+
+# 2026-10-17 — Preview harmony blend
+
+- Hear lead and harmony together and adjust backing volume before adding the track.
+- Previously generated upper/lower harmony previews are reused for matching settings during the current Builder session.
+

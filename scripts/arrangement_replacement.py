@@ -11,8 +11,10 @@ NAM_GUITARS={
  'guitar-nam-warm':dict(shift=0,input_db=-6,release=.85,brightness=0,room=.08,delay=0),
  'guitar-nam-rhythm':dict(shift=0,input_db=0,release=.65,brightness=.20,room=.04,delay=0),
  'guitar-nam-lead':dict(shift=0,input_db=0,release=1.25,brightness=.35,room=.10,delay=.08)}
-EXTRA_PROGRAMS={'acoustic-guitar':25,'nylon-guitar':24,'finger-bass':33,'acoustic-bass':32,'violin':40,'strings':48,'flute':73,'harp':46,'electric-piano':4,'fm-piano':5,'organ':19,'accordion':21,'harpsichord':6,'clavinet':7,'harmonica':22,'ocarina':79,'synth-square':80,'synth-saw':81,'synth-pad':89,'synth-poly':90}
+EXTRA_PROGRAMS={'acoustic-guitar':25,'nylon-guitar':24,'finger-bass':33,'picked-bass':34,'acoustic-bass':32,'trumpet':56,'violin':40,'strings':48,'flute':73,'harp':46,'electric-piano':4,'fm-piano':5,'organ':19,'accordion':21,'harpsichord':6,'clavinet':7,'harmonica':22,'ocarina':79,'synth-square':80,'synth-saw':81,'synth-pad':89,'synth-poly':90}
 SEPARATE_VARIANTS={
+ 'sax-tenor':('sax',None),
+ 'sax-weresax':('sax',None),
  'guitar-bright-room':('electric-guitar','BlackAndGreenGuitars/Programs/04-green_twang.sfz'),
  'guitar-nam-warm':('electric-guitar','BlackAndGreenGuitars/Programs/04-green_twang.sfz'),
  'guitar-nam-rhythm':('electric-guitar','BlackAndGreenGuitars/Programs/04-green_twang.sfz'),
@@ -118,9 +120,12 @@ def shape_note(sample,held,velocity,instrument,legato=False):
  loudness=.48+.52*np.clip(velocity,0,1)
  return signal*envelope*loudness
 
-def render_soundfont(notes,seconds,root,program,shift,percussion=False):
+def render_soundfont(notes,seconds,root,program,shift,percussion=False,midi_velocities=None,release_scale=1):
  """Offline in-process FluidSynth: no audio device or detached helper process."""
  import ctypes as c,os
+ if not np.isfinite(release_scale) or not 1<=release_scale<=8:raise ValueError('Use a release scale from 1–8.')
+ if midi_velocities is not None and (len(midi_velocities)!=len(notes) or any(not isinstance(v,(int,np.integer)) or not 1<=v<=127 for v in midi_velocities)):
+  raise ValueError('Supply one MIDI velocity from 1–127 per note.')
  sf2=root/'data/instrument-samples/LiveHQNatural/Live HQ Natural SoundFont GM.sf2'
  dlls=list((root/'data/fluidsynth/runtime').rglob('libfluidsynth-3.dll'))
  if not sf2.is_file() or not dlls:raise ValueError('Live HQ bank or FluidSynth runtime is missing. Choose FluidR3 instead.')
@@ -150,9 +155,14 @@ def render_soundfont(notes,seconds,root,program,shift,percussion=False):
   sfid=load(synth,str(sf2).encode('utf-8'),0)
   channel=9 if percussion else 0
   if sfid<0 or select(synth,channel,sfid,128 if percussion else 0,program)<0:raise ValueError('Cannot load the selected Live HQ preset.')
+  if release_scale!=1:
+   # SoundFont generator38 is volume-envelope release. Channel value is a timecents offset.
+   set_gen=bind('fluid_synth_set_gen',c.c_int,c.c_void_p,c.c_int,c.c_int,c.c_float)
+   if set_gen(synth,channel,38,float(1200*np.log2(release_scale)))<0:raise ValueError('Cannot set instrument release.')
   frames=round(seconds*SR);audio=np.zeros(frames,dtype=np.float32);events=[]
-  for begin,end,pitch,velocity in notes:
-   events.extend([(max(0,round(begin*SR)),1,int(pitch+shift),int(48+55*np.clip(velocity,0,1))), (min(frames,round(end*SR)),0,int(pitch+shift),0)])
+  for i,(begin,end,pitch,velocity) in enumerate(notes):
+   level=int(midi_velocities[i]) if midi_velocities is not None else int(48+55*np.clip(velocity,0,1))
+   events.extend([(max(0,round(begin*SR)),1,int(pitch+shift),level), (min(frames,round(end*SR)),0,int(pitch+shift),0)])
   events.sort();position=0
   for frame,kind,pitch,velocity in events+[(frames,2,0,0)]:
    frame=min(frame,frames)
@@ -168,7 +178,7 @@ def render_soundfont(notes,seconds,root,program,shift,percussion=False):
   if settings:delete_settings(settings)
   directory.close()
 
-def render_separate(notes,seconds,root,instrument,shift,tone,patch_name=None,midi_velocities=None,guitar_release=None):
+def render_separate(notes,seconds,root,instrument,shift,tone,patch_name=None,midi_velocities=None,guitar_release=None,sax_release_cc=None,sax_controls=None):
  """Render the supplied SFZ patches in-process, including their sample mappings."""
  import ctypes as c,os
  from scipy.signal import butter,sosfilt
@@ -176,6 +186,10 @@ def render_separate(notes,seconds,root,instrument,shift,tone,patch_name=None,mid
   raise ValueError('Supply one MIDI velocity from 1–127 per note.')
  if guitar_release is not None and (not np.isfinite(guitar_release) or not .1<=guitar_release<=2.):
   raise ValueError('Use a guitar release between .1 and 2 seconds.')
+ if sax_release_cc is not None and (instrument!='sax' or not isinstance(sax_release_cc,int) or not 0<=sax_release_cc<=127):
+  raise ValueError('Use a sax release control from 0–127.')
+ if sax_controls is not None and (instrument!='sax' or not isinstance(sax_controls,dict) or any(k not in [110,111,112,113,116,122] or not isinstance(v,int) or not 0<=v<=127 for k,v in sax_controls.items())):
+  raise ValueError('Use supported sax expression controls from 0–127.')
  patches={'piano':'AccurateSalamander/sfz_daw/Accurate-SalamanderGrandPiano_flat.Recommended.sfz',
  'sax':'Weresax/Weresax/Programs/Sax.sfz','electric-guitar':'BlackAndGreenGuitars/Programs/04-green_twang.sfz'}
  patch=root/'data/instrument-samples'/(patch_name or patches[instrument])
@@ -205,6 +219,14 @@ def render_separate(notes,seconds,root,instrument,shift,tone,patch_name=None,mid
    # Combo contains two main guitar globals; explicit auditions set both equally.
    release_count=2 if guitar_release is not None and patch.name=='10-combo_twang.sfz' else 1
    patch_text=patch.read_text(encoding='utf-8').replace('ampeg_release=0.25',f'ampeg_release={release}',release_count)
+   loaded=load_text(synth,str(patch).encode('utf-8'),patch_text.encode('utf-8'))
+  elif sax_release_cc is not None or sax_controls is not None:
+   patch_text=patch.read_text(encoding='utf-8')
+   if sax_release_cc is not None:patch_text=patch_text.replace('set_cc104=20',f'set_cc104={sax_release_cc}',1)
+   for key,value in (sax_controls or {}).items():
+    pattern=rf'(?m)^set_cc{key}=\d+'
+    if re.search(pattern,patch_text):patch_text=re.sub(pattern,f'set_cc{key}={value}',patch_text,count=1)
+    else:patch_text=patch_text.replace('<control>',f'<control>\nset_cc{key}={value}',1)
    loaded=load_text(synth,str(patch).encode('utf-8'),patch_text.encode('utf-8'))
   else:loaded=load(synth,str(patch).encode('utf-8'))
   if not loaded:raise ValueError('Cannot load the selected SFZ instrument.')
@@ -359,6 +381,9 @@ def drum_hits(source,seconds):
  return events
 
 def render_drums(path,seconds,root,instrument):
+ if instrument=='drums-rock':
+  from drum_replacement import render_rock
+  return render_rock(path,seconds,root)
  sys.path.insert(0,str(root/'data/transcription-packages'))
  import pretty_midi
  source,_=librosa.load(path,sr=SR,duration=seconds)
@@ -458,12 +483,8 @@ def render_piano_preserving(path,seconds,root,patch_name=None,custom=None):
  return audio,midi,notes
 
 
-def render_bright_room(notes,guitar,seconds,root,variant='guitar-bright-room',custom=None):
- """Local NAM guitar presets; default preserves approved brighter +2 profile."""
- profile=dict(NAM_GUITARS[variant]);custom=validate_custom(custom)
- if 'pitch' in custom:profile['shift']=int(custom['pitch'])
- import subprocess,tempfile
- from scipy.signal import resample_poly,butter,sosfilt,sosfiltfilt,fftconvolve
+def prepare_source_holds(notes,guitar,seconds):
+ """Shared source-supported holds; no instrument rendering or pitch changes."""
  hop=120
  spectrum=np.abs(librosa.cqt(guitar,sr=SR,hop_length=hop,fmin=librosa.midi_to_hz(40),n_bins=49))
  rms=librosa.feature.rms(y=guitar,frame_length=1024,hop_length=hop)[0]
@@ -489,6 +510,15 @@ def render_bright_room(notes,guitar,seconds,root,variant='guitar-bright-room',cu
     strengths.append(float(np.percentile(spectrum[p-40,first:last],75)) if 40<=p<=88 and last>first else 0)
  reference=max(float(np.percentile(strengths,90)),1e-9)
  velocities=[int(round(15+85*float(np.clip(s/reference,0,1)))) for s in strengths]
+ return performed,velocities
+
+def render_bright_room(notes,guitar,seconds,root,variant='guitar-bright-room',custom=None):
+ """Local NAM guitar presets; default preserves approved brighter +2 profile."""
+ profile=dict(NAM_GUITARS[variant]);custom=validate_custom(custom)
+ if 'pitch' in custom:profile['shift']=int(custom['pitch'])
+ import subprocess,tempfile
+ from scipy.signal import resample_poly,butter,sosfilt,sosfiltfilt,fftconvolve
+ performed,velocities=prepare_source_holds(notes,guitar,seconds)
  performed=customize_notes(performed,seconds,custom.get('extension',0))
  clean=render_separate(performed,seconds,root,'electric-guitar',profile['shift'],'clean',midi_velocities=velocities,guitar_release=profile['release'])
  clean*=min(.065/max(float(np.sqrt(np.mean(clean**2))),1e-9),.9/max(float(np.max(np.abs(clean))),1e-9))
@@ -517,8 +547,25 @@ def render_bright_room(notes,guitar,seconds,root,variant='guitar-bright-room',cu
  x*=min(.065/max(float(np.sqrt(np.mean(x**2))),1e-9),.9/max(float(np.max(np.abs(x))),1e-9))
  return x,performed
 
-def render(guitar_path,seconds,root,instrument="sax",tone=None,bank="fluidr3",source_name="guitar",custom=None):
+def prepare_trumpet(notes,seconds):
+ """Approved light phrase accents and short legato, preserving rests and pitches."""
+ played=[list(n) for n in notes];levels=[]
+ for i,n in enumerate(played):
+  entrance=i==0 or n[0]-notes[i-1][1]>.12
+  level=int(48+55*np.clip(n[3],0,1))
+  levels.append(max(1,min(127,round(level*(1.04 if entrance else .96)))))
+  n[1]=min(n[1],seconds)
+  if i+1<len(played):
+   following=played[i+1]
+   if n[2]!=following[2] and 0<=following[0]-n[1]<=.06:n[1]=min(seconds,following[0]+.035)
+ return played,levels
+
+def render(guitar_path,seconds,root,instrument="sax",tone=None,bank="fluidr3",source_name="guitar",custom=None,_violin_focused=False):
  custom=validate_custom(custom)
+ if source_name=='vocal':
+  from vocal_melody import render_vocal
+  return render_vocal(guitar_path,seconds,root,instrument,custom)
+ sax_variant=instrument if instrument in ['sax-tenor','sax-weresax'] else None
  nam_variant=instrument if instrument in NAM_GUITARS else None
  bright_room=nam_variant is not None
  if bright_room:
@@ -531,6 +578,9 @@ def render(guitar_path,seconds,root,instrument="sax",tone=None,bank="fluidr3",so
  if instrument in DRUM_PROGRAMS:
   if custom.get('pitch',0) or custom.get('extension',0):raise ValueError('Pitch and note extension apply to melodic instruments.')
   return render_drums(guitar_path,seconds,root,instrument)
+ if source_name=='bass' and instrument in ['finger-bass','picked-bass']:
+  from bass_replacement import render_bass
+  return render_bass(guitar_path,seconds,root,EXTRA_PROGRAMS[instrument],custom)
  if instrument in EXTRA_PROGRAMS:bank="livehq"
  if instrument not in banks and instrument not in EXTRA_PROGRAMS:raise ValueError("Unsupported replacement instrument.")
  if bank not in ['fluidr3','livehq','separate']:raise ValueError('Choose a supported instrument bank.')
@@ -548,7 +598,7 @@ def render(guitar_path,seconds,root,instrument="sax",tone=None,bank="fluidr3",so
  sys.path.insert(0,str(packages))
  from basic_pitch import build_icassp_2022_model_path,FilenameSuffix
  from basic_pitch.inference import predict
- _,midi,events=predict(guitar_path,model_or_model_path=build_icassp_2022_model_path(FilenameSuffix.onnx),minimum_note_length=90,minimum_frequency=40 if source_name=='bass' or instrument in ['finger-bass','acoustic-bass'] else 100,maximum_frequency=1500,onset_threshold=.55,frame_threshold=.35)
+ _,midi,events=predict(guitar_path,model_or_model_path=build_icassp_2022_model_path(FilenameSuffix.onnx),minimum_note_length=90,minimum_frequency=40 if source_name=='bass' or instrument in ['finger-bass','picked-bass','acoustic-bass'] else 100,maximum_frequency=1500,onset_threshold=.55,frame_threshold=.35)
  if not events:raise ValueError('No melody notes detected. Choose another section.')
  duration=seconds;hop=.01;frames=round(duration/hop)
  pitches=np.array([0]+sorted({int(e[2]) for e in events}))
@@ -603,22 +653,61 @@ def render(guitar_path,seconds,root,instrument="sax",tone=None,bank="fluidr3",so
   cuts.append(end)
   articulated.extend([[a,b,pitch,confidence] for a,b in zip(cuts,cuts[1:])])
  notes=extend_source_tails(align_source_attacks(remove_weak_detours(articulated,guitar),attacks,events,seconds),guitar,seconds)
- if instrument=='electric-guitar':notes=source_supported_overlap(notes,guitar,seconds)
+ if instrument=='electric-piano':
+  from electric_piano_replacement import render_electric_piano
+  return render_electric_piano(notes,guitar,seconds,root,custom)
+ if instrument=='violin' and not _violin_focused:
+  from violin_replacement import render_focused_violin
+  return render_focused_violin(notes,guitar,seconds,root,custom)
+ if instrument in ['electric-guitar','strings']:notes=source_supported_overlap(notes,guitar,seconds)
+ string_velocities=None
+ flute_entrances=[]
+ ocarina_entrances=[]
+ if instrument=='synth-saw':
+  from synth_lead_replacement import prepare_lead
+  notes,string_velocities=prepare_lead(notes,seconds)
+ if instrument=='ocarina':
+  from ocarina_replacement import prepare_ocarina
+  notes,string_velocities,ocarina_entrances=prepare_ocarina(notes,seconds)
+ flute_shift=12 if instrument=='flute' and notes and np.median([n[2] for n in notes])<58 else 0
+ trumpet_shift=12 if instrument=='trumpet' and notes and np.median([n[2] for n in notes])<60 else 0
+ if instrument=='trumpet':
+  notes,string_velocities=prepare_trumpet(notes,seconds)
+ if instrument=='flute':
+  from flute_replacement import prepare_flute
+  notes,string_velocities,flute_entrances=prepare_flute(notes,guitar,seconds)
+ if instrument=='strings':
+  from strings_replacement import prepare_strings
+  notes,_=prepare_source_holds(notes,guitar,seconds)
+  notes,string_velocities=prepare_strings(notes,guitar,seconds)
+ if sax_variant:
+  from sax_replacement import prepare_sax
+  notes=prepare_sax(notes,guitar,seconds)
  # One fixed octave placement for sax; no per-note octave folding.
  shift=12 if instrument in ['sax','flute','violin'] and notes and np.median([n[2] for n in notes])<58 else 0
- if instrument in ['finger-bass','acoustic-bass'] and notes:
+ if instrument=='flute':shift=flute_shift
+ if instrument=='trumpet':shift=trumpet_shift
+ if instrument in ['finger-bass','picked-bass','acoustic-bass'] and notes:
   while np.median([n[2]+shift for n in notes])>55:shift-=12
  if not bright_room:
   notes=customize_notes(notes,seconds,custom.get('extension',0))
   shift+=int(custom.get('pitch',0))
  if bank=='separate':
-  if bright_room:
+  if sax_variant=='sax-tenor':melody=render_soundfont(notes,seconds,root,66,shift,release_scale=1.6)
+  elif sax_variant=='sax-weresax':melody=render_separate(notes,seconds,root,'sax',shift,None,sax_release_cc=32)
+  elif bright_room:
    melody,notes=render_bright_room(notes,guitar,seconds,root,nam_variant,custom)
    shift=int(custom.get('pitch',NAM_GUITARS[nam_variant]['shift']))
   else:melody=render_separate(notes,seconds,root,instrument,shift,tone,patch_name)
  elif bank=='livehq':
   program={**EXTRA_PROGRAMS,'sax':65,'piano':0,'electric-guitar':30 if tone=='distorted' else 27}[instrument]
-  melody=render_soundfont(notes,seconds,root,program,shift)
+  melody=render_soundfont(notes,seconds,root,program,shift,midi_velocities=string_velocities,release_scale=1.5 if instrument=='strings' else 1.3 if instrument=='flute' else 1.25 if instrument=='trumpet' else 1.35 if instrument=='ocarina' else 1)
+  if instrument=='ocarina':
+   from ocarina_replacement import soften_ocarina
+   melody=soften_ocarina(melody,ocarina_entrances)
+  if instrument=='flute':
+   from flute_replacement import soften_entrances
+   melody=soften_entrances(melody,flute_entrances)
  else:
   bank_text=(root/('data/instrument-samples/FluidR3_GM/'+bank_name+'-mp3.js')).read_text()
   match=re.search(r'MIDI\.Soundfont\.'+re.escape(bank_name)+r'\s*=\s*(\{.*\})',bank_text,re.S)
@@ -643,8 +732,9 @@ def render(guitar_path,seconds,root,instrument="sax",tone=None,bank="fluidr3",so
  if not notes or np.sqrt(np.mean(melody**2))<.00001:raise ValueError('No usable replacement melody detected.')
  # Export the melody actually performed, rather than the original polyphonic detection.
  import pretty_midi
- performed=pretty_midi.PrettyMIDI();track=pretty_midi.Instrument(program={**EXTRA_PROGRAMS,'sax':65,'piano':0,'electric-guitar':30 if tone=='distorted' else 27}[instrument])
- for begin,end,pitch,velocity in notes:
-  track.notes.append(pretty_midi.Note(velocity=int(48+55*np.clip(velocity,0,1)),pitch=int(pitch+shift),start=begin,end=end))
+ performed=pretty_midi.PrettyMIDI();track=pretty_midi.Instrument(program=66 if sax_variant=='sax-tenor' else {**EXTRA_PROGRAMS,'sax':65,'piano':0,'electric-guitar':30 if tone=='distorted' else 27}[instrument])
+ for index,(begin,end,pitch,velocity) in enumerate(notes):
+  level=string_velocities[index] if string_velocities is not None else int(48+55*np.clip(velocity,0,1))
+  track.notes.append(pretty_midi.Note(velocity=level,pitch=int(pitch+shift),start=begin,end=end))
  performed.instruments.append(track)
  return melody,performed,notes

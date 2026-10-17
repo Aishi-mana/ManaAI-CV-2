@@ -45,8 +45,11 @@ def run(p):
     size=min(len(vocal),len(original));vocal=vocal[:size];original=original[:size]
     if style.startswith('replace-guitar-'):
         source_name=p.get('source_name','guitar')
-        if source_name not in ['guitar','piano','bass','other','drums','strings-estimate','winds-estimate','sax-extracted','piano-banquet','keyboard-extracted','electric-piano-extracted','trumpet-extracted']:raise ValueError('Choose a supported source part.')
+        if source_name not in ['vocal','guitar','piano','bass','other','drums','strings-estimate','winds-estimate','sax-extracted','piano-banquet','keyboard-extracted','electric-piano-extracted','trumpet-extracted']:raise ValueError('Choose a supported source part.')
         instrument=style.removeprefix('replace-guitar-')
+        if source_name=='vocal':
+            from vocal_melody import PROGRAMS
+            if instrument not in PROGRAMS:raise ValueError('Choose a supported vocal melody instrument.')
         if (source_name=='drums') != (instrument in DRUM_PROGRAMS):raise ValueError('Drum parts need a drum kit; melodic parts need a melodic instrument.')
         if instrument in EXTRA_PROGRAMS or instrument in DRUM_PROGRAMS:p={**p,'bank':'livehq'}
         if instrument in SEPARATE_VARIANTS:p={**p,'bank':'separate'}
@@ -72,7 +75,7 @@ def run(p):
         backing=others+sax;sf.write(out/'instrumental.wav',backing,SR,subtype='PCM_16');sf.write(out/'mana-vocal.wav',vocal,SR,subtype='PCM_16')
         mixed=vocal+backing*.3;mixed*=min(1,.95/max(float(np.max(np.abs(mixed))),.001));sf.write(out/'arrangement-mix.wav',mixed,SR,subtype='PCM_16')
         import shutil
-        attribution=root/('data/instrument-samples/'+('SeparateLibraries' if p.get('bank')=='separate' else 'LiveHQNatural' if p.get('bank')=='livehq' else 'FluidR3_GM')+'/ATTRIBUTION.txt')
+        attribution=root/('data/instrument-samples/'+('LiveHQNatural' if label=='sax-tenor' else 'SeparateLibraries' if p.get('bank')=='separate' else 'LiveHQNatural' if p.get('bank')=='livehq' else 'FluidR3_GM')+'/ATTRIBUTION.txt')
         if attribution.exists():shutil.copyfile(attribution,out/'INSTRUMENT_ATTRIBUTION.txt')
         if label in ['guitar-bright-room','guitar-nam-warm','guitar-nam-rhythm','guitar-nam-lead']:
             nam_credit=root/'data/nam/models/ATTRIBUTION.txt'
