@@ -1,0 +1,4 @@
+from pathlib import Path
+p=Path('src/components/SavedGamesPlayground.tsx');s=p.read_text(encoding='utf-8').replace('onStopGeneration={p.onStopGeneration}', 'onStopGeneration={checking?()=>checkController.current?.abort():p.onStopGeneration}');p.write_text(s,encoding='utf-8')
+p=Path('src/components/CodePlayground.tsx');s=p.read_text(encoding='utf-8').replace('>Stop drafting</button>',">{p.busyLabel?'Stop check':'Stop drafting'}</button>");p.write_text(s,encoding='utf-8')
+p=Path('src/core/codeSandbox.ts');s=p.read_text(encoding='utf-8').replace('The user reviews the source and explicitly presses Run.', 'A bounded isolated smoke check tests startup and simulated frames; it does not establish correctness. The user reviews the source and explicitly presses Run to play.');p.write_text(s,encoding='utf-8')

@@ -12,6 +12,8 @@ export function useLlama(settings: Settings) {
   const [detail, setDetail] = useState("");
   const [port, setPort] = useState(settings.port);
   const [running, setRunning] = useState(false);
+  const [imageBusy,setImageBusy]=useState(false);
+  const imageActive=useRef(false),imageLeases=useRef<Promise<void>>(Promise.resolve());
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
   const generation = useRef(0);
@@ -75,6 +77,7 @@ export function useLlama(settings: Settings) {
   }, []);
 
   const start = useCallback(async () => {
+    if(imageActive.current)return;
     const token = invalidate();
     const s = settingsRef.current;
     setPort(s.port);
@@ -149,5 +152,18 @@ export function useLlama(settings: Settings) {
     return () => { invalidate(); };
   }, [invalidate, monitor, start]);
 
-  return { status, detail, port, running, start, stop };
+  const pauseForImage=useCallback(async()=>{
+    const previous=imageLeases.current;let unlock!:()=>void;imageLeases.current=new Promise<void>(resolve=>{unlock=resolve;});await previous;
+    const before=generation.current;
+    try{
+      const paused=inTauri?await command('pause_llama_for_image') as boolean:false;
+      if(!paused&&await checkHealth(settingsRef.current.port)==='ok')throw Error('The chat model was started outside Mana. Stop it in its own app before GPU image generation, or choose Use CPU.');
+      const current=generation.current===before,token=current?invalidate():generation.current;
+      imageActive.current=true;setImageBusy(true);
+      if(paused&&current){setRunning(false);setStatus('stopped');setDetail('Chat model paused while creating a picture.');}
+      let released=false;
+      return async()=>{if(released)return;released=true;imageActive.current=false;setImageBusy(false);try{if(paused&&current&&generation.current===token)await start();}finally{unlock();}};
+    }catch(e){unlock();throw e;}
+  },[command,invalidate,start]);
+  return { status, detail, port, running, start, stop,imageBusy,pauseForImage };
 }

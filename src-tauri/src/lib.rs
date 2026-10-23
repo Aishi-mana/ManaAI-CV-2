@@ -8,6 +8,10 @@ mod avatar_files;
 mod character;
 mod store;
 mod conversation_export;
+mod game_export;
+mod image_generation;
+mod outfit_prototype;
+mod gallery;
 mod speech;
 mod dictation;
 mod whisper;
@@ -34,6 +38,11 @@ fn export_activity(content: String) -> Result<String, String> {
 #[tauri::command]
 fn export_work(content: String) -> Result<String, String> {
     conversation_export::write_named(Path::new(r"C:\AI\ManaAI-CV-2\exports\work"), &content, "Mana-work")
+}
+
+#[tauri::command]
+fn export_game(content:String)->Result<String,String>{
+    game_export::write(Path::new(r"C:\AI\ManaAI-CV-2\exports\games"),&content)
 }
 
 #[tauri::command]
@@ -328,6 +337,16 @@ fn stop_llama(state: tauri::State<LlamaState>) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn pause_llama_for_image(state: tauri::State<LlamaState>) -> Result<bool, String> {
+    let mut slot=state.0.lock().map_err(|e|e.to_string())?;
+    let Some(child)=slot.as_mut() else{return Ok(false);};
+    if child.try_wait().map_err(|e|e.to_string())?.is_some(){slot.take();return Ok(false);}
+    child.kill().map_err(|e|format!("Could not pause Mana's chat model: {e}"))?;
+    child.wait().map_err(|e|format!("Could not wait for chat model to exit: {e}"))?;
+    slot.take();Ok(true)
+}
+
+#[tauri::command]
 fn llama_running(state: tauri::State<LlamaState>) -> bool {
     match state.0.lock() {
         Ok(mut slot) => match slot.as_mut() {
@@ -348,7 +367,10 @@ fn llama_log_tail() -> String {
 /// Lists every image under the avatar folder as relative paths ("eyes/eye_happy.png").
 #[tauri::command]
 async fn scan_avatar(app: tauri::AppHandle, dir: String) -> Result<Vec<String>, String> {
-    avatar_files::scan(&avatar_dir(&app, &dir)?)
+    let mut files=avatar_files::scan(&avatar_dir(&app,&dir)?)?;
+    let library=outfit_prototype::library_root(&app)?;
+    if library.is_dir(){files.extend(avatar_files::scan(&library)?.into_iter().filter(|p|p.starts_with("outfits/atelier_")&&p.ends_with("/outfit.png")));}
+    files.sort();files.dedup();Ok(files)
 }
 
 fn avatar_dir(app: &tauri::AppHandle, dir: &str) -> Result<PathBuf, String> {
@@ -367,7 +389,8 @@ async fn read_avatar_image(
     dir: String,
     rel: String,
 ) -> Result<tauri::ipc::Response, String> {
-    let bytes = avatar_files::read(&avatar_dir(&app, &dir)?, &rel)?;
+    let library=outfit_prototype::library_root(&app)?;
+    let bytes=if rel.starts_with("outfits/atelier_")&&library.join(&rel).is_file(){avatar_files::read(&library,&rel)?}else{avatar_files::read(&avatar_dir(&app,&dir)?,&rel)?};
     Ok(tauri::ipc::Response::new(bytes))
 }
 
@@ -384,7 +407,24 @@ pub fn run() {
         .manage(vision::Vision::default())
         .manage(custom_voice::CustomVoice::default())
         .manage(singing::Singing::default())
+        .manage(image_generation::ImageGeneration::default())
+        .setup(|app| {
+            if let (Some(window),Some(icon))=(app.get_webview_window("main"),app.default_window_icon()) {window.set_icon(icon.clone())?;}
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
+            gallery::gallery_write,
+            gallery::gallery_read,
+            gallery::gallery_remove,
+            gallery::gallery_folder,
+            gallery::gallery_preserve_legacy,
+            image_generation::image_generation_discover,
+            image_generation::image_generation_start,
+            image_generation::image_generation_poll,
+            image_generation::image_generation_result,
+            outfit_prototype::outfit_prototype_export,
+            outfit_prototype::outfit_wardrobe_save,
+            image_generation::image_generation_stop,
             singing::singing_start,
             singing::singing_poll,
             singing::singing_stop,
@@ -395,6 +435,7 @@ pub fn run() {
             singing::singing_save_mix,
             singing::singing_export,
             singing::arrangement_start,
+            singing::builder_notes_read,
             singing::original_song_start,
             singing::arrangement_validate,
             custom_voice::custom_voice_server_start,
@@ -424,6 +465,7 @@ pub fn run() {
             speech::speech_running,
             start_llama,
             stop_llama,
+            pause_llama_for_image,
             llama_running,
             llama_log_tail,
             scan_avatar,
@@ -435,6 +477,7 @@ pub fn run() {
             export_diary,
             export_activity,
             export_work,
+            export_game,
             export_playtest,
             read_backup_file,
             restore_backup_store,
@@ -445,6 +488,7 @@ pub fn run() {
         .run(|app, event| {
             // Make sure llama-server never outlives the app.
             if let tauri::RunEvent::Exit = event {
+                if let Some(state)=app.try_state::<image_generation::ImageGeneration>(){let _=image_generation::stop(&state);}
                 if let Some(state)=app.try_state::<singing::Singing>(){let _=singing::stop(&state);}
                 if let Some(state)=app.try_state::<custom_voice::CustomVoice>(){let _=custom_voice::stop_all(&state);}
                 if let Some(state) = app.try_state::<vision::Vision>() { let _ = vision::stop(&state); }

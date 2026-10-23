@@ -5,6 +5,7 @@ import { integerInRange, isRecord, nonEmptyString } from "./validation";
 import { readStored, writeStored } from "./persistence";
 import { validateDiagnostics } from "./conversation";
 import { validateImageReport } from './vision';
+import { validImageData } from './savedImages';
 
 export interface Settings {
   exePath: string;
@@ -105,6 +106,7 @@ export function validateChat(value: unknown, limit = 200): Msg[] {
   if (!Array.isArray(value)) return [];
   const ids = new Set<string>();
   const messages: Msg[] = [];
+  let pictureBytes=0;
   for (const entry of value) {
     if (!isRecord(entry) || (entry.role !== "user" && entry.role !== "assistant") || typeof entry.content !== "string") continue;
     const id = nonEmptyString(entry.id) && !ids.has(entry.id) ? entry.id : uid();
@@ -112,6 +114,8 @@ export function validateChat(value: unknown, limit = 200): Msg[] {
     const message: Msg = { id, role: entry.role, content: entry.content };
     if (typeof entry.error === "string") message.error = entry.error;
     if(entry.role==='user'&&entry.imageReport!==undefined){const report=validateImageReport(entry.imageReport);if(report)message.imageReport=report;}
+    const picture=entry.generatedPicture;
+    if(entry.role==='assistant'&&isRecord(picture)&&typeof picture.filename==='string'&&picture.filename.trim()&&picture.filename.length<=200&&validImageData(picture.dataUrl)&&pictureBytes+picture.dataUrl.length<=8_000_000){message.generatedPicture={filename:picture.filename,dataUrl:picture.dataUrl};pictureBytes+=picture.dataUrl.length;}
     if (entry.role === "assistant") message.diagnostics = validateDiagnostics(entry.diagnostics);
     if (typeof entry.createdAt === "string" && Number.isFinite(Date.parse(entry.createdAt))) message.createdAt = entry.createdAt;
     messages.push(message);

@@ -1,3 +1,4 @@
+import ArtifactCodePlayground from './ArtifactCodePlayground';
 import { useState } from "react";
 import ExportPlaytestButton from './ExportPlaytestButton';
 import type { Goal } from "../core/goals";
@@ -16,12 +17,13 @@ function ArtifactCard({artifact,work,ready,onRevise,onDelete,playtests,onSavePla
   const parent=work.find((a)=>a.id===artifact.parentId);
   const reports=playtests.filter((r)=>r.artifactId===artifact.id);
   return <article className="memory-card"><strong>{artifact.title} · v{artifact.version??1}</strong>
-    <p className="hint-soft">{artifact.goalTitle} · {artifact.kind} · Saved {new Date(artifact.createdAt).toLocaleString()}. Reviewed draft; not executed or tested.</p>
+    <p className="hint-soft">{artifact.goalTitle} · {artifact.kind} · Saved {new Date(artifact.createdAt).toLocaleString()}. Saved as a reviewed draft. Any playground run is session-only; no saved execution result.</p>
     {artifact.parentId&&<p className="hint-soft">Revises {parent?`${parent.title} · v${parent.version??1}`:"an earlier version that was deleted"}.</p>}
     {parent&&<ChangeSummary changes={revisionChanges(parent.content,artifact.content)} />}
     <details><summary>View artifact</summary><pre className="memory-content" style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>{artifact.content}</pre></details>
     <button className="btn" onClick={()=>setValidation(validateWorkJson(artifact.content))}>Validate JSON</button>
     <ExportWorkButton artifact={artifact}/>
+    {artifact.kind==='code'&&<ArtifactCodePlayground source={artifact.content}/>}
     <details><summary>Battle preview</summary><BattlePreview content={artifact.content} artifact={artifact} onSave={onSavePlaytest} /></details>
     {!!reports.length&&<details><summary>Saved playtests ({reports.length})</summary>{[...reports].reverse().map((r)=><div key={r.id}><strong>{r.player} vs {r.enemy}: {r.outcome} · {r.turns} turns · v{r.version}</strong><p className="hint-soft">{new Date(r.createdAt).toLocaleString()} · Final health: {r.playerHealth} / {r.enemyHealth}. Basic player damage {r.playerAttackDamage}; enemy counter {r.enemyCounterDamage}.</p><p>{r.notes}</p><details><summary>Recent battle log (up to 40 entries)</summary>{r.recentLog.map((line,i)=><p key={i}>{line}</p>)}</details><ExportPlaytestButton report={r}/><button className="btn" onClick={()=>{if(window.confirm("Delete this playtest report?"))onDeletePlaytest(r.id);}}>Delete report</button></div>)}</details>}
     {validation&&<section role="status"><strong>{!validation.syntaxValid?"Invalid JSON":validation.errors.length?"Valid JSON · game-data errors":validation.gameData?"JSON and game-data checks passed":"JSON syntax passed"}</strong>

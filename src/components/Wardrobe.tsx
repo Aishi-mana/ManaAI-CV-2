@@ -1,152 +1,29 @@
-import { useState } from "react";
-import type { AvatarConfig } from "../core/avatar";
-import type { Stats } from "../core/progress";
-import { resolveLoadout } from "../core/wardrobe";
-import type { Entry, Wardrobe as WardrobeData } from "../core/wardrobe";
-
-type Tab = "outfit" | "hair" | "skin" | "accessories";
-
-interface Props {
-  data: WardrobeData;
-  cfg: AvatarConfig;
-  stats: Stats;
-  charName: string;
-  itemsError?: string;
-  onChange: (c: AvatarConfig) => void;
-  onClose: () => void;
-}
-
-const TABS: { key: Tab; label: string }[] = [
-  { key: "outfit", label: "Outfit" },
-  { key: "hair", label: "Hair" },
-  { key: "skin", label: "Skin" },
-  { key: "accessories", label: "Accessories" },
-];
-
-const REQUIRED_NOTE: Partial<Record<Tab, string>> = {
-  outfit: "Her default outfit is always available and can't be removed.",
-  hair: "She always wears a hairstyle. The default is always available.",
-  skin: "Her default skin is always available.",
-};
-
-export default function Wardrobe({ data, cfg, stats, charName, itemsError, onChange, onClose }: Props) {
-  const [tab, setTab] = useState<Tab>("outfit");
-  const [lookName, setLookName] = useState("");
-  const [notice, setNotice] = useState("");
-  const looks = cfg.looks ?? [];
-
-  function saveLook() {
-    const name = lookName.trim();
-    if (!name || name.length > 60 || looks.length >= 30) return;
-    if (looks.some((look) => look.name.toLowerCase() === name.toLowerCase())) {
-      setNotice("That name is already saved. Choose another name or delete the old look first.");
-      return;
-    }
-    onChange({ ...cfg, looks: [...looks, { name, skin: cfg.skin, outfit: cfg.outfit,
-      hairstyle: cfg.hairstyle, accessories: [...cfg.accessories] }] });
-    setLookName("");
-    setNotice(`Saved ${name}.`);
-  }
-
-  const single =
-    tab === "outfit"
-      ? { list: data.outfits, current: cfg.outfit, pick: (n: string) => onChange({ ...cfg, outfit: n }) }
-      : tab === "hair"
-        ? { list: data.hairs, current: cfg.hairstyle, pick: (n: string) => onChange({ ...cfg, hairstyle: n }) }
-        : tab === "skin"
-          ? { list: data.skins, current: cfg.skin, pick: (n: string) => onChange({ ...cfg, skin: n }) }
-          : null;
-
-  function toggleAccessory(e: Entry) {
-    if (!e.unlocked) return;
-    const has = cfg.accessories.includes(e.name);
-    onChange({ ...cfg, accessories: has ? cfg.accessories.filter((n) => n !== e.name) : [...cfg.accessories, e.name] });
-  }
-
-  const lockedNote = (e: Entry) => (!e.unlocked ? <span className="lock-note">Locked: {e.hint || "keep spending time together"}</span> : null);
-
-  return (
-    <>
-      <div className="scrim" onClick={onClose} />
-      <section className="drawer" role="dialog" aria-label="Wardrobe">
-        <header className="drawer-head">
-          <h2>{charName}'s wardrobe</h2>
-          <button className="btn" onClick={onClose}>Close</button>
-        </header>
-
-        <div className="drawer-body">
-          <p className="progress-card">
-            Days together: <b>{stats.days.length}</b> &middot; Messages: <b>{stats.messages}</b> &middot; Coding level: <b>{stats.skill}</b>
-          </p>
-          {itemsError && <p className="msg-error">{itemsError}</p>}
-
-          <h3>Saved looks ({looks.length}/30)</h3>
-          <p className="hint-soft">Save your current skin, outfit, hair and accessories. Applying a look keeps your current body view. Missing or locked items use available defaults.</p>
-          <label>Look name
-            <input className="input" value={lookName} maxLength={60} onChange={(e) => setLookName(e.target.value)} />
-          </label>
-          <button className="btn" disabled={!lookName.trim() || looks.length >= 30} onClick={saveLook}>Save current look</button>
-          {notice && <p role="status">{notice}</p>}
-          {looks.map((look) => <div className="progress-card" key={look.name}>
-            <b>{look.name}</b>
-            <p className="hint-soft">{look.skin} · {look.outfit} · {look.hairstyle} · {look.accessories.length} accessories</p>
-            <button className="btn" onClick={() => {
-              const next = resolveLoadout({ ...cfg, ...look }, data);
-              const changed = next.skin !== look.skin || next.outfit !== look.outfit || next.hairstyle !== look.hairstyle || next.accessories.length !== look.accessories.length;
-              onChange(next);
-              setNotice(changed ? `Applied ${look.name} with available items. Some saved items are missing or locked.` : `Applied ${look.name}.`);
-            }}>Apply look</button>
-            <button className="btn" onClick={() => {
-              if (!window.confirm(`Delete saved look "${look.name}"?`)) return;
-              onChange({ ...cfg, looks: looks.filter((entry) => entry.name !== look.name) });
-              setNotice(`Deleted ${look.name}.`);
-            }}>Delete look</button>
-          </div>)}
-
-          <div className="tabs" role="tablist">
-            {TABS.map((t) => (
-              <button key={t.key} role="tab" aria-selected={tab === t.key} className="tab" onClick={() => setTab(t.key)}>
-                {t.label}
-              </button>
-            ))}
-          </div>
-
-          {single && (
-            <>
-              {REQUIRED_NOTE[tab] && <p className="hint-soft">{REQUIRED_NOTE[tab]}</p>}
-              <div className="items" role="radiogroup">
-                {single.list.length === 0 && <p className="hint-soft">Nothing found in this folder yet.</p>}
-                {single.list.map((e) => (
-                  <label key={e.id} className={`item${e.unlocked ? "" : " locked"}`}>
-                    <input type="radio" name={tab} disabled={!e.unlocked} checked={single.current === e.name} onChange={() => single.pick(e.name)} />
-                    <span className="item-name">
-                      {e.label}
-                      {e.isDefault && <em className="slot-note"> (default)</em>}
-                    </span>
-                    {lockedNote(e)}
-                  </label>
-                ))}
-              </div>
-            </>
-          )}
-
-          {tab === "accessories" && (
-            <div className="items">
-              {data.accessories.length === 0 && <p className="hint-soft">No accessories found yet.</p>}
-              {data.accessories.map((e) => (
-                <label key={e.id} className={`item${e.unlocked ? "" : " locked"}`}>
-                  <input type="checkbox" disabled={!e.unlocked} checked={cfg.accessories.includes(e.name)} onChange={() => toggleAccessory(e)} />
-                  <span className="item-name">
-                    {e.label}
-                    {e.slot && e.slot !== "top" && <em className="slot-note"> ({e.slot.replace(/-/g, " ")})</em>}
-                  </span>
-                  {lockedNote(e)}
-                </label>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-    </>
-  );
+import DailyOutfits from './DailyOutfits';
+import SeasonalLooks from './SeasonalLooks';
+import WardrobeThumbnail from './WardrobeThumbnail';
+import {useState} from 'react';
+import type {AvatarAssets,AvatarConfig} from '../core/avatar';
+import {referenceLayers} from '../core/avatarReference';
+import type {Stats} from '../core/progress';
+import {resolveLoadout,wardrobePreviewLayers} from '../core/wardrobe';
+import type {Entry,Wardrobe as WardrobeData} from '../core/wardrobe';
+type Tab='outfit'|'hair'|'skin'|'accessories'|'looks'|'seasons'|'daily';
+interface Props{assets?:AvatarAssets;timeZone?:string;data:WardrobeData;cfg:AvatarConfig;stats:Stats;charName:string;itemsError?:string;onChange:(c:AvatarConfig)=>void;onClose:()=>void;onAtelier?:()=>void}
+const TABS:{key:Tab;label:string}[]=[{key:'outfit',label:'Outfits'},{key:'hair',label:'Hair'},{key:'skin',label:'Skin'},{key:'accessories',label:'Accessories'},{key:'looks',label:'Saved looks'},{key:'daily',label:'Daily looks'},{key:'seasons',label:'Seasons'}];
+export default function Wardrobe({assets,data,cfg,stats,charName,itemsError,timeZone,onChange,onClose,onAtelier}:Props){
+ const [tab,setTab]=useState<Tab>('outfit'),[query,setQuery]=useState(''),[filter,setFilter]=useState('all'),[lookName,setLookName]=useState(''),[notice,setNotice]=useState('');
+ const looks=cfg.looks??[],isInventory=['outfit','hair','skin','accessories'].includes(tab);
+ const list=tab==='outfit'?data.outfits:tab==='hair'?data.hairs:tab==='skin'?data.skins:tab==='accessories'?data.accessories:[];
+ const equipped=(e:Entry)=>tab==='accessories'?cfg.accessories.includes(e.name):(tab==='outfit'?cfg.outfit:tab==='hair'?cfg.hairstyle:cfg.skin)===e.name;
+ const shown=list.filter(e=>(e.label+' '+e.name).toLowerCase().includes(query.trim().toLowerCase())&&(filter==='all'||filter==='available'&&e.unlocked||filter==='locked'&&!e.unlocked||filter==='equipped'&&equipped(e)));
+ const label=(items:Entry[],name:string)=>items.find(e=>e.name===name)?.label??name;
+ function choose(e:Entry){if(!e.unlocked)return;if(tab==='accessories')onChange({...cfg,accessories:cfg.accessories.includes(e.name)?cfg.accessories.filter(n=>n!==e.name):[...cfg.accessories,e.name]});else if(tab==='outfit')onChange({...cfg,outfit:e.name});else if(tab==='hair')onChange({...cfg,hairstyle:e.name});else if(tab==='skin')onChange({...cfg,skin:e.name});}
+ function saveLook(){const name=lookName.trim();if(!name||name.length>60||looks.length>=30)return;if(looks.some(l=>l.name.toLowerCase()===name.toLowerCase())){setNotice('That name is already saved. Choose another name.');return;}onChange({...cfg,looks:[...looks,{name,skin:cfg.skin,outfit:cfg.outfit,hairstyle:cfg.hairstyle,accessories:[...cfg.accessories]}]});setLookName('');setNotice('Saved '+name+'.');}
+ return <section className="wardrobe-workspace" role="dialog" aria-label="Wardrobe"><header className="drawer-head"><div><span className="wardrobe-eyebrow">MANA · WARDROBE</span><h2>{charName}'s wardrobe</h2><p>Pick a piece. Put together a look.</p></div><div className="builder-actions">{onAtelier&&<button className="btn" onClick={onAtelier}>Atelier</button>}<button className="btn" onClick={onClose}>Back to chat</button></div></header>
+ <div className="wardrobe-layout"><aside className="wardrobe-current"><h3>Current look</h3><WardrobeThumbnail large label={charName+' current look'} layers={assets?referenceLayers(assets,cfg):[]}/><dl><dt>Outfit</dt><dd>{label(data.outfits,cfg.outfit)}</dd><dt>Hair</dt><dd>{label(data.hairs,cfg.hairstyle)}</dd><dt>Skin</dt><dd>{label(data.skins,cfg.skin)}</dd><dt>Accessories</dt><dd>{cfg.accessories.length?cfg.accessories.map(n=>label(data.accessories,n)).join(', '):'None'}</dd></dl><button className="btn" onClick={()=>setTab('looks')}>Save this look</button><details><summary>Time together</summary><p>{stats.days.length} days · {stats.messages} messages · Coding level {stats.skill}</p></details></aside>
+ <main className="wardrobe-collection">{itemsError&&<p role="alert" className="msg-error">{itemsError}</p>}{notice&&<p role="status">{notice}</p>}<nav className="tabs" aria-label="Wardrobe categories">{TABS.map(t=><button key={t.key} className="tab" aria-pressed={tab===t.key} onClick={()=>{setTab(t.key);setQuery('');setFilter('all');}}>{t.label}</button>)}</nav>
+ {isInventory&&<><div className="wardrobe-inventory-tools"><label className="field">Find an item<input type="search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search names..."/></label><label className="field">Show<select value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">All items</option><option value="available">Available</option><option value="equipped">Equipped</option><option value="locked">Locked</option></select></label></div><p className="hint-soft">{shown.length} of {list.length} items · {tab==='accessories'?'Select accessories to equip or remove them.':'Select an item to equip it.'}</p><div className="wardrobe-inventory-grid" role={tab==='accessories'?'group':'radiogroup'} aria-label={TABS.find(t=>t.key===tab)?.label}>{shown.map(e=><label key={e.id} className={'wardrobe-item'+(equipped(e)?' equipped':'')+(!e.unlocked?' locked':'')}><input type={tab==='accessories'?'checkbox':'radio'} name={'wardrobe-'+tab} disabled={!e.unlocked} checked={equipped(e)} onChange={()=>choose(e)}/><WardrobeThumbnail label={e.label} layers={assets?wardrobePreviewLayers(assets,cfg,tab as 'outfit'|'hair'|'skin'|'accessories',e.name):[]}/><span className="wardrobe-item-name">{e.label}</span><span className="wardrobe-item-badges">{equipped(e)&&<span>Equipped</span>}{e.isDefault&&<span>Default</span>}{!e.unlocked&&<span>Locked</span>}</span>{!e.unlocked&&<small>{e.hint||'Keep spending time together'}</small>}{e.slot&&e.slot!=='top'&&<small>{e.slot.replace(/-/g,' ')}</small>}</label>)}</div>{!shown.length&&<p className="wardrobe-empty">{list.length?'No items match. Try another search or filter.':'No items found in this category yet.'}</p>}</>}
+ {tab==='looks'&&<section><h3>Saved looks ({looks.length}/30)</h3><p className="hint-soft">Save the current outfit, hair, skin and accessories together.</p><div className="builder-actions"><label className="field">Look name<input value={lookName} maxLength={60} onChange={e=>setLookName(e.target.value)}/></label><button className="btn primary" disabled={!lookName.trim()||looks.length>=30} onClick={saveLook}>Save current look</button></div><div className="wardrobe-inventory-grid wardrobe-looks">{looks.map(look=><article className="wardrobe-item" key={look.name}><WardrobeThumbnail label={look.name} layers={assets?referenceLayers(assets,resolveLoadout({...cfg,...look},data)):[]}/><h4>{look.name}</h4><p className="hint-soft">{label(data.outfits,look.outfit)} · {label(data.hairs,look.hairstyle)} · {look.accessories.length} accessories</p><button className="btn" onClick={()=>{const next=resolveLoadout({...cfg,...look},data),changed=next.skin!==look.skin||next.outfit!==look.outfit||next.hairstyle!==look.hairstyle||next.accessories.length!==look.accessories.length;onChange(next);setNotice(changed?'Applied '+look.name+' with available items. Some saved items are missing or locked.':'Applied '+look.name+'.');}}>Apply look</button><button className="btn" onClick={()=>{if(!window.confirm('Delete saved look "'+look.name+'"?'))return;onChange({...cfg,looks:looks.filter(l=>l.name!==look.name)});setNotice('Deleted '+look.name+'.');}}>Delete look</button></article>)}</div>{!looks.length&&<p className="wardrobe-empty">Save your first look to find it here.</p>}</section>}
+ {tab==='daily'&&<DailyOutfits cfg={cfg} data={data} timeZone={timeZone} onChange={onChange}/>}{tab==='seasons'&&<SeasonalLooks cfg={cfg} data={data} timeZone={timeZone} onChange={onChange}/>}
+ </main></div></section>;
 }

@@ -1,3 +1,4 @@
+import {backgroundImage} from '../core/backgrounds';
 import { useEffect, useMemo, useRef, useState } from "react";
 import Avatar from "./Avatar";
 import { EMOTION_MAP, VIEWS, buildLayers, requiredProblem } from "../core/avatar";
@@ -15,10 +16,11 @@ interface Props {
   avatar: AvatarState;
   cfg: AvatarConfig;
   onCfg: (c: AvatarConfig) => void;
+  onOpenBackgrounds: () => void;
   onOpenWardrobe: () => void;
 }
 
-export default function StagePanel({ charName, emotion, busy, speech, voiceMouth, avatar, cfg, onCfg, onOpenWardrobe }: Props) {
+export default function StagePanel({ charName, emotion, busy, speech, voiceMouth, avatar, cfg, onCfg, onOpenWardrobe, onOpenBackgrounds }: Props) {
   const { assets, status, error, reload } = avatar;
   const layers = useMemo(() => (assets ? buildLayers(assets, cfg) : []), [assets, cfg]);
   const problem = assets ? requiredProblem(assets, cfg) : null;
@@ -76,6 +78,7 @@ export default function StagePanel({ charName, emotion, busy, speech, voiceMouth
       <p className="stage-feel">{busy ? "typing..." : emotion ? `feeling ${emotion}` : "waiting for you"}</p>
 
       <div className="avatar-area">
+        {backgroundImage(cfg.background,cfg.backgroundImage)&&<div className="avatar-backdrop" aria-hidden="true" style={{backgroundImage:`url("${backgroundImage(cfg.background,cfg.backgroundImage)}")`}}/>}
         {status === "ready" && !problem && layers.length > 0 ? (
           <Avatar layers={layers} emotion={liveEmotion} speech={liveSpeech} voiceMouth={testSpeech?undefined:voiceMouth} view={view} onWheelZoom={wheelZoom} />
         ) : (
@@ -91,6 +94,7 @@ export default function StagePanel({ charName, emotion, busy, speech, voiceMouth
             {VIEWS[k].label}
           </button>
         ))}
+        <button className="chip" onClick={onOpenBackgrounds}>Backgrounds</button>
         <button className="chip" onClick={onOpenWardrobe} disabled={!assets}>Wardrobe</button>
       </div>
 

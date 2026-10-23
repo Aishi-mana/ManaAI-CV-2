@@ -1,0 +1,27 @@
+   Compiling mana v0.1.0 (C:\AI\ManaAI-CV-2\src-tauri)
+warning: hard linking files in the incremental compilation cache failed. copying files instead. consider moving the cache directory to a file system which supports hard linking in session dir `\\?\C:\AI\ManaAI-CV-2\src-tauri\target\debug\incremental\mana_lib-198gv5erphajf\s-hnfwdwec9n-1uysfn8-working`
+
+warning: hard linking files in the incremental compilation cache failed. copying files instead. consider moving the cache directory to a file system which supports hard linking in session dir `\\?\C:\AI\ManaAI-CV-2\src-tauri\target\debug\incremental\mana_lib-3u0vwfuwsolv7\s-hnfwdwecai-17p7par-working`
+
+warning: `mana` (lib test) generated 1 warning
+warning: `mana` (lib) generated 1 warning
+warning: hard linking files in the incremental compilation cache failed. copying files instead. consider moving the cache directory to a file system which supports hard linking in session dir `\\?\C:\AI\ManaAI-CV-2\src-tauri\target\debug\incremental\mana-23m7at82p7rk2\s-hnfwdzn63q-0mu1lzm-working`
+
+warning: `mana` (bin "mana" test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.59s
+     Running unittests src\lib.rs (src-tauri\target\debug\deps\mana_lib-4834e32b2002e09c.exe)
+
+running 4 tests
+test outfit_prototype::tests::validates_rgba_dimensions_and_metadata_before_writes ... ok
+test outfit_prototype::wardrobe_rejection_tests::invalid_install_does_not_create_library ... ok
+test outfit_prototype::export_tests::exports_real_png_and_selection_to_new_folders ... ok
+test outfit_prototype::wardrobe_tests::saves_new_wearable_item_without_overwriting ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 77 filtered out; finished in 0.17s
+
+     Running unittests src\main.rs (src-tauri\target\debug\deps\mana-589937a703703807.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

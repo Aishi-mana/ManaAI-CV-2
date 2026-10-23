@@ -1,5 +1,33 @@
 # Songs and the short song pool
 
+## Song vocabulary hints for microphone recognition — 2026-10-18
+
+User screenshots show repeated sing→Xing/Singh/Shing/Sin and Trails→Rails misrecognition; correctly recognized Sing Sora successfully plays configured song. Whisper previously received only character/user names. Added recognitionPrompt vocabulary context with sing/hum and current enabled Chat clip titles/aliases, prioritizing aliases per entry, deduplicating and bounding whole prompt to 440 UTF-8 bytes under native 500-byte cap. useWhisper receives live vocabulary via ref; regular transcript text remains unchanged, with no forced spelling replacements or fuzzy song playback. This may improve decoding but actual microphone accuracy needs user retest. No larger model, download, synthetic generation or extra recognition pass. Frontend/native builds and 10 focused recognition/noise/cancellation/parser checks passed, including multilingual byte bounds. Repeated-reply errors in screenshots are downstream chat failures after misrecognized commands, not evidence of microphone failure cause. Chat UI polish is visible in screenshots; no further layout request.
+
+## Hands-free song playback accepted — 2026-10-18
+
+User confirms Mana can sing from hands-free requests. Screenshot shows successful saved-song playback notes for Trails v3 (Whereabout of the Stars v3) and Reach Out to the Truth, with Hands-free: playing song status. Spoken request routing and song playback accepted. Misrecognized phrases remain a speech-recognition limitation; exact enabled titles/aliases still apply. User subsequently confirms both remaining live checks passed: listening resumes after the song finishes, and Stop hands-free stops playback mid-song. Hands-free song-request workflow is fully accepted for this scope. No further generation or tuning needed.
+
+## Hands-free song requests connected — 2026-10-18
+
+User passed ordinary hands-free conversation, then screenshots confirmed song requests went to ordinary chat and were repeated instead of played. ChatPanel now intercepts recognized musical commands before onSend, resolves enabled saved Chat clips by exact normalized title/alias and plays existing audio through shared voice playback. Accepts character address and dictation commas (e.g. Mana, sing Trails / Sing, Reach Out to the Truth). No fuzzy guesses for misrecognized titles such as Sting trails; add aliases in Chat clips for short names. Generic sing/hum requests use existing selection. Unknown songs report available titles and stop hands-free with visible feedback instead of inventing a rendition.
+
+Dedicated loading/playing song phases keep microphone closed and bypass only the hands-free music-stop guard; spontaneous music remains blocked. Playback completion uses existing cooldown before capture resumes. Stop/hidden app/error handling preserved; session counter suppresses obsolete completion callbacks. Successful requests use existing user-message/music-note history and replay path. No song generation or transcription model changes.
+
+Validation: production frontend and native debug builds passed; 206 frontend tests passed, 2 optional skipped. New command parsing tests cover named address, punctuation, aliases, ordinary sentences and rejected misheard titles; existing cancellation/noise tests pass. Live song request/playback/resume and Stop during song await user check; browser verification remains unavailable under prior usage gate.
+
+## Word karaoke accepted — 2026-10-18
+
+User confirms word-by-word karaoke works and explicitly passes it. Transcription can miss/misrecognize words; user accepts Edit / paste as the correction workflow. Defer recognition-quality improvements; do not run more transcription/audio tests or tune models unless requested. Existing playback/seek timing and editable word lyrics accepted.
+
+## Word-by-word karaoke implemented — 2026-10-18
+
+Song Player lyrics support optional per-word start/end/text while keeping legacy line-only lyrics compatible. Native Whisper CLI uses -oj -ml1 -sow for actual word timestamp segments; group up to8 words into readable lines, retain timing gaps, skip music-only symbols, clamp final words to audio duration and retain line fallback for multiword segments. No evenly-spaced guessed timings. Existing Generate/Regenerate lyrics explicitly transcribes the saved vocal/mix locally. Cancel/timeout/temp cleanup preserved; JSON bound16MB.
+
+UI highlights current word, marks sung words and reads live audio clock at20Hz during playback; pause and native seeking update exact position. Word data validates, persists through studio metadata/backups and clips/rebases with excerpts. Edit/paste exports enhanced LRC word start/end markers, preserving gaps; plain LRC still works. Existing line-only songs need Regenerate lyrics once for word highlighting; no song audio regeneration needed.
+
+Validation: actual installed Whisper small.en transcribed one6s saved B clarity sample in4s and returned individual offsets; wording remains an estimate (one extra word recognized). Committed sanitized timestamp fixture tests native parser. Full frontend suite203 passed/2 optional skipped (205 total);5 native lyric tests passed; production frontend and native debug builds passed. Native/TS tests cover timing boundaries, gaps, backward seeks, pause positions, validation fallback, editing, excerpts, metadata persistence and real CLI-shaped offsets. No model downloads/new song generation. Browser UI not checked because prior approval usage gate remains unresolved. User acceptance pending.
+
 Next agreed direction: a full-size pastel [Music Studio](MUSIC_STUDIO_PLAN.md) with library/player, artwork, reviewed excerpts and later arrangement recreation. The user confirmed whole-song conversion works; high-note distortion and trembling remain open and are deferred while planning the studio.
 
 Open **More → Songs**. The approved ten-second Reach Out to the Truth cover is the first pool entry. Humming remains unaccompanied and separate from this pool.
@@ -20,7 +48,7 @@ The pool holds up to 50 approved clips. Each entry has an enabled switch, previe
 - Titles and aliases match after case/punctuation normalization. No fuzzy guessing is used.
 - Unknown or disabled titles produce a grounded reply offering up to three enabled alternatives. If the pool is empty, Mana offers to hum or add a song. Nothing is generated for a missing title.
 
-Typed requests use the existing playback guards: ready, visible, unmuted, no microphone/hands-free, no conflicting playback. Named requests through the hands-free speech loop remain future work. Chat Replay plays the prepared WAV rather than speaking its start note.
+Typed requests use the existing playback guards: ready, visible, unmuted, no microphone/hands-free, no conflicting playback. Named requests through the hands-free speech loop are now connected; see latest status above. Chat Replay plays the prepared WAV rather than speaking its start note.
 
 ## Initiative, storage and limits
 

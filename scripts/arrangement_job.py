@@ -39,7 +39,7 @@ def run(p):
     for path in [p['vocal'],p['instrumental']]:
         info=sf.info(path)
         if start+length>info.duration+.01: raise ValueError('The excerpt ends beyond a saved stem.')
-    print('Preparing strings and winds extraction…' if style=='fine-stems' else 'Estimating chords and timing from original accompaniment…',flush=True)
+    print('Preparing edited-note section…' if p.get('notes') is not None else 'Preparing strings and winds extraction…' if style=='fine-stems' else 'Estimating chords and timing from original accompaniment…',flush=True)
     vocal,_=librosa.load(p['vocal'],sr=SR,offset=start,duration=length)
     original,_=librosa.load(p['instrumental'],sr=SR,offset=start,duration=length)
     size=min(len(vocal),len(original));vocal=vocal[:size];original=original[:size]
@@ -60,9 +60,14 @@ def run(p):
         root=data_root
         guitar,_=librosa.load(p['guitar'],sr=SR,offset=start,duration=length)
         sf.write(out/'guitar-guide.wav',guitar,SR,subtype='PCM_16')
-        print('Transcribing '+source_name+' and rendering sampled '+instrument+'…',flush=True)
-        sax,midi,notes=render(out/'guitar-guide.wav',size/SR,root,instrument,tone=tone,bank=p.get('bank','fluidr3'),source_name=source_name,custom=custom)
-        sax=sax[:size];sax*=max(float(np.sqrt(np.mean(guitar**2))),.001)/max(float(np.sqrt(np.mean(sax**2))),.001)
+        print('Rendering supplied notes without transcription…' if p.get('notes') is not None else 'Transcribing '+source_name+' and rendering sampled '+instrument+'…',flush=True)
+        if p.get('notes') is not None:
+            from builder_notes import render_edited_notes
+            sax,midi,notes=render_edited_notes(p['notes'],size/SR,root,style.removeprefix('replace-guitar-'))
+        else:
+            sax,midi,notes=render(out/'guitar-guide.wav',size/SR,root,instrument,tone=tone,bank=p.get('bank','fluidr3'),source_name=source_name,custom=custom)
+        sax=sax[:size]
+        if p.get('notes') is None:sax*=max(float(np.sqrt(np.mean(guitar**2))),.001)/max(float(np.sqrt(np.mean(sax**2))),.001)
         sax*=min(1,.95/max(float(np.max(np.abs(sax))),.001))
         parts=[];others=np.zeros(size)
         for part in p.get('stems') or []:
@@ -81,7 +86,13 @@ def run(p):
             nam_credit=root/'data/nam/models/ATTRIBUTION.txt'
             if nam_credit.is_file():shutil.copyfile(nam_credit,out/'NAM_ATTRIBUTION.txt')
         midi.write(str(out/'guitar-transcription.mid'));(out/'notes.json').write_text(json.dumps(notes),encoding='utf-8')
-        return dict(vocal=str(out/'mana-vocal.wav'),mix=str(out/'arrangement-mix.wav'),seconds=size/SR,stems=parts)
+        # Cache performed pitches/velocities (including transposition) for editing;
+        # keep the detector's raw notes.json unchanged for existing comparisons.
+        performed=[[float(n.start),min(size/SR,float(n.end)),int(n.pitch),float(n.velocity)/127] for part in getattr(midi,'instruments',[]) for n in part.notes if 0<=n.start<min(size/SR,n.end)]
+        if not hasattr(midi,'instruments'):performed=notes
+        performed.sort(key=lambda n:(n[0],n[2]))
+        (out/'editable-notes.json').write_text(json.dumps(performed),encoding='utf-8')
+        return dict(vocal=str(out/'mana-vocal.wav'),mix=str(out/'arrangement-mix.wav'),seconds=size/SR,stems=parts,notesPath=str(out/'editable-notes.json'))
     if style in ['sax-extract','piano-extract','keyboard-extract','electric-piano-extract','trumpet-extract']:
         if length>30:raise ValueError('Use a 1–30 second section for optional extraction.')
         print('Extracting '+{'sax-extract':'sax','piano-extract':'Banquet piano','keyboard-extract':'keyboard','electric-piano-extract':'electric piano','trumpet-extract':'trumpet'}[style]+' from original accompaniment…',flush=True)

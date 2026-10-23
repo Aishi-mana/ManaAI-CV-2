@@ -1,0 +1,3 @@
+import fs from 'node:fs';
+let p='src/components/CoverBuilder.tsx',s=fs.readFileSync(p,'utf8');s=s.replace('<div className="mixer-feedback">{message&&','<div className="mixer-feedback">{message&&').replace('<details><summary>Processing details</summary><pre className="studio-log">{log}</pre></details>','{log&&<details><summary>Processing details</summary><pre className="studio-log">{log}</pre></details>}');fs.writeFileSync(p,s);
+p='src/components/BuilderTimeline.tsx';s=fs.readFileSync(p,'utf8');s=s.replace('  <div className="editor-scroll">','  <div className="editor-scroll">\n   {!tracks.length&&<div className="editor-empty"><h3>Start your arrangement</h3><p>Add a vocal, instrument or backing voice using the buttons above.</p></div>}');fs.writeFileSync(p,s);

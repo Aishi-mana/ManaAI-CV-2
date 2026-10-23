@@ -1,0 +1,4 @@
+from pathlib import Path
+p=Path('src/components/ChatPanel.tsx');s=p.read_text(encoding='utf-8').replace('>Make outfit PNG</button>','>Open in Atelier</button>');p.write_text(s,encoding='utf-8')
+p=Path('src/components/ImageGenerationDrawer.tsx');s=p.read_text(encoding='utf-8').replace('Use Make outfit PNG to remove the background and align it on her body.','Use the Atelier to remove the background and align it on her body.').replace('embedded?"Use picture in Make":"Make outfit PNG"','embedded?"Use picture in Make":"Open in Atelier"')
+a=s.index('{qwen&&!clothingOnly&&referenceEnabled&&<label');b=s.index('</label>}',a)+len('</label>}');block=s[a:b];s=s[:a]+s[b:];a=s.index(' return <>');i=s.index('{!clothingOnly&&referenceEnabled&&<p className="hint-soft">',a);s=s[:i]+block+s[i:];p.write_text(s,encoding='utf-8')

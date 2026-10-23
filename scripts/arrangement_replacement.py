@@ -120,6 +120,17 @@ def shape_note(sample,held,velocity,instrument,legato=False):
  loudness=.48+.52*np.clip(velocity,0,1)
  return signal*envelope*loudness
 
+def playback_notes(notes):
+ """End each key before its next attack so stale note-offs cannot cut re-strikes."""
+ played=[list(n) for n in notes]
+ next_start={}
+ for note in sorted(played,key=lambda n:n[0],reverse=True):
+  pitch=note[2]
+  if pitch in next_start:note[1]=min(note[1],next_start[pitch])
+  next_start[pitch]=note[0]
+ return played
+
+
 def render_soundfont(notes,seconds,root,program,shift,percussion=False,midi_velocities=None,release_scale=1):
  """Offline in-process FluidSynth: no audio device or detached helper process."""
  import ctypes as c,os
@@ -160,7 +171,7 @@ def render_soundfont(notes,seconds,root,program,shift,percussion=False,midi_velo
    set_gen=bind('fluid_synth_set_gen',c.c_int,c.c_void_p,c.c_int,c.c_int,c.c_float)
    if set_gen(synth,channel,38,float(1200*np.log2(release_scale)))<0:raise ValueError('Cannot set instrument release.')
   frames=round(seconds*SR);audio=np.zeros(frames,dtype=np.float32);events=[]
-  for i,(begin,end,pitch,velocity) in enumerate(notes):
+  for i,(begin,end,pitch,velocity) in enumerate(playback_notes(notes)):
    level=int(midi_velocities[i]) if midi_velocities is not None else int(48+55*np.clip(velocity,0,1))
    events.extend([(max(0,round(begin*SR)),1,int(pitch+shift),level), (min(frames,round(end*SR)),0,int(pitch+shift),0)])
   events.sort();position=0
@@ -231,7 +242,7 @@ def render_separate(notes,seconds,root,instrument,shift,tone,patch_name=None,mid
   else:loaded=load(synth,str(patch).encode('utf-8'))
   if not loaded:raise ValueError('Cannot load the selected SFZ instrument.')
   frames=round(seconds*SR);audio=np.zeros(frames,dtype=np.float32);events=[]
-  for index,(begin,end,pitch,velocity) in enumerate(notes):
+  for index,(begin,end,pitch,velocity) in enumerate(playback_notes(notes)):
    strike=midi_velocities[index] if midi_velocities is not None else int(48+55*np.clip(velocity,0,1))
    events.extend([(max(0,round(begin*SR)),1,int(pitch+shift),int(strike)), (min(frames,round(end*SR)),0,int(pitch+shift),0)])
   events.sort();index=0
@@ -560,6 +571,21 @@ def prepare_trumpet(notes,seconds):
    if n[2]!=following[2] and 0<=following[0]-n[1]<=.06:n[1]=min(seconds,following[0]+.035)
  return played,levels
 
+def source_frequency_range(source_name):
+ """Detect the source register independently of the chosen replacement sound."""
+ if source_name=='bass':return (30.87,500)
+ if source_name in ['piano','piano-banquet','keyboard-extracted','electric-piano-extracted']:return (27.5,4186)
+ if source_name=='strings-estimate':return (65.4,4186)
+ if source_name=='winds-estimate':return (100,4186)
+ if source_name in ['sax-extracted','trumpet-extracted']:return (100,2093)
+ return (100,1500)
+
+
+def source_note_attacks(source_name,attacks):
+ """Wind/string sustain is not a sequence of guitar pick attacks."""
+ return [] if source_name in ['sax-extracted','trumpet-extracted','winds-estimate','strings-estimate'] else attacks
+
+
 def render(guitar_path,seconds,root,instrument="sax",tone=None,bank="fluidr3",source_name="guitar",custom=None,_violin_focused=False):
  custom=validate_custom(custom)
  if source_name=='vocal':
@@ -578,9 +604,18 @@ def render(guitar_path,seconds,root,instrument="sax",tone=None,bank="fluidr3",so
  if instrument in DRUM_PROGRAMS:
   if custom.get('pitch',0) or custom.get('extension',0):raise ValueError('Pitch and note extension apply to melodic instruments.')
   return render_drums(guitar_path,seconds,root,instrument)
- if source_name=='bass' and instrument in ['finger-bass','picked-bass']:
-  from bass_replacement import render_bass
-  return render_bass(guitar_path,seconds,root,EXTRA_PROGRAMS[instrument],custom)
+ if source_name=='bass':
+  from bass_replacement import render_bass,track_bass_notes
+  if instrument in ['finger-bass','picked-bass','acoustic-bass']:
+   return render_bass(guitar_path,seconds,root,EXTRA_PROGRAMS[instrument],custom)
+  from vocal_melody import render_vocal_notes,PROGRAMS
+  # Instrument was normalized above; preserve the selected sample library/NAM variant.
+  target=nam_variant or sax_variant or next((name for name,(kind,patch) in SEPARATE_VARIANTS.items() if patch_name and patch==patch_name),instrument)
+  if target not in PROGRAMS:raise ValueError('Choose a supported bass melody instrument.')
+  source,_=librosa.load(guitar_path,sr=SR,duration=seconds)
+  notes,levels=track_bass_notes(source,seconds)
+  if tone=='distorted':target='electric-guitar-distorted'
+  return render_vocal_notes(notes,levels,source,seconds,root,target,custom)
  if instrument in EXTRA_PROGRAMS:bank="livehq"
  if instrument not in banks and instrument not in EXTRA_PROGRAMS:raise ValueError("Unsupported replacement instrument.")
  if bank not in ['fluidr3','livehq','separate']:raise ValueError('Choose a supported instrument bank.')
@@ -598,7 +633,8 @@ def render(guitar_path,seconds,root,instrument="sax",tone=None,bank="fluidr3",so
  sys.path.insert(0,str(packages))
  from basic_pitch import build_icassp_2022_model_path,FilenameSuffix
  from basic_pitch.inference import predict
- _,midi,events=predict(guitar_path,model_or_model_path=build_icassp_2022_model_path(FilenameSuffix.onnx),minimum_note_length=90,minimum_frequency=40 if source_name=='bass' or instrument in ['finger-bass','picked-bass','acoustic-bass'] else 100,maximum_frequency=1500,onset_threshold=.55,frame_threshold=.35)
+ low,high=source_frequency_range(source_name)
+ _,midi,events=predict(guitar_path,model_or_model_path=build_icassp_2022_model_path(FilenameSuffix.onnx),minimum_note_length=90,minimum_frequency=low,maximum_frequency=high,onset_threshold=.55,frame_threshold=.35)
  if not events:raise ValueError('No melody notes detected. Choose another section.')
  duration=seconds;hop=.01;frames=round(duration/hop)
  pitches=np.array([0]+sorted({int(e[2]) for e in events}))
@@ -642,7 +678,7 @@ def render(guitar_path,seconds,root,instrument="sax",tone=None,bank="fluidr3",so
      first=frame
  notes=repair_source_gaps(refine_notes(notes),guitar)
  # Restore source pick attacks that were lost when contiguous same-pitch frames merged.
- attacks=librosa.onset.onset_detect(y=guitar,sr=SR,hop_length=240,units='time',backtrack=False)
+ attacks=source_note_attacks(source_name,librosa.onset.onset_detect(y=guitar,sr=SR,hop_length=240,units='time',backtrack=False))
  articulated=[]
  for begin,end,pitch,confidence in notes:
   cuts=[begin]
@@ -730,6 +766,7 @@ def render(guitar_path,seconds,root,instrument="sax",tone=None,bank="fluidr3",so
    signal=sampled_note(pitch+shift,end-begin,velocity,legato);offset=round(begin*SR);count=min(len(signal),len(melody)-offset)
    if count>0:melody[offset:offset+count]+=signal[:count]
  if not notes or np.sqrt(np.mean(melody**2))<.00001:raise ValueError('No usable replacement melody detected.')
+ notes=playback_notes(notes)
  # Export the melody actually performed, rather than the original polyphonic detection.
  import pretty_midi
  performed=pretty_midi.PrettyMIDI();track=pretty_midi.Instrument(program=66 if sax_variant=='sax-tenor' else {**EXTRA_PROGRAMS,'sax':65,'piano':0,'electric-guitar':30 if tone=='distorted' else 27}[instrument])

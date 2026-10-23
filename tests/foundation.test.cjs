@@ -643,7 +643,7 @@ test("backup roundtrip validates every section and rejects damaged files before 
  const backup=await b.createBackup();const valid=b.validateBackup(JSON.stringify(backup));
  assert.equal(valid.data["mana.diary.v1"][0].deletedAt,"2026-10-09T02:00:00Z");
  assert.match(b.backupCounts(valid),/1 memories/);
- assert.equal(Object.keys(valid.data).length,31);
+ assert.equal(Object.keys(valid.data).length,32);
  const legacy=JSON.parse(JSON.stringify(backup));delete legacy.data["mana.followups.v1"];
  delete legacy.data["mana.shared_activities.v1"];
  assert.equal(b.validateBackup(JSON.stringify(legacy)).data["mana.followups.v1"].notes.length,0);
@@ -1007,7 +1007,7 @@ test("grounding separates interests from activities and provides concrete topic 
   const load = loader();
   const payload = load("src/core/llm.ts").buildPayload("Custom card",[{role:"user",content:"How are you?"}]);
   assert.match(payload[0].content,/no autonomous coding/);
-  assert.match(payload[1].content,/An interest or personality trait is not an activity record/);
+  assert.match(payload[0].content,/An interest or personality trait is not an activity record/);
   assert.match(load("src/core/initiative.ts").initiativePayload("Character", "Facts")[1].content,/Older assistant stories are not evidence/);
   const topics = load("src/core/conversation.ts").conversationGuidance("What could we talk about?",load("src/core/character.ts").DEFAULT_IDENTITY);
   assert.match(topics,/two or three distinct, specific topics/);
@@ -2117,6 +2117,7 @@ test('avatar reference composites only neutral layers in order and cancels befor
  class ImageMock{naturalWidth=1000;naturalHeight=2000;set src(value){this.source=value;this.onload();}}
  const reference=loader({'./avatar':{buildLayers:()=>layers,EMOTION_MAP:{neutral:{eyes:'eye_neutral',mouth:'mouth_neutral'}}}},{Image:ImageMock,document:{createElement:()=>canvas}})('src/core/avatarReference.ts');
  const signal=new AbortController();await reference.prepareAvatarReference({}, {},signal.signal);assert.deepEqual(drawn,['body','rest','open','hair']);assert.equal(canvas.width,320);assert.equal(canvas.height,640);
+ await reference.prepareAvatarReference({}, {},signal.signal,1024);assert.equal(canvas.width,512);assert.equal(canvas.height,1024);
  signal.abort();drawn.length=0;await assert.rejects(reference.prepareAvatarReference({}, {},signal.signal),/Stopped/);assert.equal(drawn.length,0);
 });
 
@@ -2469,4 +2470,1121 @@ test('harmony blend previews crop the lead section and retain chosen relative le
  const whole=new DataView(mixHarmonyPreview(fullLead,fullHarmony,0,40,1,.25));
  assert.equal(whole.getUint32(40,true),400*4);
  assert.ok(Math.abs(whole.getInt16(44,true)/32767-.3)<.0001);
+});
+
+test('backing sections keep local timing, fades and overlapping ranges without altering source',()=>{
+ const load=loader(),{sectionEnvelope}=load('src/core/backingSections.ts'),{mixTimeline}=load('src/core/studioMix.ts');
+ const envelope=sectionEnvelope(100,10,[{start:2,end:5},{start:4,end:7}],.2);
+ assert.equal(envelope[0],0);assert.equal(envelope[20],0);assert.equal(envelope[30],1);assert.equal(envelope[60],1);assert.equal(envelope[69],0);assert.equal(envelope[80],0);
+ const samples=new Float32Array(100).fill(.4),audio={sampleRate:10,length:100,duration:10,numberOfChannels:1,getChannelData:()=>samples};
+ const mix=new DataView(mixTimeline([{audio,gain:.5,offset:1,sections:[{start:2,end:5}],sectionFade:0}]));
+ assert.equal(mix.getInt16(44+29*4,true),0);assert.ok(Math.abs(mix.getInt16(44+30*4,true)/32767-.2)<.0001);assert.equal(mix.getInt16(44+60*4,true),0);
+ assert.equal(samples[30],Math.fround(.4));
+ const empty=new DataView(mixTimeline([{audio,gain:1,offset:0,sections:[],sectionFade:0}]));assert.equal(empty.getInt16(44+30*4,true),0);
+ assert.throws(()=>sectionEnvelope(100,10,[{start:8,end:11}],.15),/within/);
+ assert.throws(()=>sectionEnvelope(100,10,[{start:4,end:2}],.15),/start/);
+ assert.throws(()=>sectionEnvelope(100,10,[],NaN),/fade/);
+});
+
+test('backing section selections survive builder backup and invalid ranges stay silent',()=>{
+ const builder=loader()('src/core/coverBuilder.ts');
+ const path='C:/AI/ManaAI-CV-2/exports/singing/harmony.wav';
+ const track={id:'track-harmony-sections',name:'Chorus backing',role:'backing-vocal',path,originalPath:path,gain:.25,muted:false,offset:15,seconds:60,converted:true,sections:[{start:10,end:20},{start:40,end:50}],sectionFade:.3};
+ const restored=builder.validateBuilderTracks(JSON.parse(JSON.stringify(builder.validateBuilderTracks([track]))))[0];
+ assert.deepEqual(JSON.parse(JSON.stringify(restored.sections)),track.sections);assert.equal(restored.sectionFade,.3);assert.equal(restored.offset,15);
+ const invalid=builder.validateBuilderTracks([{...track,sections:[{start:50,end:70}]}])[0];assert.equal(invalid.sections.length,0);
+ assert.equal(builder.validateBuilderTracks([{...track,sections:undefined}])[0].sections,undefined);
+});
+
+test('selected backing preview includes only chosen audio while full mix keeps timeline',()=>{
+ const {previewBackingSections,mixTimeline}=loader()('src/core/studioMix.ts');
+ const samples=Float32Array.from({length:2880},(_,i)=>i>=150&&i<300?.2:.8);
+ const audio={sampleRate:10,length:2880,duration:288,numberOfChannels:1,getChannelData:()=>samples};
+ const selected=new DataView(previewBackingSections(audio,[{start:15,end:30}],0));
+ assert.equal(selected.getUint32(40,true),150*4);
+ assert.ok(Math.abs(selected.getInt16(44,true)/32767-.2)<.0001);
+ const timeline=new DataView(mixTimeline([{audio,gain:1,offset:0,sections:[{start:15,end:30}],sectionFade:0}]));
+ assert.equal(timeline.getUint32(40,true),2880*4);assert.equal(timeline.getInt16(44,true),0);
+ const multiple=new DataView(previewBackingSections(audio,[{start:15,end:20},{start:18,end:25},{start:40,end:42}],0));
+ assert.equal(multiple.getUint32(40,true),120*4);
+ assert.ok(Math.abs(multiple.getInt16(44+100*4,true)/32767-.8)<.0001);
+ const faded=new DataView(previewBackingSections(audio,[{start:15,end:30}],.2));assert.equal(faded.getInt16(44,true),0);
+ assert.throws(()=>previewBackingSections(audio,[],.15),/at least one/);
+ assert.equal(samples[150],Math.fround(.2));
+});
+
+test('music positions accept seconds or minutes and convert absolute end to job duration',()=>{
+ const {parseMusicTime,formatMusicTime,musicDuration}=loader()('src/core/musicTime.ts');
+ assert.equal(parseMusicTime('90'),90);assert.equal(parseMusicTime('1:30'),90);assert.equal(parseMusicTime(' 0:15.5 '),15.5);assert.equal(parseMusicTime('2:05'),125);
+ assert.equal(formatMusicTime(90),'1:30');assert.equal(formatMusicTime(15),'15');assert.equal(formatMusicTime(60),'1:00');assert.equal(formatMusicTime(125.5),'2:05.5');
+ for(const bad of ['', '-1','1:60','1:99','abc','1:02:03'])assert.ok(Number.isNaN(parseMusicTime(bad)));
+ assert.equal(musicDuration(parseMusicTime('15'),parseMusicTime('30')),15);
+ assert.equal(musicDuration(parseMusicTime('0:15'),parseMusicTime('0:45')),30);
+ assert.equal(musicDuration(20,45),25); // End stays fixed when Start changes.
+ for(const [start,end] of [[30,15],[15,15],[NaN,30],[0,NaN],[-1,30]])assert.ok(Number.isNaN(musicDuration(start,end)));
+});
+
+test('editor trims keep source placement, section gates and saved solo/trim settings',()=>{
+ const load=loader(),{mixTimeline}=load('src/core/studioMix.ts'),{validateBuilderTracks}=load('src/core/coverBuilder.ts');
+ const data=Float32Array.from([.1,.2,.3,.4,.5,.6,.7,.8]);
+ const audio={sampleRate:4,length:8,duration:2,numberOfChannels:1,getChannelData:()=>data};
+ const wav=new DataView(mixTimeline([{audio,gain:1,offset:.5,trim:{start:.5,end:1.5}}]));
+ assert.equal(wav.getUint32(40,true),8*4); // song end = source end + offset
+ assert.equal(wav.getInt16(44+3*4,true),0); // trimmed leading material stays silent
+ assert.equal(wav.getInt16(44+4*4,true),Math.round(data[2]*32767));
+ assert.equal(wav.getInt16(44+7*4,true),Math.round(data[5]*32767));
+ const negative=new DataView(mixTimeline([{audio,gain:1,offset:-.75,trim:{start:.5,end:1.5}}]));
+ assert.equal(negative.getInt16(44,true),Math.round(data[3]*32767));
+ const gated=new DataView(mixTimeline([{audio,gain:1,offset:0,trim:{start:.5,end:1.5},sections:[{start:1,end:1.5}],sectionFade:0}]));
+ assert.equal(gated.getInt16(44+2*4,true),0);assert.equal(gated.getInt16(44+4*4,true),Math.round(data[4]*32767));
+ for(const trim of [{start:1,end:.5},{start:-1,end:1},{start:0,end:3},{start:NaN,end:1}])assert.throws(()=>mixTimeline([{audio,gain:1,offset:0,trim}]),/trim/);
+ const path='C:/AI/ManaAI-CV-2/exports/singing/test.wav';
+ const track={id:'track-editor',name:'Edited',role:'other',path,originalPath:path,seconds:2,offset:.5,gain:1,solo:true,trim:{start:.5,end:1.5}};
+ const restored=validateBuilderTracks(JSON.parse(JSON.stringify([track])))[0];
+ assert.deepEqual(JSON.parse(JSON.stringify(restored.trim)),track.trim);assert.equal(restored.solo,true);
+ assert.equal(validateBuilderTracks([{...track,trim:{start:1,end:3}}])[0].trim,undefined);
+});
+
+test('editor move/trim gestures respect source limits, solo and real waveform peaks',()=>{
+ const {moveClip,trimClip,timelineGain,waveformPeaks}=loader()('src/core/builderTimeline.ts');
+ const track={id:'track-a',seconds:10,offset:2,gain:.7,muted:false,trim:{start:1,end:8}};
+ assert.equal(moveClip(track,-20,.1).offset,-1);
+ assert.equal(moveClip(track,.26,.1).offset,2.3);
+ assert.equal(trimClip(track,'start',20,.1).trim.start,7.95);
+ assert.equal(trimClip(track,'end',20,.1).trim.end,10);
+ assert.equal(track.trim.start,1);
+ assert.equal(timelineGain(track,[track,{...track,id:'track-b',solo:true}]),0);
+ assert.equal(timelineGain({...track,solo:true},[{...track,solo:true}]),.7);
+ assert.equal(timelineGain({...track,solo:true,muted:true},[]),0);
+ assert.deepEqual(Array.from(waveformPeaks({length:4,numberOfChannels:2,getChannelData:c=>c?[0,0,.9,0]:[.2,-.4,0,.1]},2)),[.4,.9]);
+});
+
+test('builder undo groups continuous changes, restores audio paths and branches after new edits',()=>{
+ const {createBuilderHistory,recordBuilderEdit,undoBuilderEdit,redoBuilderEdit}=loader()('src/core/builderHistory.ts');
+ const track={id:'track-history',name:'Piano',role:'piano',path:'saved-original.wav',originalPath:'saved-original.wav',seconds:10,gain:1,muted:false,offset:0,converted:false};
+ const initial={draft:{title:'Song',tracks:[track]},choices:{},customs:{}};
+ let h=createBuilderHistory(initial);
+ const edit=(patch)=>({...h.present,draft:{...h.present.draft,tracks:[{...h.present.draft.tracks[0],...patch}]}});
+ h=recordBuilderEdit(h,edit({gain:.8}),'Volume','gain');h=recordBuilderEdit(h,edit({gain:.6}),'Volume','gain');
+ assert.equal(h.past.length,1);h=undoBuilderEdit(h);assert.equal(h.present.draft.tracks[0].gain,1);h=redoBuilderEdit(h);assert.equal(h.present.draft.tracks[0].gain,.6);
+ h=recordBuilderEdit(h,edit({path:'saved-replacement.wav',custom:{pitch:2,extension:.3}}),'Apply replacement');
+ h=undoBuilderEdit(h);assert.equal(h.present.draft.tracks[0].path,'saved-original.wav');h=redoBuilderEdit(h);assert.equal(h.present.draft.tracks[0].path,'saved-replacement.wav');
+ h=undoBuilderEdit(h);h=recordBuilderEdit(h,edit({trim:{start:2,end:7}}),'Trim');assert.equal(h.future.length,0);assert.equal(redoBuilderEdit(h),h);
+ assert.equal(initial.draft.tracks[0].gain,1);assert.equal(initial.draft.tracks[0].path,'saved-original.wav');
+});
+
+test('builder history covers removal, new draft and pending tuning without audio work, bounded to 50 edits',()=>{
+ const {createBuilderHistory,recordBuilderEdit,undoBuilderEdit,redoBuilderEdit}=loader()('src/core/builderHistory.ts');
+ const initial={draft:{title:'Initial',tracks:[]},choices:{},customs:{}};let h=createBuilderHistory(initial);
+ h=recordBuilderEdit(h,{...h.present,choices:{one:'harp'},customs:{one:{pitch:3,extension:.2}}},'Tuning');
+ h=undoBuilderEdit(h);assert.deepEqual(Object.keys(h.present.customs),[]);h=redoBuilderEdit(h);assert.equal(h.present.customs.one.pitch,3);
+ const track={id:'track-one',name:'One',role:'other',path:'saved.wav',originalPath:'saved.wav',gain:1,muted:false,offset:0,seconds:5,converted:false};
+ h=recordBuilderEdit(h,{...h.present,draft:{title:'Initial',tracks:[track]}},'Add');
+ h=recordBuilderEdit(h,{...h.present,draft:{title:'Initial',tracks:[]}},'Remove');h=undoBuilderEdit(h);assert.equal(h.present.draft.tracks[0].path,'saved.wav');
+ h=recordBuilderEdit(h,{draft:{title:'',tracks:[]},choices:{},customs:{}},'New draft');h=undoBuilderEdit(h);assert.equal(h.present.draft.tracks.length,1);
+ for(let i=0;i<70;i++)h=recordBuilderEdit(h,{...h.present,draft:{...h.present.draft,title:String(i)}},'Rename');
+ assert.equal(h.past.length,50);const same=recordBuilderEdit(h,h.present,'No op');assert.equal(same,h);
+ const reset=createBuilderHistory(initial);assert.equal(reset.past.length,0);assert.equal(reset.future.length,0);assert.equal(undoBuilderEdit(reset),reset);
+});
+
+test('split clips preserve exact mix samples; duplicates and moves reuse source windows',()=>{
+ const load=loader(),core=load('src/core/builderTimeline.ts'),{mixTimeline}=load('src/core/studioMix.ts');
+ const data=Float32Array.from([.05,.1,.15,.2,.25,.3,.35,.4]);
+ const audio={sampleRate:4,length:8,duration:2,numberOfChannels:1,getChannelData:()=>data};
+ const track={id:'track-clips',name:'Clips',role:'other',seconds:2,offset:.5,gain:1,muted:false};
+ const original=Buffer.from(mixTimeline([{audio,gain:1,offset:.5}]));
+ const split={...track,...core.splitTrackClip(track,'source',1.5,'right')};
+ assert.equal(split.clips.length,2);assert.equal(split.clips[0].end,1);assert.equal(split.clips[1].start,1);
+ assert.deepEqual(Buffer.from(mixTimeline([{audio,gain:1,offset:.5,clips:split.clips}])),original);
+ const copied={...split,...core.duplicateTrackClip(split,'source','copy')};
+ assert.equal(copied.clips[2].start,0);assert.equal(copied.clips[2].end,1);assert.equal(copied.clips[2].offset,2);
+ const wav=new DataView(mixTimeline([{audio,gain:1,offset:.5,clips:copied.clips}]));
+ assert.equal(wav.getUint32(40,true),14*4);assert.equal(wav.getInt16(44+10*4,true),Math.round(data[0]*32767));
+ const moved={...split,...core.moveClip(split,.5,.1,'right')};assert.equal(moved.clips[1].offset,.5);assert.equal(split.clips[1].offset,0);
+ const gap=new DataView(mixTimeline([{audio,gain:1,offset:.5,clips:moved.clips}]));assert.equal(gap.getInt16(44+6*4,true),0);
+ const trimmed=core.trimClip(moved,'end',-.5,.1,'right');assert.equal(trimmed.clips[1].end,1.5);assert.equal(trimmed.clips[0].end,1);
+ assert.throws(()=>core.splitTrackClip(track,'source',.5,'invalid'),/inside/);
+ assert.throws(()=>core.splitTrackClip(track,'source',NaN,'invalid'),/inside/);
+});
+
+test('clip backups preserve edits, keep empty lanes silent and reject malformed ranges',()=>{
+ const load=loader(),{validateBuilderTracks}=load('src/core/coverBuilder.ts'),{mixTimeline}=load('src/core/studioMix.ts');
+ const path='C:/AI/ManaAI-CV-2/exports/singing/clip-test.wav';
+ const track={id:'track-clips',name:'Clip test',role:'other',path,originalPath:path,seconds:2,offset:.5,gain:1,clips:[{id:'left',start:0,end:1,offset:0},{id:'right',start:1,end:2,offset:.5}]};
+ const restored=validateBuilderTracks(JSON.parse(JSON.stringify([track])))[0];assert.deepEqual(JSON.parse(JSON.stringify(restored.clips)),track.clips);
+ const studio=load('src/core/musicStudio.ts');const saved=studio.validateStudio({projects:[{id:'studio-clips',kind:'builder',title:'Clips',createdAt:'2026-10-17T00:00:00Z',status:'ready',builderTracks:[track]}]});
+ const reopened=studio.validateStudio(JSON.parse(JSON.stringify(saved))).projects[0].builderTracks[0];assert.deepEqual(JSON.parse(JSON.stringify(reopened.clips)),track.clips);
+ const audio={sampleRate:4,length:8,duration:2,numberOfChannels:1,getChannelData:()=>Float32Array.from([.1,.1,.1,.1,.1,.1,.1,.1])};
+ const empty=new DataView(mixTimeline([{audio,gain:1,offset:0,clips:[]},{audio,gain:0,offset:0}]));assert.equal(empty.getInt16(44,true),0);
+ const malformed=validateBuilderTracks([{...track,clips:[{id:'bad',start:0,end:3,offset:0}]}])[0];assert.equal(malformed.clips.length,0);
+ assert.throws(()=>mixTimeline([{audio,gain:1,offset:0,clips:[{id:'bad',start:0,end:3,offset:0}]}]),/valid clips/);
+ const gated=new DataView(mixTimeline([{audio,gain:1,offset:0,clips:[{id:'one',start:0,end:1,offset:1}],sections:[{start:.5,end:1}],sectionFade:0}]));
+ assert.equal(gated.getInt16(44+4*4,true),0);assert.equal(gated.getInt16(44+6*4,true),Math.round(.1*32767));
+ // Shared buffers may have different backing gates on separate tracks.
+ const shared=new DataView(mixTimeline([{audio,gain:1,offset:0,sections:[],sectionFade:0},{audio,gain:1,offset:0,sections:[{start:1,end:2}],sectionFade:0}]));
+ assert.equal(shared.getInt16(44,true),0);assert.equal(shared.getInt16(44+4*4,true),Math.round(.1*32767));
+});
+
+test('builder mixer accepts unconverted vocals and instrumental-only drafts while respecting silent lanes',()=>{
+ const {canMixBuilder}=loader()('src/core/builderTimeline.ts');
+ const track={id:'track-preview',name:'Guide',role:'vocal',seconds:10,offset:0,gain:1,muted:false,converted:false};
+ assert.equal(canMixBuilder([track]),true);
+ assert.equal(canMixBuilder([{...track,role:'piano'}]),true);
+ assert.equal(canMixBuilder([]),false);
+ assert.equal(canMixBuilder([{...track,muted:true}]),false);
+ assert.equal(canMixBuilder([{...track,gain:0}]),false);
+ assert.equal(canMixBuilder([{...track,clips:[]}]),false);
+ assert.equal(canMixBuilder([{...track,sections:[]}]),false);
+ assert.equal(canMixBuilder([{...track,trim:{start:0,end:1},sections:[{start:2,end:3}]}]),false);
+ assert.equal(canMixBuilder([{...track,offset:-11}]),false);
+ assert.equal(canMixBuilder([track,{...track,id:'track-solo',solo:true,muted:true}]),false);
+});
+
+test('live builder playback plans preserve clips, offsets and source-local backing gates',()=>{
+ const {builderPlaybackPlan}=loader({'./builderAudio':{loadBuilderAudio:()=>{throw Error('not needed');}}})('src/core/builderPlayback.ts');
+ const track={id:'track-live',path:'saved.wav',seconds:10,offset:2,gain:1,muted:false,clips:[{id:'one',start:1,end:5,offset:0},{id:'copy',start:1,end:3,offset:8}],sections:[{start:2,end:4}],sectionFade:.1};
+ const plan=builderPlaybackPlan([track],5);
+ assert.equal(plan.end,13);assert.equal(plan.spans.length,2);assert.equal(plan.spans[0].start,3);assert.equal(plan.spans[0].songStart,5);assert.equal(plan.spans[1].songStart,12);assert.equal(plan.spans[1].end,3);
+ assert.equal(builderPlaybackPlan([{...track,sections:[]}],0).spans.length,0);
+ assert.throws(()=>builderPlaybackPlan([track],NaN));
+});
+
+test('live builder playback resumes from the gesture, reuses buffers on seek and updates mute without rebuilding audio',async()=>{
+ const contexts=[],loads=[];
+ class Context{
+  currentTime=0;destination={};gains=[];sources=[];
+  constructor(){contexts.push(this);}
+  resume(){this.resumed=true;return Promise.resolve();}close(){return Promise.resolve();}
+  createGain(){const param={value:1,targets:[],setTargetAtTime(v){this.targets.push(v);},setValueAtTime(){},linearRampToValueAtTime(){}};const node={gain:param,connect(){},disconnect(){}};this.gains.push(node);return node;}
+  createBufferSource(){const node={buffer:null,onended:null,connect(){},disconnect(){},start(...args){this.args=args;},stop(){}};this.sources.push(node);return node;}
+  createConstantSource(){return {onended:null,connect(){},disconnect(){},start(){},stop(){}};}
+ }
+ const {BuilderPlayback}=loader({'./builderAudio':{loadBuilderAudio:async path=>{loads.push(path);return {duration:20};}}},{AudioContext:Context})('src/core/builderPlayback.ts');
+ const player=new BuilderPlayback(),track={id:'track-one',path:'one.wav',seconds:10,offset:0,gain:1,muted:false};
+ const pending=player.play([track],3,1,()=>{});assert.equal(contexts[0].resumed,true);await pending;
+ assert.equal(player.active,true);assert.equal(contexts[0].sources[0].args[1],3);
+ contexts[0].currentTime=2;assert.ok(Math.abs(player.position-4.97)<.001);
+ player.seek(6);assert.equal(contexts[0].sources.at(-1).args[1],6);assert.equal(loads.length,1);
+ const count=contexts[0].sources.length;player.updateLevels([{...track,muted:true}]);assert.equal(contexts[0].sources.length,count);assert.ok(contexts[0].gains.some(g=>g.gain.targets.includes(0)));
+ player.pause();assert.equal(player.active,false);player.dispose();
+});
+
+test('stopping a pending live Play prevents late audio from starting',async()=>{
+ let resolveAudio,starts=0;
+ class Context{currentTime=0;destination={};resume(){return Promise.resolve();}close(){return Promise.resolve();}createGain(){return {gain:{setTargetAtTime(){}},connect(){},disconnect(){}};}createBufferSource(){starts++;throw Error('Should not start');}}
+ const pending=new Promise(resolve=>{resolveAudio=resolve;});
+ const {BuilderPlayback}=loader({'./builderAudio':{loadBuilderAudio:()=>pending}},{AudioContext:Context})('src/core/builderPlayback.ts');
+ const player=new BuilderPlayback();const playing=player.play([{id:'track-one',path:'one.wav',seconds:10,offset:0,gain:1,muted:false}],0,1,()=>{});
+ player.pause();resolveAudio({duration:10});assert.equal(await playing,false);assert.equal(starts,0);player.dispose();
+});
+
+test('original musical directions reach the request prompt and invalidate prior preview approval',()=>{
+ const original=loader()('src/core/originalSong.ts');
+ const direction={mood:'Warm and hopeful',instruments:'piano, soft strings',tempo:'92',structure:'intro, verse, chorus, outro'};
+ const prompt=original.composeOriginalPrompt('  A quiet evening.  ',direction);
+ assert.equal(prompt,'A quiet evening.\nMood: Warm and hopeful.\nFeatured instruments: piano, soft strings.\nTempo: 92 BPM.\nSong structure: intro, verse, chorus, outro.');
+ const brief=original.validateOriginalBrief({prompt,lyrics:'',style:'gentle-piano',instrumental:true,duration:90,seed:42});
+ assert.ok(brief);
+ for(const patch of [{mood:'Dreamy'},{instruments:'flute'},{tempo:'110'},{structure:'a single evolving theme'}]){
+  assert.notEqual(original.originalFingerprint(brief),original.originalFingerprint({...brief,prompt:original.composeOriginalPrompt('A quiet evening.',{...direction,...patch})}));
+ }
+ assert.equal(original.originalFingerprint(brief),original.originalFingerprint({...brief,duration:180}));
+ assert.equal(original.composeOriginalPrompt(' Idea ',{mood:'',instruments:'',tempo:'',structure:''}),'Idea');
+ assert.equal(original.validateOriginalBrief({...brief,prompt:original.composeOriginalPrompt('x'.repeat(1990),direction)}),undefined);
+ for(const value of ['', '40','92','240'])assert.equal(original.validOriginalTempo(value),true);
+ for(const value of ['39','241','92.5','NaN','Infinity','1e2','-60'])assert.equal(original.validOriginalTempo(value),false);
+ const studio=loader()('src/core/musicStudio.ts');
+ const saved=studio.validateStudio({projects:[{id:'studio-directions',title:'Directed song',kind:'original',original:brief,createdAt:'2026-10-18',mix:'C:/AI/ManaAI-CV-2/exports/singing/directions.wav'}]});
+ assert.equal(saved.projects[0].original.prompt,prompt);
+});
+
+test('word karaoke follows exact boundaries, gaps, backwards seeking and pause positions',()=>{
+ const lyrics=loader()('src/core/lyrics.ts');
+ const line={start:1,end:4,text:'Stay beside me',words:[{start:1,end:1.5,text:'Stay'},{start:1.8,end:2.5,text:'beside'},{start:2.5,end:4,text:'me'}]};
+ const [valid]=lyrics.validateLyrics([line]);assert.equal(valid.words.length,3);
+ for(const [time,index] of [[.9,-1],[1,0],[1.5,-1],[1.79,-1],[1.8,1],[2.5,2],[4,-1],[1.2,0]])assert.equal(lyrics.activeLyricWord(valid,time),index);
+ assert.equal(lyrics.activeLyricWord({start:1,end:4,text:'Old line'},2),-1);
+ const invalid=lyrics.validateLyrics([{...line,words:[{start:1,end:6,text:'Stay beside me'}]}]);assert.equal(invalid[0].words,undefined);
+ const mismatch=lyrics.validateLyrics([{...line,text:'Edited wording'}]);assert.equal(mismatch[0].words,undefined);
+});
+test('word karaoke retains timed words and silent gaps through editing, excerpts and backups',()=>{
+ const load=loader({'./persistence':{readStored:()=>null,writeStored:()=>{}}}),lyrics=load('src/core/lyrics.ts'),studio=load('src/core/musicStudio.ts');
+ const line={start:1,end:4,text:'Stay beside me',words:[{start:1,end:1.5,text:'Stay'},{start:1.8,end:2.5,text:'beside'},{start:2.5,end:4,text:'me'}]};
+ const edited=lyrics.parseLrc(lyrics.lyricsToLrc([line]),5);assert.deepEqual(JSON.parse(JSON.stringify(edited[0].words)),line.words);
+ const excerpt=lyrics.excerptLyrics([line],1.4,1.5);assert.equal(excerpt[0].text,'Stay beside me');assert.equal(excerpt[0].words[0].start,0);assert.ok(Math.abs(excerpt[0].words[0].end-.1)<1e-9);assert.equal(excerpt[0].words[2].end,1.5);assert.equal(lyrics.validateLyrics(excerpt)[0].words.length,3);
+ const gap=lyrics.excerptLyrics([line],1.55,.1);assert.equal(gap.length,0);
+ const state=studio.validateStudio({projects:[{id:'studio-word-test',title:'Words',createdAt:'2026-10-18',lyrics:[line]}]});const restored=studio.validateStudio(JSON.parse(JSON.stringify(state)));assert.deepEqual(JSON.parse(JSON.stringify(restored.projects[0].lyrics[0].words)),line.words);
+ assert.throws(()=>lyrics.parseLrc('[00:01]<00:02>Hello<00:01.5>',5));assert.throws(()=>lyrics.parseLrc('[00:01]<00:01>Hello',5));assert.throws(()=>lyrics.parseLrc('[00:01]<00:01>Hello<00:06>',5));
+});
+
+test('clip fades agree in saved mixes and playback plans, including seeking and split edges',()=>{
+ const load=loader(),timeline=load('src/core/builderTimeline.ts'),mix=load('src/core/studioMix.ts'),play=load('src/core/builderPlayback.ts');
+ const clip={id:'one',start:0,end:4,offset:0,fadeIn:1,fadeOut:1};
+ const track={id:'track-fades',name:'Fades',seconds:4,path:'x',originalPath:'x',offset:0,gain:1,muted:false,role:'piano',converted:false,clips:[clip]};
+ assert.equal(timeline.clipFadeLevel(clip,0),0);assert.ok(Math.abs(timeline.clipFadeLevel(clip,.5)-.5)<1e-9);assert.equal(timeline.clipFadeLevel(clip,2),1);assert.equal(timeline.clipFadeLevel(clip,4),0);
+ const audio={sampleRate:4,length:16,duration:4,numberOfChannels:1,getChannelData:()=>new Float32Array(16).fill(.5)};
+ const bytes=new DataView(mix.mixTimeline([{audio,gain:1,offset:0,clips:[clip]}]));const sample=i=>bytes.getInt16(44+i*4,true)/32767;
+ assert.equal(sample(0),0);assert.ok(Math.abs(sample(2)-.25)<.0001);assert.ok(Math.abs(sample(8)-.5)<.0001);assert.ok(sample(15)<.1);
+ const plan=play.builderPlaybackPlan([track],.5);assert.equal(plan.spans[0].start,.5);assert.equal(plan.spans[0].clip.start,0);assert.equal(plan.spans[0].clip.fadeIn,1);
+ const split=timeline.splitTrackClip(track,'one',2,'two').clips;assert.equal(split[0].fadeIn,1);assert.equal(split[0].fadeOut,0);assert.equal(split[1].fadeIn,0);assert.equal(split[1].fadeOut,1);
+ assert.equal(timeline.setClipFade(track,'one','fadeIn',20).clips[0].fadeIn,2);
+ assert.throws(()=>timeline.setClipFade(track,'one','fadeIn',NaN));
+});
+test('editable instrument notes validate imports, section bounds and persist with clip fades',()=>{
+ const load=loader(),notes=load('src/core/builderNotes.ts'),builder=load('src/core/coverBuilder.ts'),history=load('src/core/builderHistory.ts');
+ const edit={start:2,seconds:4,instrument:'piano',notes:[{start:.2,end:1,pitch:60,velocity:.7},{start:1,end:2,pitch:64,velocity:.4}]};
+ assert.ok(notes.validateNoteEdit(edit,10));assert.equal(notes.noteName(60),'C4');
+ for(const bad of [{...edit,start:9},{...edit,seconds:61},{...edit,instrument:'bad'},{...edit,notes:[{start:1,end:0,pitch:60,velocity:.5}]},{...edit,notes:[{start:0,end:1,pitch:128,velocity:.5}]}])assert.equal(notes.validateNoteEdit(bad,10),undefined);
+ assert.equal(notes.importDetectedNotes([[0,1,60,.5]],4)[0].pitch,60);assert.throws(()=>notes.importDetectedNotes([[0,5,60,.5]],4));
+ const path='C:/AI/ManaAI-CV-2/exports/singing/note-test.wav';const track={id:'track-notes',name:'Notes',path,originalPath:path,seconds:10,gain:1,offset:0,muted:false,converted:false,role:'piano',noteEdit:edit,clips:[{id:'one',start:0,end:10,offset:0,fadeIn:.5,fadeOut:1}]};
+ const restored=builder.validateBuilderTracks(JSON.parse(JSON.stringify([track])))[0];assert.equal(restored.noteEdit.notes[1].pitch,64);assert.equal(restored.clips[0].fadeOut,1);
+ const base={draft:{title:'Notes',tracks:[track]},choices:{},customs:{}};let h=history.createBuilderHistory(base);const changed={...track,noteEdit:{...edit,notes:[{...edit.notes[0],pitch:67}]}};h=history.recordBuilderEdit(h,{...base,draft:{...base.draft,tracks:[changed]}},'Edit notes');assert.equal(history.undoBuilderEdit(h).present.draft.tracks[0].noteEdit.notes[0].pitch,60);assert.equal(history.redoBuilderEdit(history.undoBuilderEdit(h)).present.draft.tracks[0].noteEdit.notes[0].pitch,67);
+});
+
+test('spoken song commands handle character address and dictation commas without guessing titles',()=>{
+ const pool=loader()('src/core/songPool.ts');
+ const songs=[{id:'song-trails',title:'Trails in the Sky',aliases:['Trails'],enabled:true,path:'C:/AI/ManaAI-CV-2/exports/singing/trails.wav'}];
+ for(const text of ['Mana, Sing Trails','Sing, Trails.','Mana: can you sing Trails for me?']){
+  const title=pool.requestedSongTitle(pool.musicCommandText(text,'Mana'));assert.equal(title,'Trails');assert.equal(pool.findSong(songs,title).id,'song-trails');
+ }
+ assert.equal(pool.requestedSongTitle(pool.musicCommandText('Sing, reach out to the truth.','Mana')),'reach out to the truth');
+ assert.equal(pool.requestedSongTitle(pool.musicCommandText('Sting trails','Mana')),null);
+ assert.equal(pool.findSong(songs,'trails room'),undefined);
+ assert.equal(pool.requestedSongTitle(pool.musicCommandText('I like singing Trails','Mana')),null);
+ assert.equal(pool.musicCommandText('Manatee sings','Mana'),'Manatee sings');
+});
+
+test('Whisper recognition hints include enabled song vocabulary without exceeding the native byte limit',()=>{
+ const w=loader({'./persistence':{}})('src/core/whisper.ts');
+ const prompt=w.recognitionPrompt(['Mana','Aishi'],['Trails v3','Sora','Reach Out to the Truth','Sora']);
+ assert.match(prompt,/Hi! Hello! Hey!/);assert.match(prompt,/Good morning/);assert.match(prompt,/Sing, hum/);assert.match(prompt,/Trails v3/);assert.match(prompt,/Sora/);assert.equal((prompt.match(/Sora/g)||[]).length,1);
+ const large=w.recognitionPrompt(['名'.repeat(60),'名'.repeat(60)],Array.from({length:50},(_,i)=>'曲'.repeat(25)+i));assert.ok(new TextEncoder().encode(large).length<=440);
+ assert.ok(!w.recognitionPrompt(['Mana\nAishi'],['Trails\nv3']).includes('\n'));
+ const d=loader()('src/core/dictation.ts');assert.equal(d.dictationReview({text:'Xing Sora'}).text,'Xing Sora');
+});
+
+test('user-confirmed avatar image labels survive backups without inferring identity from filenames',()=>{
+ const values=new Map();const load=loader({'./persistence':{readStored:k=>values.get(k)??null,writeStored:(k,v)=>values.set(k,v)}},{crypto:require('node:crypto').webcrypto});
+ const images=load('src/core/savedImages.ts'),vision=load('src/core/vision.ts'),settings=load('src/core/settings.ts'),backup=load('src/core/backup.ts');
+ const image={filename:'Mana.jpg',dataUrl:'data:image/jpeg;base64,/9j/AA=='};
+ const retained=images.retainImage([],image);assert.equal(retained.images[0].depictsAvatar,undefined);
+ images.saveSavedImages([{...retained.images[0],depictsAvatar:true}]);
+ const loaded=images.loadSavedImages();assert.equal(loaded[0].depictsAvatar,true);
+ assert.equal(images.retainImage(loaded,{...image,filename:'unrelated.jpg'}).images[0].depictsAvatar,true);
+ const report={filename:image.filename,description:'White-haired character with a headset.',imageId:retained.imageId,userConfirmedAvatar:true};
+ settings.saveChat([{id:'u',role:'user',content:'Who is this?',imageReport:report}]);
+ const restored=backup.validateBackup(JSON.stringify(backup.snapshotBackup()));
+ assert.equal(restored.data['mana.images.v1'][0].depictsAvatar,true);assert.equal(restored.data['mana.chat.v1'][0].imageReport.userConfirmedAvatar,true);
+ const payload=JSON.stringify(load('src/core/llm.ts').buildPayload('Mana',settings.loadChat()));assert.match(payload,/explicitly confirmed/);assert.match(payload,/authorship/);assert.ok(!payload.includes(image.dataUrl));
+ assert.equal(vision.validateImageReport({...report,userConfirmedAvatar:'true'}).userConfirmedAvatar,undefined);
+ assert.equal(images.validateSavedImages([{...loaded[0],depictsAvatar:'true'}])[0].depictsAvatar,undefined);
+ assert.match(vision.imageReportContext({...report,userConfirmedAvatar:undefined}),/character is unidentified/);
+ const {depictsAvatar,...unlabeled}=loaded[0];images.saveSavedImages([unlabeled]);assert.equal(images.loadSavedImages()[0].depictsAvatar,undefined);
+});
+
+test('star collector fixes the actual generated frame-reset bug and preserves movement, score and restart',()=>{
+ const sandbox=loader()('src/core/codeSandbox.ts');
+ function runner(source){let latest,calls=0;const math=Object.create(Math);math.random=()=>{calls++;return .5;};const self={postMessage:m=>latest=m};vm.runInNewContext(sandbox.SANDBOX_WORKER,{self,Math:math});self.onmessage({data:{type:'start',code:source}});assert.equal(latest.type,'ready');return {tick(keys={},dt=.1){self.onmessage({data:{type:'tick',dt,keys}});return sandbox.validateSandboxFrame(latest);},calls:()=>calls};}
+ const player=result=>result.commands.filter(c=>c.type==='circle').at(-1).args;
+ const original=runner(fs.readFileSync('tests/fixtures/game-reset-every-frame.js','utf8'));
+ assert.equal(player(original.tick({ArrowRight:true}))[0],125);assert.equal(player(original.tick({ArrowRight:true}))[0],125);assert.equal(player(original.tick())[0],120);
+ const fixed=runner(sandbox.SANDBOX_EXAMPLE);
+ assert.equal(player(fixed.tick({ArrowRight:true}))[0],135);assert.equal(player(fixed.tick({ArrowRight:true}))[0],150);assert.equal(player(fixed.tick())[0],150);assert.equal(fixed.calls(),40,'twenty stars initialize once, not per frame');
+ for(let i=0;i<6;i++)fixed.tick({ArrowRight:true});let result;
+ for(let i=0;i<3;i++)result=fixed.tick({ArrowDown:true});
+ const score=r=>Number(r.commands.filter(c=>c.type==='text').at(-1).args[0].split('Score: ')[1]);assert.ok(score(result)>0);assert.ok(score(fixed.tick())>0);
+ result=fixed.tick({Space:true});assert.equal(score(result),0);assert.equal(player(result)[0],120);
+ assert.equal(player(fixed.tick({Space:true,ArrowRight:true}))[0],135);assert.equal(player(fixed.tick({Space:true,ArrowRight:true}))[0],150,'holding reset must not reinitialize each frame');
+ for(let i=0;i<50;i++)result=fixed.tick({ArrowRight:true,ArrowDown:true});assert.equal(player(result)[0],470);assert.equal(player(result)[1],270);
+ assert.equal(sandbox.sandboxCode('```js\napi.onFrame=()=>{};\n```'),'api.onFrame=()=>{};');assert.throws(()=>sandbox.sandboxCode('x'.repeat(16001)),/16,000/);
+ assert.match(sandbox.sandboxDraftInstructions(),/OUTSIDE the callback/);assert.ok(sandbox.sandboxDraftInstructions().includes(sandbox.SANDBOX_EXAMPLE));
+});
+test('code sandbox blocks unsupported draw messages and embeds fixed opaque-frame restrictions',()=>{
+ const sandbox=loader()('src/core/codeSandbox.ts');
+ for(const command of [{type:'__proto__',args:[]},{type:'circle',args:[1,2,-3,'#fff']},{type:'rect',args:[NaN,0,1,1,'#fff']},{type:'clear',args:['url(https://example.com)']}])assert.throws(()=>sandbox.validateSandboxFrame({commands:[command],logs:[]}));
+ assert.throws(()=>sandbox.validateSandboxFrame({commands:[],logs:['x'.repeat(301)]}));
+ const frame=sandbox.sandboxFrame();assert.match(frame,/connect-src 'none'/);assert.match(frame,/worker-src blob:/);assert.ok(!frame.includes('allow-same-origin'));assert.match(frame,/e.source!==parent/);
+ const script=frame.match(/<script>([\s\S]*)<\/script>/)[1];new vm.Script(script);
+ const self={postMessage:m=>{self.result=m}};const context=vm.createContext({self});vm.runInContext(sandbox.SANDBOX_WORKER,context,{timeout:100});self.onmessage({data:{type:'start',code:'throw Error("broken")'}});assert.equal(self.result.type,'error');assert.match(self.result.error,/broken/);
+ const hung=vm.createContext({self:{postMessage(){}}});vm.runInContext(sandbox.SANDBOX_WORKER,hung);assert.throws(()=>vm.runInContext('self.onmessage({data:{type:"start",code:"while(true){}"}})',hung,{timeout:30}),/timed out/);
+});
+
+test('sandbox bootstrap creates the tested worker source and terminates it on stop',()=>{
+ const sandbox=loader()('src/core/codeSandbox.ts');const script=sandbox.sandboxFrame().match(/<script>([\s\S]*)<\/script>/)[1];
+ let relay,blobSource,terminated=0;const parent={postMessage(){}},workers=[];
+ class BlobMock{constructor(parts){blobSource=parts.join('');}}
+ class WorkerMock{constructor(){workers.push(this);}postMessage(m){this.sent=m;}terminate(){terminated++;}}
+ vm.runInNewContext(script,{parent,Blob:BlobMock,Worker:WorkerMock,URL:{createObjectURL:()=> 'blob:test',revokeObjectURL(){}},addEventListener:(name,fn)=>relay=fn});
+ relay({source:{},data:{type:'start'}});assert.equal(workers.length,0);
+ relay({source:parent,data:{type:'start',code:sandbox.SANDBOX_EXAMPLE}});assert.equal(blobSource,sandbox.SANDBOX_WORKER);assert.equal(workers.length,1);
+ const messages=[];const self={postMessage:m=>messages.push(m)};vm.runInNewContext(blobSource,{self});self.onmessage({data:workers[0].sent});assert.equal(messages[0].type,'ready');
+ relay({source:parent,data:{type:'stop'}});assert.equal(terminated,1);
+});
+
+test('game playground ignores foreign messages and stops unresponsive or hidden sessions',()=>{
+ const sandbox=loader()('src/core/codeSandbox.ts');let now=0,pulse,element,canvasProps;const listeners={},effects=[],states=[],sent=[],drawn=[],finished=[];
+ const context={fillRect:(...a)=>drawn.push(a),beginPath(){},arc(){},fill(){},fillText(){}};
+ const canvas={focus(){},getContext:()=>context};
+ const jsx=(type,props)=>{if(type==='canvas'&&props.ref){props.ref.current=canvas;canvasProps=props;}return {type,props};};
+ const react={useState:init=>{let v=typeof init==='function'?init():init;return [v,next=>{v=typeof next==='function'?next(v):next;states.push(v);}];},useRef:v=>({current:v}),useEffect:fn=>effects.push(fn)};
+ const document={visibilityState:'visible',body:{appendChild(){}},createElement:()=>element={contentWindow:{postMessage:m=>sent.push(m)},setAttribute(name,value){this[name]=value;},remove(){this.removed=true;}},addEventListener:(name,fn)=>listeners[name]=fn,removeEventListener:name=>delete listeners[name]};
+ const window={addEventListener:(name,fn)=>listeners[name]=fn,removeEventListener:name=>delete listeners[name]};
+ const module={exports:{}};const code=ts.transpileModule(fs.readFileSync('src/components/CodePlayground.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;
+ vm.runInNewContext(code,{module,exports:module.exports,require:id=>id==='react'?react:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:id==='../core/gameProject'?loader()('src/core/gameProject.ts'):id==='../core/gameMedia'?loader()('src/core/gameMedia.ts'):id==='../core/gamePointer'?loader({}, {window})('src/core/gamePointer.ts'):id==='../core/gameProgress'?loader()('src/core/gameProgress.ts'):id==='../core/codeGames'?loader({'./persistence':{readStored:()=>null,writeStored(){}}})('src/core/codeGames.ts'):sandbox,document,window,performance:{now:()=>now},setInterval:fn=>{pulse=fn;return 1;},clearInterval:()=>{pulse=null;}});
+ const props={code:sandbox.SANDBOX_EXAMPLE,onCode(){},onRunFinished:e=>finished.push(e)};const tree=module.exports.default(props);
+ function find(node,label){if(!node||typeof node!=='object')return;if(node.type==='button'&&node.props.children===label)return node;for(const c of [node.props?.children].flat(Infinity)){const found=find(c,label);if(found)return found;}}
+ const run=find(tree,'Run game');run.props.onClick();assert.equal(element.sandbox,'allow-scripts');const game=element;
+ listeners.message({source:{},data:{type:'boot'}});assert.equal(sent.length,0);
+ listeners.message({source:game.contentWindow,data:{type:'boot'}});assert.equal(sent[0].type,'start');
+ listeners.message({source:game.contentWindow,data:{type:'ready'}});canvasProps.onKeyDown({key:'ArrowRight',preventDefault(){}});now=33;pulse();assert.equal(sent.at(-1).type,'tick');listeners.message({source:game.contentWindow,data:{type:'frame',commands:[],logs:['game says hello']}});now=66;pulse();props.code='changed after run began';
+ now=900;pulse();assert.equal(game.removed,true);assert.ok(states.some(s=>typeof s==='string'&&s.includes('too long')));assert.equal(pulse,null);assert.equal(finished[0].code,sandbox.SANDBOX_EXAMPLE);assert.equal(finished[0].frames,1);assert.equal(finished[0].reason,'timeout');assert.equal(finished[0].keysUsed[0],'ArrowRight');assert.equal(finished[0].logs[0],'game says hello');
+ run.props.onClick();document.visibilityState='hidden';listeners.visibilitychange();assert.equal(element.removed,true);assert.equal(pulse,null);assert.equal(sent.at(-1).type,'stop');assert.equal(finished[1].reason,'hidden');
+ effects.map(fn=>fn()).filter(fn=>typeof fn==='function').forEach(fn=>fn());
+});
+
+test('saved games preserve immutable versions, reopen and roundtrip backup with exact run evidence',()=>{
+ const values=new Map();const load=loader({'./persistence':{readStored:k=>values.get(k)??null,writeStored:(k,v)=>values.set(k,v)}},{crypto:require('node:crypto').webcrypto});const games=load('src/core/codeGames.ts'),backup=load('src/core/backup.ts');
+ const first=games.addCodeGame({games:[],reports:[]},'Stars','api.onFrame=()=>{};');const second=games.addCodeGame(first.state,'Stars','api.onFrame=()=>{api.clear("#fff")};',first.game.id);
+ assert.equal(first.state.games.length,1);assert.equal(second.game.version,2);assert.equal(second.game.parentId,first.game.id);assert.equal(second.game.rootId,first.game.id);assert.throws(()=>games.addCodeGame(second.state,'Stars',second.game.code,second.game.id),/change/);
+ const evidence={code:first.game.code,startedAt:'2026-10-19T00:00:00Z',endedAt:'2026-10-19T00:00:01Z',elapsedMs:1000,frames:24,keysUsed:['ArrowRight'],reason:'stopped',detail:'Stopped.',logs:['score: 1']};
+ let state=games.addGameReport(second.state,evidence,'Stars','needs-fix','Character resets.',first.game.id);assert.equal(state.reports[0].gameId,first.game.id);
+ const mismatch=games.addGameReport(second.state,evidence,'Stars','worked','',second.game.id);assert.equal(mismatch.reports[0].gameId,undefined,'report cannot attach to a different source');
+ state=games.addGameReport(state,{...evidence,checkKind:'smoke'},'Stars','not-reviewed','Automated check only.');
+ games.saveCodeGames(state);assert.equal(games.loadCodeGames().games.length,2);assert.equal(games.loadCodeGames().reports[0].code,first.game.code);
+ const restored=backup.validateBackup(JSON.stringify(backup.snapshotBackup()));assert.equal(restored.data['mana.code_games.v1'].reports[0].notes,'Character resets.');assert.equal(restored.data['mana.code_games.v1'].reports[1].checkKind,'smoke');assert.equal(restored.data['mana.code_games.v1'].reports[1].outcome,'not-reviewed');assert.match(backup.backupCounts(restored),/2 game versions/);
+ delete restored.data['mana.code_games.v1'];assert.equal(backup.validateBackup(JSON.stringify(restored)).data['mana.code_games.v1'].games.length,0);
+ state={games:[],reports:state.reports};games.saveCodeGames(state);assert.equal(games.loadCodeGames().reports[0].code,first.game.code,'deleting game versions retains tested source snapshots');
+});
+test('game report validation and revision prompts distinguish exact-source measurements from user feedback',()=>{
+ const games=loader()('src/core/codeGames.ts');const evidence={code:'api.onFrame=()=>{};',startedAt:'2026-10-19T00:00:00Z',endedAt:'2026-10-19T00:00:01Z',elapsedMs:1000,frames:24,keysUsed:['ArrowRight'],reason:'stopped',detail:'Stopped.',logs:['score: 1']};
+ for(const patch of [{frames:NaN},{frames:1.2},{elapsedMs:-1},{reason:'success'},{keysUsed:['Control']},{logs:['x'.repeat(301)]},{endedAt:'2025-01-01'}])assert.equal(games.validateRunEvidence({...evidence,...patch}),undefined);
+ const report={...evidence,id:'run-1',title:'Stars',savedAt:'2026-10-19T01:00:00Z',outcome:'needs-fix',notes:'Player resets.'};
+ const messages=games.gameDraftMessages('Fix movement',{code:evidence.code,reports:[report,{...report,id:'wrong',code:'other source',notes:'UNRELATED REPORT'}]});assert.match(messages[1].content,/Player resets/);assert.ok(!messages[1].content.includes('UNRELATED REPORT'));assert.match(messages[1].content,/not proof/);assert.match(messages[1].content,/has not been run/);
+ assert.equal(games.validateCodeGames({games:[],reports:[{...report,outcome:'automatically verified'}]}).reports.length,0);
+});
+
+test('generated game syntax check never executes code and rejects broken drafts before replacement',()=>{
+ const global={ran:false};const sandbox=loader({}, {globalThis:global})('src/core/codeSandbox.ts');
+ assert.equal(sandbox.checkedSandboxDraft('globalThis.ran=true; api.onFrame=()=>{};'),'globalThis.ran=true; api.onFrame=()=>{};');assert.equal(global.ran,false);
+ assert.equal(sandbox.checkedSandboxDraft('```js\napi.onFrame=()=>{};\n```'),'api.onFrame=()=>{};');
+ let current=sandbox.SANDBOX_EXAMPLE;assert.throws(()=>{current=sandbox.checkedSandboxDraft('api.onFrame=()=>{api.circle(1,2,3,"#fff"));};');},/syntax error/);assert.equal(current,sandbox.SANDBOX_EXAMPLE);
+ assert.equal(sandbox.checkedSandboxDraft('<think>plan</think>api.onFrame=()=>{};'),'api.onFrame=()=>{};');
+});
+
+test('game drafts use a scoped output allowance and reject truncation without changing chat defaults',async()=>{
+ const bodies=[];let reason='stop';
+ const load=loader({}, {fetch:async(url,options)=>{bodies.push(JSON.parse(options.body));const lines=[{choices:[{delta:{content:'api.onFrame=()=>{};'},finish_reason:null}]},{choices:[{delta:{},finish_reason:reason}]}].map(x=>'data: '+JSON.stringify(x)+'\n\n').join('')+'data: [DONE]\n\n';return {ok:true,body:{getReader(){let sent=false;return {read:async()=>sent?{done:true}:(sent=true,{done:false,value:new TextEncoder().encode(lines)})};}}};}});
+ const llm=load('src/core/llm.ts');await llm.streamChat({port:8080,messages:[],temperature:.4,onToken(){}});assert.equal(bodies[0].max_tokens,700);
+ await llm.streamChat({port:8080,messages:[],temperature:.4,maxTokens:2000,rejectTruncated:true,onToken(){}});assert.equal(bodies[1].max_tokens,2000);
+ reason='length';await assert.rejects(llm.streamChat({port:8080,messages:[],temperature:.4,maxTokens:2000,rejectTruncated:true,onToken(){}}),/output limit/);
+ await assert.rejects(llm.streamChat({port:8080,messages:[],temperature:.4,maxTokens:Infinity,onToken(){}}),/output limit/);
+});
+test('repaired power-up game keeps a timed speed boost without assigning to a constant',()=>{
+ const sandbox=loader()('src/core/codeSandbox.ts');assert.equal(sandbox.checkedSandboxDraft(sandbox.SANDBOX_POWERUP_EXAMPLE),sandbox.SANDBOX_POWERUP_EXAMPLE);
+ let result;const math=Object.create(Math);math.random=()=>.25;const self={postMessage:m=>result=m};vm.runInNewContext(sandbox.SANDBOX_WORKER,{self,Math:math});self.onmessage({data:{type:'start',code:sandbox.SANDBOX_POWERUP_EXAMPLE}});assert.equal(result.type,'ready');
+ const tick=(keys={},dt=.1)=>{self.onmessage({data:{type:'tick',keys,dt}});assert.equal(result.type,'frame',result.error);return sandbox.validateSandboxFrame(result);};
+ const player=r=>r.commands.filter(c=>c.type==='circle').at(-1).args;
+ tick();let frame=tick({ArrowRight:true});assert.equal(player(frame)[0],142.5);frame=tick({ArrowRight:true});assert.equal(player(frame)[0],165);
+ for(let i=0;i<60;i++)tick();frame=tick({ArrowRight:true});assert.equal(player(frame)[0],180);assert.match(frame.commands.filter(c=>c.type==='text')[1].args[0],/no hazards/);
+});
+
+test('automated smoke check runs real example worker through bounded isolated message protocol',async()=>{
+ const realSandbox=loader()('src/core/codeSandbox.ts');let currentFrame,handler,pulse,removed=0,stopped=0;
+ const listeners={};
+ const document={visibilityState:'visible',addEventListener:(n,fn)=>listeners[n]=fn,removeEventListener:n=>delete listeners[n],createElement:()=>{const frame={setAttribute(n,v){this[n]=v;},remove(){removed++;},contentWindow:{postMessage(m){if(m.type==='stop'){stopped++;return;}queueMicrotask(()=>handler({data:m}));}}};currentFrame=frame;return frame;},body:{appendChild(frame){assert.equal(frame.sandbox,'allow-scripts');const self={postMessage:m=>queueMicrotask(()=>listeners.message?.({source:frame.contentWindow,data:m}))};vm.runInNewContext(realSandbox.SANDBOX_WORKER,{self});handler=self.onmessage;queueMicrotask(()=>listeners.message({source:frame.contentWindow,data:{type:'boot'}}));}}};
+ const load=loader({}, {document,window:{addEventListener:(n,fn)=>listeners[n]=fn,removeEventListener:n=>delete listeners[n]},performance,setInterval:fn=>{pulse=fn;return 1;},clearInterval:()=>pulse=null,DOMException});
+ const smoke=load('src/core/gameSmoke.ts');const result=await smoke.checkGameSmoke(realSandbox.SANDBOX_EXAMPLE);
+ assert.equal(result.passed,true);assert.equal(result.evidence.frames,92);assert.equal(result.evidence.checkKind,'smoke');assert.deepEqual(Array.from(result.evidence.keysUsed).sort(),['ArrowDown','ArrowLeft','ArrowRight','ArrowUp','Space']);assert.equal(removed,1);assert.equal(stopped,1);assert.equal(pulse,null);assert.match(result.evidence.detail,/not verified/);
+ const staticResult=await smoke.checkGameSmoke('api.onFrame=()=>{api.clear("#fff")};');assert.equal(staticResult.passed,true);assert.equal(staticResult.warnings.length,1,'static drawing is a warning, not proof of broken gameplay');
+ const broken=await smoke.checkGameSmoke('api.onFrame=()=>{throw Error("bad tick")};');assert.equal(broken.passed,false);assert.equal(broken.evidence.frames,0);assert.match(broken.evidence.detail,/bad tick/);
+ const blank=await smoke.checkGameSmoke('api.onFrame=()=>{};');assert.equal(blank.passed,false);assert.match(blank.evidence.detail,/no drawing/);
+});
+test('smoke check stops stalled workers, ignores foreign messages and aborts cleanly',async()=>{
+ let now=0,pulse,frame,removed=0;const listeners={};const document={visibilityState:'visible',addEventListener:(n,fn)=>listeners[n]=fn,removeEventListener:n=>delete listeners[n],createElement:()=>frame={contentWindow:{postMessage(){}},setAttribute(){},remove(){removed++;}},body:{appendChild(){}}};
+ const smoke=loader({}, {document,window:{addEventListener:(n,fn)=>listeners[n]=fn,removeEventListener:n=>delete listeners[n]},performance:{now:()=>now},setInterval:fn=>{pulse=fn;return 1;},clearInterval:()=>pulse=null,DOMException})('src/core/gameSmoke.ts');
+ const pending=smoke.checkGameSmoke('api.onFrame=()=>{};');listeners.message({source:{},data:{type:'ready'}});now=2600;pulse();const result=await pending;assert.equal(result.passed,false);assert.equal(result.evidence.reason,'timeout');assert.equal(result.evidence.frames,0);assert.equal(removed,1);assert.equal(pulse,null);
+ const controller=new AbortController();const cancelled=smoke.checkGameSmoke('api.onFrame=()=>{};',controller.signal);controller.abort();await assert.rejects(cancelled,/cancelled/);assert.equal(removed,2);assert.equal(pulse,null);
+});
+
+test('coding skill reviews require exact reviewed manual evidence and never inflate practice milestones',()=>{
+ let seq=0;const load=loader({'./types':{uid:()=>String(++seq)}}),skills=load('src/core/skills.ts'),evidence=load('src/core/codingEvidence.ts');
+ const game={id:'game1',rootId:'game1',version:1,title:'Stars',code:'api.onFrame=()=>{};',createdAt:'2026-10-19T00:00:00Z'};
+ const report={id:'run1',gameId:game.id,title:'Stars',code:game.code,startedAt:game.createdAt,endedAt:'2026-10-19T00:00:01Z',elapsedMs:1000,frames:30,keysUsed:['ArrowRight','Space'],reason:'stopped',detail:'Stopped.',logs:[],savedAt:'2026-10-19T00:00:02Z',outcome:'worked',notes:'Movement and reset worked.'};
+ assert.equal(evidence.codingSources({games:[game],reports:[report,{...report,id:'smoke',checkKind:'smoke'},{...report,id:'unreviewed',outcome:'not-reviewed'},{...report,id:'empty',frames:0},{...report,id:'wrong',code:'other'}]}).length,1);
+ let entries=skills.confirmCodingCheck([],game,report,'movement','demonstrated','Held Right, then released; position stayed.',new Date('2026-10-19T01:00:00Z'));
+ assert.equal(skills.codingProgress(entries).demonstrated,1);assert.equal(skills.practiceProgress(entries,'coding').count,0);assert.equal(skills.practiceProgress(entries,'coding').stage,0);
+ assert.throws(()=>skills.confirmCodingCheck(entries,game,report,'movement','demonstrated','Duplicate'),/already/);
+ entries=skills.confirmCodingCheck(entries,game,report,'restart','demonstrated','Space reset the score once.');assert.equal(entries.length,2);
+ for(const changed of [{...report,checkKind:'smoke'},{...report,keysUsed:[]},{...report,frames:0},{...report,outcome:'not-reviewed'},{...report,outcome:'needs-fix'},{...report,reason:'error'}])assert.throws(()=>skills.confirmCodingCheck([],game,changed,'movement','demonstrated','Checked movement'),/manual run/);
+ assert.throws(()=>skills.confirmCodingCheck([],game,{...report,code:'different'},'movement','demonstrated','Mismatch'),/exact/);
+ const nextReport={...report,id:'run2',outcome:'needs-fix',reason:'error'};entries=skills.confirmCodingCheck(entries,game,nextReport,'movement','needs-work','Player snaps back in this later test.',new Date('2099-01-01T00:00:00Z'));
+ assert.equal(skills.codingProgress(entries).latest.find(p=>p.assessment.criterion==='movement').assessment.result,'needs-work');assert.equal(entries.length,3);assert.equal(skills.codingProgress(entries.filter(p=>p.assessment.report.id!=='run2')).demonstrated,2);
+});
+test('coding assessment snapshots retain source and user limits through restart and backups',()=>{
+ const values=new Map();let seq=0;const load=loader({'./types':{uid:()=>String(++seq)},'./persistence':{readStored:k=>values.get(k)??null,writeStored:(k,v)=>values.set(k,v)}}),s=load('src/core/skills.ts'),backup=load('src/core/backup.ts');
+ const game={id:'g',rootId:'g',title:'Stars',version:1,code:'api.onFrame=()=>{};',createdAt:'2026-10-19T00:00:00Z'};
+ const report={id:'r',gameId:'g',title:'Stars',code:game.code,startedAt:game.createdAt,endedAt:'2026-10-19T00:00:01Z',elapsedMs:1000,frames:30,keysUsed:['ArrowRight'],reason:'stopped',detail:'Stopped.',logs:[],savedAt:'2026-10-19T00:00:02Z',outcome:'worked',notes:'Works.'};
+ const entries=s.confirmCodingCheck([],game,report,'state','demonstrated','Position remained after release.');s.savePractice(entries);
+ assert.equal(s.loadPractice()[0].assessment.report.code,game.code);const snapshot=backup.snapshotBackup();const restored=backup.validateBackup(JSON.stringify(snapshot));assert.equal(restored.data['mana.skills.v1'][0].assessment.game.version,1);
+ values.set('mana.code_games.v1',JSON.stringify({games:[],reports:[]}));assert.equal(s.loadPractice()[0].assessment.report.id,'r');assert.match(s.skillsContext(s.loadPractice(),'How are my skills progressing?'),/limited examples/);assert.ok(!s.skillsContext(s.loadPractice(),'How are my skills progressing?').includes(game.code));
+ const broken=JSON.parse(JSON.stringify(snapshot));broken.data['mana.skills.v1'][0].assessment.report.checkKind='smoke';assert.throws(()=>backup.validateBackup(JSON.stringify(broken)),/Invalid data/);
+ const legacy={...entries[0],source:{id:'old',kind:'work',title:'Draft',outcome:'Reviewed only',createdAt:game.createdAt}};delete legacy.assessment;assert.equal(s.validatePractice([legacy]).length,1);
+ assert.equal(values.has('mana.stats.v1'),false);assert.equal(values.has('mana.relationship.v1'),false);
+});
+
+test('playable game export escapes source and title and starts only inside its isolated frame',()=>{
+ const load=loader(),sandbox=load('src/core/codeSandbox.ts'),exports=load('src/core/gameExport.ts');
+ const source='const text="</script><script>globalThis.hacked=true</script>"; api.onFrame=()=>{api.clear("#000")};';
+ const html=exports.exportPlayableGame('<img src=x onerror=alert(1)>',source);assert.match(html,/&lt;img/);assert.equal((html.match(/<script>/g)||[]).length,1);assert.equal((html.match(/<\/script>/g)||[]).length,1);assert.match(html,/connect-src 'none'/);assert.ok(!html.includes('allow-same-origin'));assert.throws(()=>exports.exportPlayableGame('Bad','api.onFrame=()=>{'),/syntax/);
+ const nodes={game:{getContext:()=>({fillRect(){}}),focus(){}},run:{},stop:{},status:{},source:{},log:{}};let frame,pulse,removed=0;const events={},sent=[];const document={visibilityState:'visible',getElementById:id=>nodes[id],addEventListener:(name,fn)=>events[name]=fn,createElement:()=>frame={contentWindow:{postMessage:m=>sent.push(m)},setAttribute(name,value){this[name]=value;},remove(){removed++;}},body:{appendChild(){}}};
+ const window={addEventListener:(name,fn)=>events[name]=fn};
+ vm.runInNewContext(html.match(/<script>([\s\S]*)<\/script>/)[1],{document,window,performance:{now:()=>0},setInterval:fn=>{pulse=fn;return 1;},clearInterval(){},globalThis:{hacked:false}});
+ assert.equal(nodes.source.textContent,source);assert.equal(frame,undefined,'no worker/frame before explicit Run');
+ nodes.run.onclick();assert.equal(frame.sandbox,'allow-scripts');assert.equal(frame.srcdoc,sandbox.sandboxFrame());
+ events.message({source:{},data:{type:'boot'}});assert.equal(sent.filter(m=>m.type==='start').length,0);
+ events.message({source:frame.contentWindow,data:{type:'boot'}});assert.equal(sent.at(-1).code,source);
+ events.message({source:frame.contentWindow,data:{type:'ready'}});nodes.game.onkeydown({key:'ArrowRight',preventDefault(){}});pulse();assert.equal(sent.at(-1).keys.ArrowRight,true);
+ nodes.stop.onclick();assert.equal(removed,1);assert.equal(nodes.run.disabled,false);assert.equal(nodes.stop.disabled,true);assert.equal(sent.at(-1).type,'stop');
+});
+
+test('multi-file projects run local modules and JSON once, preserve exact snapshots, reject escaping paths',()=>{
+ const load=loader(),p=load('src/core/gameProject.ts'),games=load('src/core/codeGames.ts'),sandbox=load('src/core/codeSandbox.ts');
+ const project={entry:'main.js',files:[{path:'main.js',content:'const player=require("./player"); const again=require("./player"); api.log(player===again); api.log(require("./level.json").speed); api.onFrame=()=>{};'},{path:'player.js',content:'module.exports={x:120};'},{path:'level.json',content:'{"speed":150}'}]};
+ const source=p.bundleGameProject(project),logs=[];new Function('api',source)({log:v=>logs.push(v)});assert.deepEqual(logs,[true,150]);assert.equal(p.bundleGameProject(p.readGameProject(source)),source);assert.equal(sandbox.checkedSandboxDraft(JSON.stringify(project)),source);
+ const saved=games.addCodeGame({games:[],reports:[]},'Project',source);const restored=games.validateCodeGames(JSON.parse(JSON.stringify(saved.state)));assert.equal(p.readGameProject(restored.games[0].code).files.length,3);
+ const revision=games.gameDraftMessages('Fix movement',{code:source,reports:[]});assert.match(revision[0].content,/JSON object/);assert.match(revision[1].content,/player.js/);
+ for(const request of ['../private','https://example.com','./missing']){const bad=p.bundleGameProject({entry:'main.js',files:[{path:'main.js',content:'require('+JSON.stringify(request)+');'}]});assert.throws(()=>new Function('api',bad)({}),/local project|Missing project/);}
+ assert.throws(()=>p.bundleGameProject({entry:'main.js',files:[{path:'../main.js',content:''}]}));assert.equal(p.readGameProject(source+'\napi.log(1);'),undefined);
+ assert.throws(()=>new Function('api',p.bundleGameProject({entry:'main.js',files:[{path:'main.js',content:'require("./bad.json");'},{path:'bad.json',content:'broken'}]}))({}));
+});
+
+test('game assets roundtrip through versions backups and offline exports without entering model prompts',()=>{
+ const load=loader({'./persistence':{readStored:()=>null,writeStored(){}}}),project=load('src/core/gameProject.ts'),example=load('src/core/gameAssetExample.ts').GAME_ASSET_EXAMPLE,games=load('src/core/codeGames.ts'),backup=load('src/core/backup.ts');
+ const source=project.bundleGameProject(example);assert.equal(project.readGameProject(source).assets.length,2);
+ const state=games.addCodeGame({games:[],reports:[]},'Asset example',source).state;assert.equal(games.validateCodeGames(JSON.parse(JSON.stringify(state))).games[0].code,source);
+ const snapshot=backup.snapshotBackup();snapshot.data['mana.code_games.v1']=state;assert.equal(backup.validateBackup(JSON.stringify(snapshot)).data['mana.code_games.v1'].games[0].code,source);
+ const messages=games.gameDraftMessages('Improve movement',{code:source,reports:[]});assert.match(messages[1].content,/player.png/);assert.ok(!messages[1].content.includes('base64,'));
+ const output=load('src/core/gameExport.ts').exportPlayableGame('Assets',source);assert.match(output,/img-src data:/);assert.match(output,/media-src data:/);assert.match(output,/data:image\/png;base64/);assert.match(output,/data:audio\/wav;base64/);assert.ok(Buffer.byteLength(output)<250000);
+ const large=project.bundleGameProject({...example,assets:[{name:'large.png',data:'data:image/png;base64,'+'A'.repeat(79000)}]});assert.ok(large.length>16000);assert.equal(load('src/core/codeSandbox.ts').sandboxCode(large),large);assert.equal(games.validateCodeGames(games.addCodeGame({games:[],reports:[]},'Large',large).state).games.length,1);assert.ok(Buffer.byteLength(load('src/core/gameExport.ts').exportPlayableGame('Large',large))<250000);
+ for(const assets of [[{name:'bad.svg',data:'data:image/svg+xml;base64,AAAA'}],[{name:'x.png',data:'https://example.com/x.png'}],[{name:'x.png',data:'data:audio/wav;base64,AAAA'}],[{name:'big.png',data:'data:image/png;base64,'+'A'.repeat(80000)}]])assert.throws(()=>project.bundleGameProject({...example,assets}));
+});
+test('asset rendering uses project media, bounds sound spam and stops all playing sounds',async()=>{
+ let paused=0,played=0;class Image{complete=true;naturalWidth=8;naturalHeight=8;}class Audio{constructor(src){this.src=src;}play(){played++;return Promise.resolve();}pause(){paused++;}removeAttribute(){}}
+ const load=loader({}, {Image,Audio,performance:{now:()=>1000}}),media=load('src/core/gameMedia.ts'),sandbox=load('src/core/codeSandbox.ts');
+ const assets=[{name:'p.png',data:'data:image/png;base64,AAAA'},{name:'s.wav',data:'data:audio/wav;base64,AAAA'}],player=media.createGameMedia(assets),draws=[];
+ player.draw({drawImage:(...a)=>draws.push(a)},'image',['p.png',10,20,32,32]);assert.equal(draws.length,1);
+ player.draw({},'sound',['s.wav',.4]);player.draw({},'sound',['s.wav',.4]);assert.equal(played,1);player.stop();assert.equal(paused,1);player.draw({},'sound',['s.wav',.4]);assert.equal(played,1);
+ assert.throws(()=>player.draw({},'image',['missing.png',0,0,20,20]),/Missing image/);
+ sandbox.validateSandboxFrame({commands:[{type:'image',args:['p.png',0,0,20,20]},{type:'sound',args:['s.wav',.4]}],logs:[]});
+ assert.throws(()=>sandbox.validateSandboxFrame({commands:[{type:'sound',args:['https://example.com',.5]}],logs:[]}));
+ assert.throws(()=>sandbox.validateSandboxFrame({commands:[{type:'sound',args:['s.wav',2]}],logs:[]}));
+ assert.throws(()=>sandbox.validateSandboxFrame({commands:Array.from({length:3},()=>({type:'sound',args:['s.wav',.5]})),logs:[]}));
+});
+
+test('asset example emits bounded media commands in the real worker and exported media stops on Stop',()=>{
+ const load=loader(),sandbox=load('src/core/codeSandbox.ts'),project=load('src/core/gameProject.ts'),example=load('src/core/gameAssetExample.ts').GAME_ASSET_EXAMPLE,source=project.bundleGameProject(example),messages=[];
+ const self={postMessage:m=>messages.push(m)};vm.runInNewContext(sandbox.SANDBOX_WORKER,{self});self.onmessage({data:{type:'start',code:source}});assert.equal(messages.at(-1).type,'ready');self.onmessage({data:{type:'tick',dt:1/30,keys:{Space:true}}});const output=messages.at(-1);sandbox.validateSandboxFrame(output);assert.ok(output.commands.some(c=>c.type==='image'));assert.ok(output.commands.some(c=>c.type==='sound'));
+ let plays=0,pauses=0,draws=0;class Image{complete=true;naturalWidth=8;naturalHeight=8;}class Audio{play(){plays++;return Promise.resolve();}pause(){pauses++;}removeAttribute(){}}
+ const html=load('src/core/gameExport.ts').exportPlayableGame('Asset example',source),nodes={game:{getContext:()=>({fillRect(){},fillText(){},drawImage(){draws++;}}),focus(){}},run:{},stop:{},status:{},source:{},log:{}};let frame,pulse;const events={};
+ const document={visibilityState:'visible',getElementById:id=>nodes[id],addEventListener:(name,fn)=>events[name]=fn,createElement:()=>frame={contentWindow:{postMessage(){}},setAttribute(){},remove(){}},body:{appendChild(){}}},window={addEventListener:(name,fn)=>events[name]=fn};
+ vm.runInNewContext(html.match(/<script>([\s\S]*)<\/script>/)[1],{document,window,Image,Audio,performance:{now:()=>1000},setInterval:fn=>{pulse=fn;return 1;},clearInterval(){}});
+ assert.equal(plays,0);nodes.run.onclick();events.message({source:frame.contentWindow,data:{type:'boot'}});events.message({source:frame.contentWindow,data:{type:'ready'}});pulse();events.message({source:frame.contentWindow,data:output});assert.equal(draws,1);assert.equal(plays,1);nodes.stop.onclick();assert.equal(pauses,1);
+});
+test('imported assets are decoded without playing and reject excessive duration or image size',async()=>{
+ let plays=0;class Image{naturalWidth=4096;naturalHeight=8;set src(v){queueMicrotask(()=>this.onload?.());}}class Audio{duration=11;play(){plays++;}removeAttribute(){}set src(v){queueMicrotask(()=>this.onloadedmetadata?.());}}
+ const media=loader({}, {Image,Audio,setTimeout,clearTimeout,queueMicrotask})('src/core/gameMedia.ts');await assert.rejects(media.inspectGameAsset('data:image/png;base64,AAAA'),/2048/);await assert.rejects(media.inspectGameAsset('data:audio/wav;base64,AAAA'),/10 seconds/);assert.equal(plays,0);
+});
+
+test('mouse input maps scaled canvas coordinates and preserves quick clicks until a tick',()=>{
+ const events={};const window={addEventListener:(name,fn)=>events[name]=fn,removeEventListener:name=>delete events[name]};const load=loader({}, {window}),p=load('src/core/gamePointer.ts');let focused=0;
+ const canvas={focus(){focused++;},getBoundingClientRect:()=>({left:10,top:20,width:960,height:560})},pointer=p.createGamePointer(canvas);
+ const event={clientX:490,clientY:300,button:0,isPrimary:true,pointerId:1,preventDefault(){}};
+ canvas.onpointerdown(event);canvas.onpointerup(event);let state=pointer.take();assert.equal(state.x,240);assert.equal(state.y,140);assert.equal(state.clicked,true);assert.equal(state.released,true);assert.equal(state.down,false);assert.equal(focused,1);assert.equal(pointer.take().clicked,false);
+ canvas.onpointerdown({...event,button:2});assert.equal(pointer.take().clicked,false);canvas.onpointerdown({...event,isPrimary:false});assert.equal(pointer.take().clicked,false);
+ canvas.onpointerdown(event);events.blur();state=pointer.take();assert.equal(state.clicked,false);assert.equal(state.down,false);canvas.onpointermove({...event,clientX:2000});assert.equal(pointer.take().inside,false);
+ canvas.onpointerdown(event);canvas.onpointercancel();assert.equal(pointer.take().clicked,false);pointer.stop();assert.equal(canvas.onpointerdown,null);assert.equal(events.pointerup,undefined);
+});
+test('mouse example buttons change scenes once per click, allow target scoring and keep old games compatible',()=>{
+ const load=loader(),sandbox=load('src/core/codeSandbox.ts'),example=load('src/core/gamePointer.ts').MOUSE_GAME_EXAMPLE,messages=[],self={postMessage:m=>messages.push(m)};
+ vm.runInNewContext(sandbox.SANDBOX_WORKER,{self});self.onmessage({data:{type:'start',code:example}});assert.equal(messages.at(-1).type,'ready');
+ const tick=mouse=>{self.onmessage({data:{type:'tick',dt:1/30,keys:{},mouse}});const out=messages.at(-1);assert.equal(out.type,'frame');sandbox.validateSandboxFrame(out);return out.commands;};
+ assert.ok(tick().some(c=>c.type==='text'&&c.args[0]==='Start game'));
+ tick({x:240,y:124,inside:true,clicked:true,down:false});let cmds=tick({x:250,y:140,inside:true,clicked:true});cmds=tick({x:250,y:140,inside:true,clicked:false,down:true});assert.ok(cmds.some(c=>c.args[0]==='Score: 1'));
+ tick({x:400,y:20,inside:true,clicked:true});assert.ok(tick().some(c=>c.args[0]==='Start game'));
+});
+test('offline mouse controls deliver scaled quick clicks, clear held input on blur and detach on Stop',()=>{
+ const load=loader(),html=load('src/core/gameExport.ts').exportPlayableGame('Mouse',load('src/core/gamePointer.ts').MOUSE_GAME_EXAMPLE),nodes={game:{getBoundingClientRect:()=>({left:0,top:0,width:960,height:560}),getContext:()=>({fillRect(){}}),focus(){}},run:{},stop:{},status:{},source:{},log:{}};let frame,pulse;const events={},sent=[];
+ const document={visibilityState:'visible',getElementById:id=>nodes[id],addEventListener:(name,fn)=>events[name]=fn,createElement:()=>frame={contentWindow:{postMessage:m=>sent.push(m)},setAttribute(){},remove(){}},body:{appendChild(){}}};const window={addEventListener:(name,fn)=>events[name]=fn,removeEventListener:name=>delete events[name]};
+ vm.runInNewContext(html.match(/<script>([\s\S]*)<\/script>/)[1],{document,window,performance:{now:()=>0},setInterval:fn=>{pulse=fn;return 1;},clearInterval(){}});
+ nodes.run.onclick();events.message({source:frame.contentWindow,data:{type:'boot'}});events.message({source:frame.contentWindow,data:{type:'ready'}});
+ const e={clientX:480,clientY:248,button:0,isPrimary:true,preventDefault(){}};nodes.game.onpointerdown(e);nodes.game.onpointerup(e);pulse();assert.equal(sent.at(-1).mouse.clicked,true);assert.equal(sent.at(-1).mouse.x,240);assert.equal(sent.at(-1).mouse.y,124);nodes.game.onblur();nodes.stop.onclick();assert.equal(nodes.game.onpointerdown,null);assert.equal(events.pointerup,undefined);
+});
+
+test('sprite demo loops walking frames, resets idle and clamps one-shot reactions in the real worker',()=>{
+ const load=loader(),sandbox=load('src/core/codeSandbox.ts'),project=load('src/core/gameProject.ts'),example=load('src/core/gameSpriteExample.ts').GAME_SPRITE_EXAMPLE,source=project.bundleGameProject(example),messages=[],self={postMessage:m=>messages.push(m)};
+ vm.runInNewContext(sandbox.SANDBOX_WORKER,{self});self.onmessage({data:{type:'start',code:source}});assert.equal(messages.at(-1).type,'ready');
+ const tick=(dt,keys={})=>{self.onmessage({data:{type:'tick',dt,keys}});const out=messages.at(-1);assert.equal(out.type,'frame');sandbox.validateSandboxFrame(out);return out.commands.find(c=>c.type==='sprite').args;};
+ assert.equal(tick(.1)[2],0);assert.equal(tick(.1,{ArrowRight:true})[1],0);let walk=tick(.125,{ArrowRight:true});assert.equal(walk[1],16);assert.equal(walk[2],16);assert.ok(walk[5]>210);assert.equal(tick(.375,{ArrowRight:true})[1],0);
+ const idle=tick(.1);assert.equal(idle[1],0);assert.equal(idle[2],0);assert.equal(tick(.1,{Space:true})[2],32);tick(.1,{Space:true});const reaction=tick(.6,{Space:true});assert.equal(reaction[1],48);assert.equal(reaction[2],32);tick(.1,{Space:true});assert.equal(tick(.1,{Space:true})[2],0,'held Space must not restart reaction');
+ const bad={type:'sprite',args:['character.png',-1,0,16,16,0,0,48,48]};assert.throws(()=>sandbox.validateSandboxFrame({commands:[bad],logs:[]}),/sprite/);assert.throws(()=>sandbox.validateSandboxFrame({commands:[{...bad,args:['character.png',0,0,16.5,16,0,0,48,48]}],logs:[]}));
+});
+test('sprite renderer crops exact rectangles, restores smoothing and rejects frames outside the sheet',()=>{
+ class Image{complete=true;naturalWidth=64;naturalHeight=48;}
+ const load=loader({}, {Image}),media=load('src/core/gameMedia.ts').createGameMedia([{name:'sheet.png',data:'data:image/png;base64,AAAA'}]),draws=[],ctx={imageSmoothingEnabled:true,drawImage(...args){assert.equal(this.imageSmoothingEnabled,false);draws.push(args);}};
+ media.draw(ctx,'sprite',['sheet.png',16,16,16,16,100,80,48,48]);assert.deepEqual(draws[0].slice(1),[16,16,16,16,100,80,48,48]);assert.equal(ctx.imageSmoothingEnabled,true);assert.throws(()=>media.draw(ctx,'sprite',['sheet.png',60,0,16,16,0,0,48,48]),/dimensions/);
+ const broken={imageSmoothingEnabled:true,drawImage(){throw Error('draw failed');}};assert.throws(()=>media.draw(broken,'sprite',['sheet.png',0,0,16,16,0,0,48,48]));assert.equal(broken.imageSmoothingEnabled,true);
+});
+test('sprite animation API rejects invalid rates, frame counts and rectangles without executing in the host',()=>{
+ const sandbox=loader()('src/core/codeSandbox.ts');
+ for(const call of ['api.animationFrame(1,0,4)','api.animationFrame(1,61,4)','api.animationFrame(-1,8,4)','api.animationFrame(1,8,0)','api.animationFrame(1,8,2.5)','api.sprite("sheet.png",2040,0,16,16,0,0,48,48)']){
+  const messages=[],self={postMessage:m=>messages.push(m)};vm.runInNewContext(sandbox.SANDBOX_WORKER,{self});self.onmessage({data:{type:'start',code:call+';api.onFrame=()=>{};'}});assert.equal(messages.at(-1).type,'error');
+ }
+});
+test('standalone sprite exports retain the sheet and render cropped frames offline',()=>{
+ const load=loader(),project=load('src/core/gameProject.ts'),example=load('src/core/gameSpriteExample.ts').GAME_SPRITE_EXAMPLE,source=project.bundleGameProject(example),games=load('src/core/codeGames.ts');assert.equal(project.readGameProject(games.addCodeGame({games:[],reports:[]},'Sprites',source).game.code).assets[0].data,example.assets[0].data);
+ const html=load('src/core/gameExport.ts').exportPlayableGame('Sprites',source);let frame,pulse;const events={},draws=[],nodes={game:{getContext:()=>({fillRect(){},drawImage(...a){draws.push(a);}}),focus(){}},run:{},stop:{},status:{},source:{},log:{}};
+ class Image{complete=true;naturalWidth=64;naturalHeight=48;}
+ const document={visibilityState:'visible',getElementById:id=>nodes[id],addEventListener:(n,f)=>events[n]=f,createElement:()=>frame={contentWindow:{postMessage(){}},setAttribute(){},remove(){}},body:{appendChild(){}}},window={addEventListener:(n,f)=>events[n]=f,removeEventListener:n=>delete events[n]};
+ vm.runInNewContext(html.match(/<script>([\s\S]*)<\/script>/)[1],{document,window,Image,performance:{now:()=>0},setInterval:f=>{pulse=f;return 1;},clearInterval(){}});nodes.run.onclick();events.message({source:frame.contentWindow,data:{type:'boot'}});events.message({source:frame.contentWindow,data:{type:'ready'}});pulse();events.message({source:frame.contentWindow,data:{type:'frame',commands:[{type:'sprite',args:['character.png',16,16,16,16,80,90,48,48]}],logs:[]}});assert.equal(draws.length,1);assert.deepEqual(draws[0].slice(1),[16,16,16,16,80,90,48,48]);nodes.stop.onclick();
+});
+
+test('tile collision sweeps stop fast movement, slide along walls and enforce world bounds',()=>{
+ const tools=loader()('src/core/gameTiles.ts').createTileTools(()=>{}),map=tools.tileMap(['....','.##.','....','....'],20,10,30);
+ const player={x:12,y:52,w:10,h:10};const right=map.move(player,200,0);assert.equal(right.x,20);assert.equal(right.hitX,true);assert.equal(player.x,12,'movement must not mutate old state');
+ const left=map.move({x:78,y:52,w:10,h:10},-200,0);assert.equal(left.x,70);
+ const down=map.move({x:35,y:32,w:10,h:10},0,200);assert.equal(down.y,40);assert.equal(down.hitY,true);
+ const up=map.move({x:35,y:95,w:10,h:10},0,-200);assert.equal(up.y,70);
+ const slide=map.move(player,100,20);assert.equal(slide.x,20);assert.equal(slide.y,72);assert.equal(slide.hitX,true);assert.equal(slide.hitY,false);
+ const edge=map.move({x:12,y:92,w:10,h:10},-200,200);assert.equal(edge.x,10);assert.equal(edge.y,100);
+ assert.equal(tools.overlaps({x:0,y:0,w:10,h:10},{x:10,y:0,w:10,h:10}),false);assert.equal(tools.overlaps({x:0,y:0,w:10,h:10},{x:9,y:0,w:10,h:10}),true);
+ assert.throws(()=>map.move({x:35,y:55,w:10,h:10},1,0),/clear of walls/);assert.throws(()=>map.move(player,Infinity,0));assert.throws(()=>tools.tileMap(['....','..'],20));assert.throws(()=>tools.tileMap(Array(32).fill('.'.repeat(32)),20));assert.throws(()=>tools.tileMap(['..'],0));
+});
+test('tile rendering merges adjacent wall cells within the existing draw budget',()=>{
+ const draws=[],tools=loader()('src/core/gameTiles.ts').createTileTools((...a)=>draws.push(a)),rows=['###.','##..'];const map=tools.tileMap(rows,10,5,8);rows[0]='....';map.draw('#abc');assert.deepEqual(draws,[[5,8,30,10,'#abc'],[5,18,20,10,'#abc']]);
+});
+test('maze example blocks walls, reaches the goal through its gap, resets and runs in exported worker code',()=>{
+ const load=loader(),sandbox=load('src/core/codeSandbox.ts'),project=load('src/core/gameProject.ts'),example=load('src/core/gameTileExample.ts').GAME_TILE_EXAMPLE,source=project.bundleGameProject(example),messages=[],self={postMessage:m=>messages.push(m)};
+ vm.runInNewContext(sandbox.SANDBOX_WORKER,{self});self.onmessage({data:{type:'start',code:source}});assert.equal(messages.at(-1).type,'ready');
+ const tick=(keys={},dt=.1)=>{self.onmessage({data:{type:'tick',dt,keys}});const out=messages.at(-1);assert.equal(out.type,'frame');sandbox.validateSandboxFrame(out);return out.commands;};const box=commands=>commands.find(c=>c.type==='rect'&&c.args[4]==='#ffc636').args;
+ let commands;for(let i=0;i<20;i++)commands=tick({ArrowRight:true});assert.equal(box(commands)[0],188);assert.ok(commands.some(c=>String(c.args[0]).startsWith('Wall blocked')));
+ tick({Space:true});for(let i=0;i<9;i++)commands=tick({ArrowDown:true});assert.ok(box(commands)[1]>=180&&box(commands)[1]<=188);
+ for(let i=0;i<15;i++)commands=tick({ArrowRight:true});assert.ok(box(commands)[0]>220);
+ for(let i=0;i<9;i++)commands=tick({ArrowUp:true});for(let i=0;i<20;i++)commands=tick({ArrowRight:true});assert.ok(commands.some(c=>String(c.args[0]).startsWith('Goal reached')));
+ commands=tick({Space:true});assert.equal(box(commands)[0],64);assert.equal(box(commands)[1],84);
+ const html=load('src/core/gameExport.ts').exportPlayableGame('Maze',source);assert.match(html,/tileMap/);assert.match(html,/level.json/);const literal=html.match(/const worker=("(?:[^"\\]|\\.)*")/);/* Export serializes the same tested worker in its escaped frame document. */assert.ok(html.includes('rectangular ASCII tile map'));
+ const stored=load('src/core/codeGames.ts').addCodeGame({games:[],reports:[]},'Maze',source);assert.equal(project.readGameProject(stored.game.code).files.find(f=>f.path==='level.json').content,example.files[1].content);
+});
+
+test('game progress is bounded isolated per game and survives normal saves and backups',()=>{
+ const values=new Map(),load=loader({'./persistence':{readStored:k=>values.get(k)??null,writeStored:(k,v)=>values.set(k,v)}}),games=load('src/core/codeGames.ts'),p=load('src/core/gameProgress.ts');
+ games.writeGameProgress('one',{best:12,level:3,settings:{bright:true}});games.writeGameProgress('two',{best:2});assert.equal(games.readGameProgress('one').best,12);assert.equal(games.readGameProgress('two').best,2);assert.equal(games.readGameProgress('other'),undefined);
+ const saved=games.addCodeGame(games.loadCodeGames(),'Game','api.onFrame=()=>{};');games.saveCodeGames(saved.state);assert.equal(games.readGameProgress('one').best,12);
+ const backup=load('src/core/backup.ts'),snapshot=backup.snapshotBackup(),restored=backup.validateBackup(JSON.stringify(snapshot));assert.equal(restored.data['mana.code_games.v1'].progress[0].value.level,3);
+ assert.equal(p.gameProgressScope('a'),p.gameProgressScope('a'));assert.notEqual(p.gameProgressScope('a'),p.gameProgressScope('b'));
+ for(const value of [[],null,{x:Infinity},{x:'a'.repeat(257)},JSON.parse('{"__proto__":{}}'),{x:Array(65).fill(1)}])assert.throws(()=>p.gameProgressValue(value));
+ games.writeGameProgress('one',{});assert.equal(Object.keys(games.readGameProgress('one')).length,0);
+});
+test('isolated game progress loads defaults and reports saved or failed host acknowledgement',()=>{
+ const sandbox=loader()('src/core/codeSandbox.ts'),messages=[],self={postMessage:m=>messages.push(m)};
+ vm.runInNewContext(sandbox.SANDBOX_WORKER,{self});self.onmessage({data:{type:'start',progress:{best:7},code:'const p=api.loadProgress({best:0}); api.saveProgress({best:p.best+1}); api.onFrame=()=>api.text(api.progressStatus,0,20,"#fff");'}});assert.equal(messages[0].type,'saveProgress');assert.equal(messages[0].value.best,8);assert.equal(messages.at(-1).type,'ready');self.onmessage({data:{type:'progressResult',ok:true}});self.onmessage({data:{type:'tick',dt:.03,keys:{}}});assert.equal(messages.at(-1).commands[0].args[0],'saved');self.onmessage({data:{type:'progressResult',ok:false}});self.onmessage({data:{type:'tick',dt:.03,keys:{}}});assert.equal(messages.at(-1).commands[0].args[0],'error');
+});
+test('exported game progress survives reopen, stays separate by game and acknowledges unavailable storage',()=>{
+ const load=loader(),exporter=load('src/core/gameExport.ts'),values=new Map();
+ function open(scope,fail=false){const html=exporter.exportPlayableGame('Progress','api.onFrame=()=>{};',scope),nodes={game:{getContext:()=>({fillRect(){}}),focus(){}},run:{},stop:{},status:{},source:{},log:{}};let frame;const events={},sent=[];const document={visibilityState:'visible',getElementById:k=>nodes[k],addEventListener:(n,f)=>events[n]=f,createElement:()=>frame={contentWindow:{postMessage:m=>sent.push(m)},setAttribute(){},remove(){}},body:{appendChild(){}}},window={addEventListener:(n,f)=>events[n]=f,removeEventListener:n=>delete events[n]};
+ vm.runInNewContext(html.match(/<script>([\s\S]*)<\/script>/)[1],{document,window,Date,localStorage:{getItem:k=>values.get(k)??null,setItem:(k,v)=>{if(fail)throw Error('quota');values.set(k,v);}},performance:{now:()=>0},setInterval:()=>1,clearInterval(){}});nodes.run.onclick();const send=data=>events.message({source:frame.contentWindow,data});send({type:'boot'});return {send,sent,nodes};}
+ const first=open('one');first.send({type:'saveProgress',value:{best:9}});assert.equal(first.sent.at(-1).ok,true);first.nodes.stop.onclick();assert.equal(open('one').sent.at(-1).progress.best,9);assert.equal(open('two').sent.at(-1).progress,undefined);
+ const blocked=open('blocked',true);blocked.send({type:'saveProgress',value:{best:4}});assert.equal(blocked.sent.at(-1).ok,false);assert.match(blocked.nodes.status.textContent,/could not be saved/);
+});
+
+test('visual level brushes preserve metadata, protect markers and detect blocked routes',()=>{
+ const load=loader(),editor=load('src/core/gameLevelEditor.ts'),example=load('src/core/gameTileExample.ts').GAME_TILE_EXAMPLE;const original=editor.parseMazeLevel(example.files[1].content);original.custom={music:'theme'};
+ assert.equal(editor.mazeHasRoute(original),true);const blocked=editor.paintMazeLevel(original,8,6,'wall');assert.equal(editor.mazeHasRoute(blocked),false);assert.equal(original.rows[6][8],'.');assert.equal(blocked.custom.music,'theme');const reopened=editor.paintMazeLevel(blocked,8,6,'floor');assert.equal(editor.mazeHasRoute(reopened),true);
+ assert.throws(()=>editor.paintMazeLevel(original,1,1,'wall'),/spawn or goal/);assert.throws(()=>editor.paintMazeLevel(original,18,1,'spawn'),/different/);const moved=editor.paintMazeLevel(original,8,2,'spawn');assert.equal(moved.rows[2][8],'.');assert.equal(moved.spawn.col,8);assert.equal(editor.parseMazeLevel(JSON.stringify(moved)).spawn.row,2);
+ for(const value of [{...original,rows:['#..','..']},{...original,tileSize:10},{...original,offsetY:200},{...original,spawn:{col:0,row:0}},{...original,goal:original.spawn}])assert.throws(()=>editor.parseMazeLevel(JSON.stringify(value)));
+});
+test('visual level apply preserves project files and exports the edited maze for the actual worker',()=>{
+ const load=loader(),project=load('src/core/gameProject.ts'),editor=load('src/core/gameLevelEditor.ts'),example=load('src/core/gameTileExample.ts').GAME_TILE_EXAMPLE;const level=editor.paintMazeLevel(editor.parseMazeLevel(example.files[1].content),4,3,'wall'),source=project.bundleGameProject({...example,files:example.files.map(f=>f.path==='level.json'?{...f,content:JSON.stringify(level)}:f)});
+ assert.equal(project.readGameProject(source).files.find(f=>f.path==='main.js').content,example.files[0].content);const self={postMessage:m=>messages.push(m)},messages=[];vm.runInNewContext(load('src/core/codeSandbox.ts').SANDBOX_WORKER,{self});self.onmessage({data:{type:'start',code:source}});assert.equal(messages.at(-1).type,'ready');self.onmessage({data:{type:'tick',dt:.03,keys:{}}});assert.equal(messages.at(-1).type,'frame');assert.ok(messages.at(-1).commands.some(c=>c.type==='rect'&&c.args[0]===120&&c.args[1]===120&&c.args[4]==='#546080'));assert.match(load('src/core/gameExport.ts').exportPlayableGame('Edited maze',source),/level.json/);
+});
+test('visual editor groups drag strokes into undo and applies only explicitly',()=>{
+ const load=loader(),content=load('src/core/gameTileExample.ts').GAME_TILE_EXAMPLE.files[1].content,slots=[],deps=[],events={};let index=0;const effects=[],applied=[];
+ const react={useState:init=>{const i=index++;if(!(i in slots))slots[i]=typeof init==='function'?init():init;return [slots[i],v=>{slots[i]=typeof v==='function'?v(slots[i]):v;}];},useRef:init=>{const i=index++;return slots[i]??(slots[i]={current:init});},useEffect:(fn,d)=>{const i=index++;if(!deps[i]||d.some((v,j)=>v!==deps[i][j])){deps[i]=d;effects.push(fn);}}};const jsx=(type,props)=>({type,props}),module={exports:{}};
+ vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/components/GameLevelEditor.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,{module,exports:module.exports,require:id=>id==='react'?react:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:load('src/core/gameLevelEditor.ts'),window:{addEventListener:(n,f)=>events[n]=f,removeEventListener(){},confirm:()=>true}});
+ function render(){index=0;const tree=module.exports.default({content,supportsStars:true,disabled:false,onApply:value=>applied.push(value)});while(effects.length)effects.shift()();return tree;}
+ function find(node,predicate){if(!node||typeof node!=='object')return;if(predicate(node))return node;for(const child of [node.props?.children].flat(Infinity)){const hit=find(child,predicate);if(hit)return hit;}}
+ const button=(tree,label)=>find(tree,n=>n.type==='button'&&n.props.children===label),cell=(tree,col,row)=>find(tree,n=>n.type==='button'&&n.props['aria-label']?.endsWith(`column ${col}, row ${row}`));let tree=render();
+ cell(tree,0,0).props.onPointerDown({button:0,isPrimary:true,preventDefault(){},currentTarget:{focus(){}}});cell(tree,3,2).props.onPointerEnter({buttons:1,isPrimary:true});events.pointerup();tree=render();assert.equal(applied.length,0);assert.equal(button(tree,'Undo paint').props.disabled,false);button(tree,'Undo paint').props.onClick();tree=render();assert.equal(button(tree,'Apply level').props.disabled,true);button(tree,'Redo paint').props.onClick();tree=render();assert.equal(button(tree,'Apply level').props.disabled,false);button(tree,'Apply level').props.onClick();assert.equal(JSON.parse(applied[0]).rows[2][3],'#');button(tree,'Star').props.onClick();tree=render();cell(tree,2,2).props.onPointerDown({button:0,isPrimary:true,preventDefault(){},currentTarget:{focus(){}}});events.pointerup();tree=render();assert.equal(cell(tree,2,2).props.children,'★');button(tree,'Apply level').props.onClick();assert.equal(JSON.parse(applied[1]).stars[0].col,2);button(tree,'Undo paint').props.onClick();tree=render();assert.notEqual(cell(tree,2,2).props.children,'★');
+});
+
+test('complete game combines modules assets menus collision pickups animation and durable win progress',()=>{
+ const values=new Map(),load=loader({'./persistence':{readStored:k=>values.get(k)??null,writeStored:(k,v)=>values.set(k,v)}}),project=load('src/core/gameProject.ts'),example=load('src/core/gameIntegrationExample.ts').GAME_INTEGRATION_EXAMPLE,sandbox=load('src/core/codeSandbox.ts'),games=load('src/core/codeGames.ts'),source=project.bundleGameProject(example);
+ const stored=games.addCodeGame({games:[],reports:[]},'Star maze',source);games.saveCodeGames(stored.state);const scope=stored.game.rootId;let now=1000,commands=[],sounds=0,saves=0;const frames=[];
+ function boot(){const self={postMessage:m=>{if(m.type==='saveProgress'){games.writeGameProgress(scope,m.value);saves++;self.onmessage({data:{type:'progressResult',ok:true}});}else if(m.type==='frame'){sandbox.validateSandboxFrame(m);commands=m.commands;frames.push(commands);sounds+=commands.filter(c=>c.type==='sound').length;}else if(m.type==='error')assert.fail(m.error);}};vm.runInNewContext(sandbox.SANDBOX_WORKER,{self,Date:{now:()=>now}});self.onmessage({data:{type:'start',code:source,progress:games.readGameProgress(scope)}});return self;}
+ let worker=boot();function tick(keys={},mouse){now+=100;worker.onmessage({data:{type:'tick',dt:.1,keys,mouse}});return commands;}const click=(x,y)=>tick({}, {x,y,inside:true,clicked:true});
+ tick();assert.ok(commands.some(c=>c.args[0]==='Star maze - complete game check'));click(220,120);assert.equal(games.readGameProgress(scope).bright,true);click(100,120);
+ for(let i=0;i<20;i++)tick({ArrowRight:true});let sprite=commands.find(c=>c.type==='sprite').args;assert.equal(sprite[5]+2,188);assert.equal(games.readGameProgress(scope).best,10);
+ for(let i=0;i<9;i++)tick({ArrowDown:true});for(let i=0;i<2;i++)tick({ArrowLeft:true});for(let i=0;i<15;i++)tick({ArrowRight:true});for(let i=0;i<9;i++)tick({ArrowUp:true});for(let i=0;i<20;i++)tick({ArrowRight:true});
+ assert.ok(commands.some(c=>c.args[0]==='Goal! Space: replay'));assert.equal(commands.filter(c=>c.type==='circle').length,0);assert.ok(sounds>=4);assert.ok(frames.some(frame=>frame.some(c=>c.type==='sprite'&&c.args[2]===16)));assert.equal(commands.find(c=>c.type==='sprite').args[2],32);assert.equal(games.readGameProgress(scope).best,50);assert.equal(games.readGameProgress(scope).wins,1);assert.equal(games.readGameProgress(scope).unlocked,2);assert.ok(saves>=5);
+ worker=boot();tick();assert.ok(commands.some(c=>String(c.args[0]).includes('Best: 50 | Wins: 1 | Unlocked: 2')));assert.equal(commands.find(c=>c.type==='clear').args[0],'#39466b');click(100,120);tick({Space:true});assert.equal(games.readGameProgress(scope).best,50);
+ const backup=load('src/core/backup.ts'),restored=backup.validateBackup(JSON.stringify(backup.snapshotBackup()));assert.equal(restored.data['mana.code_games.v1'].progress[0].value.wins,1);assert.equal(project.readGameProject(restored.data['mana.code_games.v1'].games[0].code).assets.length,2);
+});
+test('complete game visual edits retain modules and export self-contained playable source',()=>{
+ const load=loader(),project=load('src/core/gameProject.ts'),example=load('src/core/gameIntegrationExample.ts').GAME_INTEGRATION_EXAMPLE,editor=load('src/core/gameLevelEditor.ts'),levelFile=example.files.find(f=>f.path==='level.json');const edited=editor.paintMazeLevel(editor.parseMazeLevel(levelFile.content),4,3,'wall');assert.equal(editor.mazeHasRoute(edited),true);
+ const source=project.bundleGameProject({...example,files:example.files.map(f=>f.path==='level.json'?{...f,content:JSON.stringify(edited)}:f)}),restored=project.readGameProject(source);assert.equal(restored.files.length,4);assert.equal(restored.assets.length,2);assert.equal(JSON.parse(restored.files.find(f=>f.path==='level.json').content).rows[3][4],'#');
+ const html=load('src/core/gameExport.ts').exportPlayableGame('Star maze',source,'star-maze');assert.ok(Buffer.byteLength(html)<250000);assert.match(html,/player.js/);assert.match(html,/data:image\/png;base64/);assert.match(html,/data:audio\/wav;base64/);assert.match(html,/saveProgress/);
+ const messages=[],self={postMessage:m=>messages.push(m)};vm.runInNewContext(load('src/core/codeSandbox.ts').SANDBOX_WORKER,{self});self.onmessage({data:{type:'start',code:source}});assert.equal(messages.at(-1).type,'ready');self.onmessage({data:{type:'tick',dt:.03,keys:{},mouse:{x:100,y:120,inside:true,clicked:true}}});self.onmessage({data:{type:'tick',dt:.03,keys:{}}});assert.equal(messages.at(-1).type,'frame');assert.ok(messages.at(-1).commands.some(c=>c.type==='rect'&&c.args[0]===120&&c.args[1]===120&&c.args[4]==='#546080'));
+});
+
+test('star brush saves unique placements, erases them and validates reachable collectible cells',()=>{
+ const load=loader(),e=load('src/core/gameLevelEditor.ts'),example=load('src/core/gameIntegrationExample.ts').GAME_INTEGRATION_EXAMPLE,level=e.parseMazeLevel(example.files.find(f=>f.path==='level.json').content);assert.equal(level.stars.length,3);
+ const placed=e.paintMazeLevel(level,3,2,'star');assert.equal(placed.stars.length,4);assert.equal(e.paintMazeLevel(placed,3,2,'star').stars.length,4);assert.equal(e.paintMazeLevel(placed,3,2,'floor').stars.length,3);assert.equal(e.paintMazeLevel(placed,3,2,'wall').stars.length,3);assert.equal(e.paintMazeLevel(placed,3,2,'goal').stars.length,3);assert.throws(()=>e.paintMazeLevel(level,1,1,'star'),/away/);
+ for(const stars of [[{col:0,row:0}],[{col:1,row:1}],[{col:4,row:1},{col:4,row:1}],Array(33).fill({col:2,row:2})])assert.throws(()=>e.parseMazeLevel(JSON.stringify({...level,stars})));
+ const blocked={...level,rows:level.rows.map((r,y)=>y===6?r.slice(0,8)+'#'+r.slice(9):r),goal:{col:2,row:1}};assert.equal(e.mazeHasRoute(blocked),false,'all stars, not only goal, must be reachable');
+});
+test('legacy star projects upgrade narrowly and edited placements drive actual pickups and exports',()=>{
+ const load=loader(),e=load('src/core/gameLevelEditor.ts'),project=load('src/core/gameProject.ts'),example=load('src/core/gameIntegrationExample.ts').GAME_INTEGRATION_EXAMPLE;
+ const legacy={...example,files:example.files.map(f=>f.path==='main.js'?{...f,content:f.content.replace('(level.stars??[]).map(p=>cell(p.col,p.row))',e.LEGACY_STAR_POSITIONS)}:f.path==='level.json'?{...f,content:JSON.stringify({...JSON.parse(f.content),stars:undefined})}:f)};
+ const upgraded=e.enableStarPlacement(legacy);assert.equal(upgraded.assets,legacy.assets);assert.equal(upgraded.files.find(f=>f.path==='player.js').content,legacy.files.find(f=>f.path==='player.js').content);assert.equal(JSON.parse(upgraded.files.find(f=>f.path==='level.json').content).stars.length,3);assert.match(upgraded.files[0].content,/level.stars/);assert.throws(()=>e.enableStarPlacement(example),/supported legacy/);
+ const edited={...JSON.parse(upgraded.files.find(f=>f.path==='level.json').content),stars:[{col:2,row:1}]},source=project.bundleGameProject({...upgraded,files:upgraded.files.map(f=>f.path==='level.json'?{...f,content:JSON.stringify(edited)}:f)}),messages=[],self={postMessage:m=>messages.push(m)};
+ vm.runInNewContext(load('src/core/codeSandbox.ts').SANDBOX_WORKER,{self});self.onmessage({data:{type:'start',code:source}});self.onmessage({data:{type:'tick',dt:.1,keys:{},mouse:{x:100,y:120,inside:true,clicked:true}}});self.onmessage({data:{type:'tick',dt:.1,keys:{}}});assert.equal(messages.at(-1).commands.filter(c=>c.type==='circle').length,1);
+ self.onmessage({data:{type:'tick',dt:.1,keys:{ArrowRight:true}}});assert.equal(messages.at(-1).commands.filter(c=>c.type==='circle').length,0);assert.ok(messages.at(-1).commands.some(c=>String(c.args[0]).startsWith('Score: 10')));
+ assert.equal(JSON.parse(project.readGameProject(source).files.find(f=>f.path==='level.json').content).stars[0].col,2);assert.match(load('src/core/gameExport.ts').exportPlayableGame('Placed stars',source),/stars/);
+});
+
+test('avatar backgrounds persist through wardrobe resolution and backups with safe legacy defaults',()=>{
+ const values=new Map(),load=loader({'./persistence':{readStored:k=>values.get(k)??null,writeStored:(k,v)=>values.set(k,v)}}),avatar=load('src/core/avatar.ts'),wardrobe=load('src/core/wardrobe.ts'),backgrounds=load('src/core/backgrounds.ts');
+ const image='data:image/jpeg;base64,AAAA';avatar.saveAvatarConfig({...avatar.DEFAULT_AVATAR,view:'half',background:'custom',backgroundImage:image});const cfg=avatar.loadAvatarConfig();assert.equal(cfg.background,'custom');assert.equal(cfg.backgroundImage,image);const entry={name:'default',unlocked:true,isDefault:true};const resolved=wardrobe.resolveLoadout(cfg,{skins:[entry],outfits:[entry],hairs:[entry],accessories:[]});assert.equal(resolved.background,'custom');assert.equal(resolved.backgroundImage,image);assert.equal(resolved.view,'half');
+ const b=load('src/core/backup.ts'),snapshot=b.snapshotBackup();assert.equal(b.validateBackup(JSON.stringify(snapshot)).data['mana.avatar.v1'].backgroundImage,image);
+ assert.equal(backgrounds.backgroundImage(avatar.validateAvatarConfig({}).background),undefined);assert.equal(backgrounds.backgroundImage('night').startsWith('data:image/svg+xml,'),true);
+ for(const value of ['https://example.com/x.jpg','file:///private.jpg','data:image/svg+xml;base64,AAAA','data:image/png;base64,'+'A'.repeat(450000)])assert.equal(avatar.validateAvatarConfig({background:'custom',backgroundImage:value}).background,'none');assert.equal(avatar.validateAvatarConfig({background:'constructor'}).background,undefined);
+});
+test('background importing scales a local image and revokes its temporary URL on success or decode error',async()=>{
+ let revoked=0,drawn=0,canvas;class Image{naturalWidth=2400;naturalHeight=1200;set src(value){queueMicrotask(()=>this.onload());}}
+ const load=loader({}, {Image,queueMicrotask,URL:{createObjectURL:()=> 'blob:local',revokeObjectURL:()=>revoked++},document:{createElement:()=>canvas={getContext:()=>({drawImage(){drawn++;}}),toDataURL:()=> 'data:image/jpeg;base64,AAAA'}}}),backgrounds=load('src/core/backgrounds.ts');
+ assert.equal(await backgrounds.importBackground({type:'image/png',size:5000}),'data:image/jpeg;base64,AAAA');assert.equal(canvas.width,1600);assert.equal(canvas.height,800);assert.equal(drawn,1);assert.equal(revoked,1);await assert.rejects(backgrounds.importBackground({type:'image/svg+xml',size:10}),/Choose/);await assert.rejects(backgrounds.importBackground({type:'image/png',size:10000001}),/Choose/);
+ class BadImage{set src(value){queueMicrotask(()=>this.onerror());}}
+ const bad=loader({}, {Image:BadImage,queueMicrotask,URL:{createObjectURL:()=> 'blob:bad',revokeObjectURL:()=>revoked++}})('src/core/backgrounds.ts');await assert.rejects(bad.importBackground({type:'image/png',size:10}),/Could not open/);assert.equal(revoked,2);
+});
+
+test('seasonal outfit assignments survive persistence backups and missing assets without changing the current outfit',()=>{
+ const values=new Map(),load=loader({'./persistence':{readStored:k=>values.get(k)??null,writeStored:(k,v)=>values.set(k,v)}}),a=load('src/core/avatar.ts'),seasons=load('src/core/seasonalLooks.ts'),w=load('src/core/wardrobe.ts');
+ const cfg={...a.DEFAULT_AVATAR,view:'half',background:'night'},look=seasons.currentSeasonLook(cfg,'summer');look.outfit='future-summer';a.saveAvatarConfig({...cfg,seasonCalendar:'south',seasonalLooks:{summer:look}});const loaded=a.loadAvatarConfig();assert.equal(loaded.outfit,'default');assert.equal(loaded.seasonalLooks.summer.outfit,'future-summer');assert.equal(loaded.seasonCalendar,'south');
+ const entry={name:'default',unlocked:true,isDefault:true},data={skins:[entry],outfits:[entry],hairs:[entry],accessories:[]},applied=w.resolveLoadout({...loaded,...loaded.seasonalLooks.summer},data);assert.equal(applied.outfit,'default');assert.equal(applied.seasonalLooks.summer.outfit,'future-summer');assert.equal(applied.background,'night');assert.equal(applied.view,'half');const available=w.resolveLoadout({...loaded,...loaded.seasonalLooks.summer},{...data,outfits:[entry,{name:'future-summer',unlocked:true}]});assert.equal(available.outfit,'future-summer');
+ const backup=load('src/core/backup.ts');assert.equal(backup.validateBackup(JSON.stringify(backup.snapshotBackup())).data['mana.avatar.v1'].seasonalLooks.summer.outfit,'future-summer');assert.equal(a.validateAvatarConfig({}).seasonalLooks,undefined);assert.equal(Object.keys(seasons.seasonalAssignments({spring:{...look,name:''},summer:look,evil:look})).join(','),'summer');
+});
+test('season calendar uses journal timezone and explicit hemispheres rather than assumed weather',()=>{
+ const s=loader()('src/core/seasonalLooks.ts');assert.equal(s.seasonForDate(new Date('2026-03-01T00:00:00Z'),'north','Asia/Singapore'),'spring');assert.equal(s.seasonForDate(new Date('2026-03-01T00:00:00Z'),'south','Asia/Singapore'),'autumn');assert.equal(s.seasonForDate(new Date('2026-05-31T20:00:00Z'),'north','Asia/Singapore'),'summer');assert.equal(s.seasonForDate(new Date('2026-05-31T20:00:00Z'),'north','America/Los_Angeles'),'spring');assert.equal(s.seasonForDate(new Date('2026-12-10T00:00:00Z'),'south','Asia/Singapore'),'summer');assert.equal(s.seasonMonths('winter','south'),'June–August');
+});
+test('seasonal wardrobe UI separates assignment from applying and can clear it independently',()=>{
+ const load=loader(),a=load('src/core/avatar.ts'),entry={name:'default',label:'Default',unlocked:true,isDefault:true};let cfg={...a.DEFAULT_AVATAR,background:'garden',view:'bust'};const data={skins:[entry],outfits:[entry],hairs:[entry],accessories:[]},module={exports:{}},jsx=(type,props)=>({type,props});
+ vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/components/SeasonalLooks.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,{module,exports:module.exports,require:id=>id==='react'?{useState:()=>['',()=>{}]}:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:id.includes('wardrobe')?load('src/core/wardrobe.ts'):load('src/core/seasonalLooks.ts')});
+ const render=()=>module.exports.default({cfg,data,timeZone:'Asia/Singapore',onChange:next=>cfg=next});function find(node,label){if(!node||typeof node!=='object')return;if(node.type==='button'&&node.props.children===label)return node;for(const c of [node.props?.children].flat(Infinity)){const hit=find(c,label);if(hit)return hit;}}
+ let tree=render();find(tree,'Assign current look').props.onClick();assert.equal(cfg.outfit,'default');assert.equal(cfg.seasonalLooks.spring.name,'Spring look');assert.equal(cfg.background,'garden');tree=render();find(tree,'Apply look').props.onClick();assert.equal(cfg.view,'bust');assert.equal(cfg.background,'garden');tree=render();find(tree,'Clear assignment').props.onClick();assert.equal(cfg.seasonalLooks.spring,undefined);assert.equal(cfg.outfit,'default');
+});
+
+test('daily outfits choose only approved eligible pools once per morning or night across restart',()=>{
+ const load=loader(),r=load('src/core/outfitRoutine.ts'),a=load('src/core/avatar.ts');const entry=name=>({name,unlocked:true,isDefault:name==='default'}),data={skins:[entry('default')],hairs:[entry('default')],outfits:[entry('default'),entry('casual')],accessories:[]},look=(name,outfit)=>({name,skin:'default',hairstyle:'default',outfit,accessories:[]});
+ const cfg={...a.DEFAULT_AVATAR,view:'bust',background:'night',outfitRoutine:{enabled:true,morning:'08:00',night:'20:00',pools:{morning:[look('Default','default'),look('Casual','casual')],night:[look('Sleep','default')]}}};
+ const morning=r.chooseDailyOutfit(cfg,data,new Date('2026-10-19T00:00:00Z'),'Asia/Singapore',()=>0);assert.equal(morning.outfit,'casual');assert.equal(morning.outfitRoutine.last.period,'2026-10-19:morning');assert.equal(morning.view,'bust');assert.equal(morning.background,'night');assert.equal(cfg.outfit,'default');
+ const restored=a.validateAvatarConfig(JSON.parse(JSON.stringify(morning)));assert.equal(r.chooseDailyOutfit(restored,data,new Date('2026-10-19T01:00:00Z'),'Asia/Singapore'),undefined);assert.equal(r.chooseDailyOutfit(restored,data,new Date('2026-10-18T23:59:00Z'),'Asia/Singapore'),undefined);
+ const night=r.chooseDailyOutfit(restored,data,new Date('2026-10-19T12:00:00Z'),'Asia/Singapore',()=>0);assert.equal(night.outfit,'default');assert.equal(night.outfitRoutine.last.period,'2026-10-19:night');assert.equal(r.chooseDailyOutfit(night,data,new Date('2026-10-19T23:59:00Z'),'Asia/Singapore'),undefined);assert.equal(r.chooseDailyOutfit(night,data,new Date('2026-10-20T00:00:00Z'),'Asia/Singapore').outfit,'casual');
+ const catchup=r.chooseDailyOutfit(restored,data,new Date('2026-11-01T13:00:00Z'),'Asia/Singapore');assert.equal(catchup.outfitRoutine.last.period,'2026-11-01:night');assert.equal(r.outfitPeriod(new Date('2026-10-18T23:59:00Z'),'Asia/Singapore',cfg.outfitRoutine).id,'2026-10-18:night');
+});
+test('daily outfit pools skip unavailable items, deduplicate combinations and preserve empty/disabled behavior',()=>{
+ const load=loader(),r=load('src/core/outfitRoutine.ts'),a=load('src/core/avatar.ts'),entry={name:'default',unlocked:true,isDefault:true},data={skins:[entry],outfits:[entry,{name:'locked',unlocked:false}],hairs:[entry],accessories:[]},look={name:'Plain',skin:'default',hairstyle:'default',outfit:'default',accessories:[]};
+ const routine=r.validateOutfitRoutine({enabled:true,morning:'25:00',night:'00:00',pools:{morning:[look,{...look,name:'Duplicate'},{...look,name:'Locked',outfit:'locked'},{...look,name:'Missing',accessories:['missing']}],night:[]}});assert.equal(routine.morning,'08:00');assert.equal(routine.pools.morning.length,3);
+ const cfg={...a.DEFAULT_AVATAR,outfitRoutine:routine},now=new Date('2026-10-19T00:00:00Z');assert.equal(r.chooseDailyOutfit(cfg,data,now,'Asia/Singapore').outfitRoutine.last.look,'Plain');assert.equal(r.chooseDailyOutfit({...cfg,outfitRoutine:{...routine,enabled:false}},data,now,'Asia/Singapore'),undefined);assert.equal(r.chooseDailyOutfit(cfg,data,new Date('2026-10-19T12:00:00Z'),'Asia/Singapore'),undefined);assert.equal(r.chooseDailyOutfit({...cfg,outfitRoutine:{...routine,pools:{morning:[{...look,outfit:'locked'}],night:[]}}},data,now,'Asia/Singapore'),undefined);
+});
+test('approved daily outfit pools and schedule history survive backups and wardrobe resolution',()=>{
+ const values=new Map(),load=loader({'./persistence':{readStored:k=>values.get(k)??null,writeStored:(k,v)=>values.set(k,v)}}),a=load('src/core/avatar.ts'),r=load('src/core/outfitRoutine.ts'),w=load('src/core/wardrobe.ts'),look={name:'Morning',skin:'default',outfit:'default',hairstyle:'default',accessories:[]},entry={name:'default',unlocked:true,isDefault:true},data={skins:[entry],outfits:[entry],hairs:[entry],accessories:[]};
+ const initial={...a.DEFAULT_AVATAR,outfitRoutine:r.validateOutfitRoutine({enabled:true,pools:{morning:[look],night:[look]}})},chosen=r.chooseDailyOutfit(initial,data,new Date('2026-10-19T00:00:00Z'),'Asia/Singapore');a.saveAvatarConfig(chosen);assert.equal(a.loadAvatarConfig().outfitRoutine.last.period,'2026-10-19:morning');assert.equal(w.resolveLoadout(chosen,data).outfitRoutine.pools.night[0].name,'Morning');const backup=load('src/core/backup.ts');assert.equal(backup.validateBackup(JSON.stringify(backup.snapshotBackup())).data['mana.avatar.v1'].outfitRoutine.enabled,true);assert.equal(a.validateAvatarConfig({}).outfitRoutine,undefined);
+});
+
+test('manual local image generation bounds prompts paths sizes seeds and quality controls',()=>{
+ const g=loader()('src/core/imageGeneration.ts'),request={model:'photon_v1.safetensors',prompt:' an apple ',negative:'blurry',width:512,height:512,steps:20,cfg:7,seed:42,cpu:false};assert.equal(g.imageGenerationRequest(request).prompt,'an apple');
+ for(const changes of [{model:'../private.safetensors'},{model:'folder\\private.safetensors'},{prompt:''},{width:4096},{height:513},{steps:0},{steps:51},{cfg:NaN},{seed:-1},{seed:4294967296},{cpu:'yes'}])assert.throws(()=>g.imageGenerationRequest({...request,...changes}));assert.equal(g.imageGenerationRequest({...request,model:'NetaYumev35_pretrained_all_in_one.safetensors',cfg:4,width:1024,height:1024}).width,1024);
+});
+
+test('closing image generation during startup cancels only its owned job and never polls a replacement',async()=>{
+ const slots=[],deps=[],effects=[],cleanup=[],calls=[];let index=0,startResolve;const load=loader(),jsx=(type,props)=>({type,props}),module={exports:{}};
+ const react={useState:init=>{const i=index++;if(!(i in slots))slots[i]=typeof init==='function'?init():init;return [slots[i],value=>slots[i]=typeof value==='function'?value(slots[i]):value];},useRef:init=>{const i=index++;return slots[i]??(slots[i]={current:init});},useEffect:(fn,d)=>{const i=index++;if(!deps[i]){deps[i]=d;effects.push(fn);}}};
+ const invoke=(name,args)=>{calls.push({name,args});if(name==='image_generation_discover')return Promise.resolve({models:[{name:'photon_v1.safetensors',kind:'sd1'}],engineReady:true,netaReady:true,folder:'local'});if(name==='image_generation_start')return new Promise(resolve=>startResolve=resolve);return Promise.resolve();};
+ vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/components/ImageGenerationDrawer.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,{module,exports:module.exports,require:id=>id==='react'?react:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:id==='@tauri-apps/api/core'?{invoke}:id.includes('imageSession')?load('src/core/imageSession.ts'):id.includes('imageGeneration')?load('src/core/imageGeneration.ts'):{prepareImage(){}},setTimeout:()=>1,clearTimeout(){}});
+ const props={available:true,onClose(){},onSave(){assert.fail('No image should be saved');}};function render(){index=0;const tree=module.exports.default(props);while(effects.length)cleanup.push(effects.shift()());return tree;}function find(node,predicate){if(!node||typeof node!=='object')return;if(predicate(node))return node;for(const c of [node.props?.children].flat(Infinity)){const hit=find(c,predicate);if(hit)return hit;}}
+ render();await Promise.resolve();let tree=render();find(tree,n=>n.type==='textarea').props.onChange({target:{value:'a red apple'}});tree=render();find(tree,n=>n.type==='button'&&n.props.children==='Generate picture').props.onClick();await new Promise(setImmediate);assert.ok(startResolve);cleanup.forEach(fn=>{if(typeof fn==='function')fn();});startResolve('owned-image-job');await new Promise(setImmediate);assert.equal(calls.filter(c=>c.name==='image_generation_poll').length,0);assert.equal(calls.find(c=>c.name==='image_generation_stop').args.jobId,'owned-image-job');
+});
+test('chat picture requests distinguish creation from questions and select explicit local backend',()=>{
+ const g=loader()('src/core/imageGeneration.ts');
+ for(const text of ['draw me a moonlit garden','Mana, please draw a moonlit garden','Can you draw me a moonlit garden'])assert.equal(g.requestedPicture(text).prompt,'moonlit garden');
+ assert.equal(g.requestedPicture('Mana create an image of a silver-haired girl using NetaYume').backend,'neta');
+ assert.equal(g.requestedPicture('generate a picture of a cat using Photon').backend,'photon');
+ assert.equal(g.requestedPicture('make a picture of a cat with Stable Diffusion').prompt,'a cat');
+ for(const text of ['How do I generate an image?','I want to discuss image generation','Do not draw a cat','draw conclusions from this','draw attention to this','generate an image','draw me something','"draw me a cat"','draw me '+ 'x'.repeat(1501)])assert.equal(g.requestedPicture(text),null,text);
+});
+
+test('chat picture launch selects NetaYume starts once and reports only the completed result',async()=>{
+ const slots=[],deps=[],effects=[],calls=[];let index=0,completed=0;const load=loader(),jsx=(type,props)=>({type,props}),module={exports:{}};
+ const react={useState:init=>{const i=index++;if(!(i in slots))slots[i]=typeof init==='function'?init():init;return [slots[i],v=>slots[i]=typeof v==='function'?v(slots[i]):v];},useRef:init=>{const i=index++;return slots[i]??(slots[i]={current:init});},useEffect:(fn,d)=>{const i=index++;if(!deps[i]||d.some((v,j)=>!Object.is(v,deps[i][j]))){deps[i]=d;effects.push(fn);}}};
+ const invoke=async(name,args)=>{calls.push({name,args});if(name==='image_generation_discover')return {models:[{name:'photon_v1.safetensors',kind:'sd1'},{name:'NetaYume.safetensors',kind:'neta'}],engineReady:true,netaReady:true};if(name==='image_generation_start')return 'chat-owned-job';if(name==='image_generation_poll')return {stage:'ready',path:'local.jpg'};if(name==='image_generation_result')return new ArrayBuffer(4);};
+ vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/components/ImageGenerationDrawer.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,{module,exports:module.exports,require:id=>id==='react'?react:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:id==='@tauri-apps/api/core'?{invoke}:id.includes('imageSession')?load('src/core/imageSession.ts'):id.includes('imageGeneration')?load('src/core/imageGeneration.ts'):{prepareImage:async()=> 'prepared-jpeg'},setTimeout:()=>1,clearTimeout(){},File:class{constructor(parts,name){this.name=name;}},Uint8Array,AbortController});
+ const props={inline:true,available:true,initialRequest:{prompt:'a moonlit garden',backend:'neta',referenceAvatar:true},prepareReference:async()=> 'data:image/jpeg;base64,/9j/AA==',onClose(){},onSave(){assert.fail('Save must remain explicit');},onGenerated:image=>{completed++;assert.equal(image.dataUrl,'prepared-jpeg');}};
+ function render(){index=0;const tree=module.exports.default(props);assert.equal(tree.type,'section');assert.equal(tree.props.className,'chat-picture-job');assert.equal(tree.props.role,undefined);while(effects.length)effects.shift()();}
+ render();await new Promise(setImmediate);assert.equal(completed,0);render();await new Promise(setImmediate);render();await new Promise(setImmediate);
+ const starts=calls.filter(c=>c.name==='image_generation_start');assert.equal(starts.length,1);assert.equal(starts[0].args.request.model,'NetaYume.safetensors');assert.equal(starts[0].args.request.width,768);assert.equal(starts[0].args.request.height,1024);assert.equal(starts[0].args.request.referenceStrength,.45);assert.match(starts[0].args.request.prompt,/same single character/);assert.equal(starts[0].args.request.cfg,4);assert.equal(starts[0].args.request.reference,'data:image/jpeg;base64,/9j/AA==');assert.equal(completed,1);
+});
+
+
+test('generated chat pictures survive reload archives and backups without entering model text',()=>{
+ const values=new Map(),load=loader({'./persistence':{readStored:k=>values.get(k)??null,writeStored:(k,v)=>values.set(k,v)}}),settings=load('src/core/settings.ts'),image={filename:'garden.jpg',dataUrl:'data:image/jpeg;base64,/9j/AA=='},messages=[{id:'u1',role:'user',content:'Draw a garden'},{id:'p1',role:'assistant',content:'Here is your picture. [happy]',generatedPicture:image}];
+ settings.saveChat(messages);const restored=settings.loadChat();assert.equal(restored[1].generatedPicture.dataUrl,image.dataUrl);
+ const archives=load('src/core/chatArchives.ts'),archive=archives.newChatArchive(restored);archives.saveChatArchives([archive]);assert.equal(archives.loadChatArchives()[0].messages[1].generatedPicture.filename,'garden.jpg');
+ const backup=load('src/core/backup.ts');assert.equal(backup.validateBackup(JSON.stringify(backup.snapshotBackup())).data['mana.chat.v1'][1].generatedPicture.dataUrl,image.dataUrl);
+ assert.equal(load('src/core/chatSearch.ts').searchChat(restored,'garden.jpg','Mana')[0],'p1');const exported=load('src/core/chatExport.ts').conversationText(restored,'Mana','User');assert.match(exported,/Generated picture: garden.jpg/);assert.ok(!exported.includes('/9j/'));
+ const payload=load('src/core/llm.ts').buildPayload('system',[...restored,{id:'u2',role:'user',content:'thanks'}]);assert.ok(!JSON.stringify(payload).includes('/9j/'));assert.ok(!('generatedPicture' in payload[1]));
+});
+
+test('chat picture persistence rejects unsafe URLs user-role images and oversized payloads',()=>{
+ const validate=loader()('src/core/settings.ts').validateChat,picture={filename:'scene.jpg',dataUrl:'data:image/jpeg;base64,/9j/AA=='};
+ for(const value of [{...picture,dataUrl:'https://external/image.jpg'},{...picture,dataUrl:'data:text/html;base64,AAAA'},{...picture,filename:'x'.repeat(201)},{...picture,filename:''}])assert.equal(validate([{role:'assistant',content:'picture',generatedPicture:value}])[0].generatedPicture,undefined);
+ assert.equal(validate([{role:'user',content:'picture',generatedPicture:picture}])[0].generatedPicture,undefined);
+ const large={...picture,dataUrl:'data:image/jpeg;base64,/9j/'+'AAAA'.repeat(700000)},checked=validate([1,2,3].map(i=>({id:'p'+i,role:'assistant',content:'picture',generatedPicture:large})));assert.ok(checked[0].generatedPicture);assert.ok(checked[1].generatedPicture);assert.equal(checked[2].generatedPicture,undefined);
+});
+
+
+test('Animagine is preferred by default and explicit checkpoint choices never silently switch models',()=>{
+ const g=loader()('src/core/imageGeneration.ts'),photon={name:'photon_v1.safetensors',kind:'sd1'},anime={name:'animagine-xl-4.0-opt.safetensors',kind:'sdxl'},neta={name:'NetaYume.safetensors',kind:'neta'},models=[photon,neta,anime];
+ assert.equal(g.choosePictureModel(models).name,anime.name);assert.equal(g.choosePictureModel(models,'animagine').name,anime.name);assert.equal(g.choosePictureModel(models,'photon').name,photon.name);assert.equal(g.choosePictureModel(models,'neta').name,neta.name);
+ assert.equal(g.choosePictureModel([photon]).name,photon.name);assert.equal(g.choosePictureModel([photon],'animagine'),undefined);assert.equal(g.choosePictureModel([anime],'photon'),undefined);
+ assert.equal(g.requestedPicture('draw me a cat using Animagine').backend,'animagine');assert.equal(g.requestedPicture('draw me a cat using Animagine').prompt,'cat');
+ assert.equal(g.pictureDetails('Mana-animagine-xl-4.0-opt-42.jpg'),'Model: animagine-xl-4.0-opt · Seed: 42');assert.equal(g.pictureDetails('old-import.jpg'),'');
+});
+
+
+test('conversation openers send background once and bound evidence without altering saved source',()=>{
+ const load=loader(),i=load('src/core/initiative.ts'),ground=load('src/core/conversation.ts').ACTIVITY_GROUNDING,context='CURRENT IDENTITY\nUser: Aishi\n'+JSON.stringify({huge:'x'.repeat(40000)})+'\nLatest fact: image generation passed';
+ const payload=i.initiativePayload('Character rules',context,8192);assert.equal(payload[0].content.includes('User: Aishi'),false);assert.equal(payload[1].content.split('User: Aishi').length,2);assert.ok(payload[1].content.includes('Latest fact: image generation passed'));assert.ok(payload[1].content.includes(ground));assert.ok(JSON.stringify(payload).length<16000);assert.equal(context.length>40000,true);assert.ok(!payload[1].content.includes('{"huge"'));
+ const normal=load('src/core/llm.ts').buildPayload('rules',[{id:'u',role:'user',content:'Hi'}]);assert.equal(normal.map(m=>m.content).join('\n').split(ground).length,2);
+});
+
+
+test('self portrait requests use avatar reference and invalid reference payloads cannot start jobs',()=>{
+ const g=loader()('src/core/imageGeneration.ts');assert.equal(g.requestedPicture('draw yourself in a new outfit').referenceAvatar,true);assert.equal(g.requestedPicture('create an image of Mana in a garden').referenceAvatar,true);assert.equal(g.requestedPicture('draw me a cat').referenceAvatar,undefined);
+ const request={model:'animagine-xl-4.0-opt.safetensors',prompt:'outfit concept',negative:'blurry',width:1024,height:1024,steps:20,cfg:7,seed:42,cpu:false};
+ assert.equal(g.imageGenerationRequest({...request,reference:'data:image/jpeg;base64,/9j/AA=='}).reference,'data:image/jpeg;base64,/9j/AA==');for(const reference of ['https://remote/image.jpg','C:/private.jpg','data:text/html;base64,AAAA','x'.repeat(1_000_001)])assert.throws(()=>g.imageGenerationRequest({...request,reference}));
+});
+
+test('image gallery searches thumbnails sorts dates and selects without changing saved data',()=>{
+ const slots=[];let index=0;const jsx=(type,props)=>({type,props}),module={exports:{}},images=[{id:'old',filename:'garden.jpg',dataUrl:'jpeg',createdAt:'2026-10-19T00:00:00Z'},{id:'new',filename:'cat.jpg',dataUrl:'jpeg2',createdAt:'2026-10-20T00:00:00Z'}];
+ vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/components/SavedImagesDrawer.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,{module,exports:module.exports,require:id=>id==='react'?{useState:init=>{const i=index++;if(!(i in slots))slots[i]=init;return [slots[i],v=>slots[i]=v];}}:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:id.includes('GeneratedPictureView')?{default:()=>null}:loader()('src/core/savedImages.ts')});
+ const props={images,editable:true,onDelete(){assert.fail('Selection must not delete');},onLabel(){assert.fail('Selection must not label');},onClose(){}};
+ function render(){index=0;return module.exports.default(props);}function all(node,predicate,result=[]){if(!node||typeof node!=='object')return result;if(predicate(node))result.push(node);for(const child of [node.props?.children].flat(Infinity))all(child,predicate,result);return result;}
+ let tree=render();assert.equal(tree.type,'section');assert.equal(tree.props.className,'music-studio image-gallery');assert.equal(tree.props.role,undefined);assert.equal(all(tree,n=>n.props?.className==='scrim').length,0);assert.equal(all(tree,n=>n.type==='button'&&n.props.children==='Back to chat').length,1);let thumbs=all(tree,n=>n.type==='button'&&n.props['aria-label']?.startsWith('View '));assert.equal(thumbs[0].props['aria-label'],'View cat.jpg');thumbs[0].props.onClick();tree=render();assert.equal(all(tree,n=>n.type==='h3')[0].props.children,'cat.jpg');
+ all(tree,n=>n.type==='input'&&n.props.type==='search')[0].props.onChange({target:{value:'garden'}});tree=render();assert.equal(all(tree,n=>n.type==='button'&&n.props['aria-label']?.startsWith('View ')).length,1);assert.equal(images.length,2);
+});
+test('disk gallery metadata exceeds legacy count and byte caps while rejecting arbitrary paths',()=>{
+ const load=loader(),g=load('src/core/savedImages.ts'),record=n=>({id:'disk-'+n,diskId:'disk-'+n,filename:'scene-'+n+'.jpg',dataUrl:'data:image/jpeg;base64,/9j/AA==',createdAt:'2026-10-21T00:00:00Z',byteSize:100000,fingerprint:n.toString(16).padStart(64,'0')});
+ const many=Array.from({length:125},(_,i)=>record(i+1)),checked=g.validateSavedImages(many);assert.equal(checked.length,125);assert.equal(checked.reduce((size,i)=>size+i.byteSize,0),12500000);
+ assert.equal(g.validateSavedImages([{...record(1),diskId:'../private'}]).length,0);assert.equal(g.validateSavedImages([{...record(1),fingerprint:'bad'}]).length,0);
+ const values=new Map([['mana.images.v1',JSON.stringify(many)]]),backup=loader({'./persistence':{readStored:k=>values.get(k)??null,writeStored:(k,v)=>values.set(k,v)}})('src/core/backup.ts');assert.equal(backup.validateBackup(JSON.stringify(backup.snapshotBackup())).data['mana.images.v1'].length,125);
+});
+
+test('disk gallery migration preserves IDs and recovery source, loads full bytes and deduplicates saves',async()=>{
+ const files=new Map(),calls=[],jpeg='data:image/jpeg;base64,/9j/AA==',thumb='data:image/jpeg;base64,/9j/AB==';let failId='';
+ const invoke=async(name,args)=>{calls.push({name,args});if(name==='gallery_write'){if(args.id===failId)throw Error('disk full');files.set(args.id,args.bytes);}if(name==='gallery_read')return files.get(args.id);};
+ const globals={Uint8Array,ArrayBuffer,Blob,atob,btoa,crypto:require('node:crypto').webcrypto,createImageBitmap:async()=>({width:1280,height:640,close(){}}),document:{createElement:()=>({width:0,height:0,getContext:()=>({drawImage(){}}),toDataURL:()=>thumb})}};
+ const load=loader({'@tauri-apps/api/core':{invoke}},globals),d=load('src/core/diskGallery.ts'),old=[{id:'old-one',filename:'one.jpg',dataUrl:jpeg,createdAt:'2026-10-19T00:00:00Z',depictsAvatar:true}];
+ const migrated=await d.migrateGallery(old);assert.equal(calls[0].name,'gallery_preserve_legacy');assert.equal(JSON.parse(calls[0].args.content)[0].dataUrl,jpeg);assert.equal(old[0].dataUrl,jpeg);assert.equal(old[0].diskId,undefined);assert.equal(migrated[0].id,'old-one');assert.equal(migrated[0].depictsAvatar,true);assert.equal(migrated[0].dataUrl,thumb);assert.equal(migrated[0].diskId,'old-one');
+ const full=await d.fullGalleryImage(migrated[0]);assert.equal(full.dataUrl,jpeg);const writes=calls.filter(c=>c.name==='gallery_write').length,again=await d.addDiskImage(migrated,{filename:'same.jpg',dataUrl:jpeg});assert.equal(again.imageId,'old-one');assert.equal(calls.filter(c=>c.name==='gallery_write').length,writes);
+ failId='old-two';await assert.rejects(d.migrateGallery([...old,{...old[0],id:'old-two'}]),/disk full/);assert.equal(old[0].dataUrl,jpeg);assert.equal(old.length,1);
+});
+
+
+test('self reference instructions preserve requested changes and variation stays bounded',()=>{
+ const g=loader()('src/core/imageGeneration.ts'),prompt=g.avatarPicturePrompt('yourself in a red summer dress with short hair');assert.match(prompt,/reference character/);assert.match(prompt,/except for changes explicitly requested/);assert.match(prompt,/red summer dress with short hair/);assert.ok(!prompt.includes('yourself'));
+ const request={model:'animagine.safetensors',prompt:'portrait',negative:'',width:768,height:1024,steps:20,cfg:7,seed:42,cpu:false};for(const referenceStrength of [NaN,0,.19,.81,2])assert.throws(()=>g.imageGenerationRequest({...request,referenceStrength}));for(const referenceStrength of [.2,.45,.8])assert.equal(g.imageGenerationRequest({...request,referenceStrength}).referenceStrength,referenceStrength);
+});
+
+
+test('clothing edit bounds leave the head above the outfit untouched and allow skirt width',()=>{
+ const r=loader()('src/core/avatarReference.ts'),pixels=new Uint8ClampedArray(10*20*4);for(let y=8;y<18;y++)for(let x=3;x<7;x++)pixels[(y*10+x)*4+3]=255;
+ const bounds=r.clothingBounds(pixels,10,20);assert.equal(bounds.y,8);assert.ok(bounds.x<3);assert.ok(bounds.width>4);assert.equal(bounds.y+bounds.height<=20,true);assert.equal(r.clothingBounds(new Uint8ClampedArray(80),2,10),null);
+ const g=loader()('src/core/imageGeneration.ts');assert.equal(g.isClothingChange('yourself in a summer dress'),true);assert.equal(g.isClothingChange('yourself reading a book'),false);assert.match(g.avatarPicturePrompt('yourself in a summer dress',true),/Replace the original clothing/);
+ const request={model:'animagine.safetensors',prompt:'dress',negative:'',width:768,height:1024,steps:20,cfg:7,seed:42,cpu:false,referenceStrength:.75};assert.throws(()=>g.imageGenerationRequest({...request,referenceMask:'data:image/jpeg;base64,/9j/AA=='}));assert.throws(()=>g.imageGenerationRequest({...request,reference:'data:image/jpeg;base64,/9j/AA==',referenceMask:'https://remote/mask'}));assert.equal(g.imageGenerationRequest({...request,reference:'data:image/jpeg;base64,/9j/AA==',referenceMask:'data:image/jpeg;base64,/9j/AA=='}).referenceStrength,.75);
+});
+
+
+test('Animagine clothing requests lead with the target garment without instruction prose',()=>{
+ const g=loader()('src/core/imageGeneration.ts'),prompt=g.avatarPicturePrompt('yourself in a red summer dress',true,'animagine-xl-4.0-opt.safetensors');assert.match(prompt,/^1girl, solo, red summer dress/);assert.ok(!prompt.includes('Replace'));assert.ok(!prompt.includes('hoodie'));assert.match(g.clothingNegative('yourself in a summer dress','blurry','animagine-xl-4.0-opt.safetensors'),/hoodie/);assert.equal(g.clothingNegative('yourself in a dress with a hoodie','blurry','animagine-xl-4.0-opt.safetensors'),'blurry');assert.equal(g.clothingNegative('yourself in a dress','blurry','NetaYume.safetensors'),'blurry');
+});
+
+test('image session releases GPU lease once on success error and cancellation during startup',async()=>{
+ const {imageSession}=loader()('src/core/imageSession.ts');
+ for(const mode of ['success','failure','cancel']){
+  let released=0,stopped=0;const gate=deferred();
+  const session=imageSession(async()=>{await gate.promise;if(mode==='failure')throw Error('start failed');return 'owned';},async id=>{assert.equal(id,'owned');stopped++;},async()=>async()=>{released++;});
+  const start=session.start();await flush();
+  const ending=mode==='cancel'?session.stop():null;gate.resolve();
+  if(mode==='failure')await assert.rejects(start,/start failed/);else await start;
+  if(mode==='success')await session.complete();
+  await (ending??session.stop());await session.stop();assert.equal(released,1);assert.equal(stopped,mode==='failure'?0:1);
+ }
+});
+test('image cancellation while acquiring GPU never starts an image and restores the lease',async()=>{
+ const {imageSession}=loader()('src/core/imageSession.ts'),gate=deferred();let started=0,released=0;
+ const session=imageSession(async()=>{started++;return 'job';},async()=>{},()=>gate.promise);
+ const begin=session.start(),end=session.stop();gate.resolve(async()=>{released++;});await begin;await end;assert.equal(started,0);assert.equal(released,1);
+});
+test('GPU image handoff restores owned chat once and respects an explicit Stop',async()=>{
+ for(const manualStop of [false,true]){
+  const calls=[];const h=lifecycle(async()=> 'down',async(name)=>{calls.push(name);return name==='pause_llama_for_image';},true);
+  let state=h.render();await flush();const release=await state.pauseForImage();state=h.render();assert.equal(state.imageBusy,true);
+  await state.start();assert.equal(calls.includes('start_llama'),false);
+  if(manualStop)await state.stop();await release();await release();
+  assert.equal(calls.filter(n=>n==='start_llama').length,manualStop?0:1);assert.equal(h.render().imageBusy,false);h.dispose();
+ }
+});
+test('GPU image handoff leaves externally started chat untouched',async()=>{
+ const calls=[];const h=lifecycle(async()=> 'ok',async name=>{calls.push(name);return false;},true);
+ const state=h.render();await flush();await assert.rejects(state.pauseForImage(),/outside Mana/);assert.deepEqual(calls,['pause_llama_for_image']);assert.equal(h.render().imageBusy,false);h.dispose();
+});
+
+test('clothing mask protection respects visible layer order instead of hidden back hair',async()=>{
+ const load=loader(),a=load('src/core/avatarReference.ts');
+ // One torso pixel is covered by back hair, then opaque body/outfit, then no front hair.
+ // A visible front-hair pixel is drawn last and remains protected.
+ const blend=(old,alpha,op)=>op==='destination-out'?old*(1-alpha):alpha+old*(1-alpha);
+ let torso=0,visibleHair=0;
+ for(const [key,torsoAlpha,hairAlpha] of [['hairstyles/default/HAIR_BACK.png',1,1],['base/default/BODY.png',1,1],['outfits/default/OUTFIT.png',1,1],['hairstyles/default/HAIR_FRONT.png',0,1]]){
+  torso=blend(torso,torsoAlpha,a.protectionOperation(key));visibleHair=blend(visibleHair,hairAlpha,a.protectionOperation(key));
+ }
+ assert.equal(torso,0);assert.equal(visibleHair,1);
+ assert.equal(a.protectionOperation('accessories/glasses.png'),'source-over');
+});
+
+test('outfit quality defaults preserve explicit footwear and dress construction requests',()=>{
+ const g=loader()('src/core/imageGeneration.ts');
+ const plain=g.animagineClothingPrompt('yourself in a summer dress.');assert.match(plain,/wide shoulder straps/);assert.match(plain,/closed-toe shoes/);assert.ok(!plain.includes('dress.'));
+ const explicit=g.animagineClothingPrompt('yourself in a strapless summer dress with sandals');assert.ok(!explicit.includes('wide shoulder straps'));assert.ok(!explicit.includes('closed-toe shoes'));
+ assert.equal(g.outfitQualityDefaults('animagine-xl.safetensors',true).steps,28);assert.equal(g.outfitQualityDefaults('animagine-xl.safetensors',true).cfg,5.5);assert.equal(g.outfitQualityDefaults('animagine-xl.safetensors',false).steps,20);
+});
+
+test('outfit generation uses body anatomy without old clothing while vision retains dressed avatar',()=>{
+ const avatar=loader()('src/core/avatar.ts'),refs=loader()('src/core/avatarReference.ts');
+ const fixture=assets(['base/body.png','outfits/default/outfit.png','hairstyles/default/hair_front.png','hairstyles/default/hair_back.png','eyes/eye_neutral.png','mouth/mouth_neutral.png']);
+ const normal=refs.generationReferenceLayers(fixture,avatar.DEFAULT_AVATAR,false),outfit=refs.generationReferenceLayers(fixture,avatar.DEFAULT_AVATAR,true);
+ assert.ok(normal.some(l=>/^outfits\//i.test(l.key)));assert.ok(!outfit.some(l=>/^outfits\//i.test(l.key)));
+ assert.ok(outfit.some(l=>/^base\//i.test(l.key)));assert.ok(outfit.some(l=>/^hairstyles\//i.test(l.key)));
+ assert.deepEqual(refs.referenceLayers(fixture,avatar.DEFAULT_AVATAR).map(l=>l.key),normal.map(l=>l.key));
+});
+
+test('neck protection finds shoulder transition and skips missing or unsuitable body silhouettes',()=>{
+ const g=loader()('src/core/avatarReference.ts'),w=100,h=200,p=new Uint8ClampedArray(w*h*4);
+ for(let y=50;y<=68;y++){const span=y<56?30:y<62?6:24;for(let x=50-Math.floor(span/2);x<50+Math.ceil(span/2);x++)p[(y*w+x)*4+3]=255;}
+ assert.equal(g.neckTransitionRow(p,w,h),62);assert.equal(g.neckTransitionRow(new Uint8ClampedArray(w*h*4),w,h),null);
+ p.fill(255);assert.equal(g.neckTransitionRow(p,w,h),null);
+});
+
+test('outfit PNG prototype maps framed source back to body canvas and validates selection',()=>{
+ const g=loader()('src/core/outfitPrototype.ts');const t={x:0,y:0,scale:1,frame:.92},fit=g.fitOutfit(768,1024,843,1264,t);
+ const k=1264/(1024*.92);assert.ok(Math.abs(fit.height-1024*k)<1e-6);assert.ok(Math.abs(fit.y-(1264-fit.height)/2)<1e-6);
+ const points=[{x:1,y:1},{x:20,y:1},{x:20,y:20}];assert.equal(g.validRegion(points,100,100),true);assert.equal(g.validRegion(points.slice(0,2),100,100),false);assert.equal(g.validRegion([{x:-1,y:0},...points],100,100),false);assert.throws(()=>g.fitOutfit(768,1024,843,1264,{...t,scale:0}));assert.throws(()=>g.fitOutfit(768,1024,843,1264,{...t,x:Infinity}));
+});
+test('neck preservation is limited to central neck column and clothing mask reaches canvas bottom',()=>{
+ const g=loader()('src/core/avatarReference.ts'),w=100,h=200,p=new Uint8ClampedArray(w*h*4);
+ for(let y=50;y<65;y++){const span=y<56?40:6;for(let x=50-span/2;x<50+span/2;x++)p[(y*w+x)*4+3]=255;}
+ const b=g.neckColumnBounds(p,w,h);assert.ok(b.left>40&&b.right<60);assert.equal(g.clothingBounds(p,w,h).height,150);
+});
+
+test('outfit selection reload rejects mismatched pictures and retains editable holes and alignment',()=>{
+ const g=loader()('src/core/outfitPrototype.ts'),saved={name:'Dress',sourceSize:{width:768,height:1024},regions:[{points:[{x:10,y:10},{x:100,y:10},{x:100,y:100}],erase:false},{points:[{x:30,y:20},{x:50,y:20},{x:50,y:40}],erase:true}],transform:{x:2,y:-5,scale:1,frame:.92}};
+ const restored=g.readOutfitSelection(saved,768,1024);assert.equal(restored.regions[1].erase,true);assert.equal(restored.transform.y,-5);assert.throws(()=>g.readOutfitSelection(saved,512,768));assert.throws(()=>g.readOutfitSelection({...saved,transform:{...saved.transform,frame:0}},768,1024));assert.equal(g.validRegion([null,{x:1,y:1},{x:3,y:4}],100,100),false);
+});
+test('outfit redraw defaults avoid the rejected flat dress guide',()=>{
+ const g=loader()('src/core/imageGeneration.ts');assert.equal(g.outfitQualityDefaults('animagine.safetensors',true,'yourself in a summer dress').referenceStrength,.8);assert.equal(g.outfitQualityDefaults('animagine.safetensors',true,'a jacket').referenceStrength,.8);assert.equal(g.outfitQualityDefaults('NetaYume.safetensors',true,'dress').cfg,4);
+ const prompt=g.animagineClothingPrompt('yourself in a summer dress');assert.match(prompt,/feet fully visible/);assert.match(prompt,/arms at sides/);
+});
+
+
+test('dragging outfit preview accounts for display scale and preserves alignment bounds',()=>{
+ const g=loader()('src/core/outfitPrototype.ts'),start={x:5,y:-10};
+ const move=g.dragOutfit(start,{x:50,y:-25},{width:421.5,height:632},{width:843,height:1264});assert.equal(move.x,105);assert.equal(move.y,-60);
+ const limit=g.dragOutfit(start,{x:10000,y:-10000},{width:843,height:1264},{width:843,height:1264});assert.equal(limit.x,2048);assert.equal(limit.y,-2048);assert.throws(()=>g.dragOutfit(start,{x:1,y:1},{width:0,height:10},{width:843,height:1264}));
+});
+test('clothing-only requests avoid avatar instructions and request isolated garments',()=>{
+ const g=loader()('src/core/imageGeneration.ts');const request=g.requestedPicture('Draw a summer dress, clothing only using Animagine');assert.equal(request.clothingOnly,true);assert.equal(request.backend,'animagine');assert.equal(g.requestedPicture('Draw yourself in a summer dress').clothingOnly,undefined);
+ const prompt=g.clothingOnlyPrompt('yourself in a red summer dress','animagine.safetensors');assert.match(prompt,/no humans/);assert.match(prompt,/red summer dress/);assert.ok(!prompt.includes('yourself'));assert.ok(!prompt.includes('arms at sides'));assert.match(g.clothingOnlyNegative('blurry'),/mannequin/);
+});
+
+test('connected background cleanup preserves enclosed pale fabric and removes clicked holes',()=>{
+ const g=loader()('src/core/outfitPrototype.ts'),w=7,h=7,data=new Uint8ClampedArray(w*h*4);
+ for(let i=0;i<w*h;i++)data.set([250,245,245,255],i*4);
+ for(let y=1;y<6;y++)for(let x=1;x<6;x++){const edge=x===1||x===5||y===1||y===5;data.set(edge?[50,50,50,255]:[252,250,250,255],(y*w+x)*4);}
+ const background=g.backgroundPixels(data,w,h,{x:0,y:0},24);assert.equal(background[0],255);assert.equal(background[3*w+3],0);assert.equal(background[1*w+1],0);
+ const hole=g.backgroundPixels(data,w,h,{x:3,y:3},10);assert.equal(hole[3*w+3],255);assert.equal(hole[0],0);assert.throws(()=>g.backgroundPixels(data,w,h,{x:-1,y:0},24));
+});
+test('corner resize shrinks below old minimum and keeps opposite corner anchored',()=>{
+ const g=loader()('src/core/outfitPrototype.ts'),start={x:0,y:0,scale:1,frame:1},box={x:250,y:250,width:500,height:500};
+ const small=g.resizeOutfit(start,box,0,{x:725,y:725},{width:1000,height:1000});assert.ok(Math.abs(small.scale-.05)<1e-6);
+ const fit=g.fitOutfit(1000,1000,1000,1000,small),moved=g.transformedBounds({x:250,y:250,width:500,height:500},fit,{width:1000,height:1000});assert.ok(Math.abs(moved.x+moved.width-750)<1e-6);assert.ok(Math.abs(moved.y+moved.height-750)<1e-6);
+ const tiny=g.resizeOutfit(start,box,0,{x:900,y:900},{width:1000,height:1000});assert.equal(tiny.scale,.02);assert.ok(g.fitOutfit(768,1024,843,1264,{...start,scale:.02}));
+});
+test('brush strokes and background cleanup reload with grouped undo and legacy polygons',()=>{
+ const g=loader()('src/core/outfitPrototype.ts'),polygon={points:[{x:0,y:0},{x:100,y:0},{x:100,y:100}],erase:false},stroke={kind:'brush',points:[{x:20,y:20},{x:30,y:30}],brushSize:12,erase:true,group:3},bg={kind:'background',points:[{x:0,y:0}],tolerance:24,erase:true,group:4};
+ const saved={name:'Edited',sourceSize:{width:100,height:100},regions:[polygon,stroke,bg,{...bg,points:[{x:99,y:0}]}],transform:{x:0,y:0,scale:.05,frame:1}},restored=g.readOutfitSelection(saved,100,100);
+ assert.equal(restored.regions[1].kind,'brush');assert.equal(restored.regions[1].brushSize,12);assert.equal(g.undoOutfitEdit(restored.regions).length,2);assert.equal(g.undoOutfitEdit([polygon]).length,0);
+ assert.throws(()=>g.readOutfitSelection({...saved,regions:[{...stroke,brushSize:0}]},100,100));assert.throws(()=>g.readOutfitSelection({...saved,regions:[{...bg,tolerance:999}]},100,100));
+});
+
+test('outfit pieces retain independent cleanup and alignment when switching and reopening',()=>{
+ const g=loader()('src/core/outfitPrototype.ts'),transform={x:0,y:0,scale:1,frame:1},r=[{points:[{x:0,y:0},{x:100,y:0},{x:100,y:100}],erase:false}],pieces=[{id:'top',name:'Top',regions:r,transform},{id:'bottom',name:'Bottoms',regions:[],transform:{...transform,y:100}}];
+ const snapshot=g.snapshotOutfitPieces(pieces,'top',r,{...transform,x:25,scale:.2});assert.equal(snapshot[0].transform.x,25);assert.equal(snapshot[1].transform.y,100);assert.equal(pieces[0].transform.x,0);
+ const project=g.readOutfitProject({name:'Set',sourceSize:{width:100,height:100},parts:snapshot,activePartId:'bottom'},100,100);assert.equal(project.activeId,'bottom');assert.equal(project.pieces[0].transform.scale,.2);assert.equal(project.pieces[1].transform.y,100);
+ assert.throws(()=>g.readOutfitProject({name:'Set',sourceSize:{width:100,height:100},parts:[snapshot[0],snapshot[0]]},100,100));
+ const old=g.readOutfitProject({name:'Old',sourceSize:{width:100,height:100},regions:r,transform},100,100);assert.equal(old.pieces.length,1);assert.equal(old.pieces[0].regions.length,1);
+});
+test('splitting an outline retains cleaned pixels in new piece and excludes them from original',()=>{
+ const g=loader()('src/core/outfitPrototype.ts'),points=[{x:10,y:60},{x:90,y:60},{x:90,y:90}],regions=[{points:[{x:0,y:0},{x:100,y:0},{x:100,y:100}],erase:false},{kind:'background',points:[{x:0,y:0}],tolerance:20,erase:true}],pieces=[{id:'all',name:'Set',regions,transform:{x:3,y:4,scale:.3,frame:1}}];
+ const split=g.splitOutfitPiece(pieces,'all',points,'shoe','Shoe',100,100);assert.equal(split.length,2);assert.equal(split[0].regions[2].erase,true);assert.equal(split[1].regions[1].kind,'background');assert.equal(split[1].regions[2].kind,'clip');assert.equal(split[1].transform.x,3);assert.equal(pieces[0].regions.length,2);assert.equal(g.undoOutfitEdit(split[1].regions).length,3);
+ assert.equal(g.readOutfitProject({name:'Set',parts:split,sourceSize:{width:100,height:100}},100,100).pieces.length,2);
+});
+test('fresh image seeds vary repeated requests without losing explicit repeatability',()=>{
+ const g=loader()('src/core/imageGeneration.ts');assert.equal(g.freshPictureSeed(42,42),43);assert.equal(g.freshPictureSeed(42,1234),1234);assert.equal(g.freshPictureSeed(4294967295,4294967295),0);assert.ok(Number.isInteger(g.freshPictureSeed(42)));
+});
+
+test('Qwen routes independently with bounded artwork dimensions and explicit reference',()=>{
+ const g=loader()('src/core/imageGeneration.ts'),model='Qwen-Rapid-AIO-SFW-v23.safetensors';
+ const parsed=g.requestedPicture('Draw yourself reading in a library using Qwen');assert.equal(parsed.backend,'qwen');assert.equal(parsed.referenceAvatar,true);assert.equal(parsed.prompt,'yourself reading in a library');
+ assert.equal(g.choosePictureModel([{name:model,kind:'qwen'}],'qwen').name,model);assert.equal(g.choosePictureModel([],'qwen'),undefined);
+ assert.equal(g.pictureModelReady('qwen',{engineReady:true,netaReady:true,qwenReady:false}),false);
+ assert.equal(g.pictureModelReady('qwen',{engineReady:false,netaReady:false,qwenReady:true}),true);
+ assert.equal(g.outfitQualityDefaults(model,true).steps,4);assert.equal(g.outfitQualityDefaults(model,true).cfg,1);
+ const r={model,prompt:'library',negative:'',width:1280,height:720,steps:4,cfg:1,seed:42,cpu:false,characterReference:true};assert.equal(g.imageGenerationRequest(r).height,720);
+ for(const change of [{cpu:true},{width:1280,height:1280},{width:1296},{height:721},{reference:'data:image/jpeg;base64,/9j/AA=='},{characterReference:'yes'},{model:'photon_v1.safetensors'}])assert.throws(()=>g.imageGenerationRequest({...r,...change}));
+ assert.match(g.qwenArtworkPrompt(parsed.prompt,true),/turnaround sheet/);assert.ok(!g.qwenArtworkPrompt(parsed.prompt,true).includes('yourself'));assert.equal(g.qwenArtworkPrompt('a cat',false),'a cat');
+});
+
+test('Qwen chat launch uses character conditioning without avatar masks',async()=>{
+ const slots=[],deps=[],effects=[],calls=[];let index=0,completed=0;const load=loader(),jsx=(type,props)=>({type,props}),module={exports:{}};
+ const react={useState:init=>{const i=index++;if(!(i in slots))slots[i]=typeof init==='function'?init():init;return [slots[i],v=>slots[i]=typeof v==='function'?v(slots[i]):v];},useRef:init=>{const i=index++;return slots[i]??(slots[i]={current:init});},useEffect:(fn,d)=>{const i=index++;if(!deps[i]||d.some((v,j)=>!Object.is(v,deps[i][j]))){deps[i]=d;effects.push(fn);}}};
+ const invoke=async(name,args)=>{calls.push({name,args});if(name==='image_generation_discover')return {models:[{name:'Qwen-Rapid-AIO-SFW-v23.safetensors',kind:'qwen'}],engineReady:false,netaReady:false,qwenReady:true,qwenReferenceReady:true};if(name==='image_generation_start')return 'chat-owned-job';if(name==='image_generation_poll')return {stage:'ready',path:'local.jpg'};if(name==='image_generation_result')return new ArrayBuffer(4);};
+ vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/components/ImageGenerationDrawer.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,{module,exports:module.exports,require:id=>id==='react'?react:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:id==='@tauri-apps/api/core'?{invoke}:id.includes('imageSession')?load('src/core/imageSession.ts'):id.includes('imageGeneration')?load('src/core/imageGeneration.ts'):{prepareImage:async()=> 'prepared-jpeg'},setTimeout:()=>1,clearTimeout(){},File:class{constructor(parts,name){this.name=name;}},Uint8Array,AbortController});
+ const props={inline:true,available:true,initialRequest:{prompt:'yourself in a blue summer dress',backend:'qwen',referenceAvatar:true},prepareReference:async()=>assert.fail('Qwen must not prepare an avatar'),prepareClothingMask:async()=>assert.fail('Qwen must not prepare a clothing mask'),onClose(){},onSave(){assert.fail('Save must remain explicit');},onGenerated:image=>{completed++;assert.equal(image.dataUrl,'prepared-jpeg');}};
+ function render(){index=0;const tree=module.exports.default(props);assert.equal(tree.type,'section');assert.equal(tree.props.className,'chat-picture-job');assert.equal(tree.props.role,undefined);while(effects.length)effects.shift()();}
+ render();await new Promise(setImmediate);assert.equal(completed,0);render();await new Promise(setImmediate);render();await new Promise(setImmediate);
+ const starts=calls.filter(c=>c.name==='image_generation_start');assert.equal(starts.length,1);assert.equal(starts[0].args.request.model,'Qwen-Rapid-AIO-SFW-v23.safetensors');assert.equal(starts[0].args.request.width,1280);assert.equal(starts[0].args.request.height,720);assert.equal(starts[0].args.request.referenceStrength,.45);assert.match(starts[0].args.request.prompt,/same single character/);assert.equal(starts[0].args.request.cfg,1);assert.equal(starts[0].args.request.reference,undefined);assert.equal(starts[0].args.request.referenceMask,undefined);assert.equal(starts[0].args.request.characterReference,true);assert.equal(starts[0].args.request.steps,4);assert.equal(completed,1);
+});
+
+test('Qwen current-avatar chat reference snapshots dressed layers without requiring the sheet',async()=>{
+ const slots=[],deps=[],effects=[],calls=[];let index=0,completed=0;const load=loader(),jsx=(type,props)=>({type,props}),module={exports:{}};
+ const react={useState:init=>{const i=index++;if(!(i in slots))slots[i]=typeof init==='function'?init():init;return [slots[i],v=>slots[i]=typeof v==='function'?v(slots[i]):v];},useRef:init=>{const i=index++;return slots[i]??(slots[i]={current:init});},useEffect:(fn,d)=>{const i=index++;if(!deps[i]||d.some((v,j)=>!Object.is(v,deps[i][j]))){deps[i]=d;effects.push(fn);}}};
+ const invoke=async(name,args)=>{calls.push({name,args});if(name==='image_generation_discover')return {models:[{name:'Qwen-Rapid-AIO-SFW-v23.safetensors',kind:'qwen'}],engineReady:false,netaReady:false,qwenReady:true,qwenReferenceReady:false};if(name==='image_generation_start')return 'chat-owned-job';if(name==='image_generation_poll')return {stage:'ready',path:'local.jpg'};if(name==='image_generation_result')return new ArrayBuffer(4);};
+ vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/components/ImageGenerationDrawer.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,{module,exports:module.exports,require:id=>id==='react'?react:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:id==='@tauri-apps/api/core'?{invoke}:id.includes('imageSession')?load('src/core/imageSession.ts'):id.includes('imageGeneration')?load('src/core/imageGeneration.ts'):{prepareImage:async()=> 'prepared-jpeg'},setTimeout:()=>1,clearTimeout(){},File:class{constructor(parts,name){this.name=name;}},Uint8Array,AbortController});
+ const props={inline:true,available:true,initialRequest:{prompt:'yourself in a blue summer dress',backend:'qwen',referenceAvatar:true,qwenReferenceSource:'avatar'},prepareReference:async(signal,clothing,accessories)=>{assert.equal(clothing,false);assert.equal(accessories,true);return 'data:image/jpeg;base64,/9j/AA==';},prepareClothingMask:async()=>assert.fail('Qwen must not prepare a clothing mask'),onClose(){},onSave(){assert.fail('Save must remain explicit');},onGenerated:image=>{completed++;assert.equal(image.dataUrl,'prepared-jpeg');}};
+ function render(){index=0;const tree=module.exports.default(props);assert.equal(tree.type,'section');assert.equal(tree.props.className,'chat-picture-job');assert.equal(tree.props.role,undefined);while(effects.length)effects.shift()();}
+ render();await new Promise(setImmediate);assert.equal(completed,0);render();await new Promise(setImmediate);render();await new Promise(setImmediate);
+ const starts=calls.filter(c=>c.name==='image_generation_start');assert.equal(starts.length,1);assert.equal(starts[0].args.request.model,'Qwen-Rapid-AIO-SFW-v23.safetensors');assert.equal(starts[0].args.request.width,1280);assert.equal(starts[0].args.request.height,720);assert.equal(starts[0].args.request.referenceStrength,.45);assert.match(starts[0].args.request.prompt,/same single character/);assert.equal(starts[0].args.request.cfg,1);assert.equal(starts[0].args.request.reference,'data:image/jpeg;base64,/9j/AA==');assert.equal(starts[0].args.request.referenceMask,undefined);assert.equal(starts[0].args.request.characterReference,false);assert.equal(starts[0].args.request.steps,4);assert.equal(completed,1);
+});
+
+test('Qwen current avatar routing follows reference features rather than fixed colors',()=>{
+ const g=loader()('src/core/imageGeneration.ts');const r=g.requestedPicture('Draw yourself reading using your current avatar using Qwen');assert.equal(r.backend,'qwen');assert.equal(r.qwenReferenceSource,'avatar');assert.equal(r.referenceAvatar,true);assert.equal(r.prompt,'yourself reading');
+ const p=g.qwenArtworkPrompt(r.prompt,true,'avatar');assert.match(p,/current avatar image/);assert.ok(!p.includes('silver'));assert.ok(!p.includes('blue eyes'));assert.ok(!p.includes('green backdrop'));
+ const req={model:'Qwen-Rapid-AIO-SFW-v23.safetensors',prompt:'artwork',negative:'',width:1280,height:720,steps:4,cfg:1,seed:42,cpu:false,characterReference:false,reference:'data:image/jpeg;base64,/9j/AA=='};assert.equal(g.imageGenerationRequest(req).reference,req.reference);assert.throws(()=>g.imageGenerationRequest({...req,characterReference:true}));
+});
+
+test('Qwen outfit design generates separated clothing without attaching the character',async()=>{
+ const slots=[],deps=[],effects=[],calls=[];let index=0,completed=0;const load=loader(),jsx=(type,props)=>({type,props}),module={exports:{}};
+ const react={useState:init=>{const i=index++;if(!(i in slots))slots[i]=typeof init==='function'?init():init;return [slots[i],v=>slots[i]=typeof v==='function'?v(slots[i]):v];},useRef:init=>{const i=index++;return slots[i]??(slots[i]={current:init});},useEffect:(fn,d)=>{const i=index++;if(!deps[i]||d.some((v,j)=>!Object.is(v,deps[i][j]))){deps[i]=d;effects.push(fn);}}};
+ const invoke=async(name,args)=>{calls.push({name,args});if(name==='image_generation_discover')return {models:[{name:'Qwen-Rapid-AIO-SFW-v23.safetensors',kind:'qwen'}],engineReady:false,netaReady:false,qwenReady:true,qwenReferenceReady:true};if(name==='image_generation_start')return 'chat-owned-job';if(name==='image_generation_poll')return {stage:'ready',path:'local.jpg'};if(name==='image_generation_result')return new ArrayBuffer(4);};
+ vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/components/ImageGenerationDrawer.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,{module,exports:module.exports,require:id=>id==='react'?react:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:id==='@tauri-apps/api/core'?{invoke}:id.includes('imageSession')?load('src/core/imageSession.ts'):id.includes('imageGeneration')?load('src/core/imageGeneration.ts'):{prepareImage:async()=> 'prepared-jpeg'},setTimeout:()=>1,clearTimeout(){},File:class{constructor(parts,name){this.name=name;}},Uint8Array,AbortController});
+ const props={inline:true,available:true,initialRequest:{prompt:'a lavender cardigan, white skirt and pair of white shoes',backend:'qwen',referenceAvatar:true,clothingOnly:true},prepareReference:async()=>assert.fail('Qwen must not prepare an avatar'),prepareClothingMask:async()=>assert.fail('Qwen must not prepare a clothing mask'),onClose(){},onSave(){assert.fail('Save must remain explicit');},onGenerated:image=>{completed++;assert.equal(image.dataUrl,'prepared-jpeg');}};
+ function render(){index=0;const tree=module.exports.default(props);assert.equal(tree.type,'section');assert.equal(tree.props.className,'chat-picture-job');assert.equal(tree.props.role,undefined);while(effects.length)effects.shift()();}
+ render();await new Promise(setImmediate);assert.equal(completed,0);render();await new Promise(setImmediate);render();await new Promise(setImmediate);
+ const starts=calls.filter(c=>c.name==='image_generation_start');assert.equal(starts.length,1);assert.equal(starts[0].args.request.model,'Qwen-Rapid-AIO-SFW-v23.safetensors');assert.equal(starts[0].args.request.width,1280);assert.equal(starts[0].args.request.height,720);assert.equal(starts[0].args.request.referenceStrength,.45);assert.match(starts[0].args.request.prompt,/isolated anime clothing objects/);assert.equal(starts[0].args.request.cfg,1);assert.equal(starts[0].args.request.reference,undefined);assert.equal(starts[0].args.request.referenceMask,undefined);assert.equal(starts[0].args.request.characterReference,false);assert.equal(starts[0].args.request.steps,4);assert.equal(completed,1);
+});
+
+test('outfit design defaults to a complete Qwen garment set and preserves requested items',()=>{
+ const g=loader()('src/core/imageGeneration.ts'),r=g.outfitDesignRequest();assert.equal(r.backend,'qwen');assert.equal(r.clothingOnly,true);assert.match(r.prompt,/cardigan/);assert.match(r.prompt,/skirt/);assert.match(r.prompt,/pair/);
+ const prompt=g.clothingOnlyPrompt(r.prompt,'Qwen-Rapid-AIO-SFW-v23.safetensors');assert.match(prompt,/separate complete pieces/);assert.match(prompt,/generous empty gaps/);assert.match(prompt,/no wearer/);assert.match(prompt,/uniform light-gray background/);
+ const dress=g.clothingOnlyPrompt('a red summer dress','Qwen-Rapid-AIO-SFW-v23.safetensors');assert.match(dress,/red summer dress/);assert.ok(!dress.includes('lavender'));assert.ok(!dress.includes('cardigan'));assert.ok(!dress.includes('transparent'));
+});
+
+test('Atelier hands a design into one persistent editor across Make Edit and Save',()=>{
+ const slots=[];let index=0,closed=0;const jsx=(type,props,key)=>({type,props,key}),module={exports:{}},Designer=()=>null,Editor=()=>null;
+ const react={useRef:init=>{const i=index++;return slots[i]??(slots[i]={current:init});},useState:init=>{const i=index++;if(!(i in slots))slots[i]=typeof init==='function'?init():init;return [slots[i],v=>slots[i]=typeof v==='function'?v(slots[i]):v];}};
+ vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/components/Atelier.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,{module,exports:module.exports,require:id=>id==='react'?react:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:id.includes('imageGeneration')?loader()('src/core/imageGeneration.ts'):id.includes('ImageGenerationDrawer')?{default:Designer,__esModule:true}:{default:Editor,__esModule:true}});
+ const props={assets:{},cfg:{},available:true,beforeGenerate:async()=>async()=>{},onSaveImage(){},onClose(){closed++;}};
+ function render(){index=0;return module.exports.default(props);}function nodes(tree){return !tree||typeof tree!=='object'?[]:[tree,...[tree.props?.children].flat(Infinity).flatMap(nodes)];}
+ let tree=render(),all=nodes(tree);assert.equal(tree.props['aria-label'],'Atelier');const design=all.find(n=>n.type===Designer);assert.equal(design.props.embedded,true);assert.equal(design.props.autoGenerate,false);assert.equal(design.props.initialRequest.backend,'qwen');
+ const image={filename:'outfit.jpg',dataUrl:'data:image/jpeg;base64,/9j/AA=='};design.props.onPrototype(image);all=nodes(render());let editor=all.find(n=>n.type===Editor);assert.equal(editor.props.initial,image);assert.equal(editor.props.stage,'make');const key=editor.key;let picked=0;editor.props.uploadInputRef.current={click(){picked++;}};all.find(n=>n.type==='button'&&n.props.children==='Upload your own outfit image').props.onClick();assert.equal(picked,1);
+ for(const step of ['edit','save','make','design','edit']){const button=all.find(n=>n.type==='button'&&n.props['aria-current']===undefined&&JSON.stringify(n.props.children).toLowerCase().includes('"'+step+'"'));assert.ok(button,step);button.props.onClick();all=nodes(render());editor=all.find(n=>n.type===Editor);assert.equal(editor.key,key);assert.equal(editor.props.initial,image);}
+ all.find(n=>n.type===Designer).props.onPrototype({...image,filename:'new.jpg'});all=nodes(render());editor=all.find(n=>n.type===Editor);assert.notEqual(editor.key,key);assert.equal(editor.props.stage,'make');assert.equal(editor.props.initial.filename,'new.jpg');
+ all.find(n=>n.type==='button'&&n.props.children==='Back to chat').props.onClick();assert.equal(closed,1);
+});
+
+test('wardrobe inventory previews isolate items and keep skin previews dressed',()=>{
+ const load=loader(),a=assets(['base/body.png','base/tan/body.png','outfits/default/outfit.png','outfits/summer/outfit.png','outfits/summer/outfit_back.png','hairstyles/default/hair_front.png','hairstyles/default/hair_back.png','hairstyles/short/hair_front.png','accessories/glasses.png','accessories/back/wings.png','eyes/eye_neutral.png','eyes/eye_happy.png','mouth/mouth_neutral.png','mouth/mouth_a.png']);
+ const cfg={...load('src/core/avatar.ts').DEFAULT_AVATAR,accessories:['glasses']},before=JSON.stringify(cfg),preview=load('src/core/wardrobe.ts').wardrobePreviewLayers;
+ const outfit=preview(a,cfg,'outfit','summer');assert.equal(outfit.length,2);assert.ok(outfit.every(l=>l.key.startsWith('outfits/summer/')));
+ const hair=preview(a,cfg,'hair','short');assert.equal(hair.length,1);assert.equal(hair[0].key,'hairstyles/short/hair_front.png');
+ const accessory=preview(a,cfg,'accessories','wings');assert.equal(accessory.length,1);assert.equal(accessory[0].key,'accessories/back/wings.png');
+ const skin=preview(a,cfg,'skin','tan');assert.ok(skin.some(l=>l.key==='base/tan/body.png'));assert.ok(skin.some(l=>l.key==='outfits/default/outfit.png'));assert.ok(skin.some(l=>l.key==='eyes/eye_neutral.png'));assert.ok(!skin.some(l=>l.key==='eyes/eye_happy.png'||l.key==='mouth/mouth_a.png'));assert.equal(JSON.stringify(cfg),before);
+});
+
+test('full-page wardrobe inventory keeps selection locks accessory toggles and look controls',()=>{
+ const slots=[];let index=0;const jsx=(type,props,key)=>({type,props,key}),module={exports:{}},load=loader();
+ const react={useState:init=>{const i=index++;if(!(i in slots))slots[i]=typeof init==='function'?init():init;return [slots[i],v=>slots[i]=typeof v==='function'?v(slots[i]):v];}};
+ vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/components/Wardrobe.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,{module,exports:module.exports,require:id=>id==='react'?react:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:id.includes('../core/')?load('src/core/'+id.split('/').pop()+'.ts'):{__esModule:true,default:()=>null},window:{confirm:()=>true}});
+ const entry=(name,unlocked=true)=>({id:'outfits/'+name,name,label:name,unlocked,hint:'Spend time together',isDefault:name==='default'}),changes=[],cfg={...load('src/core/avatar.ts').DEFAULT_AVATAR,accessories:[],looks:[],view:'bust'};
+ const props={data:{outfits:[entry('default'),entry('summer'),entry('locked',false)],hairs:[entry('default')],skins:[entry('default')],accessories:[entry('glasses')]},cfg,stats:{days:[],messages:0,skill:0},charName:'Mana',onChange:next=>{changes.push(next);props.cfg=next;},onClose(){},onAtelier(){}};
+ function nodes(t){return !t||typeof t!=='object'?[]:[t,...[t.props?.children].flat(Infinity).flatMap(nodes)];}function render(){index=0;return nodes(module.exports.default(props));}
+ let all=render();assert.equal(all[0].props.className,'wardrobe-workspace');const radios=all.filter(n=>n.type==='input'&&n.props.type==='radio');assert.equal(radios.length,3);assert.equal(radios[2].props.disabled,true);radios[2].props.onChange();assert.equal(changes.length,0);radios[1].props.onChange();assert.equal(props.cfg.outfit,'summer');assert.equal(props.cfg.view,'bust');
+ all=render();all.find(n=>n.type==='input'&&n.props.type==='search').props.onChange({target:{value:'missing'}});all=render();assert.equal(all.filter(n=>n.type==='input'&&n.props.type==='radio').length,0);
+ all.find(n=>n.type==='button'&&n.props.children==='Accessories').props.onClick();all=render();all.find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange();assert.deepEqual(Array.from(props.cfg.accessories),['glasses']);all=render();all.find(n=>n.type==='input'&&n.props.type==='checkbox').props.onChange();assert.equal(props.cfg.accessories.length,0);
+ all=render();all.find(n=>n.type==='button'&&n.props.children==='Saved looks').props.onClick();all=render();all.find(n=>n.type==='input'&&n.props.maxLength===60).props.onChange({target:{value:'Cozy'}});all=render();all.find(n=>n.type==='button'&&n.props.children==='Save current look').props.onClick();assert.equal(props.cfg.looks[0].name,'Cozy');assert.equal(props.cfg.looks[0].outfit,'summer');
+ for(const label of ['Daily looks','Seasons']){all=render();all.find(n=>n.type==='button'&&n.props.children===label).props.onClick();assert.ok(render().some(n=>n.type==='main'));}
+});
+
+
+test('saved Atelier outfits are wearable inventory entries with friendly names',()=>{
+ const load=loader(),avatar=load('src/core/avatar.ts'),w=load('src/core/wardrobe.ts'),name='atelier_blue_summer_dress-1792634559305369900',a=assets(['base/body.png','outfits/default/outfit.png','hairstyles/default/hair_front.png','outfits/'+name+'/outfit.png']);
+ const items=w.buildWardrobe(a,{days:[],messages:0,skill:0,milestones:{}},new Date(),'Mana'),saved=items.outfits.find(e=>e.name===name);assert.ok(saved);assert.equal(saved.label,'blue summer dress');assert.equal(saved.unlocked,true);const cfg=w.resolveLoadout({...avatar.DEFAULT_AVATAR,outfit:name},items);assert.equal(cfg.outfit,name);assert.ok(avatar.buildLayers(a,cfg).some(l=>l.key==='outfits/'+name+'/outfit.png'));assert.ok(!avatar.buildLayers(a,cfg).some(l=>l.key==='outfits/default/outfit.png'));
+});
+
+test('Atelier preview opacity and zoom leave the transparent outfit composite unchanged',()=>{
+ const im={naturalWidth:843,naturalHeight:1264,src:'source'},body={...im,src:'body'},calls=[],effects=[],updates={};let state=0,ref=0,canvases=0;const jsx=(type,props)=>({type,props}),module={exports:{}};
+ function canvas(name){const ctx={globalAlpha:1,drawImage:(image)=>calls.push({target:name,image,alpha:ctx.globalAlpha}),getImageData:()=>({data:new Uint8ClampedArray([0,0,0,255])}),setLineDash(){},strokeRect(){},fillRect(){}};return {name,style:{cursor:'grab'},setPointerCapture(){},width:843,height:1264,getContext:()=>ctx,getBoundingClientRect:()=>({left:0,top:0,width:1080,height:1620}),};}
+ const selection=canvas('selection'),transparent=canvas('transparent'),preview=canvas('preview'),cut=canvas('cut');
+ const states={0:im,1:body,11:.4,12:2,19:true,17:[{key:'base/body.png',image:body},{key:'base/marks.png',image:{src:'marks'}},{key:'hairstyles/default/hair_front.png',image:{src:'hair'}}]};
+ const react={useState:init=>{const i=state++;return [i in states?states[i]:typeof init==='function'?init():init,v=>{updates[i]=v;}];},useRef:init=>{const i=ref++;return {current:i===5?selection:i===6?transparent:i===7?preview:init};},useMemo:fn=>fn(),useEffect:fn=>effects.push(fn)};
+ const core={undoOutfitEdit:loader()('src/core/outfitPrototype.ts').undoOutfitEdit,cutOutfit:()=>cut,alphaBounds:()=>({x:1,y:1,width:20,height:20}),placeOutfit:()=>cut,fitOutfit:()=>({x:0,y:0,width:843,height:1264}),transformedBounds:()=>({x:1,y:1,width:20,height:20}),MIN_OUTFIT_SCALE:.02,MAX_OUTFIT_SCALE:4};
+ vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/components/OutfitPrototype.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,{module,exports:module.exports,require:id=>id==='react'?react:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:id.includes('avatarReference')?{referenceLayers:()=>[{key:'base/body.png',url:'body'}]}:id.includes('outfitPrototype')?core:{invoke:()=>assert.fail('View changes must not save anything')},document:{createElement:()=>canvas('composite-'+(++canvases))},Uint8ClampedArray});
+ const tree=module.exports.default({assets:{},cfg:{},embedded:true,stage:'edit',onClose(){}});let prevented=0;const keyEvent={key:'z',ctrlKey:true,metaKey:false,shiftKey:false,altKey:false,target:{closest:()=>null},preventDefault(){prevented++;},stopPropagation(){}};tree.props.onKeyDownCapture(keyEvent);assert.equal(prevented,1);assert.equal(typeof updates[3],'function');assert.equal(updates[3]([{points:[],erase:false},{points:[],erase:true,group:2},{points:[],erase:true,group:2}]).length,1);tree.props.onKeyDownCapture({...keyEvent,target:{closest:()=>({tagName:'INPUT'})}});tree.props.onKeyDownCapture({...keyEvent,shiftKey:true});assert.equal(prevented,1);effects[4]();effects[5]();assert.equal(preview.style.cursor,'crosshair');
+ const draws=calls.filter(c=>c.target==='preview'&&c.image.name?.startsWith('composite-'));assert.equal(draws.length,1);assert.equal(draws[0].alpha,.4);assert.ok(calls.filter(c=>c.target.startsWith('composite-')).every(c=>c.alpha===1));assert.equal(calls.find(c=>c.target==='transparent').alpha,1);assert.equal(preview.getContext().globalAlpha,1);
+ function nodes(t){return !t||typeof t!=='object'?[]:[t,...[t.props?.children].flat(Infinity).flatMap(nodes)];}const all=nodes(tree);const bodyCanvas=all.find(n=>n.type==='canvas'&&n.props.className?.includes('outfit-drag-preview'));bodyCanvas.props.onPointerDown({button:0,currentTarget:preview,clientX:540,clientY:810});const point=updates[4]([])[0];assert.equal(point.x,421.5);assert.equal(point.y,632);assert.ok(all.some(n=>n.props?.['aria-label']==='Clothing cleanup tools'));assert.equal(bodyCanvas.props.style.cursor,'crosshair');assert.equal(all.find(n=>n.props?.['aria-label']==='Editor zoom').props.max,1200);const eraser=all.find(n=>n.props?.['aria-label']==='Eraser');assert.ok(eraser);eraser.props.onClick();assert.equal(updates[5],'eraser');assert.equal(updates[19],true);assert.equal(updates[20],false);const hand=all.find(n=>n.props?.['aria-label']==='Pan view');hand.props.onClick();assert.equal(updates[20],true);all.find(n=>n.props?.['aria-label']==='Move and resize').props.onClick();assert.equal(updates[19],false);assert.equal(updates[20],false);assert.ok(all.some(n=>n.type==='input'&&n.props['aria-label']==='Editor zoom'&&n.props.value===200));assert.equal(all.find(n=>n.type==='canvas'&&n.props.className?.includes('outfit-drag-preview')).props.style.width,'720px');states[5]='eraser';state=0;ref=0;const erasingTree=module.exports.default({assets:{},cfg:{},embedded:true,stage:'edit',onClose(){}}),erasingCanvas=nodes(erasingTree).find(n=>n.type==='canvas'&&n.props.className?.includes('outfit-drag-preview'));erasingCanvas.props.onPointerDown({button:0,pointerId:7,currentTarget:preview,clientX:540,clientY:810});assert.equal(updates[15].erase,true);assert.equal(updates[15].points[0].x,421.5);assert.equal(updates[15].points[0].y,632);assert.equal(updates[15].brushSize,30);states[4]=[{x:1,y:2},{x:3,y:4}];state=0;ref=0;const outlining=module.exports.default({assets:{},cfg:{},embedded:true,stage:'edit',onClose(){}});outlining.props.onKeyDownCapture(keyEvent);assert.equal(updates[4](states[4]).length,1);state=0;ref=0;const savingTree=module.exports.default({assets:{},cfg:{},embedded:true,stage:'save',onClose(){}});const before=prevented;savingTree.props.onKeyDownCapture(keyEvent);assert.equal(prevented,before);
+});
+
+test('zoomed preview drag uses canvas display coordinates and turnaround prompt requests one subject',()=>{
+ const load=loader(),g=load('src/core/outfitPrototype.ts'),normal=g.dragOutfit({x:0,y:0},{x:10,y:20},{width:400,height:600},{width:800,height:1200}),zoomed=g.dragOutfit({x:0,y:0},{x:20,y:40},{width:800,height:1200},{width:800,height:1200});assert.equal(normal.x,zoomed.x);assert.equal(normal.y,zoomed.y);const prompt=load('src/core/imageGeneration.ts').qwenArtworkPrompt('reading',true);assert.match(prompt,/exactly one character/);assert.match(prompt,/apparent age, head-to-body ratio/);assert.match(prompt,/Do not age the character up/);
+});
+
+test('canvas hand panning captures gestures without sending them to outfit tools',()=>{
+ const slots=[],refs=[];let state=0,ref=0;const jsx=(type,props)=>({type,props}),module={exports:{}};
+ const react={useEffect:()=>{},useState:init=>{const i=state++;if(!(i in slots))slots[i]=init;return [slots[i],v=>slots[i]=typeof v==='function'?v(slots[i]):v];},useRef:init=>refs[ref++]??(refs[ref-1]={current:init})};
+ vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/components/outfit/CanvasViewport.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021,jsx:ts.JsxEmit.ReactJSX}}).outputText,{module,exports:module.exports,require:id=>id==='react'?react:{jsx,jsxs:jsx}});
+ function render(){state=0;ref=0;return module.exports.default({children:'canvas'}).props.children;}let [button,view]=render();const el={scrollLeft:100,scrollTop:200,focus(){},setPointerCapture(){},hasPointerCapture:()=>true,releasePointerCapture(){}};let prevented=0,stopped=0;const event={button:0,pointerId:2,clientX:40,clientY:60,currentTarget:el,preventDefault(){prevented++;},stopPropagation(){stopped++;}};
+ view.props.onPointerDownCapture(event);assert.equal(prevented,0);button.props.onClick();[button,view]=render();view.props.onPointerDownCapture(event);view.props.onPointerMoveCapture({...event,clientX:60,clientY:90});assert.equal(el.scrollLeft,80);assert.equal(el.scrollTop,170);assert.equal(stopped,2);view.props.onPointerUpCapture(event);view.props.onPointerMoveCapture({...event,clientX:100});assert.equal(el.scrollLeft,80);
+ button.props.onClick();[,view]=render();view.props.onKeyDownCapture({...event,code:'Space'});[,view]=render();assert.match(view.props.className,/is-hand/);view.props.onKeyUpCapture({...event,code:'Space'});[,view]=render();assert.ok(!view.props.className.includes('is-hand'));view.props.onPointerDownCapture({...event,button:1});assert.ok(stopped>=4);
+});
+
+test('outfit save retains histories beyond old 200KB cap and flattens only oversized histories',()=>{
+ const g=loader()('src/core/outfitPrototype.ts'),transform={x:0,y:0,scale:1,frame:1};const regions=Array.from({length:80},()=>({kind:'brush',erase:true,brushSize:5,points:Array.from({length:180},(_,i)=>({x:i%128,y:i%128}))}));const parts=[{id:'layer1',name:'Dress',regions,transform,hidden:true}];
+ const saved=g.outfitSaveMetadata('Dress',128,128,parts,'layer1',{width:128,height:128});assert.ok(saved.metadata.length>200000);assert.equal(saved.flattened,false);const project=g.readOutfitProject(JSON.parse(saved.metadata),128,128);assert.equal(project.pieces[0].regions.length,80);assert.equal(project.pieces[0].hidden,true);
+ const huge=g.outfitSaveMetadata('Dress',128,128,[{...parts[0],name:'x'.repeat(g.MAX_OUTFIT_PROJECT_BYTES)}],'layer1',{width:128,height:128});assert.equal(huge.flattened,true);assert.ok(huge.metadata.length<1000);const flat=g.readOutfitProject(JSON.parse(huge.metadata),128,128);assert.equal(flat.pieces[0].transform.frame,1);assert.equal(flat.pieces[0].regions[0].erase,false);
+});
+
+test('mouse wheel zoom prevents page scrolling and anchors the image under the pointer',()=>{
+ const effects=[],frames=[],handlers={};let zoom=2,ref=0;const el={scrollLeft:100,scrollTop:200,getBoundingClientRect:()=>({left:10,top:20}),addEventListener:(name,fn,options)=>{handlers[name]=fn;assert.equal(options.passive,false);},removeEventListener(){}};
+ const react={useState:init=>[init,()=>{}],useRef:init=>({current:ref++===0?el:init}),useEffect:fn=>effects.push(fn)},jsx=(type,props)=>({type,props}),module={exports:{}};
+ vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/components/outfit/CanvasViewport.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021,jsx:ts.JsxEmit.ReactJSX}}).outputText,{module,exports:module.exports,require:id=>id==='react'?react:{jsx,jsxs:jsx},requestAnimationFrame:fn=>(frames.push(fn),frames.length),cancelAnimationFrame(){}});
+ module.exports.default({children:null,zoom,onZoom:v=>zoom=v});effects[0]();let prevented=false;handlers.wheel({deltaY:-100,clientX:60,clientY:70,preventDefault:()=>prevented=true});assert.equal(prevented,true);assert.ok(zoom>2);frames[0]();const r=zoom/2;assert.equal(el.scrollLeft,150*r-50);assert.equal(el.scrollTop,250*r-50);
 });

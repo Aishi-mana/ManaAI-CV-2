@@ -1,0 +1,1 @@
+import fs from 'node:fs';const p='src-tauri/src/singing.rs';let s=fs.readFileSync(p,'utf8');const i=s.indexOf('#[cfg(test)]mod builder_note_tests');s=s.slice(0,i)+s.slice(i).replaceAll(',.5',',0.5');fs.writeFileSync(p,s);

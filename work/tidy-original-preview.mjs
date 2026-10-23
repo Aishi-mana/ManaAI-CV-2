@@ -1,0 +1,1 @@
+import fs from 'node:fs';let p='work/original-preview.tsx',s=fs.readFileSync(p,'utf8').replace('<output aria-label="Mock generation request">','<output hidden aria-label="Mock generation request">');fs.writeFileSync(p,s);

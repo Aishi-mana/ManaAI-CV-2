@@ -54,6 +54,12 @@ def run():
         assert prepare_sax(sample_notes,np.zeros(24000),1)==sample_notes
         joined=prepare_sax(sample_notes,np.ones(24000)*.1,1)
         assert joined[0][1]==.41 and sample_notes[0][1]==.3
+        # A repeated key owns its new attack even when another pitch intervenes.
+        overlapping=[[0,.7,69,.8],[.2,.8,72,.6],[.4,.9,69,.5]]
+        safe=arrangement_replacement.playback_notes(overlapping)
+        assert safe==[[0,.4,69,.8],[.2,.8,72,.6],[.4,.9,69,.5]]
+        assert overlapping[0][1]==.7
+        assert arrangement_replacement.playback_notes(list(reversed(overlapping)))==list(reversed(safe))
         import drum_replacement
         with patch.object(drum_replacement,'render_rock',return_value=expected) as player:
             assert arrangement_replacement.render_drums(guide,2,root,'drums-rock') is expected
@@ -196,6 +202,23 @@ def run():
                 result=arrangement_replacement.render(guide,2,root,instrument,source_name='bass',custom={'pitch':2,'extension':.3})
                 assert result is expected
                 player.assert_called_once_with(guide,2,root,program,{'pitch':2,'extension':.3})
+        # Bass melody must not change detectors when the destination timbre changes.
+        import vocal_melody
+        tracked=([[0,.08,40,.8],[.08,.16,43,.8],[.16,.24,45,.8]],[80,70,60])
+        for target in ['harmonica','ocarina','sax-tenor','sax-weresax','electric-piano','synth-pad','piano-treble','guitar-black']:
+            with patch.object(bass_replacement,'track_bass_notes',return_value=tracked) as detector,patch.object(vocal_melody,'render_vocal_notes',return_value=expected) as player:
+                result=arrangement_replacement.render(guide,2,root,target,source_name='bass')
+                assert result is expected and detector.call_count==1
+                assert player.call_args.args[0:2]==tracked
+                assert player.call_args.args[5]==target
+        for source in ['sax-extracted','trumpet-extracted','winds-estimate','strings-estimate']:
+            assert arrangement_replacement.source_note_attacks(source,[.1,.2])==[]
+        assert arrangement_replacement.source_note_attacks('guitar',[.1,.2])==[.1,.2]
+        assert arrangement_replacement.source_note_attacks('piano',[.1,.2])==[.1,.2]
+        assert arrangement_replacement.source_frequency_range('piano')==(27.5,4186)
+        assert arrangement_replacement.source_frequency_range('winds-estimate')==(100,4186)
+        assert arrangement_replacement.source_frequency_range('strings-estimate')==(65.4,4186)
+        assert arrangement_replacement.source_frequency_range('guitar')==(100,1500)
         for stems in [None, []]:
             request=dict(style='replace-guitar-electric-piano',start=0,seconds=2,
                 vocal=str(guide),instrumental=str(guide),guitar=str(guide),

@@ -231,7 +231,8 @@ do not use this context. Identity, mood and relationship stats remain unchanged.
 - [x] Reviewable goals (proposals, user-recorded progress, pause/resume/completion, SQLite context)
 - [x] Interest enthusiasm foundation (Identity names, editable levels, accepted-goal reinforcement)
 - [x] Skill progression foundation (user-confirmed practice counts, milestones and source snapshots)
-- [ ] Assessed skill competence and verified-execution progression
+- [x] User-reviewed coding checks tied to exact saved game/manual report snapshots, separate from practice counts (user accepted)
+- [ ] Broader assessed competence and independently verified correctness progression
 - [x] Manual Windows TTS foundation (installed voice selection, completed reply Speak/Stop)
 - [x] Persistent voice preferences and opt-in automatic playback of new completed replies
 - [x] Saved speech speed and volume (manual/automatic playback, old-backup defaults)
@@ -241,8 +242,8 @@ do not use this context. Identity, mood and relationship stats remain unchanged.
 - [x] Songs menu with reviewed short-song pool, named/alias requests, grounded missing-song suggestions and adjustable original backing (user verified)
 - [x] Music Studio direction agreed and documented: full-size pastel music-player view; existing song pool and full-song conversion user-tested
 - [x] Music Studio stage 1: full-size pastel library/player using the existing cover workflow, with basic artwork and saved project settings (user passed tests 1–4; see MUSIC_STUDIO.md)
-- [ ] Music Studio stage 2: artwork, saved project settings, mix/export controls and reviewed chat excerpts without reconversion
-- [ ] Music Studio stage 3: local instrument-recreation workflow, followed by prompt-driven original songs after tool evaluation
+- [x] Music Studio stage 2: artwork, saved project settings, mix/export controls and reviewed chat excerpts without reconversion (implemented; see MUSIC_STUDIO.md)
+- [x] Music Studio stage 3: instrument melody workflow and prompt-driven original songs (user accepted)
 - [ ] Resolve sung high-note distortion and trembling (deferred at the user's request; see MUSIC_STUDIO_PLAN.md)
 - [x] Supplied-guide singing workbench (Demucs + pitch-conditioned Seed-VC, vocal/backing WAV previews; five-second CPU smoke and all four manual checks passed; speed tuning remains)
 - [ ] Custom trained Mana voice and singing quality/timing refinement
@@ -263,29 +264,42 @@ do not use this context. Identity, mood and relationship stats remain unchanged.
 - [x] Opt-in musical initiative foundation: original wordless piano/guitar candidates, persistent cooldowns, typed requests, shared Stop/mute and microphone coordination
 - [ ] Listening approval and refinement of the three musical candidates; natural sung lyrics and broader original motif library
 - [ ] Short acoustic renditions of requested songs in chat
-- [ ] Separate music studio: prompt-based original songs and uploaded-song covers
-- [ ] Cover vocal extraction, Mana vocal conversion and regenerated Mana-style instrumentation
-- [ ] Anime-style short arrangements and full-length songs; editable lyrics/style, progress/cancel, preview and export
+- [x] Separate Music Studio: original songs, uploaded-song covers and dedicated player/editor menus (user accepted)
+- [x] Cover vocal extraction, Mana conversion and instrument replacement workflow (user accepted)
+- [x] Short/full-song workflows, editable lyrics/style, progress/cancel, preview and export (current supported workflows accepted)
 - [x] User-selected image understanding foundation (separate local vision model, reviewed description to chat)
 - [x] Inline chat attachments (vision description behind the scenes, normal reply/voice, retry/cancel)
 - [x] Local prepared image persistence, thumbnails, explicit deletion and backup support (V1.x; manual tests 1–4 passed)
+- [x] Saved-song requests through hands-free, microphone pause during songs, automatic resume and Stop (user passed all checks, 2026-10-18)
+- [x] Cover Builder clip fades and instrument note editor with compact dark tools dock (implemented; UI improved with user feedback)
+- [x] Word-by-word karaoke with editable lyrics (user accepted)
 - [x] Explicit hands-free Whisper conversation loop (V1.x; all four manual checks passed after background-noise repair)
 - [x] Compact voice input setup, full-width review, Whisper recording timer and level meter (all four manual checks passed)
 - [x] Local CPU Whisper English transcription with review (V1.x; synthetic smoke and live Mana/Aishi phrases passed; remaining manual edge checks pending)
 - [x] One-phrase microphone transcription to reviewed draft (V1.x; basic live capture confirmed; name/greeting tuning and review implemented, accuracy retest pending)
 - [x] Current avatar visual reference comparison (V1.x; all four manual checks passed after repair)
 - [ ] Improved image understanding, direct multimodal chat and verified image provenance
-- [ ] Self-recognition
-- [ ] Image generation
+- [x] User-confirmed saved-image avatar labels with backup persistence and grounded chat context (implemented; live acceptance pending)
+- [ ] Automatic self-recognition across new artwork (beyond saved user labels/reference resemblance)
+- [x] Manual local picture generation through installed Stable Diffusion engine and headless all-in-one NetaYume, preview/save/stop (user accepted generation, library Save, Stop and standalone NetaYume speed around3min, 2026-10-19)
 - [ ] Artwork provenance/self-recognition
-- [ ] Coding activities
-- [ ] Simple game creation
-- [ ] Safer code sandbox
+- [x] Manual JavaScript canvas coding playground with model-assisted drafts (live checks 1–4 passed after state-reset repair)
+- [x] Saved game versions, exact-source run reports and report-based revision drafts (user passed checks1–4; generated-code quality remains variable)
+- [x] Bounded automatic game smoke checks with explicit saved evidence (implemented; live acceptance pending)
+- [x] Standalone playable HTML game export with isolated Run/Stop (user accepted)
+- [x] Bounded multi-file game projects, local assets, mouse/buttons, sprites, tile collision, game progress and visual wall/star editing (combined user acceptance passed)
+- [ ] Broader coding activities and independent correctness assessment
+- [ ] Future autonomous game projects: occasional initiation, incremental days/weeks work, automatic playtesting and saving to the game library, while retaining manual requests
+- [x] Simple JavaScript canvas game foundation with source review and explicit Run/Stop (user accepted)
+- [x] Restricted worker-in-opaque-frame browser game runner with watchdog (Run/movement/Stop live checks passed; security boundary not independently audited)
+- [ ] Broader code sandbox/tool runners and stronger resource isolation
 - [ ] More avatar customization
-- [ ] Backgrounds
+- [x] Selectable avatar backgrounds and local custom-picture import, persisted with backups (user accepted, 2026-10-19)
 - [x] Saved looks (named loadouts, safe apply, backup/restore)
-- [ ] Seasonal outfits
-- [ ] Mana-selected outfits
+- [x] Seasonal look assignments using current/saved looks, manual Apply, calendar settings and backup persistence (user accepted, 2026-10-19)
+- [ ] Additional seasonal clothing artwork (user has no new outfit assets yet)
+- [x] Opt-in random morning/night looks from user-approved pools, editable times and persistent deduplication (implemented; live schedule acceptance pending)
+- [ ] Broader preference-driven outfit choice beyond approved random pools
 
 ---
 
@@ -336,3 +350,69 @@ do not use this context. Identity, mood and relationship stats remain unchanged.
 
 
 - [x] Whole-song cover conversion and full-cover preview, with the chat pool kept to short excerpts (61.25-second conversion smoke passed; manual full-song review pending).
+
+
+### Multi-file game projects (2026-10-19)
+
+Implemented bounded local JS/JSON projects, editable file tabs, complete-project drafts/revisions, and whole-project preservation through versions/reports/backups/HTML export. Automated checks: 223 passed, 2 optional skipped; frontend and native builds passed. User acceptance pending. This covers small canvas projects, not package-based engines or broad independent game correctness.
+
+
+### Game asset support (2026-10-19)
+
+Multi-file project and level.json editing accepted. Bounded local image/sound imports, preview/removal, game APIs, asset demo and whole-project offline export implemented; asset live acceptance pending. Broader engines, package imports, scene editors and independent gameplay verification remain outside this increment.
+
+
+### Game mouse controls (2026-10-19)
+
+Asset demo user-accepted. Primary mouse/pointer coordinates, held/press/release input and drawn clickable buttons implemented in Mana and standalone exports. Mouse target/menu demo and automated checks added; live mouse acceptance pending.
+
+
+### Sprite animation (2026-10-19)
+
+Mouse/buttons live-accepted. Sprite sheet crops, frame timing helper, looping/one-shot animation and idle/walk/react project demo implemented for Mana and offline exports. Live sprite acceptance pending.
+
+
+### Tile maps/collision (2026-10-19)
+
+Sprite animation accepted. Bounded ASCII tile maps, swept solid rectangle movement, wall sliding, overlap detection and editable maze/goal/reset demo implemented in the shared worker for Mana/exports. Live maze acceptance pending. This is a small game helper, not a general physics engine or visual level editor.
+
+
+### Saved game progress (2026-10-19)
+
+Tile maze user-accepted. Bounded game-local JSON progress, saved family/draft scopes, normal backup preservation, separate offline-browser saves, failure acknowledgement and best/unlock/theme demo implemented. Live persistence check pending. No cloud sync or cross-browser save transfer is implied.
+
+
+### Visual maze editing (2026-10-19)
+
+Game progress user-accepted. Maze wall/floor painting, spawn/goal placement, stroke undo/redo, route validation and explicit level.json Apply implemented. Current scope is the compatible maze schema, not a generic scene editor. Live visual check pending.
+
+
+### Combined small-game acceptance (2026-10-19)
+
+Visual editor user-accepted. Star maze integration example combines modules, editable levels, assets, animation, controls, collision, pickups, goal and saved progress. Automated combined route/reopen/backup/export checks passed (245 tests, 2 optional skipped). User combined live acceptance pending before marking this bounded games milestone complete.
+
+
+### Star placement correction (2026-10-19)
+
+User passed combined check and requested visual star placement. Star-aware grid brush, JSON-driven pickups, legacy-project enable option, erase/undo and all-star reachability implemented; live star placement pending.
+
+
+### Games milestone accepted (2026-10-19)
+
+User passed combined toolkit and star placement. Current small-game scope accepted. Future autonomous project development/playtesting over days or weeks recorded separately; it is not implemented or automatically started. Continue V1.x; backgrounds and broader avatar presentation remain open.
+
+- [ ] Future: Mana-designed outfit concepts, with a separate reviewed process to turn artwork into usable avatar assets (requested2026-10-19; deferred).
+
+- [x] Saved Images thumbnail gallery with search, date sorting, detail and enlarge (implemented2026-10-20; live check pending).
+- [x] Chat picture requests through local backends; inline progress/result, explicit Save and conversation persistence implemented (inline live check pending).
+
+- [x] Avatar-referenced self portraits and outfit concept entry from Wardrobe (implemented2026-10-20; live resemblance/quality pending).
+- [ ] Convert generated outfit concepts into usable layered/rigged avatar assets; no automatic installation.
+
+- [ ] Clothing-only transparent PNG generation with avatar-fit/alignment and reviewed installation; preserve character layers (clarified2026-10-21).
+
+- [x] Disk-backed gallery with thumbnail index, automatic preserved migration and no8MB/100-picture gallery cap (implemented2026-10-21; live migration acceptance pending).
+
+## Implemented — Wardrobe inventory workspace (2026-10-22)
+
+User brought the deferred redesign forward. Wardrobe is now a full-page inventory with item thumbnail grids for outfits, hair, skin and accessories, a current-look preview, search and availability/equipped/locked filters. Equipping, optional accessory toggles, saved looks, unlocks and daily/seasonal outfit pools remain supported. Atelier remains a separate linked Design → Make → Edit → Save workspace. This does not add automatic installation of Atelier PNG exports; the inventory shows wearable items loaded from the avatar asset folders. See WARDROBE_INVENTORY.md.

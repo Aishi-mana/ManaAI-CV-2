@@ -22,3 +22,10 @@ export function requestedSongTitle(text:string):string|null{
  const match=text.trim().replace(/[.!?]+$/,'').match(/^(?:please\s+)?(?:can you\s+)?sing\s+(.+?)(?:\s+for me)?$/i);
  return match?match[1].replace(/^["“]|["”]$/g,'').trim():null;
 }
+
+/** Strip an explicit character address and command punctuation, without guessing titles. */
+export function musicCommandText(text:string,name:string):string{
+ let command=text.trim();
+ if(name&&command.slice(0,name.length).toLowerCase()===name.toLowerCase()&&/^[\s,:]/.test(command.slice(name.length)))command=command.slice(name.length).replace(/^[\s,:]+/,'');
+ return command.replace(/^(sing|hum)\s*,\s*/i,'$1 ');
+}

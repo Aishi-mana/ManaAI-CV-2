@@ -1,3 +1,4 @@
+import GeneratedPictureView from './GeneratedPictureView';
 import ImageReportView from './ImageReportView';
 import type { SavedImage } from '../core/savedImages';
 import {useMemo,useState} from 'react';
@@ -18,6 +19,6 @@ export default function ChatArchivesDrawer({archives,charName,userName,onDelete,
  <p role="status">{matches.length} of {archives.length} archives</p>
  {matches.map(({archive,ids})=><div className="progress-card" key={archive.id}><b>{archive.title}</b><p>{new Date(archive.createdAt).toLocaleString()} · {archive.messages.length} messages{query.trim()?` · ${ids.length} matching messages`:''}</p><button className="btn" onClick={()=>setSelected(archive.id)}>View conversation</button><button className="btn" onClick={()=>{if(window.confirm(`Permanently delete archive "${archive.title}"?`)){onDelete(archive.id);if(selected===archive.id)setSelected(null);}}}>Delete archive</button></div>)}
  {!matches.length&&<p>{archives.length?'No matching archives.':'No archived conversations yet.'}</p>}
- {active&&<article><h3>{active.title}</h3><ExportChatButton messages={active.messages} charName={charName} userName={userName} title={active.title}/><p>Matches are outlined below.</p>{active.messages.map(m=><div key={m.id} className={`progress-card${hitIds.has(m.id)?' archive-match':''}`}><b>{m.role==='user'?'You':charName}</b><p className="memory-content">{m.role==='user'?m.content:cleanReply(m.content,charName).text}</p>{m.imageReport&&<ImageReportView report={m.imageReport} images={savedImages}/>}{m.error&&<p className="msg-error">{m.error}</p>}</div>)}</article>}
+ {active&&<article><h3>{active.title}</h3><ExportChatButton messages={active.messages} charName={charName} userName={userName} title={active.title}/><p>Matches are outlined below.</p>{active.messages.map(m=><div key={m.id} className={`progress-card${hitIds.has(m.id)?' archive-match':''}`}><b>{m.role==='user'?'You':charName}</b><p className="memory-content">{m.role==='user'?m.content:cleanReply(m.content,charName).text}</p>{m.generatedPicture&&<GeneratedPictureView image={m.generatedPicture}/>}{m.imageReport&&<ImageReportView report={m.imageReport} images={savedImages}/>}{m.error&&<p className="msg-error">{m.error}</p>}</div>)}</article>}
  </div></section></>;
 }

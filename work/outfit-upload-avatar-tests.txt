@@ -1,0 +1,38 @@
+warning: hard linking files in the incremental compilation cache failed. copying files instead. consider moving the cache directory to a file system which supports hard linking in session dir `\\?\C:\AI\ManaAI-CV-2\src-tauri\target\debug\incremental\mana_lib-3u0vwfuwsolv7\s-hnfwdwecai-17p7par-working`
+
+warning: hard linking files in the incremental compilation cache failed. copying files instead. consider moving the cache directory to a file system which supports hard linking in session dir `\\?\C:\AI\ManaAI-CV-2\src-tauri\target\debug\incremental\mana_lib-198gv5erphajf\s-hnfwdwec9n-1uysfn8-working`
+
+warning: `mana` (lib) generated 1 warning
+warning: `mana` (lib test) generated 1 warning
+warning: hard linking files in the incremental compilation cache failed. copying files instead. consider moving the cache directory to a file system which supports hard linking in session dir `\\?\C:\AI\ManaAI-CV-2\src-tauri\target\debug\incremental\mana-23m7at82p7rk2\s-hnfwdzn63q-0mu1lzm-working`
+
+warning: `mana` (bin "mana" test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.33s
+     Running unittests src\lib.rs (src-tauri\target\debug\deps\mana_lib-4834e32b2002e09c.exe)
+
+running 8 tests
+test avatar_files::tests::rejects_traversal_absolute_windows_prefixes_and_streams ... ok
+test avatar_files::tests::rejects_directories_missing_files_and_missing_roots ... ok
+test avatar_files::tests::reads_images_and_root_catalog_and_scans_only_allowed_files ... ok
+test avatar_files::tests::double_dots_inside_a_filename_are_not_traversal ... ok
+
+thread 'avatar_files::tests::external_directory_links_are_neither_scanned_nor_read' (18436) panicked at src\avatar_files.rs:268:13:
+junction failed: Output { status: ExitStatus(ExitStatus(1)), stdout: "", stderr: "Access is denied.\r\n" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'avatar_files::tests::internal_links_and_a_linked_selected_root_still_work' (51144) panicked at src\avatar_files.rs:268:13:
+junction failed: Output { status: ExitStatus(ExitStatus(1)), stdout: "", stderr: "Access is denied.\r\n" }
+test avatar_files::tests::repository_avatar_assets_scan_and_read_successfully ... ok
+test avatar_files::tests::external_directory_links_are_neither_scanned_nor_read ... FAILED
+test avatar_files::tests::internal_links_and_a_linked_selected_root_still_work ... FAILED
+test avatar_files::tests::bundled_resources_match_source_and_work_after_relocation ... ok
+
+failures:
+
+failures:
+    avatar_files::tests::external_directory_links_are_neither_scanned_nor_read
+    avatar_files::tests::internal_links_and_a_linked_selected_root_still_work
+
+test result: FAILED. 6 passed; 2 failed; 0 ignored; 0 measured; 73 filtered out; finished in 0.20s
+
+error: test failed, to rerun pass `--lib`

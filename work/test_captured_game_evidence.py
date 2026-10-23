@@ -1,0 +1,8 @@
+from pathlib import Path
+p=Path('tests/foundation.test.cjs');s=p.read_text(encoding='utf-8').replace('let now=0,pulse,element;const listeners={},effects=[],states=[],sent=[],drawn=[];', 'let now=0,pulse,element,canvasProps;const listeners={},effects=[],states=[],sent=[],drawn=[],finished=[];')
+s=s.replace("if(type==='canvas'&&props.ref)props.ref.current=canvas;", "if(type==='canvas'&&props.ref){props.ref.current=canvas;canvasProps=props;}")
+s=s.replace('const tree=module.exports.default({code:sandbox.SANDBOX_EXAMPLE,onCode(){}});', 'const props={code:sandbox.SANDBOX_EXAMPLE,onCode(){},onRunFinished:e=>finished.push(e)};const tree=module.exports.default(props);')
+s=s.replace("listeners.message({source:game.contentWindow,data:{type:'ready'}});now=33;pulse();assert.equal(sent.at(-1).type,'tick');", "listeners.message({source:game.contentWindow,data:{type:'ready'}});canvasProps.onKeyDown({key:'ArrowRight',preventDefault(){}});now=33;pulse();assert.equal(sent.at(-1).type,'tick');listeners.message({source:game.contentWindow,data:{type:'frame',commands:[],logs:['game says hello']}});now=66;pulse();props.code='changed after run began';")
+s=s.replace("assert.equal(pulse,null);\n run.props.onClick();document.visibilityState", "assert.equal(pulse,null);assert.equal(finished[0].code,sandbox.SANDBOX_EXAMPLE);assert.equal(finished[0].frames,1);assert.equal(finished[0].reason,'timeout');assert.equal(finished[0].keysUsed[0],'ArrowRight');assert.equal(finished[0].logs[0],'game says hello');\n run.props.onClick();document.visibilityState")
+s=s.replace("assert.equal(sent.at(-1).type,'stop');\n effects.map", "assert.equal(sent.at(-1).type,'stop');assert.equal(finished[1].reason,'hidden');\n effects.map")
+p.write_text(s,encoding='utf-8')

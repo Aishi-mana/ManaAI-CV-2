@@ -1,3 +1,6 @@
+import {validateOutfitRoutine,type OutfitRoutine} from './outfitRoutine';
+import {seasonalAssignments,type Season,type SeasonCalendar} from './seasonalLooks';
+import {backgroundId,backgroundPicture,type BackgroundId} from './backgrounds';
 import { invoke } from "@tauri-apps/api/core";
 import mapData from "./avatar-map.json";
 import { validateCatalog } from "./progress";
@@ -28,6 +31,11 @@ export interface AvatarAssets {
 }
 
 export interface AvatarConfig {
+  outfitRoutine?:OutfitRoutine;
+  seasonalLooks?:Partial<Record<Season,SavedLook>>;
+  seasonCalendar?:SeasonCalendar;
+  background?:BackgroundId;
+  backgroundImage?:string;
   skin: string;
   hairstyle: string;
   outfit: string;
@@ -74,6 +82,12 @@ export function validateAvatarConfig(value: unknown): AvatarConfig {
   for (const key of ["skin", "outfit", "hairstyle"] as const) {
     if (nonEmptyString(value[key])) result[key] = value[key];
   }
+  const picture=backgroundPicture(value.backgroundImage),background=backgroundId(value.background);
+  if(picture)result.backgroundImage=picture;
+  if(background!=='none')result.background=background==='custom'&&!picture?'none':background;
+  if(value.outfitRoutine&&typeof value.outfitRoutine==='object')result.outfitRoutine=validateOutfitRoutine(value.outfitRoutine);
+  if(value.seasonCalendar==='north'||value.seasonCalendar==='south')result.seasonCalendar=value.seasonCalendar;
+  if(value.seasonalLooks&&typeof value.seasonalLooks==='object')result.seasonalLooks=seasonalAssignments(value.seasonalLooks);
   result.accessories = stringList(value.accessories);
   if (typeof value.view === "string" && Object.prototype.hasOwnProperty.call(VIEWS, value.view)) result.view = value.view;
   if (Array.isArray(value.looks)) {

@@ -1,0 +1,10 @@
+from pathlib import Path
+p=Path('src/App.tsx');s=p.read_text(encoding='utf-8');s=s.replace('import OutfitPrototype from', 'import Atelier from',1).replace("'./components/OutfitPrototype'","'./components/Atelier'",1)
+s=s.replace('outfitDesignRequest,','',1).replace('  const [outfitDesign,setOutfitDesign]=useState(false);','',1)
+s=s.replace('initialRequest={outfitDesign?outfitDesignRequest():undefined} ','',1)
+s=s.replace('<OutfitPrototype assets={avatar.assets} cfg={cfg} initial={prototypePicture} onClose={()=>setShowOutfitPrototype(false)}/>', '<Atelier assets={avatar.assets} cfg={cfg} initial={prototypePicture} available={!busy&&!reflecting&&!storage.error} beforeGenerate={async cpu=>cpu?async()=>{}:llama.pauseForImage()} onSaveImage={savePictureToLibrary} onClose={()=>setShowOutfitPrototype(false)}/>',1)
+s=s.replace('onPrototype={()=>{setPrototypePicture([...messages].reverse().find(m=>m.generatedPicture)?.generatedPicture);setShowWardrobe(false);setShowOutfitPrototype(true);}}\n          onDesignOutfit={()=>{setShowWardrobe(false);setChatPicture(undefined);setOutfitDesign(true);setShowImageGeneration(true);}}','onAtelier={()=>{setPrototypePicture(undefined);setShowWardrobe(false);setShowOutfitPrototype(true);}}',1)
+p.write_text(s,encoding='utf-8')
+p=Path('src/components/Wardrobe.tsx');s=p.read_text(encoding='utf-8').replace('  onDesignOutfit?:()=>void;\n  onPrototype?:()=>void;','  onAtelier?:()=>void;',1).replace('onClose,onDesignOutfit,onPrototype','onClose,onAtelier',1)
+a=s.index('<div>{onPrototype&&');b=s.index('<button className="btn" onClick={onClose}>Close</button>',a)
+s=s[:a]+'<div>{onAtelier&&<button className="btn" onClick={onAtelier}>Atelier</button>}'+s[b:];p.write_text(s,encoding='utf-8')

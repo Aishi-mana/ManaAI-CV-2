@@ -485,3 +485,13 @@ fn saved_pixels_and_chat_links_survive_reopen_and_explicit_pixel_deletion() {
  {let mut db=open(&file).unwrap();let state=initialize(&mut db,&BTreeMap::new()).unwrap();assert_eq!(state["mana.images.v1"],"[]");assert_eq!(state["mana.chat.v1"],chat);}
  std::fs::remove_file(file).unwrap();
 }
+
+#[test]
+fn code_game_versions_and_run_reports_survive_reopen() {
+ let file=std::env::temp_dir().join(format!("mana-code-games-{}.sqlite3",std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+ let raw=r#"{"games":[{"id":"game1","rootId":"game1","version":1,"title":"Stars","code":"api.onFrame=()=>{};","createdAt":"2026-10-19T00:00:00Z"}],"reports":[{"id":"run1","code":"api.onFrame=()=>{};","frames":24,"notes":"Needs movement fix"}]}"#;
+ {let mut db=open(&file).unwrap();save(&mut db,&values(&[("mana.code_games.v1",raw)])).unwrap();}
+ {let mut db=open(&file).unwrap();let state=initialize(&mut db,&BTreeMap::new()).unwrap();assert_eq!(state["mana.code_games.v1"],raw);assert!(!state.contains_key("mana.work.v1"));save(&mut db,&values(&[("mana.code_games.v1",r#"{"games":[],"reports":[]}"#)])).unwrap();}
+ {let mut db=open(&file).unwrap();assert_eq!(initialize(&mut db,&BTreeMap::new()).unwrap()["mana.code_games.v1"],r#"{"games":[],"reports":[]}"#);}
+ std::fs::remove_file(file).unwrap();
+}

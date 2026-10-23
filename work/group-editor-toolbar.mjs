@@ -1,0 +1,31 @@
+import fs from 'node:fs';
+const path='src/components/CoverBuilder.tsx';let s=fs.readFileSync(path,'utf8');
+const start=s.indexOf('<details className="builder-project-setup"');const end=s.indexOf('</div></details>',start)+('</div></details>').length;
+const setup=s.slice(start,end);
+const newButton=setup.slice(setup.indexOf('<button className="btn" disabled={blocked} onClick={()=>{clear();'),setup.indexOf('</button>',setup.indexOf('<button className="btn" disabled={blocked} onClick={()=>{clear();'))+9);
+const title=setup.slice(setup.indexOf('<label className="field">Cover title'),setup.indexOf('</label>',setup.indexOf('<label className="field">Cover title'))+8).replace('className="field"','className="editor-project-name"').replace('Cover title','Cover name');
+const adds=setup.slice(setup.indexOf('<div className="builder-actions">'),setup.lastIndexOf('</div>')).replace('className="builder-actions"','className="editor-action-group" aria-label="Add tracks" role="group"').replace('Add clean vocal','+ Vocal').replace('Add instrument track','+ Instrument').replace('Add backing vocal','+ Backing voice');
+const saveStart=s.indexOf('<div className="builder-actions builder-save">');const saveEnd=s.indexOf('</div></section>;',saveStart);const bar=s.slice(saveStart+'<div className="builder-actions builder-save">'.length,saveEnd);
+const volumeStart=bar.indexOf('<label className="builder-playback-volume">');const volumeEnd=bar.indexOf('</label>',volumeStart)+8;
+const volume=bar.slice(volumeStart,volumeEnd).replace('Playback volume<input','Master volume<input');
+const historyEnd=bar.indexOf('<button className="btn primary"');const history=bar.slice(0,historyEnd);
+const save=bar.slice(historyEnd,volumeStart);
+const stop=bar.slice(volumeEnd);
+const project=`<div className="editor-project-bar"><div className="editor-project-identity"><span className="editor-eyebrow">COVER EDITOR</span>${title}</div><div className="editor-action-group" role="group" aria-label="Project">${newButton}${save}</div></div><div className="editor-command-bar"><div className="editor-action-group" role="group" aria-label="Edit history">${history}</div>${adds}</div>`;
+s=s.slice(0,saveStart)+s.slice(saveEnd+6); // remove bottom div, retain section
+s=s.slice(0,start)+s.slice(end);
+const emptyStart=s.indexOf(' {!p.draft.tracks.length&&');const timelineStart=s.indexOf('<BuilderTimeline',emptyStart);const timelineEnd=s.indexOf('/></>}',timelineStart)+6;
+let timeline=s.slice(timelineStart,timelineEnd).replace('/></>}','/>');
+timeline=timeline.replace(' draft={p.draft}',` projectToolbar={<>${project}</>} transportExtra={<div className="editor-master-controls">${volume}${stop}</div>} draft={p.draft}`);
+s=s.slice(0,emptyStart)+' '+timeline+s.slice(timelineEnd);
+// Move status into the editor, where processing belongs.
+const feedbackStart=s.indexOf('<div className="mixer-feedback">');const feedbackEnd=s.indexOf('</div></section>;',feedbackStart)+6;
+const feedback=s.slice(feedbackStart,feedbackEnd);
+s=s.slice(0,feedbackStart)+s.slice(feedbackEnd);
+s=s.replace(' projectToolbar=',` feedback={${feedback}} projectToolbar=`);
+fs.writeFileSync(path,s);
+const tp='src/components/BuilderTimeline.tsx';let t=fs.readFileSync(tp,'utf8').replace(' draft:BuilderDraft;',' projectToolbar:ReactNode;transportExtra:ReactNode;feedback:ReactNode;\n draft:BuilderDraft;');
+t=t.replace('  <div className="editor-toolbar">','  {p.projectToolbar}\n  <div className="editor-toolbar">').replace('<div><span className="editor-eyebrow">ARRANGEMENT</span><h3>Make room for your music</h3></div>','<span className="editor-group-label">Playback</span>');
+t=t.replace('  </div>\n  <div className="editor-clip-actions">','   {p.transportExtra}\n  </div>\n  <div className="editor-clip-actions">');
+t=t.replace('  <div className="editor-scroll">','  {p.feedback}\n  <div className="editor-scroll">');
+fs.writeFileSync(tp,t);

@@ -1,0 +1,12 @@
+✔ image session releases GPU lease once on success error and cancellation during startup (27.3241ms)
+✔ image cancellation while acquiring GPU never starts an image and restores the lease (5.8532ms)
+✔ GPU image handoff restores owned chat once and respects an explicit Stop (29.7261ms)
+✔ GPU image handoff leaves externally started chat untouched (7.8779ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 253.1602

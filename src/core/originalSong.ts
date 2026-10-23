@@ -6,3 +6,13 @@ export function validateOriginalBrief(value:unknown):OriginalBrief|undefined{
  return {prompt:v.prompt.trim(),lyrics:v.lyrics,style:v.style as OriginalBrief['style'],instrumental:v.instrumental,duration:v.duration,seed:v.seed};
 }
 export function originalFingerprint(brief:OriginalBrief){return JSON.stringify([brief.prompt.trim(),brief.lyrics,brief.style,brief.instrumental,brief.seed]);}
+export interface OriginalDirection {mood:string;instruments:string;tempo:string;structure:string}
+export function composeOriginalPrompt(prompt:string,direction:OriginalDirection):string {
+ const parts=[prompt.trim()];
+ if(direction.mood.trim())parts.push(`Mood: ${direction.mood.trim()}.`);
+ if(direction.instruments.trim())parts.push(`Featured instruments: ${direction.instruments.trim()}.`);
+ if(direction.tempo.trim())parts.push(`Tempo: ${direction.tempo.trim()} BPM.`);
+ if(direction.structure.trim())parts.push(`Song structure: ${direction.structure.trim()}.`);
+ return parts.filter(Boolean).join('\n');
+}
+export function validOriginalTempo(value:string):boolean{return value.trim()===''||(/^\d+$/.test(value)&&Number(value)>=40&&Number(value)<=240);}

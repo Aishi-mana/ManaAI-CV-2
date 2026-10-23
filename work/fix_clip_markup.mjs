@@ -1,0 +1,1 @@
+import fs from 'node:fs';const p='src/components/BuilderTimeline.tsx';let s=fs.readFileSync(p,'utf8').replace(/\r\n/g,'\n');s=s.replace('       </div>}\n       <div className="editor-playhead"','       </div>;})}\n       <div className="editor-playhead"');s=s.replaceAll("e.key==='ArrowLeft'?-.1:.1,.1)","e.key==='ArrowLeft'?-.1:.1,.1,trim.id)");fs.writeFileSync(p,s);

@@ -1,59 +1,62 @@
-{
-  "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Mana",
-  "version": "0.1.0",
-  "identifier": "com.mana.companion",
-  "build": {
-    "beforeDevCommand": "npm run dev",
-    "devUrl": "http://localhost:1430",
-    "beforeBuildCommand": "npm run build",
-    "frontendDist": "../dist"
-  },
-  "app": {
-    "windows": [
-      {
-        "title": "Mana",
-        "width": 1100,
-        "height": 760,
-        "minWidth": 820,
-        "minHeight": 560
-      }
-    ],
-    "security": {
-      "csp": null
-    }
-  },
-  "bundle": {
-    "active": true,
-    "targets": "all",
-    "resources": {
-      "../assets/avatar/": "assets/avatar/",
-      "../scripts/singing_job.py": "scripts/singing_job.py",
-        "../scripts/cover_lead.py": "scripts/cover_lead.py",
-        "../scripts/singing_pitch.py": "scripts/singing_pitch.py",
-      "../scripts/arrangement_job.py": "scripts/arrangement_job.py",
-      "../scripts/arrangement_band.py": "scripts/arrangement_band.py",
-      "../scripts/arrangement_replacement.py": "scripts/arrangement_replacement.py",
-      "../scripts/bass_replacement.py": "scripts/bass_replacement.py",
-      "../scripts/sax_replacement.py": "scripts/sax_replacement.py",
-      "../scripts/strings_replacement.py": "scripts/strings_replacement.py",
-      "../scripts/flute_replacement.py": "scripts/flute_replacement.py",
-      "../scripts/violin_replacement.py": "scripts/violin_replacement.py",
-      "../scripts/vocal_melody.py": "scripts/vocal_melody.py",
-      "../scripts/ocarina_replacement.py": "scripts/ocarina_replacement.py",
-      "../scripts/electric_piano_replacement.py": "scripts/electric_piano_replacement.py",
-      "../scripts/synth_lead_replacement.py": "scripts/synth_lead_replacement.py",
-      "../scripts/vocal_harmony.py": "scripts/vocal_harmony.py",
-      "../scripts/drum_replacement.py": "scripts/drum_replacement.py",
-      "../scripts/fine_separator.py": "scripts/fine_separator.py",
-      "../scripts/optional_separators.py": "scripts/optional_separators.py",
-      "../scripts/original_song_job.py": "scripts/original_song_job.py"
-    },
-    "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.ico"
-    ]
-  }
-}
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Mana",
+  "version": "0.1.0",
+  "identifier": "com.mana.companion",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1430",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Mana",
+        "width": 1100,
+        "height": 760,
+        "minWidth": 820,
+        "minHeight": 560
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "resources": {
+      "../assets/avatar/": "assets/avatar/",
+      "../scripts/image_job.py": "scripts/image_job.py",
+      "../scripts/qwen_image.py": "scripts/qwen_image.py",
+      "../scripts/singing_job.py": "scripts/singing_job.py",
+      "../scripts/cover_lead.py": "scripts/cover_lead.py",
+      "../scripts/singing_pitch.py": "scripts/singing_pitch.py",
+      "../scripts/arrangement_job.py": "scripts/arrangement_job.py",
+      "../scripts/arrangement_band.py": "scripts/arrangement_band.py",
+      "../scripts/arrangement_replacement.py": "scripts/arrangement_replacement.py",
+      "../scripts/bass_replacement.py": "scripts/bass_replacement.py",
+      "../scripts/sax_replacement.py": "scripts/sax_replacement.py",
+      "../scripts/strings_replacement.py": "scripts/strings_replacement.py",
+      "../scripts/flute_replacement.py": "scripts/flute_replacement.py",
+      "../scripts/violin_replacement.py": "scripts/violin_replacement.py",
+      "../scripts/vocal_melody.py": "scripts/vocal_melody.py",
+      "../scripts/ocarina_replacement.py": "scripts/ocarina_replacement.py",
+      "../scripts/electric_piano_replacement.py": "scripts/electric_piano_replacement.py",
+      "../scripts/synth_lead_replacement.py": "scripts/synth_lead_replacement.py",
+      "../scripts/vocal_harmony.py": "scripts/vocal_harmony.py",
+      "../scripts/drum_replacement.py": "scripts/drum_replacement.py",
+      "../scripts/fine_separator.py": "scripts/fine_separator.py",
+      "../scripts/optional_separators.py": "scripts/optional_separators.py",
+      "../scripts/original_song_job.py": "scripts/original_song_job.py",
+      "../scripts/builder_notes.py": "scripts/builder_notes.py"
+    },
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ]
+  }
+}

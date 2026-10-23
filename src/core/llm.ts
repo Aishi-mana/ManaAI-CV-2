@@ -1,7 +1,7 @@
 import type { ChatMessage, Msg } from "./types";
 import { cleanReply, REPLY_FORMAT_RULES } from "./emotion";
 import { ACTIVITY_GROUNDING } from "./conversation";
-import { imageReportContext, imageFocusedHistory, IMAGE_REPLY_FOCUS, AVATAR_REPLY_FOCUS, hasAvatarComparison } from './vision';
+import { imageReportContext, imageFocusedHistory, IMAGE_REPLY_FOCUS, AVATAR_REPLY_FOCUS, CONFIRMED_AVATAR_REPLY_FOCUS, hasAvatarComparison } from './vision';
 
 export type Health = "ok" | "loading" | "down";
 const normalize = (text: string) => text.toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
@@ -69,9 +69,8 @@ export function buildPayload(system: string, history: Msg[], maxMessages = 24, c
   if (currentContext && latest?.role === "user") {
     latest.content += `\n\n[Application context for this reply; these are the current saved facts, overriding old assistant guesses.]\n${currentContext}\n\nRespond to the user's latest message above using these current facts. If they answered your question, acknowledge their answer and continue; do not repeat your previous opening or question. Do not repeat unsupported earlier assistant claims. ${REPLY_FORMAT_RULES}`;
   }
-  if (latest?.role === "user") latest.content += `\n\n[Current application capabilities and grounding rules]\n${ACTIVITY_GROUNDING}`;
   if (latest?.role === "user" && replyStyle) latest.content += `\n\n${replyStyle}`;
-  if(focused[focused.length-1]?.imageReport&&latest?.role==='user'){latest.content+=`\n\n${IMAGE_REPLY_FOCUS}`;const report=focused[focused.length-1].imageReport!;if(hasAvatarComparison(report.description))latest.content+=`\n\n${AVATAR_REPLY_FOCUS}`;}
+  if(focused[focused.length-1]?.imageReport&&latest?.role==='user'){latest.content+=`\n\n${IMAGE_REPLY_FOCUS}`;const report=focused[focused.length-1].imageReport!;if(hasAvatarComparison(report.description))latest.content+=`\n\n${AVATAR_REPLY_FOCUS}`;if(report.userConfirmedAvatar)latest.content+=`\n\n${CONFIRMED_AVATAR_REPLY_FOCUS}`;}
   return [{ role: "system", content: prompt }, ...merged];
 }
 
@@ -91,7 +90,11 @@ export async function streamChat(opts: {
   temperature: number;
   signal?: AbortSignal;
   onToken: (token: string) => void;
+  maxTokens?:number;
+  rejectTruncated?:boolean;
 }): Promise<void> {
+  const maxTokens=opts.maxTokens??700;
+  if(!Number.isInteger(maxTokens)||maxTokens<1||maxTokens>4096)throw Error('Choose an output limit from 1 to 4096 tokens.');
   let messages=opts.messages;
   let res:Response;
   for(let attempt=0;;attempt++){
@@ -103,7 +106,7 @@ export async function streamChat(opts: {
       messages,
       stream: true,
       temperature: opts.temperature,
-      max_tokens: 700,
+      max_tokens: maxTokens,
       cache_prompt: true,
       // Ignored by models without a thinking mode; turns it off for Qwen3-style ones.
       chat_template_kwargs: { enable_thinking: false },
@@ -128,6 +131,8 @@ export async function streamChat(opts: {
   const decoder = new TextDecoder();
   let buffer = "";
   let finished = false;
+  let finishReason='';
+  const checkComplete=()=>{if(opts.rejectTruncated&&finishReason==='length')throw Error('Game draft reached its output limit and is incomplete. Previous source kept; request a smaller game or revision.');if(opts.rejectTruncated&&!finished)throw Error('The response stream ended before the model finished replying.');};
 
   while (true) {
     const { done, value } = await reader.read();
@@ -140,10 +145,10 @@ export async function streamChat(opts: {
       buffer = buffer.slice(nl + 1);
       if (!line.startsWith("data:")) continue;
       const data = line.slice(5).trim();
-      if (data === "[DONE]") return;
+      if (data === "[DONE]"){checkComplete();return;}
       try {
         const json = JSON.parse(data);
-        if (json.choices?.[0]?.finish_reason != null) finished = true;
+        if (json.choices?.[0]?.finish_reason != null){finished=true;finishReason=String(json.choices[0].finish_reason);}
         const delta = json.choices?.[0]?.delta?.content;
         if (typeof delta === "string" && delta) opts.onToken(delta);
       } catch {
@@ -152,4 +157,5 @@ export async function streamChat(opts: {
     }
   }
   if (!finished) throw new Error("The response stream ended before the model finished replying.");
+  checkComplete();
 }

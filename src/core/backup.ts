@@ -1,3 +1,4 @@
+import {validateCodeGames} from './codeGames';
 import {validateCustomVoice,upgradeCustomVoice} from './customVoice';
 import {validateWhisper} from './whisper';
 import {readStored,flushPersistence,restoreStored} from './persistence';
@@ -48,6 +49,7 @@ const validators:Record<string,(value:unknown)=>unknown>={
  'mana.speech.v1':validateSpeechPreferences,
  'mana.vision.v1':validateVisionSettings,
  'mana.images.v1':validateSavedImages,
+ 'mana.code_games.v1':validateCodeGames,
  'mana.whisper.v1':validateWhisper,
  'mana.custom_voice.v1':validateCustomVoice,
 };
@@ -78,6 +80,7 @@ export function validateBackup(raw:string):Backup {
  if(!Object.prototype.hasOwnProperty.call(data,'mana.speech.v1'))data['mana.speech.v1']=validateSpeechPreferences(null);
  if(!Object.prototype.hasOwnProperty.call(data,'mana.vision.v1'))data['mana.vision.v1']=validateVisionSettings(null);
  if(!Object.prototype.hasOwnProperty.call(data,'mana.images.v1'))data['mana.images.v1']=[];
+ if(!Object.prototype.hasOwnProperty.call(data,'mana.code_games.v1'))data['mana.code_games.v1']=validateCodeGames(null);
  // Speech preferences before speed/volume retain their old voice and automatic choice.
  if(isRecord(data['mana.speech.v1'])){
    const speech={...data['mana.speech.v1']};
@@ -105,7 +108,7 @@ export async function createBackup():Promise<Backup>{
 }
 export function backupCounts(backup:Backup):string {
  const count=(key:string)=>Array.isArray(backup.data[key])?(backup.data[key] as unknown[]).length:0;
- return `${count('mana.chat.v1')} chat messages · ${count('mana.memories.v1')} memories · ${count('mana.diary.v1')} diary entries (including deleted) · ${count('mana.goals.v1')} goals · ${count('mana.work.v1')} artifacts · ${count('mana.playtests.v1')} playtests`;
+ return `${count('mana.chat.v1')} chat messages · ${count('mana.memories.v1')} memories · ${count('mana.diary.v1')} diary entries (including deleted) · ${count('mana.goals.v1')} goals · ${count('mana.work.v1')} artifacts · ${count('mana.playtests.v1')} playtests · ${(backup.data['mana.code_games.v1'] as {games:unknown[]}).games.length} game versions · ${(backup.data['mana.code_games.v1'] as {reports:unknown[]}).reports.length} game reports`;
 }
 export async function restoreBackup(backup:Backup){
  const valid=validateBackup(JSON.stringify(backup));

@@ -1,11 +1,22 @@
+import Atelier from './components/Atelier';
+import {migrateGallery,addDiskImage,removeDiskImage,galleryFolder as diskGalleryFolder} from './core/diskGallery';
+import {requestedPicture,type ChatPictureRequest} from './core/imageGeneration';
+import ImageGenerationDrawer from './components/ImageGenerationDrawer';
+import {chooseDailyOutfit} from './core/outfitRoutine';
+import BackgroundPicker from './components/BackgroundPicker';
+import {readGameProject,bundleGameProject} from './core/gameProject';
+import {checkGameSmoke,type SmokeCheckResult} from './core/gameSmoke';
+import SavedGamesPlayground from './components/SavedGamesPlayground';
+import {gameDraftMessages,loadCodeGames,type GameRevisionInput} from './core/codeGames';
+import {SANDBOX_EXAMPLE,checkedSandboxDraft} from './core/codeSandbox';
 import {mediaOccupied} from './core/mediaActivity';
 import SingingDrawer from './components/SingingDrawer';
-import { prepareAvatarReference } from './core/avatarReference';
+import { prepareAvatarReference,prepareAvatarClothingMask } from './core/avatarReference';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import ChatPanel from "./components/ChatPanel";
 import VisionDrawer from './components/VisionDrawer';
 import SavedImagesDrawer from './components/SavedImagesDrawer';
-import { loadSavedImages, saveSavedImages, retainImage } from './core/savedImages';
+import { loadSavedImages, saveSavedImages } from './core/savedImages';
 import { inspectForChat } from './core/visionChat';
 import { loadVisionSettings } from './core/vision';
 import type { ImageAttachment } from './core/vision';
@@ -81,15 +92,23 @@ const STATUS_LABEL = {
 
 export default function App() {
   const [showSinging,setShowSinging]=useState(false);
+  const [showImageGeneration,setShowImageGeneration]=useState(false);
+  const [chatPicture,setChatPicture]=useState<ChatPictureRequest>();
+
   const [showVision,setShowVision]=useState(false);
   const [savedImages,setSavedImages]=useState(loadSavedImages);
   const savedImagesRef=useRef(savedImages);savedImagesRef.current=savedImages;
+  const [galleryReady,setGalleryReady]=useState(false),[galleryWorking,setGalleryWorking]=useState(false),[galleryError,setGalleryError]=useState(''),[galleryPath,setGalleryPath]=useState('');
+  const galleryReadyRef=useRef(false),galleryQueue=useRef<Promise<unknown>>(Promise.resolve()),galleryStarted=useRef(false);
+  useEffect(()=>{if(!galleryStarted.current){galleryStarted.current=true;void initializeGallery();}},[]);
+
   const [showSavedImages,setShowSavedImages]=useState(false);
   const [imageStatus,setImageStatus]=useState('');
   const [imageError,setImageError]=useState('');
   const [settings, setSettings] = useState<Settings>(loadSettings);
   const [practice,setPractice]=useState(loadPractice);
   const [showSkills,setShowSkills]=useState(false);
+  const [showCode,setShowCode]=useState(false),[playgroundCode,setPlaygroundCode]=useState(SANDBOX_EXAMPLE),[codeGenerating,setCodeGenerating]=useState(false),[codeError,setCodeError]=useState(''),[rejectedCode,setRejectedCode]=useState(''),[codeSmoke,setCodeSmoke]=useState<SmokeCheckResult>();
   const [narratives,setNarratives]=useState(loadNarratives);
   const [showNarratives,setShowNarratives]=useState(false);
   const [narrativeDraft,setNarrativeDraft]=useState<Narrative|null>(null);
@@ -120,7 +139,10 @@ export default function App() {
   const [initiativeStatus, setInitiativeStatus] = useState("");
   const [initiativeGenerating, setInitiativeGenerating] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showBackgrounds,setShowBackgrounds]=useState(false);
   const [showWardrobe, setShowWardrobe] = useState(false);
+  const [showOutfitPrototype,setShowOutfitPrototype]=useState(false);
+  const [prototypePicture,setPrototypePicture]=useState<ImageAttachment>();
   const [showMemories, setShowMemories] = useState(false);
   const [showState, setShowState] = useState(false);
   const [showGoals,setShowGoals] = useState(false);
@@ -165,6 +187,7 @@ export default function App() {
   const [memoryReviews, setMemoryReviews] = useState(loadMemoryReviews);
   const suggestions = useMemo(() => suggestMemories(messages, memories, memoryReviews, settings.charName), [messages, memories, memoryReviews, settings.charName]);
   const [savedCfg, setSavedCfg] = useState<AvatarConfig>(loadAvatarConfig);
+  const savedCfgRef=useRef(savedCfg);savedCfgRef.current=savedCfg;
   const [voiceMouth,setVoiceMouth]=useState<Vowel|null|undefined>(undefined);
   const abortRef = useRef<AbortController | null>(null);
   const messagesRef = useRef(messages);
@@ -274,6 +297,24 @@ export default function App() {
     finally{abortRef.current=null;setWorkGenerating(false);setReflecting(false);}
   }
 
+  async function draftPlayground(request:string,revision?:GameRevisionInput){
+    if(abortRef.current||busy||reflecting||storage.error||llama.status!=='ready')return;
+    const ctrl=new AbortController();abortRef.current=ctrl;setCodeGenerating(true);setReflecting(true);setCodeError('');setRejectedCode('');setCodeSmoke(undefined);
+    let text='';
+    try{await streamChat({port:llama.port,temperature:.4,signal:ctrl.signal,messages:gameDraftMessages(request,revision),maxTokens:2000,rejectTruncated:true,onToken:token=>{text+=token;if(text.length>24000)ctrl.abort();}});
+      if(ctrl.signal.aborted)throw Error('Draft stopped. Previous source kept.');
+      let source=checkedSandboxDraft(text);
+      const previousProject=readGameProject(playgroundCode),nextProject=readGameProject(source);
+      if(previousProject?.assets?.length){if(!nextProject)throw Error('Return the complete project so existing assets are kept.');source=bundleGameProject({...nextProject,assets:previousProject.assets});}
+      const check=await checkGameSmoke(source,ctrl.signal);
+      if(ctrl.signal.aborted)throw Error('Check stopped. Previous source kept.');
+      setCodeSmoke(check);
+      if(!check.passed)throw Error(check.evidence.detail+' Previous source kept.');
+      setPlaygroundCode(source);
+    }catch(e){if(!ctrl.signal.aborted&&text.trim())setRejectedCode(text.slice(0,24000));setCodeError(ctrl.signal.aborted?'Draft stopped. Previous source kept.':String(e));}
+    finally{if(abortRef.current===ctrl)abortRef.current=null;setCodeGenerating(false);setReflecting(false);}
+  }
+
   async function startConversation(manual = false) {
     const current = initiativeRef.current;
     if (mediaOccupied() || !current.enabled || current.pending || initiativePaused(current) || busy || reflecting || abortRef.current || reflectionDraft || hasChatDraft.current || storage.error || llama.status !== "ready") return;
@@ -303,14 +344,14 @@ export default function App() {
         + internalStateContext(companion.state)
         + clockContext(now, journalRef.current.timeZone, messagesRef.current, companion.state.lastConversationAt)
         + memoryContext(memories, "", "", settings.charName, settings.userName);
-      await streamChat({ port: llama.port, temperature: settings.temperature, signal: ctrl.signal,
-        messages: initiativePayload(fillTemplate(settings.systemPrompt, settings), context),
+      await streamChat({ port: llama.port, temperature: settings.temperature, signal: ctrl.signal,maxTokens:160,
+        messages: initiativePayload(fillTemplate(settings.systemPrompt, settings), context,settings.ctxSize),
         onToken: (token) => { content += token; } });
       let clean = cleanReply(content, settings.charName);
       if (!ctrl.signal.aborted && (unsupportedCapability(clean.text, "") || repeatsRecentOpening(clean.text,messagesRef.current,settings.charName))) {
         content = "";
-        await streamChat({ port: llama.port, temperature: settings.temperature, signal: ctrl.signal,
-          messages: initiativePayload(fillTemplate(settings.systemPrompt, settings), context + "\nCorrection: choose a fresh specific follow-up or topic. Do not repeat previous wording, questions or invitations. Offer a chat topic only. Do not claim visual input or promise physical actions or music playback."),
+        await streamChat({ port: llama.port, temperature: settings.temperature, signal: ctrl.signal,maxTokens:160,
+          messages: initiativePayload(fillTemplate(settings.systemPrompt, settings), context + "\nCorrection: choose a fresh specific follow-up or topic. Do not repeat previous wording, questions or invitations. Offer a chat topic only. Do not claim visual input or promise physical actions or music playback.",settings.ctxSize),
           onToken: (token) => { content += token; } });
         clean = cleanReply(content, settings.charName);
         if (unsupportedCapability(clean.text, "")) throw new Error("The model still claimed an unavailable capability. No opening was added.");
@@ -346,14 +387,14 @@ export default function App() {
         setInitiativeStatus("");
         return;
       }
-      if (document.visibilityState !== "visible" || showSinging || showSavedImages || showVision || showSkills || showNarratives || narrativeDraft || showEvents || showSettings || showMemories || showState || showDiary || showWardrobe || showGoals || showFollowups || showActivities || showChatArchives || showThoughts || thoughtDraft || archiving) return;
+      if (document.visibilityState !== "visible" || showImageGeneration || showSinging || showSavedImages || showVision || showCode || showSkills || showNarratives || narrativeDraft || showEvents || showSettings || showMemories || showState || showDiary || showBackgrounds || showOutfitPrototype || showWardrobe || showGoals || showFollowups || showActivities || showChatArchives || showThoughts || thoughtDraft || archiving) return;
       // A due daily journal has priority over initiating a chat.
       if (dueJournalDate(journalRef.current, diaryRef.current)) return;
       void startConversation();
     };
     const timer = window.setInterval(check, 30_000);
     return () => window.clearInterval(timer);
-  }, [initiative, busy, reflecting, reflectionDraft, llama.status, storage.error, companion.state, identity, memories, settings, goals, interests, work, followups, showActivities, showFollowups, showSettings, showMemories, showState, showDiary, showWardrobe, showGoals,showChatArchives,showThoughts,showEvents,showSkills,showNarratives,narrativeDraft,thoughtDraft,archiving,showVision,showSavedImages,showSinging]);
+  }, [initiative, busy, reflecting, reflectionDraft, llama.status, storage.error, companion.state, identity, memories, settings, goals, interests, work, followups, showActivities, showFollowups, showSettings, showMemories, showState, showDiary, showBackgrounds, showOutfitPrototype, showWardrobe, showGoals,showChatArchives,showThoughts,showEvents,showCode,showSkills,showNarratives,narrativeDraft,thoughtDraft,archiving,showVision,showSavedImages,showSinging,showImageGeneration]);
 
   async function generateActivityReply(id:string){
     if(abortRef.current||busy||reflecting||storage.error||llama.status!=='ready')return;
@@ -415,7 +456,7 @@ export default function App() {
 
   useEffect(() => {
     const check = () => {
-      if (showSinging || showSavedImages || showVision || busy || reflecting || reflectionDraft || hasChatDraft.current || abortRef.current || llama.status !== "ready" || storage.error || Date.now() < journalRetryAfter.current) return;
+      if (showWardrobe || showOutfitPrototype || showImageGeneration || showSinging || showSavedImages || showVision || busy || reflecting || reflectionDraft || hasChatDraft.current || abortRef.current || llama.status !== "ready" || storage.error || Date.now() < journalRetryAfter.current) return;
       if (Date.now()-journalOpenedAt.current < 120_000) return;
       const date = dueJournalDate(journalRef.current,diaryRef.current);
       if (!date) return;
@@ -427,7 +468,7 @@ export default function App() {
     check();
     const timer = window.setInterval(check,30_000);
     return () => window.clearInterval(timer);
-  }, [busy,reflecting,reflectionDraft,llama.status,journal,diary,identity,memories,goals,work,companion.state,settings,storage.error,showVision,showSavedImages,showSinging]);
+  }, [busy,reflecting,reflectionDraft,llama.status,journal,diary,identity,memories,goals,work,companion.state,settings,storage.error,showVision,showSavedImages,showSinging,showImageGeneration,showOutfitPrototype,showWardrobe]);
 
   async function draftThought() {
     if(!thoughts.enabled||thoughts.entries.length>=100||thoughtDraft||busy||reflecting||abortRef.current||storage.error||llama.status!=='ready')return;
@@ -486,9 +527,21 @@ export default function App() {
   const cfg = useMemo(() => (wardrobe ? resolveLoadout(savedCfg, wardrobe) : savedCfg), [wardrobe, savedCfg]);
 
   function changeCfg(next: AvatarConfig) {
+    savedCfgRef.current=next;
     setSavedCfg(next);
     saveAvatarConfig(next);
   }
+
+  useEffect(()=>{
+    const check=()=>{
+      if(!avatar.assets||storage.error||showOutfitPrototype||showWardrobe||showBackgrounds||document.visibilityState!=='visible')return;
+      const now=new Date(),available=buildWardrobe(avatar.assets,progress.stats,now,settings.charName);
+      const next=chooseDailyOutfit(savedCfgRef.current,available,now,journal.timeZone);
+      if(next)changeCfg(next);
+    };
+    check();const timer=window.setInterval(check,60000);document.addEventListener('visibilitychange',check);
+    return ()=>{window.clearInterval(timer);document.removeEventListener('visibilitychange',check);};
+  },[avatar.assets,progress.stats,settings.charName,journal.timeZone,showOutfitPrototype,showWardrobe,showBackgrounds,storage.error]);
 
   useEffect(() => {
     if (!busy) saveChat(messages);
@@ -523,21 +576,52 @@ export default function App() {
   const emotion = busy ? lastClean?.emotion ?? "thinking" : stateMood(companion.state);
   const speech = lastBot && lastClean ? { id: lastBot.id, text: lastClean.text } : null;
 
+  function queueGallery<T>(task:()=>Promise<T>):Promise<T>{
+    const next=galleryQueue.current.catch(()=>{}).then(async()=>{setGalleryWorking(true);try{return await task();}finally{setGalleryWorking(false);}});galleryQueue.current=next;return next;
+  }
+  async function commitGallery(next:typeof savedImages){saveSavedImages(next);await flushPersistence();savedImagesRef.current=next;setSavedImages(next);}
+  async function initializeGallery(){
+    setGalleryError('');try{await queueGallery(async()=>{const next=await migrateGallery(savedImagesRef.current);const folder=await diskGalleryFolder();await commitGallery(next);setGalleryPath(folder);galleryReadyRef.current=true;setGalleryReady(true);});}catch(e){setGalleryError('Gallery migration could not finish. Existing pictures are kept. '+String(e));}
+  }
+  async function savePictureToLibrary(image:ImageAttachment):Promise<void>{
+    if(!galleryReadyRef.current)throw Error('The gallery is still migrating. Open Image gallery to check its status.');
+    await queueGallery(async()=>{const saved=await addDiskImage(savedImagesRef.current,image);await commitGallery(saved.images);});
+  }
+  async function saveInspectedImage(image:ImageAttachment):Promise<string>{
+    if(!galleryReadyRef.current)throw Error('The gallery is not ready. Open Image gallery to finish migration.');
+    return queueGallery(async()=>{const saved=await addDiskImage(savedImagesRef.current,image);await commitGallery(saved.images);return saved.imageId;});
+  }
+  function labelGallery(id:string,confirmed:boolean){void queueGallery(async()=>{const next=savedImagesRef.current.map(image=>{if(image.id!==id)return image;const {depictsAvatar,...rest}=image;return confirmed?{...rest,depictsAvatar:true as const}:rest;});await commitGallery(next);}).catch(e=>setGalleryError(String(e)));}
+  function deleteGallery(id:string){void queueGallery(async()=>{const image=savedImagesRef.current.find(i=>i.id===id);if(!image)return;await commitGallery(savedImagesRef.current.filter(i=>i.id!==id));await removeDiskImage(image);}).catch(e=>setGalleryError('Could not finish gallery deletion: '+String(e)));}
+  function completeChatPicture(image:ImageAttachment){
+    if(messagesRef.current.reduce((size,m)=>size+(m.generatedPicture?.dataUrl.length??0),0)+image.dataUrl.length>8_000_000)throw Error('Chat picture storage is full. Save this picture to the library, then archive and clear this chat before generating more.');
+    const next:Msg[]=[...messagesRef.current,{id:uid(),role:'assistant',content:'Here’s your picture. [happy]',generatedPicture:image,createdAt:new Date().toISOString()}];
+    saveChat(next);messagesRef.current=next;setMessages(next);setShowImageGeneration(false);setChatPicture(undefined);
+  }
   async function sendAttachment(text:string,image?:ImageAttachment,compareAvatar=false):Promise<boolean>{
     if(abortRef.current||reflecting||storage.error||llama.status!=='ready')return false;
     setImageError('');
-    if(!image){void send(text);return true;}
+    if(!image){
+      const picture=requestedPicture(text,settings.charName);
+      if(picture){
+        if(showImageGeneration)return false;
+        const stamp=new Date().toISOString();
+        const next:Msg[]=[...messagesRef.current,{id:uid(),role:'user',content:text,createdAt:stamp},{id:uid(),role:'assistant',content:'I’m creating your picture. It will appear here when it’s ready. [gentle]',createdAt:stamp}];
+        saveChat(next);messagesRef.current=next;setMessages(next);lastActivityAt.current=Date.now();
+        setChatPicture(picture);setShowImageGeneration(true);return true;
+      }
+      void send(text);return true;
+    }
     const controller=new AbortController();abortRef.current=controller;setBusy(true);setImageStatus('Checking vision model…');
     const timeout=setTimeout(()=>controller.abort(),240000);
     let report:Msg['imageReport'];
     try{
-      const retained=retainImage(savedImagesRef.current,image);
       const reference=compareAvatar&&avatar.assets?await prepareAvatarReference(avatar.assets,cfg,controller.signal):undefined;
       report=await inspectForChat(loadVisionSettings(),settings.exePath,llama.port,image,text,controller.signal,setImageStatus,reference);
       if(controller.signal.aborted)return false;
-      saveSavedImages(retained.images);savedImagesRef.current=retained.images;setSavedImages(retained.images);
-      await flushPersistence();
-      report.imageId=retained.imageId;
+      const imageId=await saveInspectedImage(image);
+      report.imageId=imageId;
+      if(savedImagesRef.current.find(i=>i.id===imageId)?.depictsAvatar)report.userConfirmedAvatar=true;
     }
     catch(e){setImageError(controller.signal.aborted?'Image request stopped or timed out. Your attachment is still in the composer.':String(e));return false;}
     finally{clearTimeout(timeout);abortRef.current=null;setBusy(false);setImageStatus('');}
@@ -720,7 +804,7 @@ export default function App() {
   const freshAssets = avatar.assets;
 
   return (
-    <div className={`app${showSinging?' studio-open':''}`}>
+    <div className={`app${showSinging||showSavedImages?' studio-open':''}`}>
       <StagePanel
         charName={settings.charName}
         emotion={emotion}
@@ -730,6 +814,7 @@ export default function App() {
         avatar={avatar}
         cfg={cfg}
         onCfg={changeCfg}
+        onOpenBackgrounds={() => setShowBackgrounds(true)}
         onOpenWardrobe={() => setShowWardrobe(true)}
       />
 
@@ -742,7 +827,7 @@ export default function App() {
               Stop model
             </button>
           ) : (
-            <button className="btn primary" onClick={llama.start}>
+            <button className="btn primary" disabled={llama.imageBusy} onClick={llama.start}>
               Start model
             </button>
           )}
@@ -764,8 +849,11 @@ export default function App() {
           <button className="btn" onClick={()=>setShowEvents(true)}>Event history</button>
           <button className="btn" onClick={()=>setShowNarratives(true)}>Themes &amp; lessons</button>
           <button className="btn" onClick={()=>setShowSkills(true)}>Skills</button>
+          <button className="btn" onClick={()=>setShowCode(true)}>Code playground</button>
           <button className="btn" disabled={busy||reflecting} onClick={()=>setShowVision(true)}>Images</button>
-          <button className="btn" onClick={()=>setShowSavedImages(true)}>Saved images</button>
+          <button className="btn" disabled={busy||reflecting} onClick={()=>{setChatPicture(undefined);setShowImageGeneration(true);}}>Create picture</button>
+          <button className="btn" disabled={busy||reflecting||!avatar.assets||showImageGeneration} onClick={()=>{setPrototypePicture(undefined);setShowOutfitPrototype(true);}}>Atelier</button>
+          <button className="btn" onClick={()=>setShowSavedImages(true)}>Image gallery</button>
           <button className="btn" disabled={busy||reflecting} onClick={()=>setShowSinging(true)}>Songs</button>
           </MoreTools>
         </header>
@@ -807,6 +895,9 @@ export default function App() {
         </div>}
         {initiativeStatus && <div className="banner" role="status">{initiativeStatus}</div>}
         <ChatPanel
+          onOutfitPrototype={image=>{setPrototypePicture(image);setShowOutfitPrototype(true);}}
+          onSavePicture={savePictureToLibrary}
+          pictureJob={showImageGeneration&&chatPicture?<ImageGenerationDrawer onPrototype={image=>{setPrototypePicture(image);setShowImageGeneration(false);setChatPicture(undefined);setShowOutfitPrototype(true);}} beforeGenerate={async cpu=>cpu?async()=>{}:llama.pauseForImage()} prepareClothingMask={avatar.assets?(signal,keepAccessories=true)=>prepareAvatarClothingMask(avatar.assets!,{...cfg,accessories:keepAccessories?cfg.accessories:[]},signal):undefined} prepareReference={avatar.assets?(signal,clothingEdit,keepAccessories=true,garmentPrompt)=>prepareAvatarReference(avatar.assets!,{...cfg,accessories:keepAccessories?cfg.accessories:[]},signal,1024,clothingEdit,garmentPrompt):undefined} inline initialRequest={chatPicture} onGenerated={completeChatPicture} available={!busy&&!reflecting&&!storage.error} onClose={()=>{setShowImageGeneration(false);setChatPicture(undefined);}} onSave={savePictureToLibrary}/>:undefined}
           initiative={initiative}
           onInitiativeState={changeInitiative}
           musicMood={companion.state.mood}
@@ -820,7 +911,7 @@ export default function App() {
           onVoiceMouth={setVoiceMouth}
           messages={messages}
           busy={busy}
-          ready={llama.status === "ready" && !reflecting && !showSinging}
+          ready={llama.status === "ready" && !reflecting && !showSinging && !showImageGeneration && !showOutfitPrototype && !showWardrobe && !showSavedImages}
           charName={settings.charName}
           onSend={sendAttachment}
           userName={settings.userName}
@@ -830,8 +921,9 @@ export default function App() {
         />
       </main>
 
-      <SingingDrawer active={showSinging} initiative={initiative} onInitiative={changeInitiative} onBusy={setReflecting} onClose={()=>setShowSinging(false)}/>
-      {showSavedImages&&<SavedImagesDrawer images={savedImages} editable={!busy&&!reflecting&&!storage.error} onClose={()=>setShowSavedImages(false)} onDelete={id=>{if(busy||reflecting||storage.error)return;const next=savedImagesRef.current.filter(image=>image.id!==id);saveSavedImages(next);savedImagesRef.current=next;setSavedImages(next);}}/>}
+      <SingingDrawer active={showSinging&&!showSavedImages} initiative={initiative} onInitiative={changeInitiative} onBusy={setReflecting} onClose={()=>setShowSinging(false)}/>
+      {showImageGeneration&&!chatPicture&&<ImageGenerationDrawer onPrototype={image=>{setPrototypePicture(image);setShowImageGeneration(false);setChatPicture(undefined);setShowOutfitPrototype(true);}} beforeGenerate={async cpu=>cpu?async()=>{}:llama.pauseForImage()} prepareClothingMask={avatar.assets?(signal,keepAccessories=true)=>prepareAvatarClothingMask(avatar.assets!,{...cfg,accessories:keepAccessories?cfg.accessories:[]},signal):undefined} prepareReference={avatar.assets?(signal,clothingEdit,keepAccessories=true,garmentPrompt)=>prepareAvatarReference(avatar.assets!,{...cfg,accessories:keepAccessories?cfg.accessories:[]},signal,1024,clothingEdit,garmentPrompt):undefined} autoGenerate={false} available={!busy&&!reflecting&&!storage.error} onClose={()=>setShowImageGeneration(false)} onSave={savePictureToLibrary}/>}
+      {showSavedImages&&<SavedImagesDrawer folder={galleryPath} images={savedImages} working={galleryWorking} error={galleryError} onRetry={()=>void initializeGallery()} editable={galleryReady&&!galleryWorking&&!busy&&!reflecting&&!storage.error} onClose={()=>setShowSavedImages(false)} onLabel={labelGallery} onDelete={deleteGallery}/>}
       {showVision&&<VisionDrawer exePath={settings.exePath} chatPort={llama.port} canDiscuss={llama.status==='ready'&&!busy&&!reflecting&&!storage.error} onBusy={setReflecting} onClose={()=>setShowVision(false)} onDiscuss={text=>{setShowVision(false);void send(text);}}/>}
       {showSettings && (
         <SettingsDrawer
@@ -848,7 +940,8 @@ export default function App() {
         />
       )}
 
-      {showSkills&&<SkillsDrawer entries={practice} work={work} activities={sharedActivities} editable={!busy&&!reflecting&&!storage.error} onChange={next=>{savePractice(next);setPractice(next);}} onClose={()=>setShowSkills(false)}/>}
+      {showCode&&<><div className="scrim" onClick={()=>{if(codeGenerating)abortRef.current?.abort();setShowCode(false);}}/><section className="drawer code-drawer" role="dialog" aria-label="Code playground"><header className="drawer-head"><h2>Code playground</h2><button className="btn" onClick={()=>{if(codeGenerating)abortRef.current?.abort();setShowCode(false);}}>Close</button></header><div className="drawer-body">{codeError&&<p role="alert">{codeError}</p>}{rejectedCode&&<details><summary>Rejected draft · previous source kept</summary><p className="hint-soft">This draft failed a completion, syntax or smoke check and was not applied. Copy it for review; no automatic retry was made.</p><textarea className="playground-rejected-source" readOnly rows={8} aria-label="Rejected game draft" value={rejectedCode}/></details>}<SavedGamesPlayground autoSmoke={codeSmoke} onSmokeConsumed={()=>setCodeSmoke(undefined)} editable={!busy&&!reflecting&&!storage.error} code={playgroundCode} onCode={setPlaygroundCode} generating={codeGenerating} canGenerate={!busy&&!reflecting&&!storage.error&&llama.status==='ready'} onGenerate={(request,revision)=>void draftPlayground(request,revision)} onStopGeneration={()=>abortRef.current?.abort()}/></div></section></>}
+      {showSkills&&<SkillsDrawer entries={practice} work={work} activities={sharedActivities} games={loadCodeGames()} editable={!busy&&!reflecting&&!storage.error} onChange={next=>{savePractice(next);setPractice(next);}} onClose={()=>setShowSkills(false)}/>}
 
       {showNarratives&&<NarrativesDrawer entries={narratives} episodes={episodes} draft={narrativeDraft} generating={narrativeGenerating} ready={!busy&&!reflecting&&!storage.error&&llama.status==='ready'} error={narrativeError}
         onGenerate={(kind,ids,previous)=>void draftNarrative(kind,ids,previous)} onDraft={setNarrativeDraft} onStop={()=>abortRef.current?.abort()}
@@ -899,8 +992,12 @@ export default function App() {
         }} onDelete={(id) => setDiary((prev) => prev.map((entry)=>entry.id===id?{...entry,deletedAt:new Date().toISOString()}:entry))}
         onClose={() => { if (reflecting && !journalWriting) abortRef.current?.abort(); setShowDiary(false); }} />}
 
+      {showBackgrounds&&<BackgroundPicker cfg={cfg} onChange={changeCfg} onClose={()=>setShowBackgrounds(false)}/>}
+      {showOutfitPrototype&&avatar.assets&&<Atelier onWardrobeSaved={()=>avatar.reload()} assets={avatar.assets} cfg={cfg} initial={prototypePicture} available={!busy&&!reflecting&&!storage.error} beforeGenerate={async cpu=>cpu?async()=>{}:llama.pauseForImage()} onSaveImage={savePictureToLibrary} onClose={()=>setShowOutfitPrototype(false)}/>}
       {showWardrobe && wardrobe && (
-        <Wardrobe
+        <Wardrobe assets={avatar.assets??undefined}
+          onAtelier={()=>{setPrototypePicture(undefined);setShowWardrobe(false);setShowOutfitPrototype(true);}}
+          timeZone={journal.timeZone}
           data={wardrobe}
           cfg={cfg}
           stats={progress.stats}
@@ -922,3 +1019,4 @@ export default function App() {
     </div>
   );
 }
+

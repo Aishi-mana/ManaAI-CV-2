@@ -1,0 +1,36 @@
+{
+  "backend": "neta",
+  "checkpoint": "mock-no-model",
+  "prompt": "outfit",
+  "negative": "",
+  "width": 128,
+  "height": 128,
+  "steps": 1,
+  "cfg": 4,
+  "seed": 42,
+  "cpu": true,
+  "elapsed_seconds": {
+    "checkpoint_loaded": 0.0,
+    "prompts_encoded": 0.0,
+    "sampling_finished": 0.03,
+    "image_saved": 0.04
+  },
+  "reference_used": true,
+  "clothing_mask_used": true,
+  "reference_layout": {
+    "source_size": [
+      64,
+      96
+    ],
+    "size": [
+      79,
+      118
+    ],
+    "offset": [
+      24,
+      5
+    ],
+    "frame": 0.92
+  },
+  "denoise": 0.75
+}

@@ -1,0 +1,3 @@
+from pathlib import Path
+p=Path('src/core/codeSandbox.ts');s=p.read_text(encoding='utf-8');source=Path('exports/code-playground/collect-stars-powerups-fixed.js').read_text(encoding='utf-8-sig').strip();idx=s.index('export function sandboxCode');s=s[:idx]+'export const SANDBOX_POWERUP_EXAMPLE=`'+source+'`;\n'+s[idx:];p.write_text(s,encoding='utf-8')
+p=Path('src/components/CodePlayground.tsx');s=p.read_text(encoding='utf-8').replace('SANDBOX_EXAMPLE,sandboxCode','SANDBOX_EXAMPLE,SANDBOX_POWERUP_EXAMPLE,sandboxCode').replace('>Load example</button>','>Load example</button><button className="btn" disabled={running||p.generating} onClick={()=>p.onCode(SANDBOX_POWERUP_EXAMPLE)}>Load power-up example</button>');p.write_text(s,encoding='utf-8')

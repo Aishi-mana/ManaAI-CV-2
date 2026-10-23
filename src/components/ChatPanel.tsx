@@ -1,6 +1,7 @@
+import GeneratedPictureView from './GeneratedPictureView';
 import MusicalMomentsControls from './MusicalMomentsControls';
-import {requestedMusic,musicalNoteClip,musicPath,validateMusicalState,type MusicContext} from '../core/musicalMoments';
-import {requestedSongTitle} from '../core/songPool';
+import {chooseMusic,planMusicAttempt,requestedMusic,musicalNoteClip,musicPath,validateMusicalState,type MusicContext} from '../core/musicalMoments';
+import {requestedSongTitle,musicCommandText,findSong} from '../core/songPool';
 import type {InitiativeState} from '../core/initiative';
 import {setMediaOccupied} from '../core/mediaActivity';
 import CustomVoiceSetup from './CustomVoiceSetup';
@@ -24,6 +25,9 @@ import { prepareImage } from '../core/vision';
 import type { ImageAttachment } from '../core/vision';
 
 interface Props {
+  onOutfitPrototype?:(image:ImageAttachment)=>void;
+  pictureJob?:import("react").ReactNode;
+  onSavePicture?:(image:ImageAttachment)=>void|Promise<void>;
   initiative:InitiativeState;onInitiativeState:(state:InitiativeState)=>void;musicContext:Omit<MusicContext,'visible'|'idle'|'ready'|'muted'>;musicMood:string;onMusicUnavailable:(request:string,titles:string[])=>void;onMusicPlayed:(title:string,kind:'hum'|'song',request?:string)=>void;
   savedImages:SavedImage[];
   avatarReferenceAvailable:boolean;
@@ -41,15 +45,17 @@ interface Props {
   onCompare: (id: string) => void;
 }
 
-export default function ChatPanel({ messages, busy, ready, charName, userName, onSend, onStop, onDraftChange, onCompare, onVoiceMouth,imageStatus,imageError,savedImages,avatarReferenceAvailable,initiative,onInitiativeState,musicContext,musicMood,onMusicPlayed,onMusicUnavailable }: Props) {
-  const [handsOn,setHandsOn]=useState(false),[handsStage,setHandsStage]=useState<'capture'|'waiting'|'launching'|'playing'|'cooldown'>('capture'),[handsError,setHandsError]=useState('');
+export default function ChatPanel({ messages, busy, ready, charName, userName, onSend, onStop, onDraftChange, onCompare, onVoiceMouth,imageStatus,imageError,savedImages,avatarReferenceAvailable,initiative,onInitiativeState,musicContext,musicMood,onMusicPlayed,onMusicUnavailable,pictureJob,onOutfitPrototype,onSavePicture }: Props) {
+  const [handsOn,setHandsOn]=useState(false),[handsStage,setHandsStage]=useState<'capture'|'waiting'|'launching'|'playing'|'music-launch'|'music-playing'|'cooldown'>('capture'),[handsError,setHandsError]=useState('');
+  const handsSession=useRef(0);
   const handsActive=useRef(false),handsBaseline=useRef(new Set<string>()),handsTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
   const handsTranscript=useRef<((review:import('../core/dictation').DictationReview)=>void)|null>(null);
+  const [savedPictureIds,setSavedPictureIds]=useState<Set<string>>(new Set());
   const [compareAvatar,setCompareAvatar]=useState(true);
   const [draft, setDraft] = useState("");
   const [attachment,setAttachment]=useState<ImageAttachment|undefined>();
   const dictation=useDictation(text=>{try{const checked=reviewedDraft('',text);setDraft(current=>reviewedDraft(current,checked));}catch(e){setAttachmentError(String(e));}},[charName,userName]);
-  const whisper=useWhisper(review=>{if(handsActive.current)handsTranscript.current?.(review);else dictation.setReview(review);},[charName,userName]);
+  const whisper=useWhisper(review=>{if(handsActive.current)handsTranscript.current?.(review);else dictation.setReview(review);},[charName,userName],validateMusicalState(initiative.music).songs.filter(s=>s.enabled).flatMap(s=>[...s.aliases,s.title]));
   const [microphoneEngine,setMicrophoneEngine]=useState<'whisper'|'windows'>('whisper');
   const [whisperSetup,setWhisperSetup]=useState(false);
   const [inputOpen,setInputOpen]=useState(false);
@@ -66,7 +72,7 @@ export default function ChatPanel({ messages, busy, ready, charName, userName, o
   const musicRequestId=useRef(0);
   const musicContextLive={...musicContext,visible:document.visibilityState==='visible',idle:!busy&&!speech.speaking&&!micActive&&!handsOn&&!draft.trim()&&!attachment&&!dictation.review&&!preparing,ready,muted:speech.volume===0};
   useEffect(()=>{setMediaOccupied(speech.speaking||micActive||handsOn);return()=>setMediaOccupied(false);},[speech.speaking,micActive,handsOn]);
-  useEffect(()=>{if(speech.musicPlaying&&(busy||!ready||micActive||handsOn||draft.trim()||attachment||document.visibilityState!=='visible'))void speech.stop();},[busy,ready,micActive,handsOn,draft,attachment,speech.musicPlaying]);
+  useEffect(()=>{if(speech.musicPlaying&&(busy||!ready||micActive||(handsOn&&handsStage!=='music-launch'&&handsStage!=='music-playing')||draft.trim()||attachment||document.visibilityState!=='visible'))void speech.stop();},[busy,ready,micActive,handsOn,draft,attachment,speech.musicPlaying,handsStage]);
   useEffect(()=>{const hide=()=>{if(document.visibilityState==='hidden'&&speech.musicPlaying)void speech.stop();};document.addEventListener('visibilitychange',hide);return()=>document.removeEventListener('visibilitychange',hide);},[speech.musicPlaying]);
 
   useEffect(()=>{onVoiceMouth(speech.available?speech.mouth:undefined);},[speech.available,speech.mouth,onVoiceMouth]);
@@ -77,12 +83,30 @@ export default function ChatPanel({ messages, busy, ready, charName, userName, o
     const text=autoSpeech.current!.next(messages,busy,speech.automatic&&!handsOn,speech.available&&!speech.speaking&&!micActive,charName);
     if(text)void speech.speak(text,autoSpeech.current!.emotion);
   },[messages,busy,speech.automatic&&!handsOn,speech.available,speech.speaking,charName,micActive,handsOn]);
-  function stopHandsFree(reason=''){handsActive.current=false;setHandsOn(false);setHandsError(reason);clearTimeout(handsTimer.current);void whisper.cancel();void speech.stop();if(handsStage==='waiting')onStop();}
-  function enableHandsFree(){if(!ready||busy||micActive||draft.trim()||attachment||dictation.review||preparing||!speech.available||speech.speaking||speech.volume===0)return;handsActive.current=true;setHandsOn(true);setHandsStage('capture');setHandsError('');setMicrophoneEngine('whisper');void whisper.start({autoEnd:true});}
-  handsTranscript.current=review=>{if(!handsActive.current)return;if(!hasSpokenWords(review.text)){stopHandsFree('No spoken words recognized. Background sound was not sent; try again when ready.');return;}if(!ready||busy||draft.trim()||attachment){dictation.setReview(review);stopHandsFree('Hands-free paused: review the transcription before sending.');return;}handsBaseline.current=new Set(messages.filter(m=>m.role==='assistant').map(m=>m.id));setHandsStage('waiting');followLatest.current=true;setShowLatest(false);void onSend(review.text).then(accepted=>{if(!accepted){dictation.setReview(review);stopHandsFree('Message was not sent. Review the transcription before retrying.');}}).catch(e=>{dictation.setReview(review);stopHandsFree(String(e));});};
+  function stopHandsFree(reason=''){handsSession.current++;handsActive.current=false;setHandsOn(false);setHandsError(reason);clearTimeout(handsTimer.current);void whisper.cancel();void speech.stop();if(handsStage==='waiting')onStop();}
+  function enableHandsFree(){if(!ready||busy||micActive||draft.trim()||attachment||dictation.review||preparing||!speech.available||speech.speaking||speech.volume===0)return;handsSession.current++;handsActive.current=true;setHandsOn(true);setHandsStage('capture');setHandsError('');setMicrophoneEngine('whisper');void whisper.start({autoEnd:true});}
+  async function playHandsMusic(text:string,kind:'hum'|'song',title:string|null){
+    const session=handsSession.current;
+    setHandsStage('music-launch');
+    const state=validateMusicalState(initiative.music);
+    const id=title?findSong(state.songs,title)?.id:chooseMusic(state,musicMood,kind);
+    if(!id){onMusicUnavailable(text,state.songs.filter(s=>s.enabled).map(s=>s.title));stopHandsFree('Song not found. Check its title or alias in Chat clips.');return;}
+    if(!ready||busy||speech.volume===0||document.visibilityState!=='visible'){stopHandsFree('Song playback is unavailable right now.');return;}
+    const next=planMusicAttempt(state,id);
+    onInitiativeState({...initiative,music:next});
+    try{
+      const started=await speech.playMusic(musicPath(id,next.songs));
+      if(!handsActive.current||handsSession.current!==session)return;
+      if(!started){stopHandsFree('Song playback did not start.');return;}
+      const song=next.songs.find(s=>s.id===id);
+      onMusicPlayed(song?.title??(kind==='hum'?'Humming':'Song'),kind,text);
+      setHandsStage('music-playing');
+    }catch(e){if(handsActive.current&&handsSession.current===session)stopHandsFree(String(e));}
+  }
+  handsTranscript.current=review=>{if(!handsActive.current)return;if(!hasSpokenWords(review.text)){stopHandsFree('No spoken words recognized. Background sound was not sent; try again when ready.');return;}if(!ready||busy||draft.trim()||attachment){dictation.setReview(review);stopHandsFree('Hands-free paused: review the transcription before sending.');return;}const command=musicCommandText(review.text,charName),kind=requestedMusic(command),title=kind?null:requestedSongTitle(command);if(kind||title){void playHandsMusic(review.text,kind??'song',title);return;}handsBaseline.current=new Set(messages.filter(m=>m.role==='assistant').map(m=>m.id));setHandsStage('waiting');followLatest.current=true;setShowLatest(false);void onSend(review.text).then(accepted=>{if(!accepted){dictation.setReview(review);stopHandsFree('Message was not sent. Review the transcription before retrying.');}}).catch(e=>{dictation.setReview(review);stopHandsFree(String(e));});};
   useEffect(()=>{if(!handsOn)return;if(!ready||whisper.error||speech.error){stopHandsFree(whisper.error||speech.error||'Hands-free stopped: model is unavailable.');return;}
     if(handsStage==='waiting'&&!busy){const reply=messages.filter(m=>m.role==='assistant'&&!handsBaseline.current.has(m.id)).slice(-1)[0];if(!reply)return;const text=cleanReply(reply.content,charName).text.trim();if(reply.error||!text){stopHandsFree(reply.error||'No reply to read aloud.');return;}setHandsStage('launching');void speech.speak(text,cleanReply(reply.content,charName).emotion).then(started=>{if(!handsActive.current)return;if(started)setHandsStage('playing');else stopHandsFree('Reply playback could not start.');});}
-    else if(handsStage==='playing'&&!speech.speaking){setHandsStage('cooldown');handsTimer.current=setTimeout(()=>{if(handsActive.current){setHandsStage('capture');void whisper.start({autoEnd:true});}},700);}
+    else if((handsStage==='playing'||handsStage==='music-playing')&&!speech.speaking){setHandsStage('cooldown');handsTimer.current=setTimeout(()=>{if(handsActive.current){setHandsStage('capture');void whisper.start({autoEnd:true});}},700);}
   },[handsOn,handsStage,ready,busy,messages,speech.speaking,speech.error,whisper.error]);
   const stopHandsRef=useRef(stopHandsFree);stopHandsRef.current=stopHandsFree;
   useEffect(()=>{const hide=()=>{if(document.visibilityState==='hidden'&&handsActive.current)stopHandsRef.current('Hands-free stopped while the app was hidden.');};document.addEventListener('visibilitychange',hide);return ()=>{document.removeEventListener('visibilitychange',hide);handsActive.current=false;clearTimeout(handsTimer.current);};},[]);
@@ -132,11 +156,13 @@ export default function ChatPanel({ messages, busy, ready, charName, userName, o
     }
   }
 
+  const voiceStatus=handsOn?handsStage==='waiting'?'Hands-free: waiting for reply…':handsStage==='music-launch'?'Hands-free: loading song…':handsStage==='music-playing'?'Hands-free: playing song…':handsStage==='launching'||handsStage==='playing'?'Hands-free: speaking…':handsStage==='cooldown'?'Hands-free: resuming…':whisper.phase==='transcribing'?'Hands-free: transcribing…':whisper.phase==='recording'&&whisper.elapsed<0.8?'Hands-free: calibrating background — wait briefly…':'Hands-free: listening for your pause…':speech.musicPlaying?'Playing song…':speech.generating?'Preparing voice…':speech.speaking?'Speaking…':whisper.phase==='recording'?'Recording message…':whisper.phase==='transcribing'?'Transcribing locally…':whisper.phase==='starting'?'Opening microphone…':dictation.listening?'Listening…':dictation.review?'Review transcription below':!micActive?microphoneEngine==='whisper'?'Whisper · English':'Windows recognition':'';
+  const voiceState=handsError||whisper.error||dictation.error?'error':speech.musicPlaying?'music':speech.speaking||speech.generating?'speaking':whisper.phase==='recording'||dictation.listening?'listening':handsOn||micActive||busy?'working':'idle';
   return (
     <>
       <div className="chat-search">
-        <button className="btn" aria-expanded={voiceOpen} onClick={()=>setVoiceOpen(!voiceOpen)}>Voice</button>
-        {speech.speaking&&<button className="btn" onClick={()=>handsOn?stopHandsFree():void speech.stop()}>Stop voice</button>}
+        <button className="btn" aria-expanded={voiceOpen} onClick={()=>setVoiceOpen(!voiceOpen)}>Voice settings</button>
+        {speech.speaking&&!handsOn&&<button className="btn" onClick={()=>void speech.stop()}>{speech.musicPlaying?'Stop song':'Stop voice'}</button>}
         {voiceOpen&&<div className="voice-controls">
           <label>Read-aloud voice <select aria-label="Read-aloud voice" value={speech.voice} disabled={speech.loading||speech.speaking} onChange={e=>speech.setVoice(e.target.value)}>{!speech.voices.includes(speech.voice)&&<option value={speech.voice}>{speech.voice||'No voice selected'}</option>}{speech.voices.map(v=><option key={v}>{v}</option>)}</select></label>
           <label className="voice-auto"><input type="checkbox" checked={speech.automatic} onChange={e=>speech.setAutomatic(e.target.checked)}/> Automatically read new replies</label>
@@ -194,6 +220,7 @@ export default function ChatPanel({ messages, busy, ready, charName, userName, o
                 ) : (
                   text
                 )}
+                {m.generatedPicture&&<section className="chat-generated-picture"><GeneratedPictureView image={m.generatedPicture}/>{onOutfitPrototype&&<button className="btn" disabled={busy} onClick={()=>onOutfitPrototype(m.generatedPicture!)}>Open in Atelier</button>}<button className="btn" disabled={busy||!ready||(savedPictureIds.has(m.id)||savedImages.some(image=>!image.diskId&&image.dataUrl===m.generatedPicture!.dataUrl))} onClick={async()=>{try{await onSavePicture?.(m.generatedPicture!);setSavedPictureIds(ids=>new Set([...ids,m.id]));}catch(e){setAttachmentError(String(e));}}}>{(savedPictureIds.has(m.id)||savedImages.some(image=>!image.diskId&&image.dataUrl===m.generatedPicture!.dataUrl))?'Saved to image library':'Save to image library'}</button></section>}
                 {m.error && <div className="msg-error">{m.error}</div>}
                 {!busy&&!m.error&&text.trim()&&(musicClip||speech.available)&&<div><button className="btn" disabled={handsOn||speech.speaking||micActive||!!draft.trim()||preparing} onClick={()=>void (musicClip?speech.playMusic(musicPath(musicClip,validateMusicalState(initiative.music).songs)):speech.speak(text,emotion))}>{musicClip?'Replay':'Speak'}</button></div>}
                 {m.diagnostics && <details><summary>Reply diagnostics</summary>
@@ -208,6 +235,7 @@ export default function ChatPanel({ messages, busy, ready, charName, userName, o
             </div>
           );
         })}
+        {pictureJob&&<div className="row mana"><div className="bubble mana">{pictureJob}</div></div>}
         <div ref={endRef} />
       </div>
 
@@ -218,13 +246,16 @@ export default function ChatPanel({ messages, busy, ready, charName, userName, o
         {imageStatus&&<span role="status">{imageStatus}</span>}
         {(attachmentError||imageError)&&<span className="msg-error" role="alert">{attachmentError||imageError}</span>}
       </div>}
-      <div className="input-toolbar">
-        <button className="btn" disabled={!handsOn&&(!ready||busy||micActive||!!draft.trim()||!!attachment||!!dictation.review||preparing||!speech.available||speech.speaking||speech.volume===0)} onClick={()=>handsOn?stopHandsFree():enableHandsFree()}>{handsOn?'Stop hands-free':'Start hands-free'}</button>
+      <div className="input-toolbar" aria-label="Voice and microphone controls">
+        <div className="voice-session-actions" role="group" aria-label="Hands-free conversation">
+        <button className={`btn hands-free-toggle ${handsOn?'is-active':''}`} aria-pressed={handsOn} title={handsOn?'Stop listening and playback':'Talk, hear replies and request saved songs'} disabled={!handsOn&&(!ready||busy||micActive||!!draft.trim()||!!attachment||!!dictation.review||preparing||!speech.available||speech.speaking||speech.volume===0)} onClick={()=>handsOn?stopHandsFree():enableHandsFree()}>{handsOn?'■ Stop hands-free':'Start hands-free'}</button></div>
         {handsError&&<span className="msg-error" role="alert">{handsError}</span>}
-        <button className="btn" aria-expanded={inputOpen} aria-controls="voice-input-settings" onClick={()=>setInputOpen(!inputOpen)}>Voice input</button>
-        {microphoneEngine==='windows'?<button className="btn" disabled={!micActive&&(!!dictation.review||busy||preparing||speech.speaking||!dictation.languages.length)} onClick={()=>void (dictation.listening?dictation.stop():dictation.start())}>{dictation.listening?'Cancel listening':'Microphone'}</button>:<><button className="btn" disabled={handsOn||busy||preparing||speech.speaking||!!dictation.review||whisper.phase!=='idle'} onClick={()=>void whisper.start()}>Record microphone</button>{!handsOn&&whisper.phase==='recording'&&<button className="btn" onClick={()=>void whisper.finish()}>Transcribe</button>}{!handsOn&&whisper.phase!=='idle'&&<button className="btn" onClick={()=>void whisper.cancel()}>Cancel</button>}</>}
+        <div className="voice-record-actions" role="group" aria-label="Record a message">
+        {!handsOn&&<button className="btn" aria-expanded={inputOpen} aria-controls="voice-input-settings" onClick={()=>setInputOpen(!inputOpen)} title="Choose recognition engine and microphone settings">Input settings</button>}
+        {!handsOn&&(microphoneEngine==='windows'?<button className="btn" disabled={!micActive&&(!!dictation.review||busy||preparing||speech.speaking||!dictation.languages.length)} onClick={()=>void (dictation.listening?dictation.stop():dictation.start())}>{dictation.listening?'Cancel listening':'Microphone'}</button>:<><button className="btn" disabled={handsOn||busy||preparing||speech.speaking||!!dictation.review||whisper.phase!=='idle'} onClick={()=>void whisper.start()}>Record microphone</button>{!handsOn&&whisper.phase==='recording'&&<button className="btn" onClick={()=>void whisper.finish()}>Transcribe</button>}{!handsOn&&whisper.phase!=='idle'&&<button className="btn" onClick={()=>void whisper.cancel()}>Cancel</button>}</>)}
+        </div>
         {whisper.phase==='recording'&&<div className="recording-meter"><span role="timer" aria-label="Recording time">{whisper.elapsed.toFixed(1)} / 15 s</span><meter aria-label="Microphone input level" min={0} max={1} value={whisper.level}/><span className="hint-soft">Input level</span></div>}
-        <span className="hint-soft" role="status">{handsOn?handsStage==='waiting'?'Hands-free: waiting for reply…':handsStage==='launching'||handsStage==='playing'?'Hands-free: speaking…':handsStage==='cooldown'?'Hands-free: resuming…':whisper.phase==='transcribing'?'Hands-free: transcribing…':whisper.phase==='recording'&&whisper.elapsed<0.8?'Hands-free: calibrating background — wait briefly…':'Hands-free: listening for your pause…':whisper.phase==='transcribing'?'Transcribing locally…':whisper.phase==='starting'?'Opening microphone…':dictation.listening?'Listening…':dictation.review?'Review transcription below':!micActive?microphoneEngine==='whisper'?'Whisper · English':'Windows recognition':''}</span>
+        <span className={`voice-session-status is-${voiceState}`} role="status"><span className="voice-state-dot" aria-hidden="true"/>{voiceStatus}</span>
         {(microphoneEngine==='whisper'?whisper.error:dictation.error)&&<span className="msg-error" role="alert">{microphoneEngine==='whisper'?whisper.error:dictation.error}</span>}
       </div>
       {inputOpen&&<section id="voice-input-settings" className="input-settings" aria-label="Voice input settings"><label>Speech recognition <select aria-label="Speech recognition" value={microphoneEngine} disabled={handsOn||micActive||!!dictation.review} onChange={e=>setMicrophoneEngine(e.target.value as 'whisper'|'windows')}><option value="whisper">Local Whisper (English)</option><option value="windows">Windows recognition</option></select></label>

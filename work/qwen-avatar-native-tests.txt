@@ -1,0 +1,26 @@
+   Compiling mana v0.1.0 (C:\AI\ManaAI-CV-2\src-tauri)
+warning: hard linking files in the incremental compilation cache failed. copying files instead. consider moving the cache directory to a file system which supports hard linking in session dir `\\?\C:\AI\ManaAI-CV-2\src-tauri\target\debug\incremental\mana_lib-198gv5erphajf\s-hnfov23som-1s5t3cr-working`
+
+warning: hard linking files in the incremental compilation cache failed. copying files instead. consider moving the cache directory to a file system which supports hard linking in session dir `\\?\C:\AI\ManaAI-CV-2\src-tauri\target\debug\incremental\mana_lib-3u0vwfuwsolv7\s-hnfov23sv5-1ewb6p6-working`
+
+warning: `mana` (lib test) generated 1 warning
+warning: `mana` (lib) generated 1 warning
+warning: hard linking files in the incremental compilation cache failed. copying files instead. consider moving the cache directory to a file system which supports hard linking in session dir `\\?\C:\AI\ManaAI-CV-2\src-tauri\target\debug\incremental\mana-23m7at82p7rk2\s-hnfov5l2js-180r0gj-working`
+
+warning: `mana` (bin "mana" test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.14s
+     Running unittests src\lib.rs (src-tauri\target\debug\deps\mana_lib-4834e32b2002e09c.exe)
+
+running 3 tests
+test image_generation::tests::rejects_unsafe_requests ... ok
+test image_generation::qwen_tests::qwen_bounds_and_reference_are_independent ... ok
+test image_generation::header_tests::classifies_tensor_layout_without_loading_weights ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 76 filtered out; finished in 0.01s
+
+     Running unittests src\main.rs (src-tauri\target\debug\deps\mana-589937a703703807.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

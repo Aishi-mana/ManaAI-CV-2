@@ -1,4 +1,4 @@
-import { VIEWS, listAccessories, listOptions } from "./avatar";
+import { VIEWS, EMOTION_MAP, buildLayers, listAccessories, listOptions } from "./avatar";
 import type { AccessorySlot, AvatarAssets, AvatarConfig } from "./avatar";
 import { hintFor, isUnlocked } from "./progress";
 import type { Stats } from "./progress";
@@ -21,7 +21,7 @@ export interface Wardrobe {
   accessories: Entry[];
 }
 
-const pretty = (s: string) => s.replace(/_/g, " ");
+const pretty = (s: string) => s.replace(/^atelier_(.+)-\d+$/, "$1").replace(/_/g, " ").replace(/\s+/g," ").trim();
 
 export function allItemIds(a: AvatarAssets): string[] {
   const o = listOptions(a);
@@ -79,10 +79,23 @@ function pickRequired(list: Entry[], want: string): string {
 export function resolveLoadout(saved: AvatarConfig, w: Wardrobe): AvatarConfig {
   return {
     ...(saved.looks ? { looks: saved.looks } : {}),
+    ...(saved.outfitRoutine?{outfitRoutine:saved.outfitRoutine}:{}),
+    ...(saved.seasonalLooks?{seasonalLooks:saved.seasonalLooks}:{}),
+    ...(saved.seasonCalendar?{seasonCalendar:saved.seasonCalendar}:{}),
+    ...(saved.background?{background:saved.background}:{}),
+    ...(saved.backgroundImage?{backgroundImage:saved.backgroundImage}:{}),
     skin: pickRequired(w.skins, saved.skin),
     outfit: pickRequired(w.outfits, saved.outfit),
     hairstyle: pickRequired(w.hairs, saved.hairstyle),
     accessories: saved.accessories.filter((n) => w.accessories.some((e) => e.name === n && e.unlocked)),
     view: VIEWS[saved.view] ? saved.view : "full",
   };
+}
+
+/** Inventory thumbnails use actual selected item layers; skin previews stay dressed. */
+export function wardrobePreviewLayers(a:AvatarAssets,cfg:AvatarConfig,category:'outfit'|'hair'|'skin'|'accessories',name:string){
+ const next={...cfg,accessories:[...cfg.accessories]};
+ if(category==='outfit')next.outfit=name;else if(category==='hair')next.hairstyle=name;else if(category==='skin')next.skin=name;else next.accessories=[name];
+ const neutral=EMOTION_MAP.neutral;
+ return buildLayers(a,next).filter(layer=>category==='skin'?(layer.slot==='static'||layer.variant===(layer.slot==='eyes'?neutral.eyes:neutral.mouth)):layer.key.toLowerCase().startsWith(category==='outfit'?'outfits/':category==='hair'?'hairstyles/':'accessories/'));
 }

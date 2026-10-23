@@ -1,0 +1,6 @@
+/** Bounded JSON saves, shared by worker, host and exported games. */
+export function gameProgressValue(value:unknown):Record<string,unknown>{
+ const visit=(v:unknown,depth:number):unknown=>{if(depth>8)throw Error('Progress is too deeply nested.');if(v===null||typeof v==='boolean')return v;if(typeof v==='number'&&Number.isFinite(v))return v;if(typeof v==='string'&&v.length<=256)return v;if(Array.isArray(v)&&v.length<=64)return v.map(x=>visit(x,depth+1));if(v&&typeof v==='object'&&!Array.isArray(v)){const entries=Object.entries(v);if(entries.length>64||entries.some(([k])=>k.length>64||['__proto__','prototype','constructor'].includes(k)))throw Error('Invalid progress keys.');return Object.fromEntries(entries.map(([k,x])=>[k,visit(x,depth+1)]));}throw Error('Use small JSON values for progress.');};
+ if(!value||typeof value!=='object'||Array.isArray(value))throw Error('Progress must be a JSON object.');const clean=visit(value,0) as Record<string,unknown>;if(JSON.stringify(clean).length>4096)throw Error('Keep progress under 4096 characters.');return clean;
+}
+export function gameProgressScope(source:string){let a=2166136261,b=5381;for(let i=0;i<source.length;i++){a=Math.imul(a^source.charCodeAt(i),16777619);b=Math.imul(b,33)^source.charCodeAt(i);}return 'draft-'+(a>>>0).toString(16)+'-'+(b>>>0).toString(16);}

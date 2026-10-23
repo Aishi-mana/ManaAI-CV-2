@@ -1,0 +1,9 @@
+    Blocking waiting for file lock on build directory
+   Compiling mana v0.1.0 (C:\AI\ManaAI-CV-2\src-tauri)
+warning: hard linking files in the incremental compilation cache failed. copying files instead. consider moving the cache directory to a file system which supports hard linking in session dir `\\?\C:\AI\ManaAI-CV-2\src-tauri\target\debug\incremental\mana_lib-274s82ph0e1td\s-hng82umljt-0hnqgxf-working`
+
+warning: `mana` (lib) generated 1 warning
+warning: hard linking files in the incremental compilation cache failed. copying files instead. consider moving the cache directory to a file system which supports hard linking in session dir `\\?\C:\AI\ManaAI-CV-2\src-tauri\target\debug\incremental\mana-02wux5hfrga83\s-hng82vvoto-1tt00er-working`
+
+warning: `mana` (bin "mana") generated 1 warning
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 15.40s

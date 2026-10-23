@@ -146,11 +146,12 @@ fn validate_instrument_custom(custom:Option<&serde_json::Value>)->Result<(),Stri
 
 #[tauri::command]
 
-pub fn arrangement_start(app:tauri::AppHandle,state:tauri::State<Singing>,python:String,vocal:String,instrumental:String,style:String,start:f64,seconds:f64,preview_only:Option<bool>,guitar:Option<String>,stems:Option<Vec<serde_json::Value>>,bank:Option<String>,source_name:Option<String>,custom:Option<serde_json::Value>)->Result<(),String>{
+pub fn arrangement_start(app:tauri::AppHandle,state:tauri::State<Singing>,python:String,vocal:String,instrumental:String,style:String,start:f64,seconds:f64,preview_only:Option<bool>,guitar:Option<String>,stems:Option<Vec<serde_json::Value>>,bank:Option<String>,source_name:Option<String>,custom:Option<serde_json::Value>,notes:Option<Vec<serde_json::Value>>)->Result<(),String>{
 
     if !["sax-extract","piano-extract","keyboard-extract","electric-piano-extract","trumpet-extract","fine-stems","piano","gentle-piano","jazz","rock","review-stems","replace-guitar-sax-tenor","replace-guitar-sax-weresax","replace-guitar-sax","replace-guitar-piano","replace-guitar-electric-guitar","replace-guitar-electric-guitar-distorted","replace-guitar-acoustic-guitar","replace-guitar-nylon-guitar","replace-guitar-picked-bass","replace-guitar-finger-bass","replace-guitar-acoustic-bass","replace-guitar-violin","replace-guitar-strings","replace-guitar-flute","replace-guitar-trumpet","replace-guitar-harp","replace-guitar-drums-standard","replace-guitar-drums-rock","replace-guitar-drums-jazz","replace-guitar-drums-brush","replace-guitar-drums-electronic","replace-guitar-electric-piano","replace-guitar-fm-piano","replace-guitar-organ","replace-guitar-accordion","replace-guitar-harpsichord","replace-guitar-clavinet","replace-guitar-harmonica","replace-guitar-ocarina","replace-guitar-synth-square","replace-guitar-synth-saw","replace-guitar-synth-pad","replace-guitar-synth-poly","replace-guitar-weresax-synth","replace-guitar-weresax-saxcordion","replace-guitar-guitar-nam-warm","replace-guitar-guitar-nam-rhythm","replace-guitar-guitar-nam-lead","replace-guitar-guitar-bright-room","replace-guitar-guitar-black","replace-guitar-guitar-combo","replace-guitar-piano-treble","replace-guitar-piano-bass"].contains(&style.as_str())||!start.is_finite()||start<0.0||!seconds.is_finite()||!(1.0..=60.0).contains(&seconds){return Err("Choose a supported style and a 1–60 second section.".into());}
 
     validate_instrument_custom(custom.as_ref())?;
+    if let Some(ref rows)=notes{validate_builder_notes(rows,seconds)?;if !style.starts_with("replace-guitar-"){return Err("Edited notes require an instrument replacement.".into());}}
 
     let source_name=source_name.unwrap_or_else(||"guitar".into());if !["vocal","guitar","piano","bass","other","drums","strings-estimate","winds-estimate","sax-extracted","piano-banquet","keyboard-extracted","electric-piano-extracted","trumpet-extracted"].contains(&source_name.as_str()){return Err("Choose a supported source part.".into());}
 
@@ -200,7 +201,7 @@ pub fn arrangement_start(app:tauri::AppHandle,state:tauri::State<Singing>,python
 
     #[cfg(windows)] {use std::os::windows::process::CommandExt;cmd.creation_flags(0x08000000);}
 
-    let mut child=cmd.spawn().map_err(|e|e.to_string())?;let data=serde_json::to_vec(&serde_json::json!({"custom":custom,"data_root":root,"vocal":vocal,"instrumental":instrumental,"style":style,"previewOnly":preview_only.unwrap_or(false),"bank":bank,"source_name":source_name,"guitar":guitar,"stems":stems.unwrap_or_default(),"start":start,"seconds":seconds,"output":dir,"result":dir.join("result.json")})).map_err(|e|e.to_string())?;
+    let mut child=cmd.spawn().map_err(|e|e.to_string())?;let data=serde_json::to_vec(&serde_json::json!({"notes":notes,"custom":custom,"data_root":root,"vocal":vocal,"instrumental":instrumental,"style":style,"previewOnly":preview_only.unwrap_or(false),"bank":bank,"source_name":source_name,"guitar":guitar,"stems":stems.unwrap_or_default(),"start":start,"seconds":seconds,"output":dir,"result":dir.join("result.json")})).map_err(|e|e.to_string())?;
 
     let result=fs::write(dir.join("request.json"),&data).map_err(|e|e.to_string()).and_then(|_|child.stdin.take().ok_or("Job input unavailable".into()).and_then(|mut f|f.write_all(&data).map_err(|e|e.to_string())));
 
@@ -226,7 +227,8 @@ pub fn original_song_start(app:tauri::AppHandle,state:tauri::State<Singing>,titl
 
     validate_original(&prompt,&lyrics,&style,duration,seed)?;
 
-    if preview_only&&duration>20.0{return Err("Draft previews must be at most 20 seconds.".into());}
+    // Preview-only controls library discovery, not length; full previews use
+    // the same validated 10–180 second boundary as saved original songs.
 
     let root=Path::new(r"C:\AI\ManaAI-CV-2");
 
@@ -884,3 +886,9 @@ mod harmony_tests{
 
 }
 
+
+fn validate_builder_notes(notes:&[serde_json::Value],seconds:f64)->Result<(),String>{if notes.len()>4096{return Err("Use at most4096 notes.".into());}for note in notes{let row=note.as_array().ok_or("Invalid note")?;if row.len()!=4{return Err("Use start/end/pitch/strength.".into());}let v=row.iter().map(|x|x.as_f64().filter(|n|n.is_finite()).ok_or("Invalid note value")).collect::<Result<Vec<_>,_>>()?;if v[0]<0.||v[1]<=v[0]||v[1]>seconds||v[2].fract()!=0.||!(0.0..=127.).contains(&v[2])||!(0.0..=1.).contains(&v[3]){return Err("Notes must fit the section with pitch0–127 and strength0–1.".into());}}Ok(())}
+#[tauri::command]pub fn builder_notes_read(path:String)->Result<serde_json::Value,String>{let root=Path::new("C:/AI/ManaAI-CV-2/exports/singing").canonicalize().map_err(|e|e.to_string())?;let file=Path::new(&path).canonicalize().map_err(|e|e.to_string())?;if !file.starts_with(root)||file.extension().and_then(|x|x.to_str())!=Some("json")||fs::metadata(&file).map_err(|e|e.to_string())?.len()>2_000_000{return Err("Choose saved notes.json under exports/singing (up to2MB).".into());}serde_json::from_slice(&fs::read(file).map_err(|e|e.to_string())?).map_err(|e|e.to_string())}
+#[cfg(test)]mod builder_note_tests{use super::*;
+ #[test]fn edited_notes_reject_invalid_values_before_launch(){assert!(validate_builder_notes(&[],1.).is_ok());assert!(validate_builder_notes(&[serde_json::json!([0.,1.,60,0.5])],1.).is_ok());for note in [serde_json::json!([0.,2.,60,0.5]),serde_json::json!([0.,1.,128,0.5]),serde_json::json!([0.,1.,60,2.]),serde_json::json!([true,1.,60,0.5])]{assert!(validate_builder_notes(&[note],1.).is_err());}}
+}

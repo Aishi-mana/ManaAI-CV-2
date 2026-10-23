@@ -130,13 +130,8 @@ def combine(slow,fast,regions):
             if y-x>=.025:result.append([x,y,*n[2:]])
     return sorted(result,key=lambda n:n[0])
 
-def render_bass(path,seconds,root,program,custom=None):
-    from arrangement_replacement import render_soundfont,validate_custom,customize_notes
-    import sys
-    sys.path.insert(0,str(root/'data/transcription-packages'))
-    import pretty_midi
-    custom=validate_custom(custom)
-    source,_=librosa.load(path,sr=SR,duration=seconds)
+def track_bass_notes(source,seconds):
+    """One source-driven bass melody for every replacement timbre."""
     slow,_=detect_slow(source,seconds);fast=detect_fast(source)
     regions=fast_regions(fast,seconds)
     notes=combine(slow,fast,regions)
@@ -145,6 +140,17 @@ def render_bass(path,seconds,root,program,custom=None):
     ref=max(float(np.percentile(strengths,90)),1e-9)
     velocities=[int(round(22+83*np.clip(v/ref,0,1))) for v in strengths]
     notes,velocities,_=refine(source,notes,velocities)
+    return notes,velocities
+
+
+def render_bass(path,seconds,root,program,custom=None):
+    from arrangement_replacement import render_soundfont,validate_custom,customize_notes
+    import sys
+    sys.path.insert(0,str(root/'data/transcription-packages'))
+    import pretty_midi
+    custom=validate_custom(custom)
+    source,_=librosa.load(path,sr=SR,duration=seconds)
+    notes,velocities=track_bass_notes(source,seconds)
     # Classify articulation before user extension so extra hold does not silently change the preset.
     quick=[n[1]-n[0]<.15 for n in notes]
     notes=customize_notes(notes,seconds,custom.get('extension',0));shift=int(custom.get('pitch',0))
