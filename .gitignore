@@ -5,7 +5,33 @@ src-tauri/gen
 # Mana's personal data and big files stay out of git
 /data/
 *.gguf
+*.safetensors
+*.ckpt
+*.pth
+*.onnx
+*.onnx_data
 *.log
+
+# Downloaded model caches and local research checkouts.
+/models/**/*.bin
+/work/beat-this/
+/work/jasco-audiocraft/
+/work/melodyflow-native/
+/work/tsumugi/
+
+# Large generated files in the local scratch area.
+/work/**/*.wav
+/work/**/*.flac
+/work/**/*.mp3
+/work/**/*.mp4
+/work/**/*.webm
+/work/**/*.zip
+/work/**/*.7z
+/work/**/*.exe
+/work/**/*.dll
+
+# Local portable backup archives.
+/Mana-portable-backup*.zip
 
 # Your artwork. Delete this line if you WANT the avatar PNGs in the (public) repo.
 /assets/
