@@ -1,3 +1,4 @@
+import {validDiaryIllustration,type DiaryIllustration} from './diaryArtwork';
 import { readStored, writeStored } from "./persistence";
 import { isRecord, nonEmptyString, stringList } from "./validation";
 import { identityContext } from "./character";
@@ -11,14 +12,14 @@ import type { Goal } from "./goals";
 import { workContext } from "./work";
 import { validateChat } from './settings';
 import type { WorkArtifact } from "./work";
-export interface DiaryEntry { id: string; content: string; createdAt: string; sourceMessageIds: string[]; sourceMemoryIds: string[]; mood: string; journalDate?: string; deletedAt?: string; sourceMessages?:Msg[] }
+export interface DiaryEntry { illustration?:DiaryIllustration; id: string; content: string; createdAt: string; sourceMessageIds: string[]; sourceMemoryIds: string[]; mood: string; journalDate?: string; deletedAt?: string; sourceMessages?:Msg[] }
 export function validateDiary(value: unknown): DiaryEntry[] {
   if (!Array.isArray(value)) return [];
   const ids = new Set<string>();
   return value.flatMap((v): DiaryEntry[] => {
     if (!isRecord(v) || !nonEmptyString(v.id) || ids.has(v.id) || !nonEmptyString(v.content) || typeof v.createdAt !== "string" || !Number.isFinite(Date.parse(v.createdAt))) return [];
     ids.add(v.id);
-    return [{ id: v.id, content: v.content.slice(0,10000), createdAt: v.createdAt, ...(Array.isArray(v.sourceMessages)?{sourceMessages:validateChat(v.sourceMessages).filter(m=>!m.error&&!!m.createdAt&&Number.isFinite(Date.parse(m.createdAt))).slice(0,12).map(m=>({id:m.id,role:m.role,content:m.content.slice(0,1000),createdAt:m.createdAt}))}:{}), sourceMessageIds: stringList(v.sourceMessageIds), sourceMemoryIds: stringList(v.sourceMemoryIds), ...(typeof v.deletedAt === "string" && Number.isFinite(Date.parse(v.deletedAt)) ? {deletedAt:v.deletedAt} : {}), mood: typeof v.mood === "string" ? v.mood : "neutral", ...(typeof v.journalDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v.journalDate) ? { journalDate: v.journalDate } : {}) }];
+    return [{ id: v.id, ...(validDiaryIllustration(v.illustration)?{illustration:v.illustration}:{}), content: v.content.slice(0,10000), createdAt: v.createdAt, ...(Array.isArray(v.sourceMessages)?{sourceMessages:validateChat(v.sourceMessages).filter(m=>!m.error&&!!m.createdAt&&Number.isFinite(Date.parse(m.createdAt))).slice(0,12).map(m=>({id:m.id,role:m.role,content:m.content.slice(0,1000),createdAt:m.createdAt}))}:{}), sourceMessageIds: stringList(v.sourceMessageIds), sourceMemoryIds: stringList(v.sourceMemoryIds), ...(typeof v.deletedAt === "string" && Number.isFinite(Date.parse(v.deletedAt)) ? {deletedAt:v.deletedAt} : {}), mood: typeof v.mood === "string" ? v.mood : "neutral", ...(typeof v.journalDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v.journalDate) ? { journalDate: v.journalDate } : {}) }];
   });
 }
 export function loadDiary(): DiaryEntry[] { try { return validateDiary(JSON.parse(readStored("mana.diary.v1") ?? "[]")); } catch { return []; } }

@@ -1,0 +1,2 @@
+from pathlib import Path
+p=Path('scripts/garment_only.py');s=p.read_text(encoding='utf-8').replace("   if bh>rgb.shape[0]*.035 or bw<bh*2 or area<20:continue", "   thin=bh<=rgb.shape[0]*.035 and bw>=bh*2\n   lower_limb=y>rgb.shape[0]*.65 and bh<=rgb.shape[0]*.07 and bw>=bh*.5\n   if not (thin or lower_limb) or area<20:continue",1).replace("   if confirmed>=max(3,area*.01) or waist:port_mask|=component", "   if confirmed>=max(3,area*.01) or (thin and waist):port_mask|=component",1);p.write_text(s,encoding='utf-8')

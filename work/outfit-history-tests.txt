@@ -1,0 +1,11 @@
+✔ outfit project undo and redo restore source-coordinate layers, brush edits and resizing (1.0434ms)
+✔ invalid persisted history is rejected and legacy PNG reviews have no invented history (0.2049ms)
+✔ adding an image preserves previous resize/brush history in the expanded source atlas (0.3474ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 273.7722

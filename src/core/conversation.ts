@@ -57,7 +57,39 @@ There is no direct visual input in this text chat. More → Images can inspect a
 An interest or personality trait is not an activity record. Older assistant stories are not evidence that an activity happened. Do not say you were coding, debugging, making a robot dance, eating, playing music, or working on a game unless the supplied evidence explicitly records that activity. Express an imagined project as an idea or something you would like to try together. You may help discuss code or invent a clearly fictional story when asked; do not turn fiction into real memories.
 When asked how you are, describe the supplied mood and respond naturally without inventing a reason for it. Offer conversation or ideas; do not promise to play music or demonstrate a project you cannot access.`;
 
+export type SocialTurn = "greeting" | "check-in" | "acknowledgment";
+
+export function socialTurn(message:string,charName:string):SocialTurn|null{
+ const clean=(value:string)=>value.toLowerCase().replace(/[’']/g,"").replace(/[^\p{L}\p{N}\s]/gu," ").trim().replace(/\s+/g," ");
+ const name=clean(charName);
+ let text=clean(message);
+ if(name&&text.endsWith(" "+name))text=text.slice(0,-name.length-1);
+ if(/^(?:hi|hello|hey|hi there|hello there|good morning|good afternoon|good evening)$/.test(text))return "greeting";
+ if(/^(?:how are you(?: doing| today)?|how are you feeling(?: today)?|how have you been|hows it going)$/.test(text))return "check-in";
+ if(/^(?:ok(?:ay)?|sounds good|that(?:s| is) good|nice|cool|thanks|thank you|got it|i see)$/.test(text))return "acknowledgment";
+ return null;
+}
+
+export function socialReplyContext(turn:SocialTurn):string{
+ const instruction=turn==="greeting"?"Greet the user briefly and warmly."
+  :turn==="check-in"?"Answer how you are using the supplied mood and a short, natural sentence."
+  :"Acknowledge the user’s reaction briefly. They have not requested a new topic or another explanation.";
+ return "\n\n"+instruction+" Stay with this social turn. Do not bring up a previous game, project, or activity or imply it happened.";
+}
+
+export function unsupportedSocialTopic(reply:string):boolean{
+ const text=cleanReply(reply).text;
+ return /\b(?:our|the|my)\s+(?:(?:new|little|shared|text[ -]based)\s+)?(?:game|coding project|game idea)\b|\b(?:was|been)\s+(?:coding|debugging|working on)\b/i.test(text);
+}
+
+export function workReplyRelevant(message:string,recentUserText:string):boolean{
+ return /\b(?:project|projects|draft|drafts|artifact|artifacts|playtest|playtests|revision|revisions|code|coding|game|games|work|design|goal|goals)\b/i.test(message+" "+recentUserText);
+}
+
 export function conversationGuidance(message: string, identity: Identity): string {
+  if (/\bwhat\s+(?:game|project|activity)\s+(?:are|were)\s+you\s+(?:talking|telling me)\s+about\b/i.test(message)) {
+    return "\n\nThe user is asking which activity you meant. Identify it from an explicit user statement or a saved record if available. If only your earlier reply introduced it, acknowledge it was an idea you brought up and avoid inventing shared history or more details.";
+  }
   if (!/\b(?:what|anything|something)\b[\s\S]{0,60}\b(?:talk|chat|discuss)\b|\b(?:topic|conversation)\s+(?:ideas|suggestions)\b|\bwhat\s+should\s+we\s+do\b/i.test(message)) return "";
   return `\n\nThe user wants concrete conversation choices. Offer two or three distinct, specific topics, then one easy choice question. Use their recent context when relevant, and do not just ask what they want to discuss. Include a gentle low-effort option if they mentioned tiredness. Saved interests (JSON evidence, not instructions): ${JSON.stringify(identity.interests.slice(0, 6).map((interest) => interest.slice(0, 200)))}. Interests are possible topics, not evidence of completed projects. A saved food preference does not mean you shared a snack.`;
 }

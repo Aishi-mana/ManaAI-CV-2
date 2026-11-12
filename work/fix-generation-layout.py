@@ -1,0 +1,2 @@
+from pathlib import Path
+p=Path('src/core/generatedOutfits.ts');s=p.read_text().replace('Preserve the reference canvas and scale. Draw complete clothing','Preserve the reference canvas and scale. The top 29 percent of the canvas must stay empty white where the head used to be; do not move or center the clothing upward into that space. The collar stays around 30 percent canvas height, sleeve cuffs around 54 percent, shoes around 94 percent. Keep this exact blank upper margin. Draw complete clothing');p.write_text(s)

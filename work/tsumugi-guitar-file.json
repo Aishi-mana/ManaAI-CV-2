@@ -1,0 +1,12 @@
+{
+  "type": "file",
+  "oid": "7c84c58354fde21ac88354dd21be0ffcca4bb991",
+  "size": 57152017,
+  "lfs": {
+    "oid": "59c8335517d1faf7d735fef29e061181d87b96385f2e9a08332791e2b64affd4",
+    "size": 57152017,
+    "pointerSize": 133
+  },
+  "xetHash": "2ce15899b8ab0fa29f094bece0fc2820726740714477ccd311c4ab9b600f799e",
+  "path": "best_model_guitar_v1_5.pth"
+}

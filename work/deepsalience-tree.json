@@ -1,0 +1,4417 @@
+{
+  "sha": "0a9f23963b3c32758a97d39ba95161e8c0260317",
+  "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/0a9f23963b3c32758a97d39ba95161e8c0260317",
+  "tree": [
+    {
+      "path": ".gitignore",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "51d6578f892a1160ab75e7b6146110745f3473a0",
+      "size": 1111,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/51d6578f892a1160ab75e7b6146110745f3473a0"
+    },
+    {
+      "path": "LICENSE",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e386e94f4e894f917b1e507fb609b7ef96632dca",
+      "size": 1071,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/e386e94f4e894f917b1e507fb609b7ef96632dca"
+    },
+    {
+      "path": "README.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b7dda02fa0e4938cc903bc2df493efa299e1d28d",
+      "size": 676,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/b7dda02fa0e4938cc903bc2df493efa299e1d28d"
+    },
+    {
+      "path": "comparisons",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "e21e50292fd79abaf057c4047a8ac419de1dc990",
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/e21e50292fd79abaf057c4047a8ac419de1dc990"
+    },
+    {
+      "path": "comparisons/melody2",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "398959685f32a71620f409c6e62a00a252674ebd",
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/398959685f32a71620f409c6e62a00a252674ebd"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "bc79cabe2f520247f1f9a3d8348fa24aa6a590d3",
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/bc79cabe2f520247f1f9a3d8348fa24aa6a590d3"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/AClassicEducation_NightOwl_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "48fceb376e0d9888f18520e134e6066d93d36416",
+      "size": 1130423,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/48fceb376e0d9888f18520e134e6066d93d36416"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/AimeeNorwich_Child_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "661266db45063b43011c520c1ff63147ab816f18",
+      "size": 1244053,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/661266db45063b43011c520c1ff63147ab816f18"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/AimeeNorwich_Flying_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "245d90b6b51ef750f98cc237e1201d13af3f31ec",
+      "size": 1442811,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/245d90b6b51ef750f98cc237e1201d13af3f31ec"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/AlexanderRoss_GoodbyeBolero_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "eef8b8fae5f0da28f840c7e692b6ec0cb3a9c5e5",
+      "size": 2819215,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/eef8b8fae5f0da28f840c7e692b6ec0cb3a9c5e5"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/AlexanderRoss_VelvetCurtain_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "fc0e43d39c33268f441e10b290a26fdb33a58fb5",
+      "size": 3495844,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/fc0e43d39c33268f441e10b290a26fdb33a58fb5"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/AmarLal_Rest_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "8cfc194ebf3126ad93b9a92bd1350265807609ef",
+      "size": 1243553,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/8cfc194ebf3126ad93b9a92bd1350265807609ef"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/AmarLal_SpringDay1_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "2a37252e03c104bc2312ca8212cb71c5e835570f",
+      "size": 874591,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/2a37252e03c104bc2312ca8212cb71c5e835570f"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/Auctioneer_OurFutureFaces_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "775808205d175b0c80a0e0f0066739c8c5718e87",
+      "size": 1383170,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/775808205d175b0c80a0e0f0066739c8c5718e87"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/AvaLuna_Waterduct_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "33833d5e4df364b0fdc05e0e47d7071b0159a053",
+      "size": 1711329,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/33833d5e4df364b0fdc05e0e47d7071b0159a053"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/BigTroubles_Phantom_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "a83916e31a9047012aba39c5e9c50fb6b2687b91",
+      "size": 973218,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/a83916e31a9047012aba39c5e9c50fb6b2687b91"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/BrandonWebster_DontHearAThing_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "4929d5dd88c817811b4d4bc78c61e35b6d371009",
+      "size": 1129144,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/4929d5dd88c817811b4d4bc78c61e35b6d371009"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/BrandonWebster_YesSirICanFly_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "47abd6224ea5c34e15748c4d2d41adb326419d9f",
+      "size": 632358,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/47abd6224ea5c34e15748c4d2d41adb326419d9f"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/CelestialShore_DieForUs_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "2375dcc9f93fcb89fa8b3b69f594a831bb4a4225",
+      "size": 1849058,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/2375dcc9f93fcb89fa8b3b69f594a831bb4a4225"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/ChrisJacoby_BoothShotLincoln_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "124403227740851cdacf68f5425965baa537ec57",
+      "size": 1700457,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/124403227740851cdacf68f5425965baa537ec57"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/ChrisJacoby_PigsFoot_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "a4c76eae94e6bf94afbe9e163cfc3981157f1b96",
+      "size": 2469632,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/a4c76eae94e6bf94afbe9e163cfc3981157f1b96"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/ClaraBerryAndWooldog_AirTraffic_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "424fcf515848de4b274f540bc7663f6770ce618f",
+      "size": 1150452,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/424fcf515848de4b274f540bc7663f6770ce618f"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/ClaraBerryAndWooldog_Boys_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "a7678a2fd41ca8eff9172f9a2ccb279a65a38487",
+      "size": 1002424,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/a7678a2fd41ca8eff9172f9a2ccb279a65a38487"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/ClaraBerryAndWooldog_Stella_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "ad1ea2aacdd46b41a1ced6466ca12db35bbb2b5c",
+      "size": 1295326,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/ad1ea2aacdd46b41a1ced6466ca12db35bbb2b5c"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/ClaraBerryAndWooldog_TheBadGuys_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "eaafbb33d7096092ad2eceeea826db6af2ca913f",
+      "size": 1721506,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/eaafbb33d7096092ad2eceeea826db6af2ca913f"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/ClaraBerryAndWooldog_WaltzForMyVictims_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "3df9d09a3521794fe005970c98334e0666fbff15",
+      "size": 1169492,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/3df9d09a3521794fe005970c98334e0666fbff15"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/Creepoid_OldTree_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "0d36c9a8ec43605ff6ab70ba3133486dfe195444",
+      "size": 2027810,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/0d36c9a8ec43605ff6ab70ba3133486dfe195444"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/CroqueMadame_Oil_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "1b077fa1f11d6f1e12c1bdbfa30dd66284ad151c",
+      "size": 3045106,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/1b077fa1f11d6f1e12c1bdbfa30dd66284ad151c"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/CroqueMadame_Pilot_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "83d5f61663f09345be4905be845a59931500b84b",
+      "size": 3266331,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/83d5f61663f09345be4905be845a59931500b84b"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/Debussy_LenfantProdigue_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "da357da438172da99a6aa0d7403bbc474f520d99",
+      "size": 1497640,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/da357da438172da99a6aa0d7403bbc474f520d99"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/DreamersOfTheGhetto_HeavyLove_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "f395ccd727078e9cb0a80a8cc07694b762958968",
+      "size": 1979209,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/f395ccd727078e9cb0a80a8cc07694b762958968"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/EthanHein_1930sSynthAndUprightBass_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "cf72760cb500102c3dcc091329527930854462fb",
+      "size": 1917964,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/cf72760cb500102c3dcc091329527930854462fb"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/EthanHein_BluesForNofi_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "7d6ec5babdbc44877d1695e5722305f43a26c901",
+      "size": 1097174,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/7d6ec5babdbc44877d1695e5722305f43a26c901"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/EthanHein_GirlOnABridge_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "7e3097f3596d6c0bdf21cadae39f5ad704314d9a",
+      "size": 842434,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/7e3097f3596d6c0bdf21cadae39f5ad704314d9a"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/EthanHein_HarmonicaFigure_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "8eecb9f4332d80d9d57c614616e86026a00657a9",
+      "size": 986010,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/8eecb9f4332d80d9d57c614616e86026a00657a9"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/FacesOnFilm_WaitingForGa_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "fb037d56edd37f86fea27201b992239856c2dbe6",
+      "size": 1719619,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/fb037d56edd37f86fea27201b992239856c2dbe6"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/FamilyBand_Again_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "de22dd7af0806e8eafa04c7e39bdb43bf89add2b",
+      "size": 1340523,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/de22dd7af0806e8eafa04c7e39bdb43bf89add2b"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/Grants_PunchDrunk_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "ebdef11baeb3c5493db58d23d97b045078c3e0c7",
+      "size": 1312805,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/ebdef11baeb3c5493db58d23d97b045078c3e0c7"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/Handel_TornamiAVagheggiar_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "342de9198fab49a82faed1f3075e928ae60df97d",
+      "size": 1504955,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/342de9198fab49a82faed1f3075e928ae60df97d"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/HeladoNegro_MitadDelMundo_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "b4215cb7ffb23ae13081e6245fa17982e244e8f1",
+      "size": 1197692,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/b4215cb7ffb23ae13081e6245fa17982e244e8f1"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/HezekiahJones_BorrowedHeart_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "370c826db898123247a360762392ea79645329e4",
+      "size": 1612546,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/370c826db898123247a360762392ea79645329e4"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/HopAlong_SisterCities_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "7592694b28c8349eddc742ef6c21e0702fe6d20a",
+      "size": 1885805,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/7592694b28c8349eddc742ef6c21e0702fe6d20a"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/InvisibleFamiliars_DisturbingWildlife_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "02cc8339d35a6e59fb96e53e0d8ce5c4f87b263d",
+      "size": 1441296,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/02cc8339d35a6e59fb96e53e0d8ce5c4f87b263d"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/JoelHelander_Definition_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "f5a4a712306ff47ae5564c608bffdfaa3bd5aa19",
+      "size": 1593424,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/f5a4a712306ff47ae5564c608bffdfaa3bd5aa19"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/JoelHelander_ExcessiveResistancetoChange_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "80a0be48285381d098060daa62324249cdf436dd",
+      "size": 1697351,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/80a0be48285381d098060daa62324249cdf436dd"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/JoelHelander_IntheAtticBedroom_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "af301d3862b697d6d0876083c00cb54b5192c210",
+      "size": 1574012,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/af301d3862b697d6d0876083c00cb54b5192c210"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/KarimDouaidy_Hopscotch_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "50baf78c021392c4a32c9b252fe4d5d1c273d1db",
+      "size": 1967855,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/50baf78c021392c4a32c9b252fe4d5d1c273d1db"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/KarimDouaidy_Yatora_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "c534b21d5ee124eae9d56f7366c79ebaee323084",
+      "size": 1387217,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/c534b21d5ee124eae9d56f7366c79ebaee323084"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/LizNelson_Coldwar_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "015bea96c426237eb7e28972cf23706e26739132",
+      "size": 1121665,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/015bea96c426237eb7e28972cf23706e26739132"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/LizNelson_ImComingHome_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "14fb4d67ace9a7174445852986a869d808287739",
+      "size": 1188708,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/14fb4d67ace9a7174445852986a869d808287739"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/LizNelson_Rainfall_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "b742064f6767763c1e1ccec1a31295f90e40f06c",
+      "size": 1930371,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/b742064f6767763c1e1ccec1a31295f90e40f06c"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/Lushlife_ToynbeeSuite_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "5cfbb0907301e88deadc321de6e4998b572dad7e",
+      "size": 4212154,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/5cfbb0907301e88deadc321de6e4998b572dad7e"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MatthewEntwistle_AnEveningWithOliver_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "b994e4c7da4497ee8545ebef16a0a510c6691232",
+      "size": 7311727,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/b994e4c7da4497ee8545ebef16a0a510c6691232"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MatthewEntwistle_DontYouEver_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "c389760437af664ea179bc67c6bf51463ad60be6",
+      "size": 760239,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/c389760437af664ea179bc67c6bf51463ad60be6"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MatthewEntwistle_FairerHopes_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "6537aedc5d129c8e3c8105c23c696d50623167eb",
+      "size": 2052081,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/6537aedc5d129c8e3c8105c23c696d50623167eb"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MatthewEntwistle_ImpressionsOfSaturn_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "17205562db4295ff0b8e007052080594f25ce2d2",
+      "size": 2474329,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/17205562db4295ff0b8e007052080594f25ce2d2"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MatthewEntwistle_Lontano_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "0c216435d4350975c717ebd8509c9fec527b1bb1",
+      "size": 2037847,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/0c216435d4350975c717ebd8509c9fec527b1bb1"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MatthewEntwistle_TheArch_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "278a983b45dd853d0478401ec57ba6b88f8cb8f3",
+      "size": 1800662,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/278a983b45dd853d0478401ec57ba6b88f8cb8f3"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MatthewEntwistle_TheFlaxenField_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "fa44d732cc8ac02fce2ef8a5b28fe8a74278eb66",
+      "size": 2177456,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/fa44d732cc8ac02fce2ef8a5b28fe8a74278eb66"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/Meaxic_TakeAStep_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "e4a3f25fb904f2219d5732aeec733cb8b8fa8711",
+      "size": 1876042,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/e4a3f25fb904f2219d5732aeec733cb8b8fa8711"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/Meaxic_YouListen_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "48772e74a7d8e1dd38000fecd2ddb8f3f9b3a838",
+      "size": 2746508,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/48772e74a7d8e1dd38000fecd2ddb8f3f9b3a838"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MichaelKropf_AllGoodThings_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "5548084bdbfd4e67ad34f31ff8f48babb0a48d99",
+      "size": 1406045,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/5548084bdbfd4e67ad34f31ff8f48babb0a48d99"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/Mozart_BesterJungling_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "7e8dad591a100e0036ed4e378bb6bced381b55f7",
+      "size": 1166954,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/7e8dad591a100e0036ed4e378bb6bced381b55f7"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/Mozart_DiesBildnis_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "cc29d3c0addf1cb4321bb5f64319db750c976236",
+      "size": 1527037,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/cc29d3c0addf1cb4321bb5f64319db750c976236"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_80sRock_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "fb38ac0a297e0a03b391dcf2d647f522a37a1c32",
+      "size": 236496,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/fb38ac0a297e0a03b391dcf2d647f522a37a1c32"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_Beatles_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "b9c39acb943b0ffd55265e5d1aecaeb7b02a06fe",
+      "size": 231588,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/b9c39acb943b0ffd55265e5d1aecaeb7b02a06fe"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_BebopJazz_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "e1a122e1948a55215817968373dd1216f1eb559e",
+      "size": 650403,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/e1a122e1948a55215817968373dd1216f1eb559e"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_Beethoven_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "7897237ca09251b11eac5eea72d3d6949e3d294e",
+      "size": 175715,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/7897237ca09251b11eac5eea72d3d6949e3d294e"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_Britpop_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "9a292a612b8c87181e1894dc4d5668a2df851427",
+      "size": 236526,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/9a292a612b8c87181e1894dc4d5668a2df851427"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_ChineseChaoZhou_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "2c24b4f5b356ecd0185e86895cacec4a94a500a1",
+      "size": 364122,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/2c24b4f5b356ecd0185e86895cacec4a94a500a1"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_ChineseDrama_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "2bbd76da3eb2a2b718d4ec03622dd109d98f17e8",
+      "size": 411211,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/2bbd76da3eb2a2b718d4ec03622dd109d98f17e8"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_ChineseHenan_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "1b80c94d194ba057e47cac01c5e0acfe1f91140c",
+      "size": 380337,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/1b80c94d194ba057e47cac01c5e0acfe1f91140c"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_ChineseJiangNan_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "823d654f7d02f3d97b9bb28dbb8a244f57dcfc43",
+      "size": 368749,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/823d654f7d02f3d97b9bb28dbb8a244f57dcfc43"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_ChineseXinJing_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "3f058b3f5ca457a352793bcdbd21bcc365ab1ec7",
+      "size": 423333,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/3f058b3f5ca457a352793bcdbd21bcc365ab1ec7"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_ChineseYaoZu_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "bfac08d437c1e47f6436dc5064622b33507deb80",
+      "size": 387150,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/bfac08d437c1e47f6436dc5064622b33507deb80"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_CoolJazz_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "599e977c382a20e37658b747dd97cc3f67a5e947",
+      "size": 656500,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/599e977c382a20e37658b747dd97cc3f67a5e947"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_Country1_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "446dfe17ac9423ab1a891d417834e392351fb87f",
+      "size": 223423,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/446dfe17ac9423ab1a891d417834e392351fb87f"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_Country2_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "7d2c1c88ff9b9a49d40925bc80356b3e0e54d04c",
+      "size": 108056,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/7d2c1c88ff9b9a49d40925bc80356b3e0e54d04c"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_Disco_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "5156738c1d015bd9e28ef94128d43d9d49251743",
+      "size": 794942,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/5156738c1d015bd9e28ef94128d43d9d49251743"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_FreeJazz_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "717b9ac2c52744a9a362e011899572b43819fa9e",
+      "size": 669681,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/717b9ac2c52744a9a362e011899572b43819fa9e"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_FunkJazz_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "02e5fb027a03c46d8b5f0d59eca5e361332da40e",
+      "size": 316475,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/02e5fb027a03c46d8b5f0d59eca5e361332da40e"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_FusionJazz_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "3fed246969a7df9b6e616b424f0f7f9a62ed312c",
+      "size": 724546,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/3fed246969a7df9b6e616b424f0f7f9a62ed312c"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_Gospel_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "5a56107c650d4100a5978285ddac94b96f9e0333",
+      "size": 478534,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/5a56107c650d4100a5978285ddac94b96f9e0333"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_GriegTrolltog_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "d891df0362e52fbe7720058083e1bb30ad86ac5f",
+      "size": 441593,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/d891df0362e52fbe7720058083e1bb30ad86ac5f"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_Grunge_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "84db6b03ffdba021ddead0cbe489f827d33a620c",
+      "size": 269844,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/84db6b03ffdba021ddead0cbe489f827d33a620c"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_Hendrix_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "93ef908d10911924de7d8f6229dc2fc6f10e632c",
+      "size": 124332,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/93ef908d10911924de7d8f6229dc2fc6f10e632c"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_InTheHalloftheMountainKing_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "4768c37e6e8de2530698bf0e9a9132bf0a581348",
+      "size": 110250,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/4768c37e6e8de2530698bf0e9a9132bf0a581348"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_LatinJazz_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "a63dad0b7179b5e4d32de658fa92d155bd77f28e",
+      "size": 428443,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/a63dad0b7179b5e4d32de658fa92d155bd77f28e"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_ModalJazz_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "c4b3502ebe982e57433c809631dc670a3a10744b",
+      "size": 670711,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/c4b3502ebe982e57433c809631dc670a3a10744b"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_Pachelbel_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "f7198fd3b78581e56a47ccd260c16b1478abe312",
+      "size": 2061363,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/f7198fd3b78581e56a47ccd260c16b1478abe312"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_Punk_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "4873bd2a6482ad9d1229dd4c5cb0c21bb985b47e",
+      "size": 181768,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/4873bd2a6482ad9d1229dd4c5cb0c21bb985b47e"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_Reggae_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "f3b01ac91153f5dc2d2445091f7e1cdcb167cc83",
+      "size": 108278,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/f3b01ac91153f5dc2d2445091f7e1cdcb167cc83"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_Rock_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "57d3c7cd7efebaafff00c5d9035e98c5b9f555c1",
+      "size": 80922,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/57d3c7cd7efebaafff00c5d9035e98c5b9f555c1"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_Rockabilly_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "ccbaa8c011b0b5304be80a00e0720567d0bc334a",
+      "size": 163943,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/ccbaa8c011b0b5304be80a00e0720567d0bc334a"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_Shadows_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "ee03c62d5c8b19fcd7ca428b1d05343a0700a464",
+      "size": 213960,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/ee03c62d5c8b19fcd7ca428b1d05343a0700a464"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_SpeedMetal_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "0bb6aa4bd2e78da6edb569e3d1a4ac5676cd7a10",
+      "size": 226678,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/0bb6aa4bd2e78da6edb569e3d1a4ac5676cd7a10"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_SwingJazz_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "089d9fba028c12af317c567fd4c83c0979a0e2e6",
+      "size": 579273,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/089d9fba028c12af317c567fd4c83c0979a0e2e6"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_Vivaldi_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "f7363d18d69f167ef39c4f446bb61df5ecb2a29a",
+      "size": 139220,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/f7363d18d69f167ef39c4f446bb61df5ecb2a29a"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/MusicDelta_Zeppelin_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "bbccf4b2b922e512619c9132124516fab70a384a",
+      "size": 110319,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/bbccf4b2b922e512619c9132124516fab70a384a"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/NightPanther_Fire_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "b57447b6decc4f82c473971f9c6b7eb9f9912c5a",
+      "size": 1414439,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/b57447b6decc4f82c473971f9c6b7eb9f9912c5a"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/Phoenix_BrokenPledgeChicagoReel_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "da421879aa2793f179e1e3824a31d6ec06432419",
+      "size": 1185270,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/da421879aa2793f179e1e3824a31d6ec06432419"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/Phoenix_ColliersDaughter_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "9829baedbc1c632ffaf59584f9f51eaa7326c565",
+      "size": 1263041,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/9829baedbc1c632ffaf59584f9f51eaa7326c565"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/Phoenix_ElzicsFarewell_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "a613e7ce8fa7bc754f5dfa834988bf45aa432ae0",
+      "size": 1152289,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/a613e7ce8fa7bc754f5dfa834988bf45aa432ae0"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/Phoenix_LarkOnTheStrandDrummondCastle_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "de214bc351bbb1207692bc85ac12b427d43db430",
+      "size": 1521345,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/de214bc351bbb1207692bc85ac12b427d43db430"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/Phoenix_ScotchMorris_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "7091172fc63eabaa871df792aa15411d25d96298",
+      "size": 1169874,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/7091172fc63eabaa871df792aa15411d25d96298"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/Phoenix_SeanCaughlinsTheScartaglen_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "37f5bb29dd0e352eea754135d3b13251cbee3a3a",
+      "size": 1300382,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/37f5bb29dd0e352eea754135d3b13251cbee3a3a"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/PortStWillow_StayEven_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "a3b3f1c1abbc765dfd14f9925ced2684d0610e56",
+      "size": 2126892,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/a3b3f1c1abbc765dfd14f9925ced2684d0610e56"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/PurlingHiss_Lolita_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "90f48f2d8ad1827fb269dac84113ce80c53abbe9",
+      "size": 1690020,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/90f48f2d8ad1827fb269dac84113ce80c53abbe9"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/Schubert_Erstarrung_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "d5099a4d0ad66decd5f8758490508eb982e97478",
+      "size": 1147259,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/d5099a4d0ad66decd5f8758490508eb982e97478"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/Schumann_Mignon_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "c29125cd5dc05ad5c532c97b97e43a163185e4cc",
+      "size": 1790619,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/c29125cd5dc05ad5c532c97b97e43a163185e4cc"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/SecretMountains_HighHorse_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "0b94dfe7d7c366e6735c71179eff7ad28c42c39e",
+      "size": 2380695,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/0b94dfe7d7c366e6735c71179eff7ad28c42c39e"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/Snowmine_Curfews_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "22f425b8b2116b70f4404097b79a30be301e8a91",
+      "size": 1845793,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/22f425b8b2116b70f4404097b79a30be301e8a91"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/StevenClark_Bounty_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "a75d667a86e3eb0d33b7e40df4f36a530123c328",
+      "size": 1927328,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/a75d667a86e3eb0d33b7e40df4f36a530123c328"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/StrandOfOaks_Spacestation_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "5b5073fd259ef511a50799dcd09359024d35431f",
+      "size": 1627531,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/5b5073fd259ef511a50799dcd09359024d35431f"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/SweetLights_YouLetMeDown_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "1568d4835dcc0fb13a6aa1346a1a0f18dfd0d868",
+      "size": 2637946,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/1568d4835dcc0fb13a6aa1346a1a0f18dfd0d868"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/TablaBreakbeatScience_Animoog_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "91979f3ad85a3b07d9f2c5cd1c21b58cd36eeda1",
+      "size": 1939450,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/91979f3ad85a3b07d9f2c5cd1c21b58cd36eeda1"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/TablaBreakbeatScience_CaptainSky_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "54e668da77ef82ff773d8201300aea1ca21868cb",
+      "size": 2664508,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/54e668da77ef82ff773d8201300aea1ca21868cb"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/TablaBreakbeatScience_MiloVsMongo_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "642a1c6d272486cbecadda18a9cefd22acb02dcd",
+      "size": 2622310,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/642a1c6d272486cbecadda18a9cefd22acb02dcd"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/TablaBreakbeatScience_MoodyPlucks_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "2cf16e823762e1b31bec0db9f91b300ce7e9c840",
+      "size": 2470507,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/2cf16e823762e1b31bec0db9f91b300ce7e9c840"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/TablaBreakbeatScience_PhaseTransition_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "ed9d348052c0965ad235c1554a9acfd7eda3c593",
+      "size": 3396533,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/ed9d348052c0965ad235c1554a9acfd7eda3c593"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/TablaBreakbeatScience_RockSteady_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "3ba8f46ca8b772e78029a504a1a35e587fb80892",
+      "size": 3020015,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/3ba8f46ca8b772e78029a504a1a35e587fb80892"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/TablaBreakbeatScience_Scorpio_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "91463a0f18315a98ddd6d52e2a902c1b7dfe3f64",
+      "size": 3540201,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/91463a0f18315a98ddd6d52e2a902c1b7dfe3f64"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/TablaBreakbeatScience_Vger_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "97712c7b66c00cd3ae32216641f98ff41c1961ff",
+      "size": 3418513,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/97712c7b66c00cd3ae32216641f98ff41c1961ff"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/TablaBreakbeatScience_WhoIsIt_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "4fc6cd110c376e76c334d46ee6412c9be5c2fc81",
+      "size": 2938250,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/4fc6cd110c376e76c334d46ee6412c9be5c2fc81"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/TheDistricts_Vermont_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "eb839c92eba2b20262c890cb3a4b672ba2baf0b9",
+      "size": 1520397,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/eb839c92eba2b20262c890cb3a4b672ba2baf0b9"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/TheScarletBrand_LesFleursDuMal_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "4515bba89a67841a241af11cfbe5b357239d0a30",
+      "size": 2037478,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/4515bba89a67841a241af11cfbe5b357239d0a30"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/TheSoSoGlos_Emergency_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "313cfdb74144771796210a954d061ff2da990cd9",
+      "size": 1096171,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/313cfdb74144771796210a954d061ff2da990cd9"
+    },
+    {
+      "path": "comparisons/melody2/juanjo_mdb_out/Wolf_DieBekherte_MIX.pitch",
+      "mode": "100755",
+      "type": "blob",
+      "sha": "3a8cc183c880836bc3d64fac684717f55793422e",
+      "size": 1265650,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/3a8cc183c880836bc3d64fac684717f55793422e"
+    },
+    {
+      "path": "comparisons/melody2/model_11b_mel2_outputs",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "16e0fe18dedef2644d97e9be4485d7690d97c9e8",
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/16e0fe18dedef2644d97e9be4485d7690d97c9e8"
+    },
+    {
+      "path": "comparisons/melody2/model_11b_mel2_outputs/AClassicEducation_NightOwl_mel2_prediction.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bce4201c5cb9e47502fcffb9a6193c5a7188de2b",
+      "size": 583030,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/bce4201c5cb9e47502fcffb9a6193c5a7188de2b"
+    },
+    {
+      "path": "comparisons/melody2/model_11b_mel2_outputs/Auctioneer_OurFutureFaces_mel2_prediction.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e97c8ec1771f4e37577c13d0184cdc13696ad865",
+      "size": 703701,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/e97c8ec1771f4e37577c13d0184cdc13696ad865"
+    },
+    {
+      "path": "comparisons/melody2/model_11b_mel2_outputs/CelestialShore_DieForUs_mel2_prediction.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "821c3d389b539bb7c41c439526db3fd18a2ce9db",
+      "size": 951205,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/821c3d389b539bb7c41c439526db3fd18a2ce9db"
+    },
+    {
+      "path": "comparisons/melody2/model_11b_mel2_outputs/ChrisJacoby_BoothShotLincoln_mel2_prediction.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5e4a9896ed76c1c1d921b1b761c02a602685f995",
+      "size": 865221,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/5e4a9896ed76c1c1d921b1b761c02a602685f995"
+    },
+    {
+      "path": "comparisons/melody2/model_11b_mel2_outputs/ChrisJacoby_PigsFoot_mel2_prediction.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a0de669d52b6abd1d8c291bd0c4175eb75a7df7b",
+      "size": 1245892,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/a0de669d52b6abd1d8c291bd0c4175eb75a7df7b"
+    },
+    {
+      "path": "comparisons/melody2/model_11b_mel2_outputs/Creepoid_OldTree_mel2_prediction.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "86516a06bcec97fa25e71bf4b889a4b1dca7fec0",
+      "size": 1025382,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/86516a06bcec97fa25e71bf4b889a4b1dca7fec0"
+    },
+    {
+      "path": "comparisons/melody2/model_11b_mel2_outputs/Debussy_LenfantProdigue_mel2_prediction.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ee229792f8952af1733983b7d1e30d54d1d42065",
+      "size": 753368,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/ee229792f8952af1733983b7d1e30d54d1d42065"
+    },
+    {
+      "path": "comparisons/melody2/model_11b_mel2_outputs/MatthewEntwistle_DontYouEver_mel2_prediction.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "420b40cfd8aab2bb804ca869b2fb1d0a90037b65",
+      "size": 387566,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/420b40cfd8aab2bb804ca869b2fb1d0a90037b65"
+    },
+    {
+      "path": "comparisons/melody2/model_11b_mel2_outputs/MatthewEntwistle_FairerHopes_mel2_prediction.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "571b103fb834d537371ad88fe001ad749c263441",
+      "size": 1023195,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/571b103fb834d537371ad88fe001ad749c263441"
+    },
+    {
+      "path": "comparisons/melody2/model_11b_mel2_outputs/MatthewEntwistle_ImpressionsOfSaturn_mel2_prediction.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "91cf719cdcaba3fa7a9ea802053cc8f6356629ac",
+      "size": 1247031,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/91cf719cdcaba3fa7a9ea802053cc8f6356629ac"
+    },
+    {
+      "path": "comparisons/melody2/model_11b_mel2_outputs/MatthewEntwistle_Lontano_mel2_prediction.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "53e9fdf28ed4a1af111b5b8e2c5439d019bc1114",
+      "size": 1014299,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/53e9fdf28ed4a1af111b5b8e2c5439d019bc1114"
+    },
+    {
+      "path": "comparisons/melody2/model_11b_mel2_outputs/MatthewEntwistle_TheArch_mel2_prediction.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9d79be46dc5661047d920c3701e675d329046160",
+      "size": 904485,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/9d79be46dc5661047d920c3701e675d329046160"
+    },
+    {
+      "path": "comparisons/melody2/model_11b_mel2_outputs/MatthewEntwistle_TheFlaxenField_mel2_prediction.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c5c63cf83ee01c4f7994db1fae4d5d9a4d163fbf",
+      "size": 1094864,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/c5c63cf83ee01c4f7994db1fae4d5d9a4d163fbf"
+    },
+    {
+      "path": "comparisons/melody2/model_11b_mel2_outputs/Mozart_DiesBildnis_mel2_prediction.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9898dca12fc944e264bffd037191fdce4a976bb6",
+      "size": 772976,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/9898dca12fc944e264bffd037191fdce4a976bb6"
+    },
+    {
+      "path": "comparisons/melody2/model_11b_mel2_outputs/MusicDelta_FusionJazz_mel2_prediction.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b0c418499897addcdd28425431ce5b79ad6ec133",
+      "size": 374981,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/b0c418499897addcdd28425431ce5b79ad6ec133"
+    },
+    {
+      "path": "comparisons/melody2/model_11b_mel2_outputs/MusicDelta_Gospel_mel2_prediction.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "00af578cf779a282ce77c5efa08fcbd26de4de20",
+      "size": 254626,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/00af578cf779a282ce77c5efa08fcbd26de4de20"
+    },
+    {
+      "path": "comparisons/melody2/model_11b_mel2_outputs/MusicDelta_Pachelbel_mel2_prediction.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9f47d514fdf0d4652d9dde63818721a89389fe12",
+      "size": 1023815,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/9f47d514fdf0d4652d9dde63818721a89389fe12"
+    },
+    {
+      "path": "comparisons/melody2/model_11b_mel2_outputs/MusicDelta_SwingJazz_mel2_prediction.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c1b38e6730faf774d6c8f85cfae6cb09d6eb1599",
+      "size": 302215,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/c1b38e6730faf774d6c8f85cfae6cb09d6eb1599"
+    },
+    {
+      "path": "comparisons/melody2/model_11b_mel2_outputs/Phoenix_BrokenPledgeChicagoReel_mel2_prediction.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "aed1a2c2eaf654d1cbd9a6df9d7bccfe19e04351",
+      "size": 605289,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/aed1a2c2eaf654d1cbd9a6df9d7bccfe19e04351"
+    },
+    {
+      "path": "comparisons/melody2/model_11b_mel2_outputs/Phoenix_ColliersDaughter_mel2_prediction.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "47604eb20b7075cce271be5d0ef3067c4df2c451",
+      "size": 639672,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/47604eb20b7075cce271be5d0ef3067c4df2c451"
+    },
+    {
+      "path": "comparisons/melody2/model_11b_mel2_outputs/Phoenix_ElzicsFarewell_mel2_prediction.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "96e9bd4d9127d5ab0bb954a30cabcde8c0bb17af",
+      "size": 592765,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/96e9bd4d9127d5ab0bb954a30cabcde8c0bb17af"
+    },
+    {
+      "path": "comparisons/melody2/model_11b_mel2_outputs/Phoenix_LarkOnTheStrandDrummondCastle_mel2_prediction.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1e0f85c8d81ff08f55867eadc3bb56829fe876c8",
+      "size": 766173,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/1e0f85c8d81ff08f55867eadc3bb56829fe876c8"
+    },
+    {
+      "path": "comparisons/melody2/model_11b_mel2_outputs/Phoenix_ScotchMorris_mel2_prediction.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8938108b3dfe7d4e9055eb531eab8d7babc92790",
+      "size": 593827,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/8938108b3dfe7d4e9055eb531eab8d7babc92790"
+    },
+    {
+      "path": "comparisons/melody2/model_11b_mel2_outputs/Phoenix_SeanCaughlinsTheScartaglen_mel2_prediction.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5c96facbb63dcd6acb9486e0cc4b9935ee9c22e2",
+      "size": 660643,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/5c96facbb63dcd6acb9486e0cc4b9935ee9c22e2"
+    },
+    {
+      "path": "comparisons/melody2/model_11b_mel2_outputs/PortStWillow_StayEven_mel2_prediction.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e3e2867a040912816fff9c178d4f79909f983fe8",
+      "size": 1071745,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/e3e2867a040912816fff9c178d4f79909f983fe8"
+    },
+    {
+      "path": "comparisons/melody2/model_11b_mel2_outputs/Schubert_Erstarrung_mel2_prediction.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "39ddb52c2c2f5d15d7be660574af9fcc1cc26e8f",
+      "size": 589007,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/39ddb52c2c2f5d15d7be660574af9fcc1cc26e8f"
+    },
+    {
+      "path": "comparisons/melody2/model_11b_mel2_outputs/StrandOfOaks_Spacestation_mel2_prediction.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "57a168364f244a1db972fa258c36d6b4e2e1abc0",
+      "size": 828450,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/57a168364f244a1db972fa258c36d6b4e2e1abc0"
+    },
+    {
+      "path": "comparisons/multif0",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "f8ae7f017fa9993c0ceb4350379aa462c9d9f900",
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/f8ae7f017fa9993c0ceb4350379aa462c9d9f900"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "2c058a95f9156b9f2544221d21e80d7c87fe9417",
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/2c058a95f9156b9f2544221d21e80d7c87fe9417"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/bach10",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "b50c021b65ca64bc1208f979a7fdb80f145f9d20",
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/b50c021b65ca64bc1208f979a7fdb80f145f9d20"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/bach10/benetos",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "38bc47b432e73bfbdfb49a73a96ec55c5c714c3f",
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/38bc47b432e73bfbdfb49a73a96ec55c5c714c3f"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/bach10/benetos/01-AchGottundHerr.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e8cd43fd084830f9ed10f94f278fe709b75af3e3",
+      "size": 80478,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/e8cd43fd084830f9ed10f94f278fe709b75af3e3"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/bach10/benetos/02-AchLiebenChristen.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cf76b6034b9d8a192cdc37ba0641cbef56238f1a",
+      "size": 127829,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/cf76b6034b9d8a192cdc37ba0641cbef56238f1a"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/bach10/benetos/03-ChristederdubistTagundLicht.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5e3fa8de8678c7086872b5c91296a5b4d26d265c",
+      "size": 83374,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/5e3fa8de8678c7086872b5c91296a5b4d26d265c"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/bach10/benetos/04-ChristeDuBeistand.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0b8c8c1a349f5c746ece885521bf9f8e634ec352",
+      "size": 130395,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/0b8c8c1a349f5c746ece885521bf9f8e634ec352"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/bach10/benetos/05-DieNacht.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "23bf74de7ee03533de8a865c15430415b756d013",
+      "size": 112870,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/23bf74de7ee03533de8a865c15430415b756d013"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/bach10/benetos/06-DieSonne.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f6ef769a9751bcd5f8c8c9833e3971109041e860",
+      "size": 111382,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/f6ef769a9751bcd5f8c8c9833e3971109041e860"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/bach10/benetos/07-HerrGott.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a847e0bbe1901852d45b97c6119e58fac3bd3f73",
+      "size": 107089,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/a847e0bbe1901852d45b97c6119e58fac3bd3f73"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/bach10/benetos/08-FuerDeinenThron.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "73364fca9d0b42f78a3b5b9a19f7b5ee98608148",
+      "size": 103080,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/73364fca9d0b42f78a3b5b9a19f7b5ee98608148"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/bach10/benetos/09-Jesus.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "85b6ec12ed110c0736e880d85ee8a7a2cc86ebe3",
+      "size": 94034,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/85b6ec12ed110c0736e880d85ee8a7a2cc86ebe3"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/bach10/benetos/10-NunBitten.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3db77fe4aaf94eae5e6a64c5c7ad5d4d97bd60a0",
+      "size": 122659,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/3db77fe4aaf94eae5e6a64c5c7ad5d4d97bd60a0"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/bach10/duan",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "3eb4248dc6e46fc16c2ab85f183972cf45ec20f5",
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/3eb4248dc6e46fc16c2ab85f183972cf45ec20f5"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/bach10/duan/01_AchGottundHerr_multif0_mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "29cb4582db54f0611c7801d84ba52bb4af9c384e",
+      "size": 77378,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/29cb4582db54f0611c7801d84ba52bb4af9c384e"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/bach10/duan/02_AchLiebenChristen_multif0_mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "83de5d4b490e918029d9e382dd6feff5f6b29714",
+      "size": 125214,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/83de5d4b490e918029d9e382dd6feff5f6b29714"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/bach10/duan/03_ChristederdubistTagundLicht_multif0_mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "374b7144684d110248bae35ae5cbd4536639d88f",
+      "size": 77250,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/374b7144684d110248bae35ae5cbd4536639d88f"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/bach10/duan/04_ChristeDuBeistand_multif0_mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "237c5e24e794f48fbb08d1b126830cd8670c7aae",
+      "size": 124018,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/237c5e24e794f48fbb08d1b126830cd8670c7aae"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/bach10/duan/05_DieNacht_multif0_mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "053a177143115cfd1983432c89578d0c7776fbc5",
+      "size": 107434,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/053a177143115cfd1983432c89578d0c7776fbc5"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/bach10/duan/06_DieSonne_multif0_mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "da3e0832c81a4d4c30137ddd99b52437b4ff3908",
+      "size": 101896,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/da3e0832c81a4d4c30137ddd99b52437b4ff3908"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/bach10/duan/07_HerrGott_multif0_mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fe745a3c379e2d0979417b33c557fbe935fe8357",
+      "size": 101400,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/fe745a3c379e2d0979417b33c557fbe935fe8357"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/bach10/duan/08_FuerDeinenThron_multif0_mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "693f9c3b0c400a9dfd8fb5f1a56679ad1ea7294f",
+      "size": 107128,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/693f9c3b0c400a9dfd8fb5f1a56679ad1ea7294f"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/bach10/duan/09_Jesus_multif0_mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "38d1ca4b070398402772309efbd3081430e561bf",
+      "size": 86772,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/38d1ca4b070398402772309efbd3081430e561bf"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/bach10/duan/10_NunBitten_multif0_mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "229321aa93bfcdcf40b8a6ae1e60a4877cd98ad8",
+      "size": 118580,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/229321aa93bfcdcf40b8a6ae1e60a4877cd98ad8"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/bach10_benetos_all_scores.csv",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "556763d05379bf1cde9a7f9786559321bfc551da",
+      "size": 2544,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/556763d05379bf1cde9a7f9786559321bfc551da"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/bach10_benetos_score_summary.csv",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c2705fcbca1b01f9da0044b72640654565ce870e",
+      "size": 1826,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/c2705fcbca1b01f9da0044b72640654565ce870e"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/bach10_duan_all_scores.csv",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c2d298d11d3047df0525f0a93af488cd10d8c2e4",
+      "size": 2556,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/c2d298d11d3047df0525f0a93af488cd10d8c2e4"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/bach10_duan_score_summary.csv",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4c04d94df4c0cc2cde49ffe1808264c0291e7a2d",
+      "size": 1838,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/4c04d94df4c0cc2cde49ffe1808264c0291e7a2d"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "95e0fb520d0eee78764a2d74d6ce0e422682cd04",
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/95e0fb520d0eee78764a2d74d6ce0e422682cd04"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/benetos",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "e6df20d604d237117899d3065b30ff1740ea43bc",
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/e6df20d604d237117899d3065b30ff1740ea43bc"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/benetos/AClassicEducation_NightOwl_multif0_MIX.wav.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "31ee4808ab19bc7a7edb49628e9b039961268a7b",
+      "size": 309566,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/31ee4808ab19bc7a7edb49628e9b039961268a7b"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/benetos/Auctioneer_OurFutureFaces_multif0_MIX.wav.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2224694efc1c08e31ad318f165cff1e8328ada52",
+      "size": 279440,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/2224694efc1c08e31ad318f165cff1e8328ada52"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/benetos/CelestialShore_DieForUs_multif0_MIX16.wav.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7d13dad66c6800871fdc23b18641a12920049e1a",
+      "size": 398267,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/7d13dad66c6800871fdc23b18641a12920049e1a"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/benetos/ChrisJacoby_BoothShotLincoln_multif0_MIX16.wav.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "05057b0141808957f02c99e4088e8b1f77c23d89",
+      "size": 482889,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/05057b0141808957f02c99e4088e8b1f77c23d89"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/benetos/ChrisJacoby_PigsFoot_multif0_MIX16.wav.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cbfd1fef29c804a0223ad686549aebd5ef52eafe",
+      "size": 448305,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/cbfd1fef29c804a0223ad686549aebd5ef52eafe"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/benetos/Creepoid_OldTree_multif0_MIX16.wav.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "747dd0acd3b7f57571ee11bf553a8a879f20de3e",
+      "size": 627664,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/747dd0acd3b7f57571ee11bf553a8a879f20de3e"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/benetos/Debussy_LenfantProdigue_multif0_MIX16.wav.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c40ce0932e187e1a5c29dc11b8a8c4d7264ce29a",
+      "size": 307348,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/c40ce0932e187e1a5c29dc11b8a8c4d7264ce29a"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/benetos/Grants_PunchDrunk_multif0_MIX16.wav.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "357928faef09e1fa6ef4dcab7d9140428bcccb96",
+      "size": 270980,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/357928faef09e1fa6ef4dcab7d9140428bcccb96"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/benetos/MatthewEntwistle_DontYouEver_multif0_MIX16.wav.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fb71aefad8f5084d6d2b1a6794dc0d8906119da7",
+      "size": 115534,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/fb71aefad8f5084d6d2b1a6794dc0d8906119da7"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/benetos/MatthewEntwistle_FairerHopes_multif0_MIX16.wav.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a8136148a6a5bffb897b9708434985110ff662b9",
+      "size": 302908,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/a8136148a6a5bffb897b9708434985110ff662b9"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/benetos/MatthewEntwistle_ImpressionsOfSaturn_multif0_MIX16.wav.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cd3a079c02a898958c3ababbbe4da44d5db765c2",
+      "size": 619333,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/cd3a079c02a898958c3ababbbe4da44d5db765c2"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/benetos/MatthewEntwistle_Lontano_multif0_MIX16.wav.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "316da854cff4e53f66d876281a88c3f7d2c0120a",
+      "size": 203452,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/316da854cff4e53f66d876281a88c3f7d2c0120a"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/benetos/MatthewEntwistle_TheArch_multif0_MIX16.wav.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "262e3242f714b20b3719ed695e14b7996b61f03a",
+      "size": 292986,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/262e3242f714b20b3719ed695e14b7996b61f03a"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/benetos/MatthewEntwistle_TheFlaxenField_multif0_MIX16.wav.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "dc5c4993fe1487c96df7ed3ca10e9cc4e6bc643c",
+      "size": 610114,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/dc5c4993fe1487c96df7ed3ca10e9cc4e6bc643c"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/benetos/Mozart_DiesBildnis_multif0_MIX16.wav.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "63a41789c4a0701dbb18d7b06bfdafe06d410770",
+      "size": 398997,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/63a41789c4a0701dbb18d7b06bfdafe06d410770"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/benetos/MusicDelta_FusionJazz_multif0_MIX16.wav.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "46a0a1765feeb0d2ee9fb64a35d6f9717e3cacc5",
+      "size": 153464,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/46a0a1765feeb0d2ee9fb64a35d6f9717e3cacc5"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/benetos/MusicDelta_Gospel_multif0_MIX16.wav.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ef93b453de1f0493878d757a71e5372a7c05527f",
+      "size": 128961,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/ef93b453de1f0493878d757a71e5372a7c05527f"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/benetos/MusicDelta_Pachelbel_multif0_MIX16.wav.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bde20e8bb9f56504c2fe0ef3ff02b26175b7a393",
+      "size": 806205,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/bde20e8bb9f56504c2fe0ef3ff02b26175b7a393"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/benetos/MusicDelta_SwingJazz_multif0_MIX16.wav.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9c39f25064e98a81d3e44eb1c5e118935b50d3e9",
+      "size": 125752,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/9c39f25064e98a81d3e44eb1c5e118935b50d3e9"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/benetos/Phoenix_BrokenPledgeChicagoReel_multif0_MIX16.wav.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b587a083e4b49c5e150f0a6632a1a28b6a0e59ed",
+      "size": 406625,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/b587a083e4b49c5e150f0a6632a1a28b6a0e59ed"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/benetos/Phoenix_ColliersDaughter_multif0_MIX16.wav.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6fd851f79c67e6e32f1450257894ab76cfd31fda",
+      "size": 345408,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/6fd851f79c67e6e32f1450257894ab76cfd31fda"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/benetos/Phoenix_ElzicsFarewell_multif0_MIX16.wav.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "70f5e0da5ab4576c3d0979dadc76a4d7c6ba1e23",
+      "size": 364037,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/70f5e0da5ab4576c3d0979dadc76a4d7c6ba1e23"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/benetos/Phoenix_LarkOnTheStrandDrummondCastle_multif0_MIX16.wav.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1ef1b9c54f6683f44bd5baa3464ac658645162db",
+      "size": 412404,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/1ef1b9c54f6683f44bd5baa3464ac658645162db"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/benetos/Phoenix_ScotchMorris_multif0_MIX16.wav.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2902e9f2042587d709eb5a8b8707c6d2a7c8cda4",
+      "size": 350814,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/2902e9f2042587d709eb5a8b8707c6d2a7c8cda4"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/benetos/Phoenix_SeanCaughlinsTheScartaglen_multif0_MIX16.wav.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "11191ddb3d9f4e0fbfc1d5aa2a401bd9effbe8f7",
+      "size": 451765,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/11191ddb3d9f4e0fbfc1d5aa2a401bd9effbe8f7"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/benetos/PortStWillow_StayEven_multif0_MIX16.wav.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d264c9b1e5271342548a17b0182c3d2f49d26653",
+      "size": 409151,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/d264c9b1e5271342548a17b0182c3d2f49d26653"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/benetos/Schubert_Erstarrung_multif0_MIX16.wav.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "19a34c6cf972da7d9142112be2d80096d4e13171",
+      "size": 313148,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/19a34c6cf972da7d9142112be2d80096d4e13171"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/benetos/StrandOfOaks_Spacestation_multif0_MIX16.wav.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "388f96af16a58be9e802644e3f9d13a9f9b1c7fb",
+      "size": 345031,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/388f96af16a58be9e802644e3f9d13a9f9b1c7fb"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/duan",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "78dabe13bac525176930d5d88d6dc063fda95ae7",
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/78dabe13bac525176930d5d88d6dc063fda95ae7"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/duan/AClassicEducation_NightOwl_multif0_MIXmirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2ec4aab1089a71fa07e1f363c7811c0ef5a708fc",
+      "size": 528680,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/2ec4aab1089a71fa07e1f363c7811c0ef5a708fc"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/duan/Auctioneer_OurFutureFaces_multif0_MIXmirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7e66ee495f00223dcfed0fefd94368555303936c",
+      "size": 654464,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/7e66ee495f00223dcfed0fefd94368555303936c"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/duan/CelestialShore_DieForUs_multif0_MIX16mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2584ba1224c55363016636a26e72f89222c9715f",
+      "size": 829581,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/2584ba1224c55363016636a26e72f89222c9715f"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/duan/ChrisJacoby_BoothShotLincoln_multif0_MIX16mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5ed9097600d861eef8a934e2c55045cdd076ef52",
+      "size": 626081,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/5ed9097600d861eef8a934e2c55045cdd076ef52"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/duan/ChrisJacoby_PigsFoot_multif0_MIX16mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1827e0a0ff6ea36e09d61c99fdaa24fef21bc021",
+      "size": 810811,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/1827e0a0ff6ea36e09d61c99fdaa24fef21bc021"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/duan/Creepoid_OldTree_multif0_MIX16mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "12728f08329124f8a9c9cb9d7ee341e9f72b8b7b",
+      "size": 1216843,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/12728f08329124f8a9c9cb9d7ee341e9f72b8b7b"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/duan/Debussy_LenfantProdigue_multif0_MIX16mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2ef928a398682ce9503f4e6aee54bb3dd9d7a1bc",
+      "size": 524163,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/2ef928a398682ce9503f4e6aee54bb3dd9d7a1bc"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/duan/Grants_PunchDrunk_multif0_MIX16mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "087f83ee940dd20155b844ddf033b76062919dd1",
+      "size": 460059,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/087f83ee940dd20155b844ddf033b76062919dd1"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/duan/MatthewEntwistle_DontYouEver_multif0_MIX16mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f810fa539203d57fc3972f2772d9f68aeaf9edae",
+      "size": 198854,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/f810fa539203d57fc3972f2772d9f68aeaf9edae"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/duan/MatthewEntwistle_FairerHopes_multif0_MIX16mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b5293bcb9cd0d319e928049de86fba53e0cbd965",
+      "size": 445453,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/b5293bcb9cd0d319e928049de86fba53e0cbd965"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/duan/MatthewEntwistle_ImpressionsOfSaturn_multif0_MIX16mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9985368834b8b6bbe2dbe0f6766080bbb715fa20",
+      "size": 966617,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/9985368834b8b6bbe2dbe0f6766080bbb715fa20"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/duan/MatthewEntwistle_Lontano_multif0_MIX16mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cea124fc45eba3248e33163b9fb6ed64a0b10821",
+      "size": 440435,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/cea124fc45eba3248e33163b9fb6ed64a0b10821"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/duan/MatthewEntwistle_TheArch_multif0_MIX16mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2d8bc344d5a14d1b84a8e7179bc0127b2ce1b680",
+      "size": 692493,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/2d8bc344d5a14d1b84a8e7179bc0127b2ce1b680"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/duan/MatthewEntwistle_TheFlaxenField_multif0_MIX16mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "63145a4a937342d361a87a717c0225f7e8b793f5",
+      "size": 811079,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/63145a4a937342d361a87a717c0225f7e8b793f5"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/duan/Mozart_DiesBildnis_multif0_MIX16mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1980f410ff33dbfc0dda518c39731ad08f8f08bb",
+      "size": 600035,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/1980f410ff33dbfc0dda518c39731ad08f8f08bb"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/duan/MusicDelta_FusionJazz_multif0_MIX16mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "aa115478f8fb9c15834b2fd325021be073900880",
+      "size": 344707,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/aa115478f8fb9c15834b2fd325021be073900880"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/duan/MusicDelta_Gospel_multif0_MIX16mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cd91090c17e2a3f4fa5f2bbf76ae8c81c7359b8a",
+      "size": 268985,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/cd91090c17e2a3f4fa5f2bbf76ae8c81c7359b8a"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/duan/MusicDelta_Pachelbel_multif0_MIX16mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "775c6c02b878e5ea7875ce503df595c6fedac31c",
+      "size": 862452,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/775c6c02b878e5ea7875ce503df595c6fedac31c"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/duan/MusicDelta_SwingJazz_multif0_MIX16mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d9a324727e8df6a8d107dd71008717315994b8b7",
+      "size": 199411,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/d9a324727e8df6a8d107dd71008717315994b8b7"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/duan/Phoenix_BrokenPledgeChicagoReel_multif0_MIX16mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "59e7d1c8a6166523db3ca54baf8ae37e179f6c99",
+      "size": 663091,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/59e7d1c8a6166523db3ca54baf8ae37e179f6c99"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/duan/Phoenix_ColliersDaughter_multif0_MIX16mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e39067376392312e64160d101bd6caa781c82747",
+      "size": 554466,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/e39067376392312e64160d101bd6caa781c82747"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/duan/Phoenix_ElzicsFarewell_multif0_MIX16mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "18b7b6e0710dfbb14c27ff9e4c3d3ae2450e357b",
+      "size": 612592,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/18b7b6e0710dfbb14c27ff9e4c3d3ae2450e357b"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/duan/Phoenix_LarkOnTheStrandDrummondCastle_multif0_MIX16mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f9c1b184e73a3eadbcfaf3b8a9c021b24903fd35",
+      "size": 668327,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/f9c1b184e73a3eadbcfaf3b8a9c021b24903fd35"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/duan/Phoenix_ScotchMorris_multif0_MIX16mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "46d9dcd33ca6c5ac18360b557ebe25f36debd90f",
+      "size": 528854,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/46d9dcd33ca6c5ac18360b557ebe25f36debd90f"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/duan/Phoenix_SeanCaughlinsTheScartaglen_multif0_MIX16mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "16193c76c219e347718f5d53939cb1b287b3a9a3",
+      "size": 685576,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/16193c76c219e347718f5d53939cb1b287b3a9a3"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/duan/PortStWillow_StayEven_multif0_MIX16mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "48d943ac63e6cf244083ad6a05275bb7ddfd221e",
+      "size": 788695,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/48d943ac63e6cf244083ad6a05275bb7ddfd221e"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/duan/Schubert_Erstarrung_multif0_MIX16mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d59f404908421dac984024f78183627c231a8f52",
+      "size": 509668,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/d59f404908421dac984024f78183627c231a8f52"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test/duan/StrandOfOaks_Spacestation_multif0_MIX16mirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ab8241af2d79211f7f1620bd57e858bc873e857a",
+      "size": 716949,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/ab8241af2d79211f7f1620bd57e858bc873e857a"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test_benetos_all_scores.csv",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e169dfedb7561d25bcb8fb5f4537e8fe5e513145",
+      "size": 6858,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/e169dfedb7561d25bcb8fb5f4537e8fe5e513145"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test_benetos_score_summary.csv",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f85a0bcc8725efd2baf2f323d6e751c1b6b6b368",
+      "size": 1794,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/f85a0bcc8725efd2baf2f323d6e751c1b6b6b368"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test_duan_all_scores.csv",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "dc75d1904f537536ac3ec4afd7aec6e291efd19c",
+      "size": 6805,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/dc75d1904f537536ac3ec4afd7aec6e291efd19c"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/mdb_test_duan_score_summary.csv",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "eda9a792fcdd7d3e40d05f8f3555c20c6d05f594",
+      "size": 1785,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/eda9a792fcdd7d3e40d05f8f3555c20c6d05f594"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/su",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "3b3bb09429f35a2b4586ed1363a52ba8f52235cd",
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/3b3bb09429f35a2b4586ed1363a52ba8f52235cd"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/su/benetos",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "5521080f39189efa37974afb89e95b9600e0be6d",
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/5521080f39189efa37974afb89e95b9600e0be6d"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/su/benetos/PQ02_Elgar.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7ea67bfee551466ac6176ec62edbfab6c741993c",
+      "size": 95671,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/7ea67bfee551466ac6176ec62edbfab6c741993c"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/su/benetos/PQ03_Farranc.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bb98e77efc7934c072598f7e933c56853f01d90f",
+      "size": 56858,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/bb98e77efc7934c072598f7e933c56853f01d90f"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/su/benetos/PS01_Beethoven.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "eb113dee92f699fc59cd0766058c2d79b5d5789c",
+      "size": 119537,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/eb113dee92f699fc59cd0766058c2d79b5d5789c"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/su/benetos/PS02_Chopin.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "477c22cc238c42970cf2030eb186dca5b302622c",
+      "size": 49702,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/477c22cc238c42970cf2030eb186dca5b302622c"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/su/benetos/PS03_Mozart.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d34528290ab12a1de0d57da4c6e64782d5ab1221",
+      "size": 59006,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/d34528290ab12a1de0d57da4c6e64782d5ab1221"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/su/benetos/SQ01_Beethoven.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4118e2af6dc4f7d429f8bb35b68255d881a7178f",
+      "size": 95903,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/4118e2af6dc4f7d429f8bb35b68255d881a7178f"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/su/benetos/SQ02_Janacek.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bb7f01468c6be3f01b9166db3b099eff37234b2c",
+      "size": 37487,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/bb7f01468c6be3f01b9166db3b099eff37234b2c"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/su/benetos/SQ03_Schubert.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b464714697931364e411db3d2c52136e8e43d701",
+      "size": 64591,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/b464714697931364e411db3d2c52136e8e43d701"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/su/benetos/VS01_Schumann.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ba9938ac1e89df2e6e9dd90c53219831d5f25230",
+      "size": 57570,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/ba9938ac1e89df2e6e9dd90c53219831d5f25230"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/su/benetos/VS04_Franck.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "26b2a4f610fda3b736c1b81aeff98b2f6bc34a9d",
+      "size": 77572,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/26b2a4f610fda3b736c1b81aeff98b2f6bc34a9d"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/su/duan",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "1c592575159590a7ffe55cae883709b78ab01ccf",
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/1c592575159590a7ffe55cae883709b78ab01ccf"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/su/duan/PQ02_Elgar_audiomirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a2136afc1db1684c8f9f6dd949abdfab100a916e",
+      "size": 114606,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/a2136afc1db1684c8f9f6dd949abdfab100a916e"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/su/duan/PQ03_Farranc_audiomirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c5e7aa2f75566c9a7e09e6f6ca7f48fbeb4f782b",
+      "size": 73243,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/c5e7aa2f75566c9a7e09e6f6ca7f48fbeb4f782b"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/su/duan/PS01_Beethoven_audiomirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8a7fd5d5876a74487232619003674d67624ed89b",
+      "size": 91627,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/8a7fd5d5876a74487232619003674d67624ed89b"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/su/duan/PS02_Chopin_audiomirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b64c582c2314c2043a831d8e0e5dcc32cc0d4f32",
+      "size": 44220,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/b64c582c2314c2043a831d8e0e5dcc32cc0d4f32"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/su/duan/PS03_Mozart_audiomirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b9ad1ecd9f7c7dc0303de921fee92a7803f40382",
+      "size": 60000,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/b9ad1ecd9f7c7dc0303de921fee92a7803f40382"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/su/duan/SQ01_Beethoven_audiomirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cbed770157d7cc461edd756f42dfa9bf15ad25ab",
+      "size": 127144,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/cbed770157d7cc461edd756f42dfa9bf15ad25ab"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/su/duan/SQ02_Janacek_audiomirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b177c764bd64ac92c212ed607e7ab6134e3f5387",
+      "size": 46893,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/b177c764bd64ac92c212ed607e7ab6134e3f5387"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/su/duan/SQ03_Schubert_audiomirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "99383e2aaa23f31d1d17a35d7df18e6081527a71",
+      "size": 77673,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/99383e2aaa23f31d1d17a35d7df18e6081527a71"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/su/duan/VS01_Schumann_audiomirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6905681be8f0c882e9100eff8b4f58b64998c096",
+      "size": 62110,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/6905681be8f0c882e9100eff8b4f58b64998c096"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/su/duan/VS04_Franck_audiomirexf0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "719b05f996aaa1d0c52ab1ada321f74e2d64869f",
+      "size": 86219,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/719b05f996aaa1d0c52ab1ada321f74e2d64869f"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/su_benetos_all_scores.csv",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "25835e57f793c03f43bbbec9257982aac18e5343",
+      "size": 2480,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/25835e57f793c03f43bbbec9257982aac18e5343"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/su_benetos_score_summary.csv",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2600c31cf60805ccedc1ff0d1fd0f0774e2ff0c5",
+      "size": 1795,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/2600c31cf60805ccedc1ff0d1fd0f0774e2ff0c5"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/su_duan_all_scores.csv",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1922972decb94d9ecf7e8f5df96977436422f78a",
+      "size": 2455,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/1922972decb94d9ecf7e8f5df96977436422f78a"
+    },
+    {
+      "path": "comparisons/multif0/algorithm_outputs/su_duan_score_summary.csv",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "15271d3417d6da3fc7716b507356876245a932d4",
+      "size": 1759,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/15271d3417d6da3fc7716b507356876245a932d4"
+    },
+    {
+      "path": "comparisons/multif0/datasets",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "372014b8e75cf1b820e2000b31cf6ba5b36406f8",
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/372014b8e75cf1b820e2000b31cf6ba5b36406f8"
+    },
+    {
+      "path": "comparisons/multif0/datasets/bach10",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "79069e2fc1b7428e9b3336a707e04c2349e28570",
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/79069e2fc1b7428e9b3336a707e04c2349e28570"
+    },
+    {
+      "path": "comparisons/multif0/datasets/bach10/gt_F0",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "215e561244ba16345d8f4681fef78bfd0b78d6fd",
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/215e561244ba16345d8f4681fef78bfd0b78d6fd"
+    },
+    {
+      "path": "comparisons/multif0/datasets/bach10/gt_F0/01_AchGottundHerr_GTF0s.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "606efc912d35ca8323143ce81187a37d6cc154c8",
+      "size": 89159,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/606efc912d35ca8323143ce81187a37d6cc154c8"
+    },
+    {
+      "path": "comparisons/multif0/datasets/bach10/gt_F0/02_AchLiebenChristen_GTF0s.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3199774aabe0f03e83023d8922ae11a17e7875ff",
+      "size": 146642,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/3199774aabe0f03e83023d8922ae11a17e7875ff"
+    },
+    {
+      "path": "comparisons/multif0/datasets/bach10/gt_F0/03_ChristederdubistTagundLicht_GTF0s.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "99fa8773ccec036870a1cb891fe6a3aa9ed8f49c",
+      "size": 91188,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/99fa8773ccec036870a1cb891fe6a3aa9ed8f49c"
+    },
+    {
+      "path": "comparisons/multif0/datasets/bach10/gt_F0/04_ChristeDuBeistand_GTF0s.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6c4ac09636a26d98ecba35fc9114b65c066fc9ca",
+      "size": 148380,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/6c4ac09636a26d98ecba35fc9114b65c066fc9ca"
+    },
+    {
+      "path": "comparisons/multif0/datasets/bach10/gt_F0/05_DieNacht_GTF0s.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "41c2be978954742751b886e53e510cb426b9680a",
+      "size": 127167,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/41c2be978954742751b886e53e510cb426b9680a"
+    },
+    {
+      "path": "comparisons/multif0/datasets/bach10/gt_F0/06_DieSonne_GTF0s.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a103b9db0a5025e25ff2894a19594f1c13ce216d",
+      "size": 120351,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/a103b9db0a5025e25ff2894a19594f1c13ce216d"
+    },
+    {
+      "path": "comparisons/multif0/datasets/bach10/gt_F0/07_HerrGott_GTF0s.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8adfba0e54a11ee39aa7da4ce79bb11219d1549c",
+      "size": 118372,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/8adfba0e54a11ee39aa7da4ce79bb11219d1549c"
+    },
+    {
+      "path": "comparisons/multif0/datasets/bach10/gt_F0/08_FuerDeinenThron_GTF0s.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7c322d3a278df079f1fcadbf715afa51be92ba26",
+      "size": 119669,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/7c322d3a278df079f1fcadbf715afa51be92ba26"
+    },
+    {
+      "path": "comparisons/multif0/datasets/bach10/gt_F0/09_Jesus_GTF0s.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "abd9843786097d8772779fa65974194ab9eb5707",
+      "size": 106098,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/abd9843786097d8772779fa65974194ab9eb5707"
+    },
+    {
+      "path": "comparisons/multif0/datasets/bach10/gt_F0/10_NunBitten_GTF0s.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "29fb1e28404fea640f925540bccca8797d62a60d",
+      "size": 136392,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/29fb1e28404fea640f925540bccca8797d62a60d"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "b695e5231bd604e14071ca6533bdded0d865dc06",
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/b695e5231bd604e14071ca6533bdded0d865dc06"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test/gt_F0",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "75234e70760e082470eb8781420febb1d0548be7",
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/75234e70760e082470eb8781420febb1d0548be7"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test/gt_F0/AClassicEducation_NightOwl.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6990f70d920175623530cf725b2ecdda8b69b65c",
+      "size": 1437236,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/6990f70d920175623530cf725b2ecdda8b69b65c"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test/gt_F0/Auctioneer_OurFutureFaces.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "34a6ea594a23b059d199eb876ff749433c07a657",
+      "size": 1421178,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/34a6ea594a23b059d199eb876ff749433c07a657"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test/gt_F0/CelestialShore_DieForUs.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e3be1436535efede04b40fa87bc83f192f1030a1",
+      "size": 1838351,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/e3be1436535efede04b40fa87bc83f192f1030a1"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test/gt_F0/ChrisJacoby_BoothShotLincoln.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5a2d4ed332d3533c3989d5d9898aa7e868c3663e",
+      "size": 1500642,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/5a2d4ed332d3533c3989d5d9898aa7e868c3663e"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test/gt_F0/ChrisJacoby_PigsFoot.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3f70e24c2f25f65315743ee8f35926268e6a8dd8",
+      "size": 2058021,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/3f70e24c2f25f65315743ee8f35926268e6a8dd8"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test/gt_F0/Creepoid_OldTree.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "24b09cf3482c5317c5eb215220867dd80170050c",
+      "size": 2325751,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/24b09cf3482c5317c5eb215220867dd80170050c"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test/gt_F0/Debussy_LenfantProdigue.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2d66bae78f249c77206e74670c41f4604a49dd31",
+      "size": 1173464,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/2d66bae78f249c77206e74670c41f4604a49dd31"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test/gt_F0/Grants_PunchDrunk.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "60d57d521878a69453894264546f6096072e2eb9",
+      "size": 2011801,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/60d57d521878a69453894264546f6096072e2eb9"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test/gt_F0/MatthewEntwistle_DontYouEver.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1ad21c1de9a604e03d229b6b17b82699f19bf6e9",
+      "size": 645711,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/1ad21c1de9a604e03d229b6b17b82699f19bf6e9"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test/gt_F0/MatthewEntwistle_FairerHopes.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f6bb16b6c7cf083a29dad9b4a4cebc2c14351666",
+      "size": 3461229,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/f6bb16b6c7cf083a29dad9b4a4cebc2c14351666"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test/gt_F0/MatthewEntwistle_ImpressionsOfSaturn.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6f40ceaf156c67235b91db36b28bc4c748e87ad0",
+      "size": 2665811,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/6f40ceaf156c67235b91db36b28bc4c748e87ad0"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test/gt_F0/MatthewEntwistle_Lontano.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e8d29ace805b3fb8f064a18bdb99743d8d960c7b",
+      "size": 1597174,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/e8d29ace805b3fb8f064a18bdb99743d8d960c7b"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test/gt_F0/MatthewEntwistle_TheArch.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "89f9a22c159cbfe288b7c4fdc43c241f77e57df8",
+      "size": 1622566,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/89f9a22c159cbfe288b7c4fdc43c241f77e57df8"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test/gt_F0/MatthewEntwistle_TheFlaxenField.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bf3ef1df34a8449bb46bcd9e7afc5ecb28f68c42",
+      "size": 3185679,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/bf3ef1df34a8449bb46bcd9e7afc5ecb28f68c42"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test/gt_F0/Mozart_DiesBildnis.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0ddd6a63d7fe6e1cc10f9fef6a43ad921269b38c",
+      "size": 1277945,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/0ddd6a63d7fe6e1cc10f9fef6a43ad921269b38c"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test/gt_F0/MusicDelta_FusionJazz.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "88f2944fd415c6830736c99f36db9a2d55c7bcb4",
+      "size": 977827,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/88f2944fd415c6830736c99f36db9a2d55c7bcb4"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test/gt_F0/MusicDelta_Gospel.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6b526086ab0ed2e40ef1687db48553c3a722b7c6",
+      "size": 596706,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/6b526086ab0ed2e40ef1687db48553c3a722b7c6"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test/gt_F0/MusicDelta_Pachelbel.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c5ab99fc1c51e39212d0cd974da047b5c5d6396a",
+      "size": 3995592,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/c5ab99fc1c51e39212d0cd974da047b5c5d6396a"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test/gt_F0/MusicDelta_SwingJazz.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "de6d1e622c4f73bd856048104ea60ed23080bf5e",
+      "size": 716954,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/de6d1e622c4f73bd856048104ea60ed23080bf5e"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test/gt_F0/Phoenix_BrokenPledgeChicagoReel.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "48b0a0f6addff9453b6d105a5d14a73bd479ef01",
+      "size": 1626594,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/48b0a0f6addff9453b6d105a5d14a73bd479ef01"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test/gt_F0/Phoenix_ColliersDaughter.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a1d0627910e1906e06f7f97be074dd32f4cb1e75",
+      "size": 1151553,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/a1d0627910e1906e06f7f97be074dd32f4cb1e75"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test/gt_F0/Phoenix_ElzicsFarewell.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fb8f287324a91218bd70628707693c361d1f54e5",
+      "size": 1148745,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/fb8f287324a91218bd70628707693c361d1f54e5"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test/gt_F0/Phoenix_LarkOnTheStrandDrummondCastle.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f803bf5c31261be7e28755fc7ee9b2f6c07bb700",
+      "size": 1757010,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/f803bf5c31261be7e28755fc7ee9b2f6c07bb700"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test/gt_F0/Phoenix_ScotchMorris.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1469f5b1f3bc19c21b3391ea3a89a626a1e17379",
+      "size": 1199237,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/1469f5b1f3bc19c21b3391ea3a89a626a1e17379"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test/gt_F0/Phoenix_SeanCaughlinsTheScartaglen.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "55165ded27018fd60ec500f984aefa968ab89b03",
+      "size": 1202138,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/55165ded27018fd60ec500f984aefa968ab89b03"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test/gt_F0/PortStWillow_StayEven.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "39a9d26030f59eb1cb3c414dffe4837e67602a65",
+      "size": 2173412,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/39a9d26030f59eb1cb3c414dffe4837e67602a65"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test/gt_F0/Schubert_Erstarrung.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "36114719cd4e63b0ebce2c7c27711bb28ece7949",
+      "size": 900992,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/36114719cd4e63b0ebce2c7c27711bb28ece7949"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test/gt_F0/StrandOfOaks_Spacestation.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d9c0edae92fcbc2e73994d97a9fd827f43eadc4b",
+      "size": 1544787,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/d9c0edae92fcbc2e73994d97a9fd827f43eadc4b"
+    },
+    {
+      "path": "comparisons/multif0/datasets/mdb_test/info.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fdb54dbc4f68616db9a9248346951fc43c7c222e",
+      "size": 161,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/fdb54dbc4f68616db9a9248346951fc43c7c222e"
+    },
+    {
+      "path": "comparisons/multif0/datasets/su",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "3eb57ff99039f12b9b35114b140f7d9591e878ff",
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/3eb57ff99039f12b9b35114b140f7d9591e878ff"
+    },
+    {
+      "path": "comparisons/multif0/datasets/su/gt_F0",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "d3d434287ec5c155a5a4b08f2b23726d1178b9ba",
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/d3d434287ec5c155a5a4b08f2b23726d1178b9ba"
+    },
+    {
+      "path": "comparisons/multif0/datasets/su/gt_F0/PQ02_Elgar_F0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a6c0f22fea9ce4b167575eeb1387f6cb7976dc19",
+      "size": 177175,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/a6c0f22fea9ce4b167575eeb1387f6cb7976dc19"
+    },
+    {
+      "path": "comparisons/multif0/datasets/su/gt_F0/PQ03_Farranc_F0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "98abe936354c01240083c06cd47f19f4a51929e9",
+      "size": 104062,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/98abe936354c01240083c06cd47f19f4a51929e9"
+    },
+    {
+      "path": "comparisons/multif0/datasets/su/gt_F0/PS01_Beethoven_F0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a7780fe80f4e9dec0406bcbc9c612b5d6f31e124",
+      "size": 148005,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/a7780fe80f4e9dec0406bcbc9c612b5d6f31e124"
+    },
+    {
+      "path": "comparisons/multif0/datasets/su/gt_F0/PS02_Chopin_F0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "995e483cba24976cbe4d07d832c50e1b3adaa067",
+      "size": 50407,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/995e483cba24976cbe4d07d832c50e1b3adaa067"
+    },
+    {
+      "path": "comparisons/multif0/datasets/su/gt_F0/PS03_Mozart_F0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "228c73a0b16b58c4bf710302177eaba28e167d12",
+      "size": 45573,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/228c73a0b16b58c4bf710302177eaba28e167d12"
+    },
+    {
+      "path": "comparisons/multif0/datasets/su/gt_F0/SQ01_Beethoven_F0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "24f315be197dfb07ed12a4586f3dfbd84d0c3cad",
+      "size": 113396,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/24f315be197dfb07ed12a4586f3dfbd84d0c3cad"
+    },
+    {
+      "path": "comparisons/multif0/datasets/su/gt_F0/SQ02_Janacek_F0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "39f8bb362935ecc2a394b7bed6ca1d275b891025",
+      "size": 40307,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/39f8bb362935ecc2a394b7bed6ca1d275b891025"
+    },
+    {
+      "path": "comparisons/multif0/datasets/su/gt_F0/SQ03_Schubert_F0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2de4e10c75d1380ebb204cf607ef31232b08a855",
+      "size": 57584,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/2de4e10c75d1380ebb204cf607ef31232b08a855"
+    },
+    {
+      "path": "comparisons/multif0/datasets/su/gt_F0/VS01_Schumann_F0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c64906aef2432159f5ca25899f43f357a3607155",
+      "size": 61252,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/c64906aef2432159f5ca25899f43f357a3607155"
+    },
+    {
+      "path": "comparisons/multif0/datasets/su/gt_F0/VS04_Franck_F0.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "32bf573929fef5010f14cff1cab9359b0e275036",
+      "size": 125303,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/32bf573929fef5010f14cff1cab9359b0e275036"
+    },
+    {
+      "path": "comparisons/multif0/datasets/su/readme.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "15450f85eaf3e77f1ab3c4fed9f30c44bb248365",
+      "size": 915,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/15450f85eaf3e77f1ab3c4fed9f30c44bb248365"
+    },
+    {
+      "path": "deepsalience",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "29dc69d4d74fb29e4ba076d9a52b7adb58bc39d3",
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/29dc69d4d74fb29e4ba076d9a52b7adb58bc39d3"
+    },
+    {
+      "path": "deepsalience/__init__.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "size": 0,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    {
+      "path": "deepsalience/compute_training_data.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5680d0f6f66859509c3cacb20d6e6993bc195c30",
+      "size": 21083,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/5680d0f6f66859509c3cacb20d6e6993bc195c30"
+    },
+    {
+      "path": "deepsalience/core.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "90de9113d91537231c9ce34c36aff68c25040b23",
+      "size": 7639,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/90de9113d91537231c9ce34c36aff68c25040b23"
+    },
+    {
+      "path": "deepsalience/eval_all.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "dca769b6ca48b56957f037868982abcd1f070987",
+      "size": 424,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/dca769b6ca48b56957f037868982abcd1f070987"
+    },
+    {
+      "path": "deepsalience/evaluate.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "40e88b6c2d2d87feafed2442648d4ef212411a57",
+      "size": 10125,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/40e88b6c2d2d87feafed2442648d4ef212411a57"
+    },
+    {
+      "path": "deepsalience/exp1.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6ec5c0824e4d8b244875f0e434a52353e0cd86f9",
+      "size": 402,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/6ec5c0824e4d8b244875f0e434a52353e0cd86f9"
+    },
+    {
+      "path": "deepsalience/exp10.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4881ad65e184bf530df8b67cb2aacda9c4e850c1",
+      "size": 404,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/4881ad65e184bf530df8b67cb2aacda9c4e850c1"
+    },
+    {
+      "path": "deepsalience/exp10bn.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ad0a61ec2453c211e1b0699d0c37730186ffab5f",
+      "size": 413,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/ad0a61ec2453c211e1b0699d0c37730186ffab5f"
+    },
+    {
+      "path": "deepsalience/exp11.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "44ce151d81caa8c2f21b315a956626d224f3da0e",
+      "size": 404,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/44ce151d81caa8c2f21b315a956626d224f3da0e"
+    },
+    {
+      "path": "deepsalience/exp11bn.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ccec4168a08878a450c3b1abd86ef4311a3094be",
+      "size": 413,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/ccec4168a08878a450c3b1abd86ef4311a3094be"
+    },
+    {
+      "path": "deepsalience/exp11bn_mel1.sh",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "81a5e0489ab536509db1435667f83b939e3dae38",
+      "size": 418,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/81a5e0489ab536509db1435667f83b939e3dae38"
+    },
+    {
+      "path": "deepsalience/exp11bn_mel2.sh",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c919cae767804af90f207cea659a5f8627368d02",
+      "size": 418,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/c919cae767804af90f207cea659a5f8627368d02"
+    },
+    {
+      "path": "deepsalience/exp11bn_mel3.sh",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "27ec7215a56c9099cd784512f1f9c5f016573cff",
+      "size": 418,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/27ec7215a56c9099cd784512f1f9c5f016573cff"
+    },
+    {
+      "path": "deepsalience/exp11bn_mf0incomplete.sh",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "96492efe343a3c582b33216920790441b9a6a67a",
+      "size": 436,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/96492efe343a3c582b33216920790441b9a6a67a"
+    },
+    {
+      "path": "deepsalience/exp11bn_pitch.sh",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e6e32db87e263a00b2523bcfc4c988e3bfee29e6",
+      "size": 420,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/e6e32db87e263a00b2523bcfc4c988e3bfee29e6"
+    },
+    {
+      "path": "deepsalience/exp12.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b815d0fcf88101a251df8d80bdff2d807e4b8161",
+      "size": 404,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/b815d0fcf88101a251df8d80bdff2d807e4b8161"
+    },
+    {
+      "path": "deepsalience/exp12bn.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a189c40f9811507680de4cc1a8793af59235bb78",
+      "size": 413,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/a189c40f9811507680de4cc1a8793af59235bb78"
+    },
+    {
+      "path": "deepsalience/exp13.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "930d29afe5d11a647e7da9a26d75be1f7dceaf5d",
+      "size": 404,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/930d29afe5d11a647e7da9a26d75be1f7dceaf5d"
+    },
+    {
+      "path": "deepsalience/exp13bn.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c5291f6235779329016eb03356e27c2b94ef4d5d",
+      "size": 413,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/c5291f6235779329016eb03356e27c2b94ef4d5d"
+    },
+    {
+      "path": "deepsalience/exp14.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "514dbb73b000ce364bc4b4098305fa4a70518a94",
+      "size": 404,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/514dbb73b000ce364bc4b4098305fa4a70518a94"
+    },
+    {
+      "path": "deepsalience/exp14bn.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cdcb9839f4dcf5837f7406a1829310f3994c234b",
+      "size": 413,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/cdcb9839f4dcf5837f7406a1829310f3994c234b"
+    },
+    {
+      "path": "deepsalience/exp15.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2725dc65ec36fa74147dc3793f0938eaead01a23",
+      "size": 404,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/2725dc65ec36fa74147dc3793f0938eaead01a23"
+    },
+    {
+      "path": "deepsalience/exp15bn.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "836644bf9bfd746563b425c4ab33b107b9b558ab",
+      "size": 413,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/836644bf9bfd746563b425c4ab33b107b9b558ab"
+    },
+    {
+      "path": "deepsalience/exp16.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5635c0a554d217ca996618c620654a7a28e1e451",
+      "size": 404,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/5635c0a554d217ca996618c620654a7a28e1e451"
+    },
+    {
+      "path": "deepsalience/exp16bn.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f0c3e77c35ea23af9adf783a2b33916ba39931ee",
+      "size": 413,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/f0c3e77c35ea23af9adf783a2b33916ba39931ee"
+    },
+    {
+      "path": "deepsalience/exp17.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5c426dac81c891cc7104ac295044c03b28ec27cb",
+      "size": 404,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/5c426dac81c891cc7104ac295044c03b28ec27cb"
+    },
+    {
+      "path": "deepsalience/exp17bn.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2e86c9d778a3d5b16bb02c9155631663808c6141",
+      "size": 413,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/2e86c9d778a3d5b16bb02c9155631663808c6141"
+    },
+    {
+      "path": "deepsalience/exp1bn.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "da5adea32b4ce891618380fbd7212e7c3182616c",
+      "size": 411,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/da5adea32b4ce891618380fbd7212e7c3182616c"
+    },
+    {
+      "path": "deepsalience/exp2.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5fe6c31de0c5ef816a4d21c33797ea12d0ae0107",
+      "size": 402,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/5fe6c31de0c5ef816a4d21c33797ea12d0ae0107"
+    },
+    {
+      "path": "deepsalience/exp2bn.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c0713c68dc7b8fc98ed18ec8978ec01f9520225a",
+      "size": 411,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/c0713c68dc7b8fc98ed18ec8978ec01f9520225a"
+    },
+    {
+      "path": "deepsalience/exp3.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0425d153b7b0c1ffea4fc43a615ac83b7941f4ca",
+      "size": 402,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/0425d153b7b0c1ffea4fc43a615ac83b7941f4ca"
+    },
+    {
+      "path": "deepsalience/exp3bn.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "47f055d20ad91d654f6f61a07fd1f38106b0d86a",
+      "size": 411,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/47f055d20ad91d654f6f61a07fd1f38106b0d86a"
+    },
+    {
+      "path": "deepsalience/exp4.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1b35331df5e494457551a682e31ea8edd863ddce",
+      "size": 402,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/1b35331df5e494457551a682e31ea8edd863ddce"
+    },
+    {
+      "path": "deepsalience/exp4bn.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f75a07eaafb1bfe41df3a0ca5b32f5620ff3eecb",
+      "size": 411,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/f75a07eaafb1bfe41df3a0ca5b32f5620ff3eecb"
+    },
+    {
+      "path": "deepsalience/exp5.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "79c1d189d236a15d4c662e2856c745772012cc99",
+      "size": 402,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/79c1d189d236a15d4c662e2856c745772012cc99"
+    },
+    {
+      "path": "deepsalience/exp5bn.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "aa75fdab2c6c7a32d36a229f5be913776544dae2",
+      "size": 411,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/aa75fdab2c6c7a32d36a229f5be913776544dae2"
+    },
+    {
+      "path": "deepsalience/exp6.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "59ac310c293445ee05e70f6a260980b0887e9aa2",
+      "size": 402,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/59ac310c293445ee05e70f6a260980b0887e9aa2"
+    },
+    {
+      "path": "deepsalience/exp6bn.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9d98bbe2a6e1e95a79b51e31af5f6f2d3eb13e3f",
+      "size": 411,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/9d98bbe2a6e1e95a79b51e31af5f6f2d3eb13e3f"
+    },
+    {
+      "path": "deepsalience/exp7.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cab4c9957ccc2c6b56fb0b61637579b4faad68a9",
+      "size": 402,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/cab4c9957ccc2c6b56fb0b61637579b4faad68a9"
+    },
+    {
+      "path": "deepsalience/exp7bn.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "afcabb77e6e68c72471bc58c8443812ac18c778b",
+      "size": 411,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/afcabb77e6e68c72471bc58c8443812ac18c778b"
+    },
+    {
+      "path": "deepsalience/exp8.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2e81db669b3cdc09d4a252fe6818467763db3386",
+      "size": 402,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/2e81db669b3cdc09d4a252fe6818467763db3386"
+    },
+    {
+      "path": "deepsalience/exp8bn.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6a95b3c0f7d12a55538e1686db8f06739e6dd5c7",
+      "size": 411,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/6a95b3c0f7d12a55538e1686db8f06739e6dd5c7"
+    },
+    {
+      "path": "deepsalience/exp9.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a1c6a1dca120f4b6d0dfe1faeb058f735ed84488",
+      "size": 402,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/a1c6a1dca120f4b6d0dfe1faeb058f735ed84488"
+    },
+    {
+      "path": "deepsalience/exp9bn.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ac788a5a18267bcf84784f3d650707fd73104e23",
+      "size": 411,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/ac788a5a18267bcf84784f3d650707fd73104e23"
+    },
+    {
+      "path": "deepsalience/experiment.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2169de0ad8cb1eae44fab233f4caf0025290ee2b",
+      "size": 2763,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/2169de0ad8cb1eae44fab233f4caf0025290ee2b"
+    },
+    {
+      "path": "deepsalience/experiment_datasets.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0fc4598f2aeea8e59f3365ef5269d58bed56c30d",
+      "size": 3303,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/0fc4598f2aeea8e59f3365ef5269d58bed56c30d"
+    },
+    {
+      "path": "deepsalience/launch_experiments_gpu.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0a592c7d93c04a96593b62f40e2dd45ec1327eee",
+      "size": 1137,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/0a592c7d93c04a96593b62f40e2dd45ec1327eee"
+    },
+    {
+      "path": "deepsalience/launch_experiments_gpu_2.s",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6d9695bac20a0b225791892e8c4f4accba4e083e",
+      "size": 1473,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/6d9695bac20a0b225791892e8c4f4accba4e083e"
+    },
+    {
+      "path": "deepsalience/multif0_exper1.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "09b36384c86b37391fa0683ee77958a297506116",
+      "size": 1292,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/09b36384c86b37391fa0683ee77958a297506116"
+    },
+    {
+      "path": "deepsalience/multif0_exper10.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0f5e01539df39cebc1e3c805c465711f2b2734e0",
+      "size": 1304,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/0f5e01539df39cebc1e3c805c465711f2b2734e0"
+    },
+    {
+      "path": "deepsalience/multif0_exper10_batchin.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "23a1b45e618cabe8f5691668a43865ef188cfd6a",
+      "size": 1337,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/23a1b45e618cabe8f5691668a43865ef188cfd6a"
+    },
+    {
+      "path": "deepsalience/multif0_exper11.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ddf5fd411c74821fddbddde94e864e6394a1bca9",
+      "size": 1416,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/ddf5fd411c74821fddbddde94e864e6394a1bca9"
+    },
+    {
+      "path": "deepsalience/multif0_exper11_batchin.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cd99f59e76bdce6056a2c2a4c07e45389e2f9092",
+      "size": 1449,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/cd99f59e76bdce6056a2c2a4c07e45389e2f9092"
+    },
+    {
+      "path": "deepsalience/multif0_exper11_batchin_mel1.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "97c15b683f31fa5a37ca08e3a783bf39604e0094",
+      "size": 1479,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/97c15b683f31fa5a37ca08e3a783bf39604e0094"
+    },
+    {
+      "path": "deepsalience/multif0_exper11_batchin_mel2.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "609fdbe41ef51b36340a9b3202a5b2239417353e",
+      "size": 1479,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/609fdbe41ef51b36340a9b3202a5b2239417353e"
+    },
+    {
+      "path": "deepsalience/multif0_exper11_batchin_mel3.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "09fecfbfbb1296b15100abd4a9b9a88984b0624c",
+      "size": 1479,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/09fecfbfbb1296b15100abd4a9b9a88984b0624c"
+    },
+    {
+      "path": "deepsalience/multif0_exper11_batchin_mf0incomplete.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5ee035ca3e81ffeb331ba885b6ab3ace39be507e",
+      "size": 1490,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/5ee035ca3e81ffeb331ba885b6ab3ace39be507e"
+    },
+    {
+      "path": "deepsalience/multif0_exper11_batchin_pitch.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d00f337b656a6b31bcbc79764f20d1e33ee04a01",
+      "size": 1477,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/d00f337b656a6b31bcbc79764f20d1e33ee04a01"
+    },
+    {
+      "path": "deepsalience/multif0_exper12.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b231459b7ef33522f58e89ebd2bf6ca7ec2165ae",
+      "size": 1532,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/b231459b7ef33522f58e89ebd2bf6ca7ec2165ae"
+    },
+    {
+      "path": "deepsalience/multif0_exper12_batchin.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "042773a209fcfe086ab7cbebbd08ce142c3e10fe",
+      "size": 1566,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/042773a209fcfe086ab7cbebbd08ce142c3e10fe"
+    },
+    {
+      "path": "deepsalience/multif0_exper13.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a21c2e73db511865c8bfda5ee424118106dfde21",
+      "size": 1417,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/a21c2e73db511865c8bfda5ee424118106dfde21"
+    },
+    {
+      "path": "deepsalience/multif0_exper13_batchin.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2e5ddec4714e273662705fe313214d35965e6249",
+      "size": 1450,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/2e5ddec4714e273662705fe313214d35965e6249"
+    },
+    {
+      "path": "deepsalience/multif0_exper14.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f8fb7e8564e1837b5d7b8795328feb1cbeecee38",
+      "size": 1156,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/f8fb7e8564e1837b5d7b8795328feb1cbeecee38"
+    },
+    {
+      "path": "deepsalience/multif0_exper14_batchin.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c4bc23836f52a77b2bd19b28c53a87f23846eeac",
+      "size": 1190,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/c4bc23836f52a77b2bd19b28c53a87f23846eeac"
+    },
+    {
+      "path": "deepsalience/multif0_exper15.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cd3c2fc86944922ea2ee87ff7c9ad44fee22c7b2",
+      "size": 1156,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/cd3c2fc86944922ea2ee87ff7c9ad44fee22c7b2"
+    },
+    {
+      "path": "deepsalience/multif0_exper15_batchin.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3cf38a089fe75ef0219e38bc6a7dacd8a7d74f56",
+      "size": 1190,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/3cf38a089fe75ef0219e38bc6a7dacd8a7d74f56"
+    },
+    {
+      "path": "deepsalience/multif0_exper16.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "935771ed9dc7e9c4ed890e3b082581814ff8fe66",
+      "size": 1157,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/935771ed9dc7e9c4ed890e3b082581814ff8fe66"
+    },
+    {
+      "path": "deepsalience/multif0_exper16_batchin.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ecdfd0fd42008e819ec1d20238d673d56fe4144c",
+      "size": 1191,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/ecdfd0fd42008e819ec1d20238d673d56fe4144c"
+    },
+    {
+      "path": "deepsalience/multif0_exper17.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "72a1ec865425c1a36866b4c701a0c5f3a9a5cedf",
+      "size": 1275,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/72a1ec865425c1a36866b4c701a0c5f3a9a5cedf"
+    },
+    {
+      "path": "deepsalience/multif0_exper17_batchin.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "da4daf2dffcf51409f887e4748766dc8cff4f849",
+      "size": 1309,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/da4daf2dffcf51409f887e4748766dc8cff4f849"
+    },
+    {
+      "path": "deepsalience/multif0_exper1_batchin.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f27a2af12ab5d4e184b8b2cb299b99c808fb489d",
+      "size": 1326,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/f27a2af12ab5d4e184b8b2cb299b99c808fb489d"
+    },
+    {
+      "path": "deepsalience/multif0_exper2.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "db514df28cabbdb981fffb54e7a2b9e080f3662a",
+      "size": 1294,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/db514df28cabbdb981fffb54e7a2b9e080f3662a"
+    },
+    {
+      "path": "deepsalience/multif0_exper2_batchin.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b804a8c6606f76546581cb3d3bdb657dedc3715d",
+      "size": 1327,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/b804a8c6606f76546581cb3d3bdb657dedc3715d"
+    },
+    {
+      "path": "deepsalience/multif0_exper3.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "da7ab812e5704f74838f1e87a6c9de7e71384c22",
+      "size": 1055,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/da7ab812e5704f74838f1e87a6c9de7e71384c22"
+    },
+    {
+      "path": "deepsalience/multif0_exper3_batchin.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a57523a464c6cd0d8081f852eb800dbbba09be48",
+      "size": 1089,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/a57523a464c6cd0d8081f852eb800dbbba09be48"
+    },
+    {
+      "path": "deepsalience/multif0_exper4.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bb7ddb1c04a6838713b7e5d0becda512505cdadb",
+      "size": 1416,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/bb7ddb1c04a6838713b7e5d0becda512505cdadb"
+    },
+    {
+      "path": "deepsalience/multif0_exper4_batchin.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bc27bd852529c132e5b51ad2f51c26f578612c10",
+      "size": 1451,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/bc27bd852529c132e5b51ad2f51c26f578612c10"
+    },
+    {
+      "path": "deepsalience/multif0_exper5.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b5382939cc6876ec01d6eb285723227be62054be",
+      "size": 1412,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/b5382939cc6876ec01d6eb285723227be62054be"
+    },
+    {
+      "path": "deepsalience/multif0_exper5_batchin.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a8ef78ed82d0880bc21eb7d568adfb0cca43a480",
+      "size": 1450,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/a8ef78ed82d0880bc21eb7d568adfb0cca43a480"
+    },
+    {
+      "path": "deepsalience/multif0_exper6.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7a54ccf22128756e329f1b46d91356a36e1dcbeb",
+      "size": 1536,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/7a54ccf22128756e329f1b46d91356a36e1dcbeb"
+    },
+    {
+      "path": "deepsalience/multif0_exper6_batchin.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e545cc5b14c56a82be4ebbbf134c24d14c216dc1",
+      "size": 1570,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/e545cc5b14c56a82be4ebbbf134c24d14c216dc1"
+    },
+    {
+      "path": "deepsalience/multif0_exper7.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bcbf6f35284463c4f3c738abb28f853ff74c694f",
+      "size": 1536,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/bcbf6f35284463c4f3c738abb28f853ff74c694f"
+    },
+    {
+      "path": "deepsalience/multif0_exper7_batchin.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "58532f26798b09af9acc66a53db9163098876259",
+      "size": 1570,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/58532f26798b09af9acc66a53db9163098876259"
+    },
+    {
+      "path": "deepsalience/multif0_exper8.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "05937abd8e16810b9bda079ef2a55c0928cf9cb1",
+      "size": 1416,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/05937abd8e16810b9bda079ef2a55c0928cf9cb1"
+    },
+    {
+      "path": "deepsalience/multif0_exper8_batchin.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b25c8f7b81d811fea2cb479a575dce90b5745c0e",
+      "size": 1449,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/b25c8f7b81d811fea2cb479a575dce90b5745c0e"
+    },
+    {
+      "path": "deepsalience/multif0_exper9.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "df2a8ecd636a19b12f5a100851db43bece1ee518",
+      "size": 1539,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/df2a8ecd636a19b12f5a100851db43bece1ee518"
+    },
+    {
+      "path": "deepsalience/multif0_exper9_batchin.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6c1767f88af30b4f5c1ffcfc9cb5d607301885cf",
+      "size": 1572,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/6c1767f88af30b4f5c1ffcfc9cb5d607301885cf"
+    },
+    {
+      "path": "deepsalience/npy_to_multif0.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "78d107c939b4f6d141f3b7c72e465d7799d7c8b2",
+      "size": 999,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/78d107c939b4f6d141f3b7c72e465d7799d7c8b2"
+    },
+    {
+      "path": "deepsalience/old_experiments",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "3b61bbe11798a71a4c7ac7287f61715ab3b718a9",
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/3b61bbe11798a71a4c7ac7287f61715ab3b718a9"
+    },
+    {
+      "path": "deepsalience/old_experiments/multif0_exper1.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "348c697927f58211009a524b8992c0a120518c6b",
+      "size": 3430,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/348c697927f58211009a524b8992c0a120518c6b"
+    },
+    {
+      "path": "deepsalience/old_experiments/multif0_exper10.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9f376e787590b820c66039bc8a2222e44f116c61",
+      "size": 3531,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/9f376e787590b820c66039bc8a2222e44f116c61"
+    },
+    {
+      "path": "deepsalience/old_experiments/multif0_exper10_2.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4a2a20931788c2df90d1bfc807f622add502ad5b",
+      "size": 1044,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/4a2a20931788c2df90d1bfc807f622add502ad5b"
+    },
+    {
+      "path": "deepsalience/old_experiments/multif0_exper11_2.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0918ceea59cc600c261638cf9fa578cb86be3cd1",
+      "size": 1120,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/0918ceea59cc600c261638cf9fa578cb86be3cd1"
+    },
+    {
+      "path": "deepsalience/old_experiments/multif0_exper12_2.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3395a0fc7462079c7abd95ae1135e91007dc048d",
+      "size": 1201,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/3395a0fc7462079c7abd95ae1135e91007dc048d"
+    },
+    {
+      "path": "deepsalience/old_experiments/multif0_exper13_2.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0188dc614cb48fe95867778e019570eab0137fd4",
+      "size": 1121,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/0188dc614cb48fe95867778e019570eab0137fd4"
+    },
+    {
+      "path": "deepsalience/old_experiments/multif0_exper1_2.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "825871a163ec87b07e406393adac47faa666519c",
+      "size": 1033,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/825871a163ec87b07e406393adac47faa666519c"
+    },
+    {
+      "path": "deepsalience/old_experiments/multif0_exper2.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e2e4bfcf089b3a0faeef6e5da7e0eb79053c0a1f",
+      "size": 3450,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/e2e4bfcf089b3a0faeef6e5da7e0eb79053c0a1f"
+    },
+    {
+      "path": "deepsalience/old_experiments/multif0_exper2_2.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "fcc633b1bca88208b1b5692afc112cd22e3d079a",
+      "size": 1034,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/fcc633b1bca88208b1b5692afc112cd22e3d079a"
+    },
+    {
+      "path": "deepsalience/old_experiments/multif0_exper3.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e1578684cdfc30e446e9ca6cccfc7ee3c89ac159",
+      "size": 3285,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/e1578684cdfc30e446e9ca6cccfc7ee3c89ac159"
+    },
+    {
+      "path": "deepsalience/old_experiments/multif0_exper3_2.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "45d3c533561f210c13f83a7f02f3fac4f46006dd",
+      "size": 868,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/45d3c533561f210c13f83a7f02f3fac4f46006dd"
+    },
+    {
+      "path": "deepsalience/old_experiments/multif0_exper4.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "16811764e6d35137cc0a2b227c2ea512110414da",
+      "size": 3538,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/16811764e6d35137cc0a2b227c2ea512110414da"
+    },
+    {
+      "path": "deepsalience/old_experiments/multif0_exper4_2.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1b122e51e3e9ed462e807fba78feb318f7d48f1c",
+      "size": 1120,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/1b122e51e3e9ed462e807fba78feb318f7d48f1c"
+    },
+    {
+      "path": "deepsalience/old_experiments/multif0_exper5.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3d4f00332f4ff902113c2da50484dcfef942f0b7",
+      "size": 3532,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/3d4f00332f4ff902113c2da50484dcfef942f0b7"
+    },
+    {
+      "path": "deepsalience/old_experiments/multif0_exper5_2.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "dbfdbac657f563ac05834ae4deb8eb9eece4cecd",
+      "size": 1116,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/dbfdbac657f563ac05834ae4deb8eb9eece4cecd"
+    },
+    {
+      "path": "deepsalience/old_experiments/multif0_exper6.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "53969b1a750c3dacd79c4910b1ec570ef791c9a9",
+      "size": 3621,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/53969b1a750c3dacd79c4910b1ec570ef791c9a9"
+    },
+    {
+      "path": "deepsalience/old_experiments/multif0_exper6_2.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4b043bd4636fc0690de425b3c04bdf239b4c1a99",
+      "size": 1204,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/4b043bd4636fc0690de425b3c04bdf239b4c1a99"
+    },
+    {
+      "path": "deepsalience/old_experiments/multif0_exper7.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "66c845c9c5fc912852cc39a6c2bf6d5ca4634920",
+      "size": 3621,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/66c845c9c5fc912852cc39a6c2bf6d5ca4634920"
+    },
+    {
+      "path": "deepsalience/old_experiments/multif0_exper7_2.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f56d39b604cd3ebcb6af92b5afa161a7e23a9a5c",
+      "size": 1204,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/f56d39b604cd3ebcb6af92b5afa161a7e23a9a5c"
+    },
+    {
+      "path": "deepsalience/old_experiments/multif0_exper8.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b029a3da4f55ecdeead0f525191c798658d90d37",
+      "size": 3622,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/b029a3da4f55ecdeead0f525191c798658d90d37"
+    },
+    {
+      "path": "deepsalience/old_experiments/multif0_exper8_2.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0ad7200a00c2773af739212907ce5cd9fd398dd3",
+      "size": 1120,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/0ad7200a00c2773af739212907ce5cd9fd398dd3"
+    },
+    {
+      "path": "deepsalience/old_experiments/multif0_exper9.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0da7ee4de6f2e36740d097473c047c80fe74baef",
+      "size": 3724,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/0da7ee4de6f2e36740d097473c047c80fe74baef"
+    },
+    {
+      "path": "deepsalience/old_experiments/multif0_exper9_2.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9ddb07c6073917affd9506c7eeedd4ab49080ad4",
+      "size": 1208,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/9ddb07c6073917affd9506c7eeedd4ab49080ad4"
+    },
+    {
+      "path": "deepsalience/run_multif0_evaluation.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c598322914e3fe5147269d6063d65f5601317767",
+      "size": 2130,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/c598322914e3fe5147269d6063d65f5601317767"
+    },
+    {
+      "path": "notebooks",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "0f782830ead012c522bed77f23a583163ef0d907",
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/0f782830ead012c522bed77f23a583163ef0d907"
+    },
+    {
+      "path": "notebooks/Algorithm Results.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3da961abb862429ba4fa14a080ca33d5183c9957",
+      "size": 136178,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/3da961abb862429ba4fa14a080ca33d5183c9957"
+    },
+    {
+      "path": "notebooks/Bach10_custom_multif0_output.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "db140ea9eb28b8204eba660b1a40e2a022c4cb0d",
+      "size": 27749,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/db140ea9eb28b8204eba660b1a40e2a022c4cb0d"
+    },
+    {
+      "path": "notebooks/Best_model_output.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "192bbfc145453a5ebfd67c9b3bfae59cd78499b0",
+      "size": 39359,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/192bbfc145453a5ebfd67c9b3bfae59cd78499b0"
+    },
+    {
+      "path": "notebooks/Build_Test_Data.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "50f07d644ff1025dc8fe20280ca5ea1d4ad271b5",
+      "size": 9225,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/50f07d644ff1025dc8fe20280ca5ea1d4ad271b5"
+    },
+    {
+      "path": "notebooks/CNN_contourclf_mel2_scores.csv",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "8cdeee620e29e91c11c4c3be5a1c346bcdb2f2ae",
+      "size": 2179,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/8cdeee620e29e91c11c4c3be5a1c346bcdb2f2ae"
+    },
+    {
+      "path": "notebooks/CNN_contourclf_mel2_scores_partial.csv",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4969137200d01f1797df408c0e8cb6a29e09b865",
+      "size": 2167,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/4969137200d01f1797df408c0e8cb6a29e09b865"
+    },
+    {
+      "path": "notebooks/CNNmel2_argmax_scores.csv",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "df101940affdf3fdb8c79140ecc1c0d9dddcd7c2",
+      "size": 2179,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/df101940affdf3fdb8c79140ecc1c0d9dddcd7c2"
+    },
+    {
+      "path": "notebooks/Compare Model Architectures Multif0.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e14dd46f1c4d2419031a4f7be87ec5087ea5baf4",
+      "size": 432492,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/e14dd46f1c4d2419031a4f7be87ec5087ea5baf4"
+    },
+    {
+      "path": "notebooks/Melodia Scores.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "37fc8e4ab5a44a43d6d375f6a79586595e628d76",
+      "size": 1881400,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/37fc8e4ab5a44a43d6d375f6a79586595e628d76"
+    },
+    {
+      "path": "notebooks/Melodia_scores.csv",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2fb05b4d6a18eb70ca22aaa0e517661f77a94d3d",
+      "size": 2170,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/2fb05b4d6a18eb70ca22aaa0e517661f77a94d3d"
+    },
+    {
+      "path": "notebooks/Melody Experiments.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d244b0653d7addd6981400d2dc66a46c3e98fe13",
+      "size": 4227471,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/d244b0653d7addd6981400d2dc66a46c3e98fe13"
+    },
+    {
+      "path": "notebooks/Melody Melodia Scores.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f32bd9ddd6741dc278cc057e2d64dbfaf6789be0",
+      "size": 1881605,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/f32bd9ddd6741dc278cc057e2d64dbfaf6789be0"
+    },
+    {
+      "path": "notebooks/Melody recall peak streaming CNN vs Melodia.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "db6a29f36df2b79cafb13c433a0063007912c02a",
+      "size": 7470,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/db6a29f36df2b79cafb13c433a0063007912c02a"
+    },
+    {
+      "path": "notebooks/Melody_Juanjo_scores.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a4eaf1d96f7535381a443230221eb2e54e17c26b",
+      "size": 1579341,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/a4eaf1d96f7535381a443230221eb2e54e17c26b"
+    },
+    {
+      "path": "notebooks/Melody_cnn_ismir2015.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3904d4bb9e83ec0d80a962df17e2542032021330",
+      "size": 3299685,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/3904d4bb9e83ec0d80a962df17e2542032021330"
+    },
+    {
+      "path": "notebooks/Melody_mel2cnn_outputs.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d12924d627c77f8ad12f326fb102a75b92f9bf74",
+      "size": 1822393,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/d12924d627c77f8ad12f326fb102a75b92f9bf74"
+    },
+    {
+      "path": "notebooks/Melody_results_plots.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ed73ec126f14e8654820e47bea312af08fe0dc9b",
+      "size": 241768,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/ed73ec126f14e8654820e47bea312af08fe0dc9b"
+    },
+    {
+      "path": "notebooks/Melody_salamon_ismir2015.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d52aa63686b2f29688772e13a3dc14aa8dc5a568",
+      "size": 1567757,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/d52aa63686b2f29688772e13a3dc14aa8dc5a568"
+    },
+    {
+      "path": "notebooks/Multif0 Results Plots.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "dd7a2cf333b3617ed5386c1a9788f4930a10475f",
+      "size": 164536,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/dd7a2cf333b3617ed5386c1a9788f4930a10475f"
+    },
+    {
+      "path": "notebooks/Multif0_output_plots.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d21990e464d58f1bbbe16f256167e8770844f5f1",
+      "size": 163924,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/d21990e464d58f1bbbe16f256167e8770844f5f1"
+    },
+    {
+      "path": "notebooks/Piano_no_piano_eval.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "823f868b9ccb1191c7105ba73f755bc299278699",
+      "size": 23022,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/823f868b9ccb1191c7105ba73f755bc299278699"
+    },
+    {
+      "path": "notebooks/Results Plots.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "07d7783cc4b8d2e1adc1560e3f472176d5a048dc",
+      "size": 164267,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/07d7783cc4b8d2e1adc1560e3f472176d5a048dc"
+    },
+    {
+      "path": "notebooks/Run Feature Computation.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "081a751301bd697b01796e4a5a2e4dcade4f8f4c",
+      "size": 188873,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/081a751301bd697b01796e4a5a2e4dcade4f8f4c"
+    },
+    {
+      "path": "notebooks/Run_Experiment_Scripts.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "edf803a9bf33ccd7958187115f5a3952d3998618",
+      "size": 11947,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/edf803a9bf33ccd7958187115f5a3952d3998618"
+    },
+    {
+      "path": "notebooks/Salamon_contourclf_mel2_scores.csv",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "151e607e0a5a7abb1aaaac4e4fe8aa137f1469c6",
+      "size": 2099,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/151e607e0a5a7abb1aaaac4e4fe8aa137f1469c6"
+    },
+    {
+      "path": "notebooks/Salience Metrics.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "170c28b3aef26e8e9db391ad4fdab21adff39251",
+      "size": 30010,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/170c28b3aef26e8e9db391ad4fdab21adff39251"
+    },
+    {
+      "path": "notebooks/Score Multif0 Comparison Algorithms.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ad7431e10b0b0b8eea44e0730d886b0896f06529",
+      "size": 126770,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/ad7431e10b0b0b8eea44e0730d886b0896f06529"
+    },
+    {
+      "path": "notebooks/Split npz files.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0f90a832744c3d34c6c700a62e2a9b17f2b4ca06",
+      "size": 42742,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/0f90a832744c3d34c6c700a62e2a9b17f2b4ca06"
+    },
+    {
+      "path": "notebooks/Stabilize_training.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "519f0a42ca9a7f34b64a5edf9f9274f58c85b5fa",
+      "size": 186456,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/519f0a42ca9a7f34b64a5edf9f9274f58c85b5fa"
+    },
+    {
+      "path": "notebooks/Synthesize_melodies.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "eaea4ef1d57186305d0b1fc42c2c211c8c56c7f6",
+      "size": 2145,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/eaea4ef1d57186305d0b1fc42c2c211c8c56c7f6"
+    },
+    {
+      "path": "notebooks/Tracking Progress.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "45347c924f28f0ed2083aea063f4cbc341b4ade9",
+      "size": 47552,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/45347c924f28f0ed2083aea063f4cbc341b4ade9"
+    },
+    {
+      "path": "notebooks/create_training_data.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f9d1611ddfa8168aeafa60116c8734754efb54f5",
+      "size": 14325,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/f9d1611ddfa8168aeafa60116c8734754efb54f5"
+    },
+    {
+      "path": "notebooks/deepsal_mel1_coverage_test.csv",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "de43db66ca6395b1569d211db125194e2c509e8f",
+      "size": 6007,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/de43db66ca6395b1569d211db125194e2c509e8f"
+    },
+    {
+      "path": "notebooks/deepsal_mel2_coverage_test.csv",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5419bcfe2bc82fdefb25acba34e1665a9d68daf0",
+      "size": 6012,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/5419bcfe2bc82fdefb25acba34e1665a9d68daf0"
+    },
+    {
+      "path": "notebooks/deepsal_mel3_coverage_test.csv",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bcc18e8d65ef65c5dc331ea6d6f8bbb20a393ade",
+      "size": 6000,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/bcc18e8d65ef65c5dc331ea6d6f8bbb20a393ade"
+    },
+    {
+      "path": "notebooks/hcqt-harmonics-2.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "caeefe4463e45f052fa36b29e163b10c2978ef46",
+      "size": 5104160,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/caeefe4463e45f052fa36b29e163b10c2978ef46"
+    },
+    {
+      "path": "notebooks/hcqt-harmonics.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b001db429798e7496a64f8ba66aa0c15877d72df",
+      "size": 2661290,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/b001db429798e7496a64f8ba66aa0c15877d72df"
+    },
+    {
+      "path": "notebooks/juanjo_mdb_scores.csv",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "906594d948df3826017f90afc6f279ffb545ea3b",
+      "size": 2171,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/906594d948df3826017f90afc6f279ffb545ea3b"
+    },
+    {
+      "path": "notebooks/local_results.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b0eeff503d4457d58b529fd015b761a4ef0e5889",
+      "size": 10699,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/b0eeff503d4457d58b529fd015b761a4ef0e5889"
+    },
+    {
+      "path": "notebooks/mf0_complete_labels.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "87814c65567b5836dfa6bbcc273c4d3412c502f5",
+      "size": 16364,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/87814c65567b5836dfa6bbcc273c4d3412c502f5"
+    },
+    {
+      "path": "notebooks/model_weight_plots.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c2f44b8573a6fa4aa2e3667de4882b4f5effbed8",
+      "size": 3175895,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/c2f44b8573a6fa4aa2e3667de4882b4f5effbed8"
+    },
+    {
+      "path": "notebooks/salamon_mel1_coverage_test.csv",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "71f0e107e2a7ddd495dd83ab42abbaff441268f5",
+      "size": 6519,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/71f0e107e2a7ddd495dd83ab42abbaff441268f5"
+    },
+    {
+      "path": "notebooks/salamon_mel2_coverage_test.csv",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "13d99e3279ef37135c5603d8c5a659aaeed68354",
+      "size": 6519,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/13d99e3279ef37135c5603d8c5a659aaeed68354"
+    },
+    {
+      "path": "notebooks/salamon_mel3_coverage_test.csv",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "25d70820c1f9ed32f76936ca8932a730402bf729",
+      "size": 6528,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/25d70820c1f9ed32f76936ca8932a730402bf729"
+    },
+    {
+      "path": "notebooks/train_network.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d17d16ba0abd930059ef69522472ef23e6ee8c1e",
+      "size": 2563899,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/d17d16ba0abd930059ef69522472ef23e6ee8c1e"
+    },
+    {
+      "path": "outputs",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "fd23e31886a414ffe0a5726dd9406d07654f7e5e",
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/fd23e31886a414ffe0a5726dd9406d07654f7e5e"
+    },
+    {
+      "path": "outputs/CNNmel2_argmax_scores-2.csv",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a36c50b8ab26569e3a38bd14388b3328ff33a1f4",
+      "size": 2183,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/a36c50b8ab26569e3a38bd14388b3328ff33a1f4"
+    },
+    {
+      "path": "outputs/CNNmel2_argmax_scores.csv",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a36c50b8ab26569e3a38bd14388b3328ff33a1f4",
+      "size": 2183,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/a36c50b8ab26569e3a38bd14388b3328ff33a1f4"
+    },
+    {
+      "path": "outputs/VS01_Schumann.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c64906aef2432159f5ca25899f43f357a3607155",
+      "size": 61252,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/c64906aef2432159f5ca25899f43f357a3607155"
+    },
+    {
+      "path": "outputs/data_splits.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4f8285047f620269ce7db3daa1113d17248213cf",
+      "size": 6599,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/4f8285047f620269ce7db3daa1113d17248213cf"
+    },
+    {
+      "path": "outputs/validation_ids.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f52f1ba7122a1d7d261dec29acd95cdacc884c79",
+      "size": 226,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/f52f1ba7122a1d7d261dec29acd95cdacc884c79"
+    },
+    {
+      "path": "paper-figs",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "9a17220e09f790969eb5e55bf6c83819d3dc6d02",
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/9a17220e09f790969eb5e55bf6c83819d3dc6d02"
+    },
+    {
+      "path": "paper-figs/05_DieNacht_mf0_comparison.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cbc6b73cd9c08f9c434823372c270bb6bf69a289",
+      "size": 115887,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/cbc6b73cd9c08f9c434823372c270bb6bf69a289"
+    },
+    {
+      "path": "paper-figs/CelestialShore_DieForUs_mf0_comparison.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "db12d570f9010fb3ad998ee25a4dc44f2a11668d",
+      "size": 283367,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/db12d570f9010fb3ad998ee25a4dc44f2a11668d"
+    },
+    {
+      "path": "paper-figs/CelestialShore_output.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2a8d61e877bef900ba7b2393d1d5836d1d0f6963",
+      "size": 133219,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/2a8d61e877bef900ba7b2393d1d5836d1d0f6963"
+    },
+    {
+      "path": "paper-figs/ISMIR_CNN_diagram.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5b7178d184644a7872b9649c27cc26055957ac64",
+      "size": 34162,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/5b7178d184644a7872b9649c27cc26055957ac64"
+    },
+    {
+      "path": "paper-figs/MatthewEntwistle_ImpressionsOfSaturn_mf0_comparison.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d92abff44263120a63440e69c4d133d857b09747",
+      "size": 719403,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/d92abff44263120a63440e69c4d133d857b09747"
+    },
+    {
+      "path": "paper-figs/Multif0_accuracy.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4c667ed20c6f2e0b6a7fb2048f5b1659f763bd7f",
+      "size": 27977,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/4c667ed20c6f2e0b6a7fb2048f5b1659f763bd7f"
+    },
+    {
+      "path": "paper-figs/Multif0_accuracy2.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d2db739d9da3aa21b61f66177de9ab1670f2e63e",
+      "size": 41020,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/d2db739d9da3aa21b61f66177de9ab1670f2e63e"
+    },
+    {
+      "path": "paper-figs/MusicDelta_FusionJazz_mf0_comparison.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f2d953d7d6f94fc02320ad9b1543a6951a3b641e",
+      "size": 428985,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/f2d953d7d6f94fc02320ad9b1543a6951a3b641e"
+    },
+    {
+      "path": "paper-figs/MusicDelta_SwingJazz_mf0_comparison.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5a3e6a321b6fd7decc4fde7c74303dc62faa7d61",
+      "size": 267583,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/5a3e6a321b6fd7decc4fde7c74303dc62faa7d61"
+    },
+    {
+      "path": "paper-figs/PQ02_Elgar_mf0_comparison.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "96b1c8ebda3eae10862bd31a9c1309e961123c53",
+      "size": 40038,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/96b1c8ebda3eae10862bd31a9c1309e961123c53"
+    },
+    {
+      "path": "paper-figs/SQ01_Beethoven_mf0_comparison.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4181d8ea1dbd4d09e4e1f60750c6c4c2071894ad",
+      "size": 142572,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/4181d8ea1dbd4d09e4e1f60750c6c4c2071894ad"
+    },
+    {
+      "path": "paper-figs/Su_VS01_output.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "280878dae2db03ad30cce5d6fcf0c876ac142301",
+      "size": 154356,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/280878dae2db03ad30cce5d6fcf0c876ac142301"
+    },
+    {
+      "path": "paper-figs/Su_VS01_output_grey.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "adf5ccc5da747e2977bbc034eced2fcd68071a90",
+      "size": 120033,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/adf5ccc5da747e2977bbc034eced2fcd68071a90"
+    },
+    {
+      "path": "paper-figs/Su_VS01_output_horizontal.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "342f45f3d3d93deac4010f884d9e68f96d280b3c",
+      "size": 194443,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/342f45f3d3d93deac4010f884d9e68f96d280b3c"
+    },
+    {
+      "path": "paper-figs/Su_VS01_output_inverse.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d63e01a40a19f1dd0a512d98fc3100785bb5276c",
+      "size": 169532,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/d63e01a40a19f1dd0a512d98fc3100785bb5276c"
+    },
+    {
+      "path": "paper-figs/all_melody_scores.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e204526230e27368b7c9ec995c2851d1b80c443c",
+      "size": 23553,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/e204526230e27368b7c9ec995c2851d1b80c443c"
+    },
+    {
+      "path": "paper-figs/bach10_threshsweep.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f896521a2971e929b9106a38e1c4f325213b2889",
+      "size": 10670,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/f896521a2971e929b9106a38e1c4f325213b2889"
+    },
+    {
+      "path": "paper-figs/bendy1_activations.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "685d5b655aa89ae610b257bb97f129c30ec7e901",
+      "size": 382186,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/685d5b655aa89ae610b257bb97f129c30ec7e901"
+    },
+    {
+      "path": "paper-figs/bendy1_harmonic_0.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "246d6cbc91599e19b63de58b0f6c47b7be98296a",
+      "size": 408860,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/246d6cbc91599e19b63de58b0f6c47b7be98296a"
+    },
+    {
+      "path": "paper-figs/bendy1_harmonic_1.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b90fdd92aa3247bef9c4d202f2057250e0a3329c",
+      "size": 67983,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/b90fdd92aa3247bef9c4d202f2057250e0a3329c"
+    },
+    {
+      "path": "paper-figs/bendy1_harmonic_2.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "57f7da0ea350d4e63f43593ea1fad9b492966329",
+      "size": 68022,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/57f7da0ea350d4e63f43593ea1fad9b492966329"
+    },
+    {
+      "path": "paper-figs/bendy1_harmonic_3.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e2715a4310ea50e7cc76e5194a13e8e125241601",
+      "size": 68029,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/e2715a4310ea50e7cc76e5194a13e8e125241601"
+    },
+    {
+      "path": "paper-figs/bendy1_harmonic_4.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "44708707b79e68eca937d46836e5d292fa5500dd",
+      "size": 68122,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/44708707b79e68eca937d46836e5d292fa5500dd"
+    },
+    {
+      "path": "paper-figs/bendy1_harmonic_5.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6e2d4ca8155c4add92b00927afafe90afa9fefaf",
+      "size": 67984,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/6e2d4ca8155c4add92b00927afafe90afa9fefaf"
+    },
+    {
+      "path": "paper-figs/bendy2_layer0.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4e4415d0b4b7feac08eadbf1441c0d32abce00cc",
+      "size": 31443,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/4e4415d0b4b7feac08eadbf1441c0d32abce00cc"
+    },
+    {
+      "path": "paper-figs/distr_activations_lab.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "de7cc04c9343dcc9235f254443c081ab989f97b1",
+      "size": 331710,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/de7cc04c9343dcc9235f254443c081ab989f97b1"
+    },
+    {
+      "path": "paper-figs/hcqt_figparts.png",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f0013afcfb217b913f42d7fbdd2a5da0c42d7121",
+      "size": 924399,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/f0013afcfb217b913f42d7fbdd2a5da0c42d7121"
+    },
+    {
+      "path": "paper-figs/mel_qualatative.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "340e0fbddd7bde2ba94327a113d2191d54931053",
+      "size": 45105,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/340e0fbddd7bde2ba94327a113d2191d54931053"
+    },
+    {
+      "path": "paper-figs/multif0_trackdiffs.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d95950cf7c9a2d7b0bf2bad208c4da757229fcb5",
+      "size": 17674,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/d95950cf7c9a2d7b0bf2bad208c4da757229fcb5"
+    },
+    {
+      "path": "paper-figs/smoothy2_activations.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6163221b34187540a1e945dffd33090036a84b84",
+      "size": 301492,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/6163221b34187540a1e945dffd33090036a84b84"
+    },
+    {
+      "path": "paper-figs/weights_octave.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "cbc3d4793d5c8cd96a73ac11dbd11c0da61fe851",
+      "size": 11388,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/cbc3d4793d5c8cd96a73ac11dbd11c0da61fe851"
+    },
+    {
+      "path": "paper-figs/weights_octave_filt2.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "263cfdccede20b89e3700303cf8133cc45b1fa0b",
+      "size": 42558,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/263cfdccede20b89e3700303cf8133cc45b1fa0b"
+    },
+    {
+      "path": "paper-figs/weights_octave_filt4.pdf",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a5822550b38dc89708b987fa1da998725c575060",
+      "size": 42773,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/a5822550b38dc89708b987fa1da998725c575060"
+    },
+    {
+      "path": "predict",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "0fe6323649a37f8416370361987d5ae0973f094a",
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/0fe6323649a37f8416370361987d5ae0973f094a"
+    },
+    {
+      "path": "predict/create_predict_saliency_cmds.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "07286310f5db29b6db6bfa777ac5487120a120ba",
+      "size": 3704,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/07286310f5db29b6db6bfa777ac5487120a120ba"
+    },
+    {
+      "path": "predict/postprocess_saliency.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1e9be8fd00619d9393e4b22401fb85a8d87ea387",
+      "size": 4039,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/1e9be8fd00619d9393e4b22401fb85a8d87ea387"
+    },
+    {
+      "path": "predict/predict_on_audio.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "14da2f828b248b9e2829493ef86e61e2487a8cd4",
+      "size": 16003,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/14da2f828b248b9e2829493ef86e61e2487a8cd4"
+    },
+    {
+      "path": "predict/predict_saliency.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "155ddcfbc902298b783fc583d6ad7a2f3ebf460c",
+      "size": 3303,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/155ddcfbc902298b783fc583d6ad7a2f3ebf460c"
+    },
+    {
+      "path": "predict/saliency_cosine_sim.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ff423ba7d8a1a5a5930017bc7796ea418e590bb9",
+      "size": 3624,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/ff423ba7d8a1a5a5930017bc7796ea418e590bb9"
+    },
+    {
+      "path": "predict/saliency_cosine_sim_create_sbatch_script.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9a131145efe34682a963510fa4d13f946ead8957",
+      "size": 2164,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/9a131145efe34682a963510fa4d13f946ead8957"
+    },
+    {
+      "path": "predict/saliency_cosine_sim_summary.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e5071bdf30bfa190fa10499be4b95a8da19bd457",
+      "size": 1085,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/e5071bdf30bfa190fa10499be4b95a8da19bd457"
+    },
+    {
+      "path": "predict/segment_saliency_dataset.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c2f6ad87be998e27a91ac20c00c267881a03e183",
+      "size": 4263,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/c2f6ad87be998e27a91ac20c00c267881a03e183"
+    },
+    {
+      "path": "predict/test_segment_saliency_dataset.ipynb",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ade9f323e19675b9d3ef2531d55054612f1286aa",
+      "size": 895947,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/ade9f323e19675b9d3ef2531d55054612f1286aa"
+    },
+    {
+      "path": "predict/weights",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "9430b502c1241c8a884b3047963f756af0cbfaa1",
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/9430b502c1241c8a884b3047963f756af0cbfaa1"
+    },
+    {
+      "path": "predict/weights/bass.h5",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "09fce593d59b1275a193f1dd26052e437d3e9d72",
+      "size": 1674736,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/09fce593d59b1275a193f1dd26052e437d3e9d72"
+    },
+    {
+      "path": "predict/weights/melody1.h5",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c851748962ac3ddea417bc5cf085f11719125327",
+      "size": 1674736,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/c851748962ac3ddea417bc5cf085f11719125327"
+    },
+    {
+      "path": "predict/weights/melody2.h5",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "90cdf48b35f1629e10a077ec0222ea91058db7ce",
+      "size": 1674464,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/90cdf48b35f1629e10a077ec0222ea91058db7ce"
+    },
+    {
+      "path": "predict/weights/melody3.h5",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ae1bc255d5c757f24a5f1a01421e6f16163cd5dd",
+      "size": 1674816,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/ae1bc255d5c757f24a5f1a01421e6f16163cd5dd"
+    },
+    {
+      "path": "predict/weights/multif0.h5",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "993d68cdb865e7417b043b371a79bd0e1554f585",
+      "size": 1674736,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/993d68cdb865e7417b043b371a79bd0e1554f585"
+    },
+    {
+      "path": "predict/weights/pitch.h5",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7501254fe00d6ee16a2998a0e973e725c9822dc5",
+      "size": 1674816,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/7501254fe00d6ee16a2998a0e973e725c9822dc5"
+    },
+    {
+      "path": "predict/weights/vocal.h5",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "91ab604585bbc972a333a720550349f271bc7079",
+      "size": 1674816,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/91ab604585bbc972a333a720550349f271bc7079"
+    },
+    {
+      "path": "replicate.yaml",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "abd154791ec81c35d80f1ae1382b131fd289506c",
+      "size": 503,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/abd154791ec81c35d80f1ae1382b131fd289506c"
+    },
+    {
+      "path": "requirements.txt",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "51d075d32fb62040e78d291c00665daafbb5e211",
+      "size": 199,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/51d075d32fb62040e78d291c00665daafbb5e211"
+    },
+    {
+      "path": "tests",
+      "mode": "040000",
+      "type": "tree",
+      "sha": "2105af0db215e93122d6a4865c6ebeaaa0fea1fc",
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/trees/2105af0db215e93122d6a4865c6ebeaaa0fea1fc"
+    },
+    {
+      "path": "tests/__init__.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "size": 0,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+    },
+    {
+      "path": "tests/test_core.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "94629fdb110dd8487f13df6263b2e80bd130f294",
+      "size": 5664,
+      "url": "https://api.github.com/repos/lonzi/ismir2017-deepsalience/git/blobs/94629fdb110dd8487f13df6263b2e80bd130f294"
+    }
+  ],
+  "truncated": false
+}

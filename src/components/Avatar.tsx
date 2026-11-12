@@ -1,23 +1,33 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { BLINK, EMOTION_MAP } from "../core/avatar";
 import type { Layer, Vowel } from "../core/avatar";
 import { useLipSync } from "../core/useLipSync";
+import {PORTRAIT_REACTIONS, PORTRAIT_ZONES, type PortraitInteraction} from "../core/portraitInteractions";
 import type { Speech } from "../core/useLipSync";
 
 interface Props {
-  voiceMouth?:Vowel|null;
+  voiceMouth?:Vowel|null|"idle";
   layers: Layer[];
   emotion: string;
   speech: Speech | null;
   view: { scale: number; y: number };
   onWheelZoom: (deltaY: number) => void;
+  onInteract?: (action: PortraitInteraction) => void;
 }
 
 /** The living paper doll: stacked PNG layers + blinking + lip sync + idle bob + zoomable view. */
-export default function Avatar({ layers, emotion, speech, voiceMouth, view, onWheelZoom }: Props) {
+export default function Avatar({ layers, emotion, speech, voiceMouth, view, onWheelZoom, onInteract }: Props) {
   const [blink, setBlink] = useState<"open" | "half" | "closed">("open");
   const [ratio, setRatio] = useState(0.66);
+  const pendingClick = useRef<number | undefined>(undefined);
+  const interact = useRef(onInteract);
+  interact.current = onInteract;
+  function cancelClick() {
+    window.clearTimeout(pendingClick.current);
+    pendingClick.current = undefined;
+  }
+  useEffect(() => cancelClick, []);
   const vowel = useLipSync(voiceMouth===undefined?speech:null);
 
   // Match the display box to the canvas shape so zooming lines up with the picture.
@@ -54,7 +64,7 @@ export default function Avatar({ layers, emotion, speech, voiceMouth, view, onWh
 
   const look = EMOTION_MAP[emotion] ?? EMOTION_MAP.neutral;
   const activeEyes = blink === "closed" ? BLINK.closed : blink === "half" ? BLINK.half : look.eyes;
-  const activeMouth = voiceMouth===undefined ? (vowel ? `mouth_${vowel}` : look.mouth) : (voiceMouth ? `mouth_${voiceMouth}` : look.mouth);
+  const activeMouth = voiceMouth===undefined ? (vowel ? `mouth_${vowel}` : look.mouth) : (voiceMouth === "idle" ? look.mouth : voiceMouth ? `mouth_${voiceMouth}` : "mouth_neutral");
 
   const fitStyle = { "--ratio": ratio } as CSSProperties;
   const zoomStyle = { "--vs": view.scale, "--vy": `${view.y}%` } as CSSProperties;
@@ -70,6 +80,23 @@ export default function Avatar({ layers, emotion, speech, voiceMouth, view, onWh
               // Eyes and mouths are all kept in the page and faded in/out, so swapping never flickers.
               return <img key={l.key} src={l.url} alt="" draggable={false} style={{ opacity: on ? 1 : 0 }} />;
             })}
+            {onInteract && PORTRAIT_ZONES.map(({id, left, top, width, height}) => (
+              <button
+                key={id + left}
+                type="button"
+                className="portrait-hotspot"
+                tabIndex={-1}
+                aria-label={PORTRAIT_REACTIONS[id].label}
+                title={PORTRAIT_REACTIONS[id].label}
+                style={{left: left + '%', top: top + '%', width: width + '%', height: height + '%'}}
+                onClick={event => {
+                  cancelClick();
+                  if (event.detail === 0) interact.current?.(id);
+                  else if (event.detail === 1) pendingClick.current = window.setTimeout(() => interact.current?.(id), 280);
+                }}
+                onDoubleClick={() => { cancelClick(); interact.current?.('surprise'); }}
+              />
+            ))}
           </div>
         </div>
       </div>

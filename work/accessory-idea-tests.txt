@@ -1,0 +1,14 @@
+✔ accessory cleanup removes connected gray shadow and preserves colored object and enclosed light detail (6.3728ms)
+✔ rejects accessory sheets and clipped objects instead of silently fitting them (6.6106ms)
+✔ removes detached specks and rejects empty or nonwhite backgrounds (7.674ms)
+✔ temple placement scales to head width, preserves aspect and mirrors sides (0.2764ms)
+✔ custom accessory prompts retain free descriptions and bound input before generation (0.1827ms)
+✔ Mana ideas are validated JSON, not preset choices or unparsed chat replies (0.3969ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 271.3803

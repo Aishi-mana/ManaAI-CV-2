@@ -1,5 +1,14 @@
 # Songs and the short song pool
 
+## User test update — 2026-11-07
+
+Genre changing failed the user’s three-song test: very poor quality and added windy noises. Earlier pipeline success is not musical acceptance. Hands-free is closed and removed from the pending list at the user’s request. This update changes documentation only; no code, saved audio, models or settings were altered. See [current status](CURRENT_STATUS.md).
+
+<!-- current-status-2026-11-06 -->
+## Current status — 2026-11-06
+
+Current covers separate lead vocal/backing, convert with the selected trained Mana/Mousey RVC model or reference Seed-VC route, then remix; original backing defaults to 100% for new forms. Optional genres restyle only the accompaniment. Create Cover previews require explicit Save. Whisper is amplitude-endpointed (about 1.2-second pause, eight-second no-speech stop, 15-second turn cap); hints no longer include song titles or example greetings. Successive hands-free turns were user-confirmed; silent hallucination and dropped song-command words remain retests. See [CURRENT_STATUS.md](CURRENT_STATUS.md); older single-route/default-reference notes below are historical.
+
 ## Song vocabulary hints for microphone recognition — 2026-10-18
 
 User screenshots show repeated sing→Xing/Singh/Shing/Sin and Trails→Rails misrecognition; correctly recognized Sing Sora successfully plays configured song. Whisper previously received only character/user names. Added recognitionPrompt vocabulary context with sing/hum and current enabled Chat clip titles/aliases, prioritizing aliases per entry, deduplicating and bounding whole prompt to 440 UTF-8 bytes under native 500-byte cap. useWhisper receives live vocabulary via ref; regular transcript text remains unchanged, with no forced spelling replacements or fuzzy song playback. This may improve decoding but actual microphone accuracy needs user retest. No larger model, download, synthetic generation or extra recognition pass. Frontend/native builds and 10 focused recognition/noise/cancellation/parser checks passed, including multilingual byte bounds. Repeated-reply errors in screenshots are downstream chat failures after misrecognized commands, not evidence of microphone failure cause. Chat UI polish is visible in screenshots; no further layout request.

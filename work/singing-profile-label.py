@@ -1,0 +1,8 @@
+from pathlib import Path
+p=Path('src/core/musicStudio.ts');s=p.read_text(encoding='utf-8-sig');s+='''
+export function singingVoiceLabel(reference:string):string{const file=reference.replace(/\\\\/g,'/').split('/').pop()?.toLowerCase();return file==='singing-stable-v1.wav'?'Stable Mana voice v1':file==='singing.wav'?'Earlier singing reference':file==='default-r2.wav'?'Mana chat reference':reference?'Custom voice reference':'Not recorded';}
+''';p.write_text(s,encoding='utf-8')
+p=Path('src/components/SingingDrawer.tsx');s=p.read_text(encoding='utf-8-sig').replace('import {SINGING_REFERENCE,','import {singingVoiceLabel,SINGING_REFERENCE,');s=s.replace('<summary>Song details & artwork</summary>', '<summary>Song details & artwork</summary>{selected.kind!==\'original\'&&<p className="hint-soft">Voice: {singingVoiceLabel(selected.settings.reference)}. Saved songs keep the voice used when they were made.</p>}');p.write_text(s,encoding='utf-8')
+p=Path('tests/foundation.test.cjs');s=p.read_text(encoding='utf-8-sig');s+='''
+test('singing uses a versioned approved reference without rewriting historical project references',()=>{const studio=loader()('src/core/musicStudio.ts');assert.ok(studio.SINGING_REFERENCE.endsWith('/singing-stable-v1.wav'));assert.equal(studio.singingVoiceLabel(studio.SINGING_REFERENCE),'Stable Mana voice v1');assert.equal(studio.singingVoiceLabel('C:\\\\refs\\\\singing.wav'),'Earlier singing reference');const old={id:'studio-legacy-voice',title:'Country Roads',createdAt:'2026-10-26T00:00:00Z',status:'ready',settings:{reference:'C:/refs/singing.wav'}};assert.equal(studio.validateStudio({projects:[old]}).projects[0].settings.reference,'C:/refs/singing.wav');});
+''';p.write_text(s,encoding='utf-8')

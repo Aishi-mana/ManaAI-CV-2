@@ -1,0 +1,15 @@
+✔ hair cleanup keeps silver hair instead of treating it as neutral background (8.5023ms)
+✔ front rejects a closed face ring, long face framing and skin rather than repairing them (21.027ms)
+✔ hair cleanup rejects multiple objects, clipped output and blank output (18.2214ms)
+✔ hair fitting preserves aspect ratio, crown alignment and independent front/back transforms (0.3339ms)
+✔ enclosed pale strand highlights remain opaque (7.4987ms)
+✔ hair rejects repeated crown-like top spikes instead of fitting headgear (7.9805ms)
+✔ long fringe is uniformly height-bounded rather than stretched across the face (0.1835ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 317.8236

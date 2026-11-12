@@ -11,6 +11,8 @@ mod conversation_export;
 mod game_export;
 mod image_generation;
 mod outfit_prototype;
+mod generated_outfits;
+mod wearable_reviews;
 mod gallery;
 mod speech;
 mod dictation;
@@ -19,6 +21,8 @@ mod lyrics;
 mod vision;
 mod custom_voice;
 mod singing;
+mod memory_embeddings;
+mod web_search;
 
 #[tauri::command]
 fn export_conversation(content: String) -> Result<String, String> {
@@ -77,12 +81,13 @@ fn save_store(
     )
 }
 
-/// Holds the llama-server child process (if we started one).
+const BACKUP_MAX_BYTES: usize = 256_000_000;
+
 #[tauri::command]
 fn write_backup_file(path: String, content: String) -> Result<(), String> {
     use std::io::Write;
-    if content.len() > 20_000_000 {
-        return Err("Backup exceeds 20 MB".into());
+    if content.len() > BACKUP_MAX_BYTES {
+        return Err("Backup exceeds 256 MB".into());
     }
     let value: serde_json::Value = serde_json::from_str(&content).map_err(|e| e.to_string())?;
     if value["format"] != "mana-backup" || value["version"] != 1 {
@@ -102,14 +107,52 @@ fn write_backup_file(path: String, content: String) -> Result<(), String> {
 fn read_backup_file(path: String) -> Result<String, String> {
     use std::io::Read;
     let file = File::open(path).map_err(|e| e.to_string())?;
+    if file.metadata().map_err(|e| e.to_string())?.len() > BACKUP_MAX_BYTES as u64 {
+        return Err("Backup exceeds 256 MB".into());
+    }
     let mut content = String::new();
-    file.take(20_000_001)
+    file.take(BACKUP_MAX_BYTES as u64 + 1)
         .read_to_string(&mut content)
         .map_err(|e| e.to_string())?;
-    if content.len() > 20_000_000 {
-        return Err("Backup exceeds 20 MB".into());
+    if content.len() > BACKUP_MAX_BYTES {
+        return Err("Backup exceeds 256 MB".into());
     }
     Ok(content)
+}
+
+#[tauri::command]
+async fn portable_backup(app: tauri::AppHandle, operation: String, path: String, content: Option<String>, model: Option<bool>, avatars: Option<bool>, vision: Option<bool>, runtime: Option<bool>, developer: Option<bool>, whisper: Option<bool>, checksum: Option<String>) -> Result<serde_json::Value, String> {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+    if !matches!(operation.as_str(), "export"|"inspect"|"restore")
+        || !std::path::Path::new(&path).extension().and_then(|v|v.to_str()).is_some_and(|v|v.eq_ignore_ascii_case("zip"))
+        || content.as_ref().is_some_and(|value|value.len()>BACKUP_MAX_BYTES)
+    {
+        return Err("Choose a Mana portable ZIP backup under the metadata limit.".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let app_data=app.path().app_data_dir().map_err(|e|e.to_string())?;
+        let gallery=app_data.join("gallery");
+        let exe=std::env::current_exe().map_err(|e|e.to_string())?;
+        let conventional=Path::new(r"C:\AI\ManaAI-CV-2");
+        let workspace=exe.ancestors()
+            .find(|dir|dir.join("src-tauri/tauri.conf.json").is_file()&&dir.join("scripts/portable_backup.py").is_file())
+            .or_else(||conventional.is_dir().then_some(conventional))
+            .unwrap_or(&app_data);
+        let script=app.path().resolve("scripts/portable_backup.py",tauri::path::BaseDirectory::Resource)
+            .ok().filter(|p|p.is_file()).unwrap_or_else(||workspace.join("scripts/portable_backup.py"));
+        let python=workspace.join("data/music-tools/Scripts/python.exe");
+        let mut command=Command::new(if python.is_file(){python}else{PathBuf::from("python.exe")});
+        command.arg(script).arg(operation).arg(path).arg(workspace).arg(gallery)
+            .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
+        #[cfg(windows)] { use std::os::windows::process::CommandExt; command.creation_flags(0x08000000); }
+        let mut worker=command.spawn().map_err(|e|format!("Could not start Mana's local backup helper: {e}"))?;
+        let request=serde_json::to_vec(&serde_json::json!({"content":content,"model":model.unwrap_or(false),"avatars":avatars.unwrap_or(false),"vision":vision.unwrap_or(false),"runtime":runtime.unwrap_or(false),"developer":developer.unwrap_or(false),"whisper":whisper.unwrap_or(false),"checksum":checksum})).map_err(|e|e.to_string())?;
+        worker.stdin.take().ok_or("Cannot open backup helper input.")?.write_all(&request).map_err(|e|e.to_string())?;
+        let output=worker.wait_with_output().map_err(|e|e.to_string())?;
+        if !output.status.success(){return Err(String::from_utf8_lossy(&output.stderr).trim().to_owned());}
+        serde_json::from_slice(&output.stdout).map_err(|e|e.to_string())
+    }).await.map_err(|e|e.to_string())?
 }
 
 #[tauri::command]
@@ -177,7 +220,7 @@ fn list_safety_backups(app: tauri::AppHandle) -> Result<Vec<String>, String> {
 
 #[cfg(test)]
 mod backup_file_tests {
-    use super::{read_backup_file, restore_with_safety, store, write_backup_file};
+    use super::{read_backup_file, restore_with_safety, store, write_backup_file, BACKUP_MAX_BYTES};
     struct Temp(std::path::PathBuf);
     impl Drop for Temp {
         fn drop(&mut self) {
@@ -198,7 +241,7 @@ mod backup_file_tests {
     fn backup_files_roundtrip_without_overwriting_existing_content() {
         let dir = temp();
         let path = dir.0.join("copy.json").to_string_lossy().into_owned();
-        let content = r#"{"format":"mana-backup","version":1,"data":{"message":"你好"}}"#;
+        let content = r#"{"format":"mana-backup","version":1,"data":{"message":"ä½ å¥½"}}"#;
         write_backup_file(path.clone(), content.into()).unwrap();
         assert_eq!(read_backup_file(path.clone()).unwrap(), content);
         assert!(write_backup_file(
@@ -209,12 +252,21 @@ mod backup_file_tests {
         assert_eq!(read_backup_file(path).unwrap(), content);
     }
     #[test]
+    fn large_backup_passes_the_native_file_boundary() {
+        let dir = temp();
+        let path = dir.0.join("large.json").to_string_lossy().into_owned();
+        let payload = serde_json::json!({"format":"mana-backup","version":1,"data":{"artwork":"A".repeat(21_000_000)}}).to_string();
+        write_backup_file(path.clone(), payload.clone()).unwrap();
+        assert_eq!(read_backup_file(path).unwrap(),payload);
+    }
+
+    #[test]
     fn malformed_and_oversize_files_are_rejected() {
         let dir = temp();
         let path = dir.0.join("bad.json").to_string_lossy().into_owned();
         assert!(write_backup_file(path.clone(), "invalid".into()).is_err());
         assert!(!std::path::Path::new(&path).exists());
-        std::fs::write(&path, "x".repeat(20_000_001)).unwrap();
+        std::fs::File::create(&path).unwrap().set_len(BACKUP_MAX_BYTES as u64 + 1).unwrap();
         assert!(read_backup_file(path).is_err());
     }
     #[test]
@@ -369,7 +421,7 @@ fn llama_log_tail() -> String {
 async fn scan_avatar(app: tauri::AppHandle, dir: String) -> Result<Vec<String>, String> {
     let mut files=avatar_files::scan(&avatar_dir(&app,&dir)?)?;
     let library=outfit_prototype::library_root(&app)?;
-    if library.is_dir(){files.extend(avatar_files::scan(&library)?.into_iter().filter(|p|p.starts_with("outfits/atelier_")&&p.ends_with("/outfit.png")));}
+    if library.is_dir(){files.extend(avatar_files::scan(&library)?.into_iter().filter(|p|outfit_prototype::imported_item(p)));}
     files.sort();files.dedup();Ok(files)
 }
 
@@ -390,7 +442,7 @@ async fn read_avatar_image(
     rel: String,
 ) -> Result<tauri::ipc::Response, String> {
     let library=outfit_prototype::library_root(&app)?;
-    let bytes=if rel.starts_with("outfits/atelier_")&&library.join(&rel).is_file(){avatar_files::read(&library,&rel)?}else{avatar_files::read(&avatar_dir(&app,&dir)?,&rel)?};
+    let bytes=if outfit_prototype::imported_item(&rel)&&library.join(&rel).is_file(){avatar_files::read(&library,&rel)?}else{avatar_files::read(&avatar_dir(&app,&dir)?,&rel)?};
     Ok(tauri::ipc::Response::new(bytes))
 }
 
@@ -399,6 +451,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(LlamaState::default())
+        .manage(memory_embeddings::MemoryEmbeddings::default())
         .manage(store::Store::default())
         .manage(speech::Speech::default())
         .manage(dictation::Dictation::default())
@@ -420,10 +473,44 @@ pub fn run() {
             gallery::gallery_preserve_legacy,
             image_generation::image_generation_discover,
             image_generation::image_generation_start,
+            image_generation::outfit_generation_start,
+            wearable_reviews::wearable_reviews_list,
+            wearable_reviews::wearable_reviews_manage,
+            wearable_reviews::wearable_reviews_save,
+            wearable_reviews::wearable_reviews_image,
+            wearable_reviews::wearable_reviews_open,
+            wearable_reviews::wearable_reviews_approve,
+            wearable_reviews::wearable_reviews_dismiss,
+            generated_outfits::generated_outfits_list,
+            generated_outfits::generated_outfits_idea_history,
+            generated_outfits::generated_outfits_image,
+            generated_outfits::generated_outfits_preview,
+            generated_outfits::generated_outfits_rename,
+            generated_outfits::generated_outfits_annotate,
+            generated_outfits::generated_outfits_duplicate,
+            generated_outfits::generated_outfits_refit,
+            generated_outfits::generated_outfits_submit,
+            generated_outfits::generated_outfits_approve,
+            generated_outfits::generated_outfits_update,
+            generated_outfits::generated_outfits_project,
+            generated_outfits::generated_outfits_recoverable,
+            generated_outfits::generated_outfits_recover,
+            generated_outfits::generated_outfits_dismiss,
+            generated_outfits::generated_outfits_mode,
+            generated_outfits::generated_outfits_schedule,
+            generated_outfits::wearable_creation_schedule,
+            generated_outfits::wearable_creation_claim,
+            generated_outfits::wearable_creation_result,
+            generated_outfits::generated_outfits_schedule_claim,
+            generated_outfits::generated_outfits_schedule_result,
             image_generation::image_generation_poll,
             image_generation::image_generation_result,
             outfit_prototype::outfit_prototype_export,
             outfit_prototype::outfit_wardrobe_save,
+            outfit_prototype::outfit_wardrobe_project,
+            outfit_prototype::atelier_item_save,
+            outfit_prototype::atelier_item_export,
+            outfit_prototype::atelier_project_export,
             image_generation::image_generation_stop,
             singing::singing_start,
             singing::singing_poll,
@@ -433,6 +520,7 @@ pub fn run() {
             singing::singing_library,
             singing::singing_excerpt,
             singing::singing_save_mix,
+            singing::singing_band_mix,
             singing::singing_export,
             singing::arrangement_start,
             singing::builder_notes_read,
@@ -465,6 +553,9 @@ pub fn run() {
             speech::speech_running,
             start_llama,
             stop_llama,
+            memory_embeddings::memory_embeddings,
+            web_search::search_web,
+            web_search::open_web_source,
             pause_llama_for_image,
             llama_running,
             llama_log_tail,
@@ -473,6 +564,7 @@ pub fn run() {
             initialize_store,
             save_store,
             write_backup_file,
+            portable_backup,
             export_conversation,
             export_diary,
             export_activity,
@@ -488,6 +580,7 @@ pub fn run() {
         .run(|app, event| {
             // Make sure llama-server never outlives the app.
             if let tauri::RunEvent::Exit = event {
+                if let Some(state)=app.try_state::<memory_embeddings::MemoryEmbeddings>(){state.stop();}
                 if let Some(state)=app.try_state::<image_generation::ImageGeneration>(){let _=image_generation::stop(&state);}
                 if let Some(state)=app.try_state::<singing::Singing>(){let _=singing::stop(&state);}
                 if let Some(state)=app.try_state::<custom_voice::CustomVoice>(){let _=custom_voice::stop_all(&state);}

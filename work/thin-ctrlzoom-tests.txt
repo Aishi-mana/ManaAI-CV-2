@@ -1,0 +1,10 @@
+✔ Atelier preview opacity and zoom leave the transparent outfit composite unchanged (380.5286ms)
+✔ mouse wheel zoom prevents page scrolling and anchors the image under the pointer (7.2905ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 611.418

@@ -1,0 +1,2 @@
+from pathlib import Path
+p=Path('scripts/image_job.py');s=p.read_text().replace("guide.alpha_composite(source.convert('RGBA'))","guide.alpha_composite(source.convert('RGBA'))\n                # The head is already absent from the clothing-only guide. A\n                # large visible head invited the editor to recenter the outfit\n                # upward after removing it. Keep that area as an explicit margin.\n                from PIL import ImageDraw\n                ImageDraw.Draw(guide).rectangle((0,0,guide.width,round(guide.height*.29)),fill='white')");p.write_text(s)

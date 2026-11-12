@@ -10,12 +10,12 @@ export function encodeWave(samples:Float32Array,sampleRate:number):number[]{if(!
 export function microphoneLevel(samples:Float32Array):number{let energy=0;for(const value of samples)if(Number.isFinite(value))energy+=value*value;const rms=Math.sqrt(energy/Math.max(1,samples.length));return rms<=0?0:Math.max(0,Math.min(1,(20*Math.log10(rms)+60)/60));}
 
 /** Whisper's context vocabulary is a hint, never a transcript replacement. Native limit is 500 UTF-8 bytes. */
-export function recognitionPrompt(names:string[],songs:string[]=[]):string{
+export function recognitionPrompt(names:string[],_songs:string[]=[]):string{
  const clean=(text:string)=>text.replace(/[\r\n\t\x00-\x1f]/g,' ').replace(/\s+/g,' ').trim();
  let prompt='Conversation';
  for(const name of names.slice(0,2)){const text=clean(name).slice(0,60);if(text&&new TextEncoder().encode(prompt+', '+text).length<=180)prompt+=', '+text;}
- prompt+='. Hi! Hello! Hey! Good morning. Good afternoon. Good evening. How are you? Sing, hum. Song names:';
- const seen=new Set<string>();
- for(const raw of songs){const text=clean(raw);if(!text||text.length>100||seen.has(text.toLowerCase()))continue;seen.add(text.toLowerCase());const next=prompt+' '+text+';';if(new TextEncoder().encode(next).length<=440)prompt=next;}
+ // Complete utterances and library titles can be echoed as invented speech
+ // on a quiet/noisy recording. Keep only the two proper-name spelling hints.
+ prompt+='.';
  return prompt;
 }

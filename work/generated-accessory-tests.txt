@@ -1,0 +1,12 @@
+✔ accessory cleanup removes connected gray shadow and preserves colored object and enclosed light detail (11.4378ms)
+✔ rejects accessory sheets and clipped objects instead of silently fitting them (12.9047ms)
+✔ removes detached specks and rejects empty or nonwhite backgrounds (13.0842ms)
+✔ temple placement scales to head width, preserves aspect and mirrors sides (0.3885ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 867.3248

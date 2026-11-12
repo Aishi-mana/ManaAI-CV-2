@@ -1,0 +1,32 @@
+✔ studio projects retain full-song metadata without admitting external media paths or duplicate imports (109.3297ms)
+✔ studio library roundtrips in existing initiative backups and older backups gain an empty library (390.224ms)
+✔ other server failures never trigger context recovery retries (36.4434ms)
+✔ rest and sleep recover faster up to targets without double counting elapsed time (15.9945ms)
+✔ sleep and rest persist toward recovery targets but stop at daytime or real work (20.666ms)
+✔ ready server is monitored for failure and recovery; settings retain the active port (20.3409ms)
+✔ studio mixing mutes individual stems, preserves duration and prevents clipping (17.033ms)
+✔ original song briefs validate limits and preserve prompts and seed through studio backups (33.644ms)
+✔ cover backups retain lead-only extraction and reference while old covers keep Demucs metadata (30.8107ms)
+✔ builder timeline aligns unequal tracks with delay, trim, mute and shared peak reduction (17.327ms)
+✔ builder tracks roundtrip through studio backups without unsafe files or duplicate vocals (32.0346ms)
+✔ builder retains multiple backing vocals separately from the unique lead (18.5646ms)
+✔ builder custom pitch and hold settings survive backups and reject invalid values (18.0161ms)
+✔ whole-song detected preview covers the entire source with contiguous bounded sections (25.017ms)
+✔ vocal melody stays a separate editable instrument track in builder backups (15.0657ms)
+✔ generated harmony retains quiet backing level and section offset in builder backup (15.4054ms)
+✔ backing section selections survive builder backup and invalid ranges stay silent (17.7938ms)
+✔ builder undo groups continuous changes, restores audio paths and branches after new edits (9.3311ms)
+✔ builder history covers removal, new draft and pending tuning without audio work, bounded to 50 edits (9.8051ms)
+✔ builder mixer accepts unconverted vocals and instrumental-only drafts while respecting silent lanes (5.918ms)
+✔ live builder playback plans preserve clips, offsets and source-local backing gates (18.328ms)
+✔ live builder playback resumes from the gesture, reuses buffers on seek and updates mute without rebuilding audio (16.5408ms)
+✔ disk gallery migration preserves IDs and recovery source, loads full bytes and deduplicates saves (33.1798ms)
+✔ singing uses a versioned approved reference without rewriting historical project references (25.3491ms)
+ℹ tests 24
+ℹ suites 0
+ℹ pass 24
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1195.3092

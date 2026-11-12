@@ -1,0 +1,16 @@
+   Compiling mana v0.1.0 (C:\AI\ManaAI-CV-2\src-tauri)
+warning: hard linking files in the incremental compilation cache failed. copying files instead. consider moving the cache directory to a file system which supports hard linking in session dir `\\?\C:\AI\ManaAI-CV-2\src-tauri\target\debug\incremental\mana_lib-274s82ph0e1td\s-hnl8ze2d1f-1qqobd9-working`
+
+warning: function `update_review` is never used
+  --> src\generated_outfits.rs:60:4
+   |
+60 | fn update_review(root:&Path,id:&str,bytes:&[u8],expected_revision:u32,name:&str)->Result<Design,String>{
+   |    ^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `mana` (lib) generated 2 warnings
+warning: hard linking files in the incremental compilation cache failed. copying files instead. consider moving the cache directory to a file system which supports hard linking in session dir `\\?\C:\AI\ManaAI-CV-2\src-tauri\target\debug\incremental\mana-02wux5hfrga83\s-hnl8zef6k0-0jpt9sp-working`
+
+warning: `mana` (bin "mana") generated 1 warning
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.54s

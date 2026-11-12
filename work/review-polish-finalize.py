@@ -1,0 +1,7 @@
+from pathlib import Path
+p=Path('src/components/OutfitPrototype.tsx');s=p.read_text(encoding='utf-8').replace("category+':'+Date.now()","category+':workspace'");s=s.replace(" const [draftStatus,setDraftStatus]=useState('');"," const [draftStatus,setDraftStatus]=useState('');\n const draftFlush=useRef<(()=>void)|undefined>(undefined);\n useEffect(()=>()=>draftFlush.current?.(),[]);")
+s=s.replace("const timer=window.setTimeout(()=>{try{const original", "const persist=()=>{try{const original",1).replace("before closing.');}},1200);\n  return()=>window.clearTimeout(timer);", "before closing.');}};draftFlush.current=persist;const timer=window.setTimeout(persist,1200);\n  const flush=()=>persist();window.addEventListener('pagehide',flush);\n  return()=>{window.clearTimeout(timer);window.removeEventListener('pagehide',flush);};",1)
+p.write_text(s,encoding='utf-8')
+p=Path('src/components/GeneratedOutfits.tsx');s=p.read_text(encoding='utf-8').replace("category:'outfit',project,reviewId:design.id","category:'outfit',project:{...project,name:title},reviewId:design.id");p.write_text(s,encoding='utf-8')
+p=Path('src/components/OutfitInspector.tsx');s=p.read_text(encoding='utf-8').replace(" const canvas", " const canvas")
+s=s.replace(" useEffect(()=>{let alive", " useEffect(()=>{const escape=(e:KeyboardEvent)=>{if(e.key==='Escape')onClose();};window.addEventListener('keydown',escape);return()=>window.removeEventListener('keydown',escape);},[onClose]);\n useEffect(()=>{let alive",1);p.write_text(s,encoding='utf-8')

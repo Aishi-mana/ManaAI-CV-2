@@ -1,0 +1,7 @@
+from pathlib import Path
+p=Path('tests/foundation.test.cjs');s=p.read_text(encoding='utf-8-sig')
+needle="const all=nodes(tree);const bodyCanvas=all.find(n=>n.type==='canvas'&&n.props.className?.includes('outfit-drag-preview'));"
+replacement="""const all=nodes(tree);assert.ok(all.filter(n=>n.props?.zoom!==undefined).every(n=>n.props.onZoom===undefined),'Wheel scrolls with the default editing tool');const zoomButton=all.find(n=>n.props?.['aria-label']==='Zoom view');assert.ok(zoomButton);zoomButton.props.onClick();assert.equal(updates[5],'zoom');states[5]='zoom';state=0;ref=0;const zoomTree=module.exports.default({assets:{},cfg:{},embedded:true,stage:'edit',onClose(){}});assert.ok(nodes(zoomTree).some(n=>n.props?.zoom!==undefined&&typeof n.props.onZoom==='function'),'Zoom tool enables anchored wheel zoom');states[5]='outline';const bodyCanvas=all.find(n=>n.type==='canvas'&&n.props.className?.includes('outfit-drag-preview'));"""
+assert needle in s;s=s.replace(needle,replacement,1);p.write_text(s,encoding='utf-8')
+for f in ['docs/ATELIER.md','docs/DEVLOG.md']:
+ p=Path(f);p.write_text(p.read_text(encoding='utf-8-sig')+'\nOctober 31 editor follow-up: Edit uses the remaining workspace height. Save edits to review is rendered in the shared footer beside Continue to save. Zoom view is an explicit toolbar tool; wheel scrolling remains native for other tools. With Zoom view active, wheel zoom preserves the point under the pointer. Existing zoom slider/buttons and Space/middle-button pan remain.\n',encoding='utf-8')

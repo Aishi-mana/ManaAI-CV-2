@@ -1,5 +1,9 @@
 # Mana
 
+## Current status — 2026-11-12
+
+Mana is in V1.x. The cover milestone is closed for the current scope, including source-guided band arrangements, preview mixing and the Edit Tracks handoff. See [current status and remaining work](docs/CURRENT_STATUS.md) and the [roadmap](docs/ROADMAP.md).
+
 Repository: [Aishi-mana/ManaAI-CV-2](https://github.com/Aishi-mana/ManaAI-CV-2.git)
 
 A local daughter-companion AI. Step 1: a chat window that launches `llama-server` and talks to your GGUF model.

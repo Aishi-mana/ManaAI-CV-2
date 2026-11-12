@@ -1,0 +1,9 @@
+services:
+  searxng:
+    image: ghcr.io/searxng/searxng:latest
+    pull_policy: never
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8879:8080"
+    volumes:
+      - ./settings.yml:/etc/searxng/settings.yml:ro

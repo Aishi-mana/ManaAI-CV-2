@@ -30,10 +30,12 @@ def run(p):
     style=p['style']
     from arrangement_replacement import EXTRA_PROGRAMS,DRUM_PROGRAMS,SEPARATE_VARIANTS,validate_custom
     extra_styles=['replace-guitar-'+name for name in [*EXTRA_PROGRAMS,*DRUM_PROGRAMS,*SEPARATE_VARIANTS]]
-    if style not in extra_styles+['sax-extract','piano-extract','keyboard-extract','electric-piano-extract','trumpet-extract','fine-stems','piano','gentle-piano','jazz','rock','review-stems','replace-guitar-sax','replace-guitar-piano','replace-guitar-electric-guitar','replace-guitar-electric-guitar-distorted']: raise ValueError('Choose a supported arrangement style.')
+    if style not in extra_styles+['sax-extract','piano-extract','keyboard-extract','electric-piano-extract','trumpet-extract','fine-stems','piano-trio','piano','gentle-piano','jazz','rock','pop','country','guitar-electric','review-stems','replace-guitar-sax','replace-guitar-piano','replace-guitar-electric-guitar','replace-guitar-electric-guitar-distorted']: raise ValueError('Choose a supported arrangement style.')
     custom=validate_custom(p.get('custom'))
     start=float(p['start']);length=float(p['seconds'])
-    if not np.isfinite(start) or start<0 or not 1<=length<=60: raise ValueError('Choose 1–60 seconds.')
+    band=style in ('rock','jazz','pop','country')
+    minimum,maximum=(8,360) if band else (1,60)
+    if not np.isfinite(start) or start<0 or not minimum<=length<=maximum: raise ValueError(f'Choose {minimum}–{maximum} seconds.')
     out=Path(p['output']).resolve();out.mkdir(parents=True,exist_ok=True)
     data_root=Path(p.get('data_root') or out.parents[2]).resolve()
     for path in [p['vocal'],p['instrumental']]:
@@ -61,7 +63,10 @@ def run(p):
         guitar,_=librosa.load(p['guitar'],sr=SR,offset=start,duration=length)
         sf.write(out/'guitar-guide.wav',guitar,SR,subtype='PCM_16')
         print('Rendering supplied notes without transcription…' if p.get('notes') is not None else 'Transcribing '+source_name+' and rendering sampled '+instrument+'…',flush=True)
-        if p.get('notes') is not None:
+        if p.get('notes') is not None and source_name=='guitar' and instrument=='electric-guitar':
+            from guitar_arrangement import render_source
+            sax,midi,notes=render_source(out/'guitar-guide.wav',size/SR,root,tone or 'clean',notes_override=p['notes'])
+        elif p.get('notes') is not None:
             from builder_notes import render_edited_notes
             sax,midi,notes=render_edited_notes(p['notes'],size/SR,root,style.removeprefix('replace-guitar-'))
         else:
@@ -80,9 +85,10 @@ def run(p):
         backing=others+sax;sf.write(out/'instrumental.wav',backing,SR,subtype='PCM_16');sf.write(out/'mana-vocal.wav',vocal,SR,subtype='PCM_16')
         mixed=vocal+backing*.3;mixed*=min(1,.95/max(float(np.max(np.abs(mixed))),.001));sf.write(out/'arrangement-mix.wav',mixed,SR,subtype='PCM_16')
         import shutil
-        attribution=root/('data/instrument-samples/'+('LiveHQNatural' if label=='sax-tenor' else 'SeparateLibraries' if p.get('bank')=='separate' else 'LiveHQNatural' if p.get('bank')=='livehq' else 'FluidR3_GM')+'/ATTRIBUTION.txt')
+        source_guitar=source_name=='guitar' and instrument=='electric-guitar'
+        attribution=root/('data/instrument-samples/'+('SeparateLibraries' if source_guitar else 'LiveHQNatural' if label=='sax-tenor' else 'SeparateLibraries' if p.get('bank')=='separate' else 'LiveHQNatural' if p.get('bank')=='livehq' else 'FluidR3_GM')+'/ATTRIBUTION.txt')
         if attribution.exists():shutil.copyfile(attribution,out/'INSTRUMENT_ATTRIBUTION.txt')
-        if label in ['guitar-bright-room','guitar-nam-warm','guitar-nam-rhythm','guitar-nam-lead']:
+        if label in ['guitar-bright-room','guitar-nam-warm','guitar-nam-rhythm','guitar-nam-lead'] or (source_guitar and tone=='distorted'):
             nam_credit=root/'data/nam/models/ATTRIBUTION.txt'
             if nam_credit.is_file():shutil.copyfile(nam_credit,out/'NAM_ATTRIBUTION.txt')
         midi.write(str(out/'guitar-transcription.mid'));(out/'notes.json').write_text(json.dumps(notes),encoding='utf-8')
@@ -153,6 +159,33 @@ def run(p):
         sf.write(out/'mana-vocal.wav',vocal,SR,subtype='PCM_16');sf.write(out/'instrumental.wav',original,SR,subtype='PCM_16')
         mixed=vocal+original*.3;mixed*=min(1,.95/max(float(np.max(np.abs(mixed))),.001));sf.write(out/'arrangement-mix.wav',mixed,SR,subtype='PCM_16')
         return dict(vocal=str(out/'mana-vocal.wav'),mix=str(out/'arrangement-mix.wav'),seconds=size/SR,stems=parts)
+    if style in ('rock','jazz','pop','country','guitar-electric'):
+        from piano_arrangement import balance
+        stereo,source_rate=sf.read(p['instrumental'],always_2d=True,dtype='float32')
+        stereo=stereo[round(start*source_rate):round((start+length)*source_rate)].T
+        if source_rate!=SR:stereo=librosa.resample(stereo,orig_sr=source_rate,target_sr=SR,axis=-1)
+        stereo=np.pad(stereo[:,:size],((0,0),(0,max(0,size-stereo.shape[1]))))
+        if stereo.shape[0]==1:stereo=np.repeat(stereo,2,axis=0)
+        if style=='guitar-electric':
+            from guitar_arrangement import arrange
+            backing,analysis=arrange(stereo,SR,data_root,out/'electric-guitar')
+        else:
+            from source_band import arrange
+            backing,analysis=arrange(stereo,SR,style,p.get('genre_lead'),data_root,out/'band',source=p.get('band_source') or 'guitar',vocal=vocal,follow_bass=p.get('follow_bass',False))
+        mixed=balance(np.stack([vocal,vocal]),backing)
+        sf.write(out/'mana-vocal.wav',vocal,SR,subtype='PCM_16')
+        for name,data in [('instrumental',backing),('arrangement-mix',mixed)]:sf.write(out/(name+'.wav'),data.T,SR,subtype='PCM_16')
+        result=dict(vocal=str(out/'mana-vocal.wav'),mix=str(out/'arrangement-mix.wav'),seconds=size/SR)
+        if band:
+            from band_mix import prepare
+            result['bandMixParts']=prepare(np.stack([vocal,vocal],axis=1),backing.T,SR,out/'band',out)
+        return result
+    if style=='piano-trio':
+        from piano_arrangement import arrange,balance
+        backing,analysis=arrange(original,SR,data_root,out/'piano-trio',p.get('percussion',False))
+        mixed=balance(vocal,backing)
+        for name,data in [('mana-vocal',vocal),('instrumental',backing),('arrangement-mix',mixed)]:sf.write(out/(name+'.wav'),data,SR,subtype='PCM_16')
+        return dict(vocal=str(out/'mana-vocal.wav'),mix=str(out/'arrangement-mix.wav'),seconds=size/SR)
     if np.sqrt(np.mean(original**2))<.001: raise ValueError('No audible accompaniment in this section.')
     chroma=librosa.feature.chroma_stft(y=librosa.effects.harmonic(original),sr=SR,hop_length=512)
     tempo,beats=librosa.beat.beat_track(y=original,sr=SR,hop_length=512)

@@ -1,0 +1,12 @@
+✔ outfit save retains histories beyond old 200KB cap and flattens only oversized histories (107.2612ms)
+✔ outfit rename survives the live loadout resolution path (69.2519ms)
+✔ Atelier hair and accessory plans replace only the edited category and preserve depth (22.5666ms)
+✔ imported hair and accessories enter wardrobe categories and retain live avatar layer order (44.2254ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 450.4165

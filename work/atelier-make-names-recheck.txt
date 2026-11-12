@@ -1,0 +1,12 @@
+✔ full-page wardrobe inventory keeps selection locks accessory toggles and look controls (223.7447ms)
+✔ Atelier preview opacity and zoom leave the transparent outfit composite unchanged (214.0038ms)
+✔ hair skin accessory and outfit names survive validation and live equipment resolution (61.5297ms)
+✔ saved look rename updates matching daily and seasonal snapshots and rejects name collisions (45.8573ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 916.207

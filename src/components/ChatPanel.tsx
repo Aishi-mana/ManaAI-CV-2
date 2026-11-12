@@ -1,3 +1,7 @@
+import ChatToolButton from "./ChatToolButton";
+import StudioIcon from "./StudioIcon";
+import { invoke } from "@tauri-apps/api/core";
+import {createPortal} from 'react-dom';
 import GeneratedPictureView from './GeneratedPictureView';
 import MusicalMomentsControls from './MusicalMomentsControls';
 import {chooseMusic,planMusicAttempt,requestedMusic,musicalNoteClip,musicPath,validateMusicalState,type MusicContext} from '../core/musicalMoments';
@@ -33,7 +37,7 @@ interface Props {
   avatarReferenceAvailable:boolean;
   imageStatus:string;
   imageError:string;
-  onVoiceMouth: (mouth:Vowel|null|undefined)=>void;
+  onVoiceMouth: (mouth:Vowel|null|"idle"|undefined)=>void;
   messages: Msg[];
   busy: boolean;
   ready: boolean;
@@ -58,6 +62,7 @@ export default function ChatPanel({ messages, busy, ready, charName, userName, o
   const whisper=useWhisper(review=>{if(handsActive.current)handsTranscript.current?.(review);else dictation.setReview(review);},[charName,userName],validateMusicalState(initiative.music).songs.filter(s=>s.enabled).flatMap(s=>[...s.aliases,s.title]));
   const [microphoneEngine,setMicrophoneEngine]=useState<'whisper'|'windows'>('whisper');
   const [whisperSetup,setWhisperSetup]=useState(false);
+  const voiceTrigger=useRef<HTMLButtonElement>(null);
   const [inputOpen,setInputOpen]=useState(false);
   const micActive=dictation.listening||whisper.phase!=='idle';
   const [preparing,setPreparing]=useState(false);
@@ -75,7 +80,7 @@ export default function ChatPanel({ messages, busy, ready, charName, userName, o
   useEffect(()=>{if(speech.musicPlaying&&(busy||!ready||micActive||(handsOn&&handsStage!=='music-launch'&&handsStage!=='music-playing')||draft.trim()||attachment||document.visibilityState!=='visible'))void speech.stop();},[busy,ready,micActive,handsOn,draft,attachment,speech.musicPlaying,handsStage]);
   useEffect(()=>{const hide=()=>{if(document.visibilityState==='hidden'&&speech.musicPlaying)void speech.stop();};document.addEventListener('visibilitychange',hide);return()=>document.removeEventListener('visibilitychange',hide);},[speech.musicPlaying]);
 
-  useEffect(()=>{onVoiceMouth(speech.available?speech.mouth:undefined);},[speech.available,speech.mouth,onVoiceMouth]);
+  useEffect(()=>{onVoiceMouth(speech.speaking?speech.mouth:speech.available?"idle":undefined);},[speech.speaking,speech.available,speech.mouth,onVoiceMouth]);
   const [voiceOpen,setVoiceOpen]=useState(false);
   const autoSpeech=useRef<AutomaticSpeech|null>(null);
   if(!autoSpeech.current)autoSpeech.current=new AutomaticSpeech(messages);
@@ -156,14 +161,15 @@ export default function ChatPanel({ messages, busy, ready, charName, userName, o
     }
   }
 
+  function closeVoiceSettings(){setVoiceOpen(false);voiceTrigger.current?.focus();}
   const voiceStatus=handsOn?handsStage==='waiting'?'Hands-free: waiting for reply…':handsStage==='music-launch'?'Hands-free: loading song…':handsStage==='music-playing'?'Hands-free: playing song…':handsStage==='launching'||handsStage==='playing'?'Hands-free: speaking…':handsStage==='cooldown'?'Hands-free: resuming…':whisper.phase==='transcribing'?'Hands-free: transcribing…':whisper.phase==='recording'&&whisper.elapsed<0.8?'Hands-free: calibrating background — wait briefly…':'Hands-free: listening for your pause…':speech.musicPlaying?'Playing song…':speech.generating?'Preparing voice…':speech.speaking?'Speaking…':whisper.phase==='recording'?'Recording message…':whisper.phase==='transcribing'?'Transcribing locally…':whisper.phase==='starting'?'Opening microphone…':dictation.listening?'Listening…':dictation.review?'Review transcription below':!micActive?microphoneEngine==='whisper'?'Whisper · English':'Windows recognition':'';
   const voiceState=handsError||whisper.error||dictation.error?'error':speech.musicPlaying?'music':speech.speaking||speech.generating?'speaking':whisper.phase==='recording'||dictation.listening?'listening':handsOn||micActive||busy?'working':'idle';
   return (
     <>
       <div className="chat-search">
-        <button className="btn" aria-expanded={voiceOpen} onClick={()=>setVoiceOpen(!voiceOpen)}>Voice settings</button>
-        {speech.speaking&&!handsOn&&<button className="btn" onClick={()=>void speech.stop()}>{speech.musicPlaying?'Stop song':'Stop voice'}</button>}
-        {voiceOpen&&<div className="voice-controls">
+        <ChatToolButton ref={voiceTrigger} icon="voice" label="Voice settings" aria-expanded={voiceOpen} onClick={()=>setVoiceOpen(!voiceOpen)}/>
+        {speech.speaking&&!handsOn&&<button className="btn chat-stop-button" onClick={()=>void speech.stop()}><StudioIcon name="stop"/>{speech.musicPlaying?'Stop song':'Stop voice'}</button>}
+        {voiceOpen&&createPortal(<div className="voice-menu-backdrop" onClick={closeVoiceSettings}><section className="voice-menu" role="dialog" aria-modal="true" aria-label="Voice settings" onClick={e=>e.stopPropagation()} onKeyDown={e=>{if(e.key==='Escape')closeVoiceSettings();}}><header><h2>Voice settings</h2><button autoFocus className="btn" onClick={closeVoiceSettings}>Back to chat</button></header><div className="voice-controls">
           <label>Read-aloud voice <select aria-label="Read-aloud voice" value={speech.voice} disabled={speech.loading||speech.speaking} onChange={e=>speech.setVoice(e.target.value)}>{!speech.voices.includes(speech.voice)&&<option value={speech.voice}>{speech.voice||'No voice selected'}</option>}{speech.voices.map(v=><option key={v}>{v}</option>)}</select></label>
           <label className="voice-auto"><input type="checkbox" checked={speech.automatic} onChange={e=>speech.setAutomatic(e.target.checked)}/> Automatically read new replies</label>
           <label>Speed: {speech.rate===0?'Normal':speech.rate<0?`Slower (${speech.rate})`:`Faster (+${speech.rate})`}<input aria-label="Speech speed" type="range" min={-10} max={10} step={1} value={speech.rate} onChange={e=>speech.setRate(Number(e.target.value))}/></label>
@@ -171,17 +177,17 @@ export default function ChatPanel({ messages, busy, ready, charName, userName, o
           <span className="hint-soft">{speech.loading?'Loading Windows voices…':'Saved settings · speed and volume apply to the next playback · old replies never replay automatically · no playback queue'}</span>
           <button className="btn" disabled={!speech.available||speech.speaking||handsOn||micActive} onClick={()=>void speech.speak(`Hello ${userName}. I am ${charName}. Let us try my new voice.`)}>Preview voice</button>
           <CustomVoiceSetup disabled={speech.speaking||handsOn}/>
-        </div>}
+        </div></section></div>,document.body)}
         <div hidden={!voiceOpen}><MusicalMomentsControls initiative={initiative} onInitiative={onInitiativeState} context={musicContextLive} mood={musicMood} playing={speech.musicPlaying} onPlay={speech.playMusic} onStop={()=>void speech.stop()} onPlayed={onMusicPlayed} onUnavailable={onMusicUnavailable} onRequestFailed={text=>setDraft(current=>current||text)} request={musicRequest}/></div>
         {speech.generating&&<span role="status">Generating custom voice…</span>}
         {speech.voiceStarting&&<span role="status">Loading GPT-SoVITS…</span>}
         {speech.error&&<span role="status">{speech.error}</span>}
-        <ExportChatButton messages={messages} charName={charName} userName={userName} disabled={busy}/>
-        <button className="btn" aria-expanded={searchOpen} onClick={()=>{
+        <ExportChatButton compact messages={messages} charName={charName} userName={userName} disabled={busy}/>
+        <ChatToolButton icon={searchOpen?"close":"search"} label={searchOpen?"Close search":"Search chat"} aria-expanded={searchOpen} onClick={()=>{
           setSearchOpen(!searchOpen);if(searchOpen){setQuery("");setSelectedMatch(null);}
-        }}>{searchOpen ? 'Close search' : 'Search chat'}</button>
+        }}/>
         {searchOpen&&<>
-          <input aria-label="Search chat history" type="search" maxLength={200} value={query}
+          <input autoFocus aria-label="Search chat history" type="search" maxLength={200} value={query}
             placeholder="Search messages…" onChange={e=>{setQuery(e.target.value);setSelectedMatch(null);}}
             onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();jumpMatch(matchIndex+1);}}}/>
           <span role="status">{query.trim() ? matches.length ? `${matchIndex>=0?matchIndex+1:'–'} of ${matches.length} matches` : 'No matches' : 'Enter text to search'}</span>
@@ -203,7 +209,7 @@ export default function ChatPanel({ messages, busy, ready, charName, userName, o
           if (m.role === "user") {
             return (
               <div key={m.id} ref={node=>{if(node)messageNodes.current.set(m.id,node);else messageNodes.current.delete(m.id);}} className={`row me${selectedMatch===m.id?' search-selected':''}`}>
-                <div className="bubble me">{m.content}{m.imageReport&&<ImageReportView report={m.imageReport} images={savedImages} disabled={handsOn||busy||preparing||!!attachment} onReuse={image=>{setAttachment({filename:image.filename,dataUrl:image.dataUrl});setAttachmentError('');}}/>}</div>
+                <div className="bubble me">{m.content}{m.imageReport&&<ImageReportView report={m.imageReport} images={savedImages} disabled={handsOn||busy||preparing||!!attachment} onReuse={image=>{setAttachment({filename:image.filename,dataUrl:image.dataUrl,origin:image.origin});setAttachmentError('');}}/>}</div>
               </div>
             );
           }
@@ -221,6 +227,12 @@ export default function ChatPanel({ messages, busy, ready, charName, userName, o
                   text
                 )}
                 {m.generatedPicture&&<section className="chat-generated-picture"><GeneratedPictureView image={m.generatedPicture}/>{onOutfitPrototype&&<button className="btn" disabled={busy} onClick={()=>onOutfitPrototype(m.generatedPicture!)}>Open in Atelier</button>}<button className="btn" disabled={busy||!ready||(savedPictureIds.has(m.id)||savedImages.some(image=>!image.diskId&&image.dataUrl===m.generatedPicture!.dataUrl))} onClick={async()=>{try{await onSavePicture?.(m.generatedPicture!);setSavedPictureIds(ids=>new Set([...ids,m.id]));}catch(e){setAttachmentError(String(e));}}}>{(savedPictureIds.has(m.id)||savedImages.some(image=>!image.diskId&&image.dataUrl===m.generatedPicture!.dataUrl))?'Saved to image library':'Save to image library'}</button></section>}
+                {m.webSources?.length && <details><summary>Web sources</summary><ol>
+                  {m.webSources.map((source, i) => <li key={i}><a href={source.url} onClick={event => {
+                    event.preventDefault();
+                    void invoke("open_web_source", { url: source.url }).catch(error => setAttachmentError(String(error)));
+                  }}>{source.title || source.url}</a></li>)}
+                </ol></details>}
                 {m.error && <div className="msg-error">{m.error}</div>}
                 {!busy&&!m.error&&text.trim()&&(musicClip||speech.available)&&<div><button className="btn" disabled={handsOn||speech.speaking||micActive||!!draft.trim()||preparing} onClick={()=>void (musicClip?speech.playMusic(musicPath(musicClip,validateMusicalState(initiative.music).songs)):speech.speak(text,emotion))}>{musicClip?'Replay':'Speak'}</button></div>}
                 {m.diagnostics && <details><summary>Reply diagnostics</summary>
@@ -251,8 +263,8 @@ export default function ChatPanel({ messages, busy, ready, charName, userName, o
         <button className={`btn hands-free-toggle ${handsOn?'is-active':''}`} aria-pressed={handsOn} title={handsOn?'Stop listening and playback':'Talk, hear replies and request saved songs'} disabled={!handsOn&&(!ready||busy||micActive||!!draft.trim()||!!attachment||!!dictation.review||preparing||!speech.available||speech.speaking||speech.volume===0)} onClick={()=>handsOn?stopHandsFree():enableHandsFree()}>{handsOn?'■ Stop hands-free':'Start hands-free'}</button></div>
         {handsError&&<span className="msg-error" role="alert">{handsError}</span>}
         <div className="voice-record-actions" role="group" aria-label="Record a message">
-        {!handsOn&&<button className="btn" aria-expanded={inputOpen} aria-controls="voice-input-settings" onClick={()=>setInputOpen(!inputOpen)} title="Choose recognition engine and microphone settings">Input settings</button>}
-        {!handsOn&&(microphoneEngine==='windows'?<button className="btn" disabled={!micActive&&(!!dictation.review||busy||preparing||speech.speaking||!dictation.languages.length)} onClick={()=>void (dictation.listening?dictation.stop():dictation.start())}>{dictation.listening?'Cancel listening':'Microphone'}</button>:<><button className="btn" disabled={handsOn||busy||preparing||speech.speaking||!!dictation.review||whisper.phase!=='idle'} onClick={()=>void whisper.start()}>Record microphone</button>{!handsOn&&whisper.phase==='recording'&&<button className="btn" onClick={()=>void whisper.finish()}>Transcribe</button>}{!handsOn&&whisper.phase!=='idle'&&<button className="btn" onClick={()=>void whisper.cancel()}>Cancel</button>}</>)}
+        {!handsOn&&<ChatToolButton icon="input" label="Input settings" aria-expanded={inputOpen} aria-controls="voice-input-settings" onClick={()=>setInputOpen(!inputOpen)}/>}
+        {!handsOn&&(microphoneEngine==='windows'?dictation.listening?<button className="btn" onClick={()=>void dictation.stop()}>Cancel listening</button>:<ChatToolButton icon="mic" label="Record microphone" disabled={!!dictation.review||busy||preparing||speech.speaking||!dictation.languages.length} onClick={()=>void dictation.start()}/>:<><ChatToolButton icon="mic" label="Record microphone" disabled={handsOn||busy||preparing||speech.speaking||!!dictation.review||whisper.phase!=='idle'} onClick={()=>void whisper.start()}/>{!handsOn&&whisper.phase==='recording'&&<button className="btn" onClick={()=>void whisper.finish()}>Transcribe</button>}{!handsOn&&whisper.phase!=='idle'&&<button className="btn" onClick={()=>void whisper.cancel()}>Cancel</button>}</>)}
         </div>
         {whisper.phase==='recording'&&<div className="recording-meter"><span role="timer" aria-label="Recording time">{whisper.elapsed.toFixed(1)} / 15 s</span><meter aria-label="Microphone input level" min={0} max={1} value={whisper.level}/><span className="hint-soft">Input level</span></div>}
         <span className={`voice-session-status is-${voiceState}`} role="status"><span className="voice-state-dot" aria-hidden="true"/>{voiceStatus}</span>
@@ -265,7 +277,7 @@ export default function ChatPanel({ messages, busy, ready, charName, userName, o
       {dictation.review&&<div className="transcription-review"><label>Review transcription<textarea rows={3} aria-label="Review transcription" value={dictation.review.text} onChange={e=>dictation.setReview(current=>current?{...current,text:e.target.value}:null)}/></label><span className="hint-soft">{dictation.review.confidence===null?'Review the wording before adding':dictation.review.confidence<0.65?'Recognizer is uncertain — check wording':'Check wording before adding'}{dictation.review.confidence!==null?' · confidence is a recognizer score, not accuracy.':''}</span>{dictation.review.alternatives.map(text=><button className="btn" key={text} onClick={()=>dictation.setReview(current=>current?{...current,text}:null)}>{text}</button>)}<button className="btn" disabled={!dictation.review.text.trim()||busy} onClick={dictation.accept}>Add to draft</button><button className="btn" onClick={()=>dictation.setReview(null)}>Discard transcription</button></div>}
       <div className="composer">
         <input ref={imageInput} hidden type="file" accept="image/png,image/jpeg" aria-label="Attach image" onChange={e=>{const file=e.target.files?.[0];e.target.value='';if(file)void chooseImage(file);}}/>
-        <button className="btn" disabled={handsOn||busy||preparing} onClick={()=>imageInput.current?.click()}>Attach image</button>
+        <ChatToolButton icon="attach" label="Attach image" disabled={handsOn||busy||preparing} onClick={()=>imageInput.current?.click()}/>
         <textarea
           value={draft}
           readOnly={handsOn}
@@ -276,8 +288,8 @@ export default function ChatPanel({ messages, busy, ready, charName, userName, o
           aria-label="Message"
         />
         {busy ? (
-          <button className="btn" onClick={()=>handsOn?stopHandsFree():onStop()}>
-            Stop
+          <button className="btn chat-stop-button" onClick={()=>handsOn?stopHandsFree():onStop()}>
+            <StudioIcon name="stop"/> Stop
           </button>
         ) : (
           <button className="btn primary" onClick={()=>void submit()} disabled={handsOn || !ready || preparing || micActive || !!dictation.review || (!draft.trim()&&!attachment)}>

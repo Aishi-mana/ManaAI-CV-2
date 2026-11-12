@@ -1,0 +1,4 @@
+from pathlib import Path
+p=Path('scripts/clothing_fit.py');s=p.read_text().replace('        first=body_rows[0][0]\n','').replace('            # Ease the change into the joined upper sleeve and out through the\n            # cuff instead of introducing a horizontal resampling seam.','            # Keep full arm coverage from the first distinct arm row; only\n            # taper below the wrist into the existing cuff end.');p.write_text(s)
+p=Path('tests/test_clothing_fit.py');s=p.read_text().replace('a[160:235,x+4:x+16]','a[160:235,x+3:x+19]');s=s.replace("  self.assertGreater(r['rows_resized'],0)","  self.assertGreater(r['rows_resized'],0)\n  for x in (40,140):self.assertTrue((fit[160,x+2:x+18,3]>=220).all())");p.write_text(s)
+p=Path('tests/test_outfit_quality.py');s=p.read_text().replace("  self.assertTrue(np.array_equal(out[37:],a[37:]));", "  self.assertTrue(np.array_equal(out[30,43],a[30,43]));self.assertTrue(np.array_equal(out[37:],a[37:]));");p.write_text(s)

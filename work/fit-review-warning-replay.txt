@@ -1,0 +1,1 @@
+{"output_exists": true, "automatic_save_allowed": false, "fit_warnings": ["Socks or shoes leave exposed skin; adjust their fit in Atelier before approving.", "Left cuff does not reach or cover the wrist correctly.", "Right cuff does not reach or cover the wrist correctly."], "source_unchanged": true}

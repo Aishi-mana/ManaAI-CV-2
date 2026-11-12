@@ -1,0 +1,2 @@
+from pathlib import Path
+p=Path('scripts/garment_only.py');s=p.read_text().replace('from clothing_fit import fit_closed_shoes','from clothing_fit import fit_closed_shoes,fit_sleeve_widths');s=s.replace('result,feet=fit_closed_shoes(result,body,allow_reposition=True)','result,sleeves=fit_sleeve_widths(result,body,prompt)\n result,feet=fit_closed_shoes(result,body,allow_reposition=True)');s=s.replace("'fit_version':7","'fit_version':8,'sleeve_resize':sleeves");p.write_text(s)

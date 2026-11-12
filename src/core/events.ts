@@ -3,7 +3,7 @@ import {isRecord,nonEmptyString} from './validation';
 import {uid} from './types';
 
 export const EVENT_LIMIT=500;
-export const EVENT_KINDS=['goal','work','playtest','activity','diary','thought','archive'] as const;
+export const EVENT_KINDS=['goal','work','playtest','activity','portrait','diary','thought','archive'] as const;
 export type EventKind=typeof EVENT_KINDS[number];
 export interface EventSource {id:string;kind:EventKind;title:string;outcome:string}
 export interface RecordedEvent extends EventSource {eventId:string;recordedAt:string}

@@ -1,0 +1,38 @@
+loading
+Timeout (0:00:15)!
+Thread 0x0002cdf0 (most recent call first):
+  File "C:\Users\Admin\miniconda3\envs\seed-vc\lib\ntpath.py", line 142 in join
+  File "C:\Users\Admin\miniconda3\envs\seed-vc\lib\tempfile.py", line 256 in _mkstemp_inner
+  File "C:\Users\Admin\miniconda3\envs\seed-vc\lib\tempfile.py", line 572 in opener
+  File "C:\Users\Admin\miniconda3\envs\seed-vc\lib\tempfile.py", line 575 in NamedTemporaryFile
+  File "C:\Users\Admin\miniconda3\envs\seed-vc\lib\site-packages\numba\core\caching.py", line 112 in ensure_cache_path
+  File "C:\Users\Admin\miniconda3\envs\seed-vc\lib\site-packages\numba\core\caching.py", line 185 in from_function
+  File "C:\Users\Admin\miniconda3\envs\seed-vc\lib\site-packages\numba\core\caching.py", line 419 in __init__
+  File "C:\Users\Admin\miniconda3\envs\seed-vc\lib\site-packages\numba\core\caching.py", line 687 in __init__
+  File "C:\Users\Admin\miniconda3\envs\seed-vc\lib\site-packages\numba\core\dispatcher.py", line 809 in enable_caching
+  File "C:\Users\Admin\miniconda3\envs\seed-vc\lib\site-packages\numba\core\decorators.py", line 227 in wrapper
+  File "C:\Users\Admin\miniconda3\envs\seed-vc\lib\site-packages\librosa\core\notation.py", line 1009 in <module>
+  File "<frozen importlib._bootstrap>", line 241 in _call_with_frames_removed
+  File "<frozen importlib._bootstrap_external>", line 883 in exec_module
+  File "<frozen importlib._bootstrap>", line 688 in _load_unlocked
+  File "<frozen importlib._bootstrap>", line 1006 in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 1027 in _find_and_load
+  File "<frozen importlib._bootstrap>", line 241 in _call_with_frames_removed
+  File "<frozen importlib._bootstrap>", line 1078 in _handle_fromlist
+  File "C:\Users\Admin\miniconda3\envs\seed-vc\lib\site-packages\librosa\core\convert.py", line 7 in <module>
+  File "<frozen importlib._bootstrap>", line 241 in _call_with_frames_removed
+  File "<frozen importlib._bootstrap_external>", line 883 in exec_module
+  File "<frozen importlib._bootstrap>", line 688 in _load_unlocked
+  File "<frozen importlib._bootstrap>", line 1006 in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 1027 in _find_and_load
+  File "C:\Users\Admin\miniconda3\envs\seed-vc\lib\site-packages\librosa\core\audio.py", line 20 in <module>
+  File "<frozen importlib._bootstrap>", line 241 in _call_with_frames_removed
+  File "<frozen importlib._bootstrap_external>", line 883 in exec_module
+  File "<frozen importlib._bootstrap>", line 688 in _load_unlocked
+  File "<frozen importlib._bootstrap>", line 1006 in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 1027 in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1050 in _gcd_import
+  File "C:\Users\Admin\miniconda3\envs\seed-vc\lib\importlib\__init__.py", line 126 in import_module
+  File "C:\Users\Admin\miniconda3\envs\seed-vc\lib\site-packages\lazy_loader\__init__.py", line 107 in __getattr__
+  File "C:\Users\Admin\miniconda3\envs\seed-vc\lib\site-packages\lazy_loader\__init__.py", line 108 in __getattr__
+  File "<string>", line 1 in <module>

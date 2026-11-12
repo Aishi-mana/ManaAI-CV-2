@@ -1,0 +1,4 @@
+from pathlib import Path
+p=Path('src/components/OutfitPrototype.tsx');s=p.read_text(encoding='utf-8');a=s.index(' const draftKey=');b=s.index(' const pieceCounter=',a);block=s[a:b];s=s[:a]+s[b:];s=s.replace(' const bodyLayer=',block+' const bodyLayer=',1)
+a=s.index(' useEffect(()=>{\n  if(!source||!body||stroke||imageImporting)return;');b=s.index(' const prepared=useMemo(',a);block=s[a:b];s=s[:a]+s[b:];cleanup=' useEffect(()=>()=>draftFlush.current?.(),[]);\n';s=s.replace(cleanup,'');s=s.replace(' return <section className={embedded?',cleanup+block+' return <section className={embedded?',1);p.write_text(s,encoding='utf-8')
+p=Path('tests/foundation.test.cjs');s=p.read_text(encoding='utf-8');a=s.index("test('Atelier hands a design");b=s.index("test('wardrobe inventory",a);part=s[a:b].replace('const react={useRef:', 'const react={useEffect(){},useRef:',1);s=s[:a]+part+s[b:];p.write_text(s,encoding='utf-8')

@@ -1,0 +1,34 @@
+✔ Qwen routes independently with bounded artwork dimensions and explicit reference (56.6063ms)
+✖ Qwen chat launch uses character conditioning without avatar masks (71.1832ms)
+✔ Qwen current-avatar chat reference snapshots dressed layers without requiring the sheet (40.6936ms)
+✔ Qwen current avatar routing follows reference features rather than fixed colors (11.1261ms)
+✔ Qwen outfit design generates separated clothing without attaching the character (43.9383ms)
+✔ outfit design defaults to a complete Qwen garment set and preserves requested items (8.5708ms)
+✔ Qwen reference artwork preserves current wardrobe and proportions without freezing pose or scenery (7.4852ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 6
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 531.2532
+
+✖ failing tests:
+
+test at tests\foundation.test.cjs:3466:1
+✖ Qwen chat launch uses character conditioning without avatar masks (71.1832ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (C:\AI\ManaAI-CV-2\tests\foundation.test.cjs:3474:73)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

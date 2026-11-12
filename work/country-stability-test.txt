@@ -1,0 +1,64 @@
+A and C prepared; converting diagnostic B with stronger pitch stability only.
+Reading guide segment…
+Converting guide vocal; pitch and timing conditioning enabled…
+It is strongly recommended to pass the `sampling_rate` argument to this function. Failing to do so can result in silent errors that might be hard to debug.
+It is strongly recommended to pass the `sampling_rate` argument to this function. Failing to do so can result in silent errors that might be hard to debug.
+Warning: Skipped loading some keys due to shape mismatch: {'estimator.t_embedder2.mlp.0.bias', 'estimator.t_embedder2.mlp.0.weight', 'estimator.conv1.weight', 'estimator.conv1.bias', 'estimator.input_pos', 'estimator.res_projection.bias', 'estimator.conv2.weight', 'estimator.conv2.bias', 'estimator.t_embedder2.mlp.2.weight', 'estimator.t_embedder2.mlp.2.bias', 'estimator.res_projection.weight'}
+cfm loaded
+length_regulator loaded
+Loading weights from nvidia/bigvgan_v2_44khz_128band_512x
+Removing weight norm...
+
+  0%|          | 0/50 [00:00<?, ?it/s]
+  4%|▍         | 2/50 [00:00<00:06,  7.88it/s]
+  6%|▌         | 3/50 [00:00<00:07,  6.19it/s]
+  8%|▊         | 4/50 [00:00<00:08,  5.63it/s]
+ 10%|█         | 5/50 [00:00<00:08,  5.09it/s]
+ 12%|█▏        | 6/50 [00:01<00:09,  4.58it/s]
+ 14%|█▍        | 7/50 [00:01<00:09,  4.60it/s]
+ 16%|█▌        | 8/50 [00:01<00:09,  4.56it/s]
+ 18%|█▊        | 9/50 [00:01<00:08,  4.62it/s]
+ 20%|██        | 10/50 [00:02<00:09,  4.38it/s]
+ 22%|██▏       | 11/50 [00:02<00:09,  4.29it/s]
+ 24%|██▍       | 12/50 [00:02<00:08,  4.35it/s]
+ 26%|██▌       | 13/50 [00:02<00:08,  4.38it/s]
+ 28%|██▊       | 14/50 [00:02<00:08,  4.32it/s]
+ 30%|███       | 15/50 [00:03<00:08,  4.20it/s]
+ 32%|███▏      | 16/50 [00:03<00:07,  4.29it/s]
+ 34%|███▍      | 17/50 [00:03<00:07,  4.38it/s]
+ 36%|███▌      | 18/50 [00:03<00:07,  4.41it/s]
+ 38%|███▊      | 19/50 [00:04<00:07,  4.36it/s]
+ 40%|████      | 20/50 [00:04<00:06,  4.32it/s]
+ 42%|████▏     | 21/50 [00:04<00:06,  4.45it/s]
+ 44%|████▍     | 22/50 [00:04<00:06,  4.44it/s]
+ 46%|████▌     | 23/50 [00:05<00:06,  4.46it/s]
+ 48%|████▊     | 24/50 [00:05<00:06,  4.29it/s]
+ 50%|█████     | 25/50 [00:05<00:05,  4.43it/s]
+ 52%|█████▏    | 26/50 [00:05<00:05,  4.47it/s]
+ 54%|█████▍    | 27/50 [00:05<00:05,  4.40it/s]
+ 56%|█████▌    | 28/50 [00:06<00:05,  4.32it/s]
+ 58%|█████▊    | 29/50 [00:06<00:04,  4.24it/s]
+ 60%|██████    | 30/50 [00:06<00:04,  4.28it/s]
+ 62%|██████▏   | 31/50 [00:06<00:04,  4.28it/s]
+ 64%|██████▍   | 32/50 [00:07<00:04,  4.23it/s]
+ 66%|██████▌   | 33/50 [00:07<00:04,  4.24it/s]
+ 68%|██████▊   | 34/50 [00:07<00:03,  4.27it/s]
+ 70%|███████   | 35/50 [00:07<00:03,  4.28it/s]
+ 72%|███████▏  | 36/50 [00:08<00:03,  4.37it/s]
+ 74%|███████▍  | 37/50 [00:08<00:03,  4.28it/s]
+ 76%|███████▌  | 38/50 [00:08<00:02,  4.33it/s]
+ 78%|███████▊  | 39/50 [00:08<00:02,  4.35it/s]
+ 80%|████████  | 40/50 [00:08<00:02,  4.34it/s]
+ 82%|████████▏ | 41/50 [00:09<00:02,  4.36it/s]
+ 84%|████████▍ | 42/50 [00:09<00:01,  4.39it/s]
+ 86%|████████▌ | 43/50 [00:09<00:01,  4.41it/s]
+ 88%|████████▊ | 44/50 [00:09<00:01,  4.42it/s]
+ 90%|█████████ | 45/50 [00:10<00:01,  4.38it/s]
+ 92%|█████████▏| 46/50 [00:10<00:00,  4.30it/s]
+ 94%|█████████▍| 47/50 [00:10<00:00,  4.31it/s]
+ 96%|█████████▌| 48/50 [00:10<00:00,  4.32it/s]
+ 98%|█████████▊| 49/50 [00:11<00:00,  4.32it/s]
+100%|██████████| 50/50 [00:11<00:00,  4.27it/s]
+100%|██████████| 50/50 [00:11<00:00,  4.42it/s]
+RTF: 1.2025467629047673
+DONE: C:\AI\ManaAI-CV-2\exports\singing\country-roads-stability-20261101

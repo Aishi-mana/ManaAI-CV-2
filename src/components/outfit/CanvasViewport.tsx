@@ -1,11 +1,11 @@
 import {useEffect,useRef,useState,type ReactNode} from 'react';
 
 /** Pan changes only viewport scrolling; canvas coordinates and saved pixels stay intact. */
-export default function CanvasViewport({children,handActive,hideHandButton=false,zoom=1,onZoom}:{children:ReactNode;handActive?:boolean;hideHandButton?:boolean;zoom?:number;onZoom?:(zoom:number)=>void}){
+export default function CanvasViewport({children,handActive,hideHandButton=false,zoom=1,onZoom,wheelZoomActive=true}:{children:ReactNode;handActive?:boolean;hideHandButton?:boolean;zoom?:number;onZoom?:(zoom:number)=>void;wheelZoomActive?:boolean}){
  const [hand,setHand]=useState(false),[space,setSpace]=useState(false);
  const useHand=handActive??hand;
  const viewport=useRef<HTMLDivElement>(null);
- useEffect(()=>{const el=viewport.current;if(!el||!onZoom)return;let frame=0;const wheel=(e:WheelEvent)=>{if(!e.deltaY)return;e.preventDefault();const next=Math.max(.5,Math.min(12,zoom*Math.exp(-e.deltaY*.0015))),r=next/zoom,rect=el.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top,left=(el.scrollLeft+x)*r-x,top=(el.scrollTop+y)*r-y;onZoom(next);cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{el.scrollLeft=left;el.scrollTop=top;});};el.addEventListener('wheel',wheel,{passive:false});return()=>{el.removeEventListener('wheel',wheel);};},[zoom,onZoom]);
+ useEffect(()=>{const el=viewport.current;if(!el||!onZoom)return;let frame=0;const wheel=(e:WheelEvent)=>{if(!e.deltaY||(!wheelZoomActive&&!e.ctrlKey&&!e.metaKey))return;e.preventDefault();const next=Math.max(.5,Math.min(12,zoom*Math.exp(-e.deltaY*.0015))),r=next/zoom,rect=el.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top,left=(el.scrollLeft+x)*r-x,top=(el.scrollTop+y)*r-y;onZoom(next);cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{el.scrollLeft=left;el.scrollTop=top;});};el.addEventListener('wheel',wheel,{passive:false});return()=>{el.removeEventListener('wheel',wheel);};},[zoom,onZoom,wheelZoomActive]);
  const drag=useRef<{id:number;x:number;y:number;left:number;top:number}|null>(null);
  return <div className="outfit-pan-shell">
   {!hideHandButton&&<button className={'btn outfit-hand'+(hand?' primary':'')} aria-pressed={hand} onClick={()=>setHand(v=>!v)}>Hand / pan</button>}

@@ -1,0 +1,78 @@
+
+Loading weights:   0%|          | 0/380 [00:00<?, ?it/s]
+Loading weights:  91%|#########1| 347/380 [00:00<00:00, 3442.27it/s]
+Loading weights: 100%|##########| 380/380 [00:00<00:00, 3564.02it/s]
+{
+  "geometry": "source-canvas-preserved",
+  "automatic_save_allowed": false,
+  "requires_alignment_review": true,
+  "cleanup": {
+    "neck_pixels_removed": 18,
+    "shoe_wisp_pixels_removed": 536,
+    "raw_pixels": 136478,
+    "clean_pixels": 129531,
+    "skin_pixels_removed": 560,
+    "hair_pixels_removed": 5527,
+    "total_removed_fraction": 0.050901976875393835,
+    "review_required": true,
+    "color_cleanup_skipped_for_pale_fabric": false
+  },
+  "edges": {
+    "added_pixels": 2290,
+    "removed_pixels": 352,
+    "review_required": true
+  },
+  "footwear": [
+    {
+      "label": 9,
+      "bounds": [
+        427,
+        1029,
+        525,
+        1211
+      ]
+    },
+    {
+      "label": 10,
+      "bounds": [
+        313,
+        1029,
+        410,
+        1211
+      ]
+    }
+  ],
+  "hidden_gap_pixels": 0,
+  "shoe_fit": {
+    "closed_shoes_only": true,
+    "feet": [
+      {
+        "side": "left",
+        "fitted": true,
+        "foot_pixels_exposed_before": 118,
+        "foot_pixels_exposed_after": 0,
+        "scale_x": 1.0,
+        "scale_y": 1.04,
+        "move_down": 0,
+        "move_sideways": 0
+      },
+      {
+        "side": "right",
+        "fitted": true,
+        "foot_pixels_exposed_before": 281,
+        "foot_pixels_exposed_after": 0,
+        "scale_x": 1.0,
+        "scale_y": 1.04,
+        "move_down": 0,
+        "move_sideways": 6
+      }
+    ],
+    "review_required": true,
+    "automatic_save_allowed": false
+  },
+  "width": 843,
+  "height": 1264,
+  "prototype": true,
+  "source": "local-avatar-redesign",
+  "fit_version": 3
+}

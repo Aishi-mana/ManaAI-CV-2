@@ -1,0 +1,6 @@
+from pathlib import Path
+p=Path('src/components/Wardrobe.tsx');s=p.read_text(encoding='utf-8').replace(":await invoke<{sourceDataUrl:string}|null>('outfit_wardrobe_project',{id:e.name})", ":e.name.startsWith('atelier_')?await invoke<{sourceDataUrl:string}|null>('outfit_wardrobe_project',{id:e.name}):null");p.write_text(s,encoding='utf-8')
+p=Path('tests/foundation.test.cjs');s=p.read_text(encoding='utf-8-sig').replace('assert.equal(draws.length,1);assert.equal(draws[0].alpha,.4);','assert.equal(draws.length,2);assert.ok(draws.every(d=>d.alpha===.4));');p.write_text(s,encoding='utf-8')
+p=Path('tests/atelier-tools.test.cjs');s=p.read_text(encoding='utf-8');s+='''
+test('outfit front and back straddle the base body and survive project reload',()=>{const plan=core.atelierPreviewPlan(['base/body.png','outfits/default/outfit.png','hairstyles/default/hair_front.png'],'outfit');assert.ok(plan.indexOf('@back')<plan.indexOf('base/body.png'));assert.ok(plan.indexOf('@front')>plan.indexOf('base/body.png'));assert.ok(!plan.includes('outfits/default/outfit.png'));const project={parts:[{...part,locked:false,depth:'back'}],sourceSize:{width:128,height:128}};assert.equal(core.readOutfitProject(project,128,128).pieces[0].depth,'back');});
+''';p.write_text(s,encoding='utf-8')

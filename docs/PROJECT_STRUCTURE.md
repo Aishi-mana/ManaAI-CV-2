@@ -1,5 +1,10 @@
 # Project structure
 
+<!-- current-status-2026-11-06 -->
+## Current status — 2026-11-06
+
+Current music routing is in src/core/voiceProfiles.ts, scripts/trained_voice.py, scripts/trained_chat_worker.py, scripts/singing_job.py and scripts/cover_genre.py; Create Cover/Builder UI is in src/components/SingingDrawer.tsx and CoverBuilder.tsx. CURRENT_STATUS.md owns the status audit and NEXT_CHAT_HANDOFF.md the compact next-session state. Older handoff history is retained under docs/archive. No model/media files are embedded in ordinary JSON backups.
+
 Song pool: `src/core/songPool.ts` validates bounded approved clip metadata, normalized title/alias lookup and named request parsing. `musicalMoments.ts` selects enabled songs and hums; pool metadata is nested inside `mana.initiative.v1` and migrated for old backups. `SongPoolPanel.tsx` owns one cancellable audition player and listening approval. `SingingDrawer.tsx` is the More → Songs menu, coordinating pool previews and CPU cover conversion; `backing_gain` controls the original instrumental mix. No audio is embedded in JSON backups. See `docs/SONGS.md`.
 
 Custom voice: `src/core/customVoice.ts` validates `mana.custom_voice.v1` in SQLite/backups and audio/mouth helpers. `CustomVoiceSetup.tsx` configures the existing GPT-SoVITS installation and manages service readiness. `useSpeech.ts` selects native Windows or custom generated audio, suppresses cancelled results and owns Blob/audio/mouth timer cleanup. `src-tauri/src/custom_voice.rs` owns the CPU server and cancellable loopback HTTP request helper; bounded results use a file rather than a stdout pipe to avoid large-audio deadlocks. Normal app exit stops owned processes.

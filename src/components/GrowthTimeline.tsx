@@ -4,7 +4,7 @@ import type {RecordedEvent} from '../core/events';
 import type {Episode} from '../core/episodes';
 import type {Relationship} from '../core/relationship';
 
-export default function GrowthTimeline({events,episodes,relationship,timeZone}:{events:RecordedEvent[];episodes:Episode[];relationship:Relationship;timeZone:string}){
+export default function GrowthTimeline({events,episodes,relationship,timeZone,canSavePortraitMoment,onSavePortraitMoment}:{events:RecordedEvent[];episodes:Episode[];relationship:Relationship;timeZone:string;canSavePortraitMoment?:boolean;onSavePortraitMoment?:(event:RecordedEvent)=>void}){
  const [query,setQuery]=useState(''),[scope,setScope]=useState<'all'|'reviewed'|'special'>('all'),[from,setFrom]=useState(''),[to,setTo]=useState(''),[oldest,setOldest]=useState(false);
  const items=useMemo(()=>buildTimeline(events,episodes),[events,episodes]);
  const filtered=filterTimeline(items,query,scope,from,to,timeZone);if(oldest)filtered.reverse();
@@ -21,7 +21,7 @@ export default function GrowthTimeline({events,episodes,relationship,timeZone}:{
  {from&&to&&from>to?<p role="alert">Choose an end date on or after the start date.</p>:<>
  <p>{filtered.length} matching events</p>
  {filtered.length===0&&<p>No recorded moments match yet.</p>}
- {[...groups].map(([day,rows])=><section key={day}><h3>{day}</h3>{rows.map(({source,memory})=><article className="memory-card" key={source.eventId}><h4>{source.title}</h4><p className="hint-soft">{new Date(source.recordedAt).toLocaleTimeString(undefined,{timeZone})} · {source.kind}{memory?` · ${memory.kind==='special'?'Special moment':'Reviewed memory'}`:''}</p><p>{source.outcome}</p>{memory&&<><p className="memory-content"><b>Your reviewed note:</b> {memory.content}</p><p className="hint-soft">{memory.tags.join(' · ')} · Note saved {new Date(memory.createdAt).toLocaleString(undefined,{timeZone})}</p></>}<details><summary>Source reference</summary><p className="memory-content">{source.kind}: {source.id} · Event: {source.eventId}</p><p className="hint-soft">The source may since have changed or been deleted. This is its recorded snapshot.</p></details></article>)}</section>)}
+ {[...groups].map(([day,rows])=><section key={day}><h3>{day}</h3>{rows.map(({source,memory})=><article className="memory-card" key={source.eventId}><h4>{source.title}</h4><p className="hint-soft">{new Date(source.recordedAt).toLocaleTimeString(undefined,{timeZone})} · {source.kind}{memory?` · ${memory.kind==='special'?'Special moment':'Reviewed memory'}`:''}</p><p>{source.outcome}</p>{source.kind==='portrait'&&!memory&&onSavePortraitMoment&&<button className="btn" disabled={!canSavePortraitMoment} onClick={()=>onSavePortraitMoment(source)}>Save as special moment</button>}{memory&&<><p className="memory-content"><b>Your reviewed note:</b> {memory.content}</p><p className="hint-soft">{memory.tags.join(' · ')} · Note saved {new Date(memory.createdAt).toLocaleString(undefined,{timeZone})}</p></>}<details><summary>Source reference</summary><p className="memory-content">{source.kind}: {source.id} · Event: {source.eventId}</p><p className="hint-soft">The source may since have changed or been deleted. This is its recorded snapshot.</p></details></article>)}</section>)}
  </>}
  </section>;
 }

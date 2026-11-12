@@ -1,0 +1,92 @@
+[
+  {
+    key: 'accepted',
+    rejected: undefined,
+    report: {
+      guide: [Object],
+      scalpUncovered: 0,
+      eyesCovered: 0.12232415902140673,
+      eyeProtection: 'colored-iris',
+      verticalShift: -15.719999999999999,
+      fringeTip: 230.4868096514744,
+      fringeTarget: 227.72,
+      warnings: [],
+      uniformOnly: true,
+      fitVersion: 'head-eye-landmarks-v3'
+    }
+  },
+  {
+    key: 'eightbit',
+    rejected: undefined,
+    report: {
+      guide: [Object],
+      scalpUncovered: 0,
+      eyesCovered: 0.10703363914373089,
+      eyeProtection: 'colored-iris',
+      verticalShift: -15.719999999999999,
+      fringeTip: 230.32662116040956,
+      fringeTarget: 227.72,
+      warnings: [],
+      uniformOnly: true,
+      fitVersion: 'head-eye-landmarks-v3'
+    }
+  },
+  {
+    key: 'spikes',
+    rejected: 'Error: Crown-like spikes or headgear were generated. Hair must have a smooth top edge; no review was saved.',
+    report: undefined
+  },
+  {
+    key: 'style',
+    rejected: 'Error: Front hair is too long; generate compact bangs, not a face frame.',
+    report: undefined
+  },
+  {
+    key: '1729',
+    rejected: undefined,
+    report: {
+      guide: [Object],
+      scalpUncovered: 0,
+      eyesCovered: 0.013761467889908258,
+      eyeProtection: 'colored-iris',
+      verticalShift: 5.240000000000009,
+      fringeTip: 208.4021943573668,
+      fringeTarget: 227.72,
+      warnings: [],
+      uniformOnly: true,
+      fitVersion: 'head-eye-landmarks-v3'
+    }
+  },
+  {
+    key: '42',
+    rejected: undefined,
+    report: {
+      guide: [Object],
+      scalpUncovered: 0,
+      eyesCovered: 0.035168195718654434,
+      eyeProtection: 'colored-iris',
+      verticalShift: 5.240000000000009,
+      fringeTip: 228.20156334231802,
+      fringeTarget: 227.72,
+      warnings: [],
+      uniformOnly: true,
+      fitVersion: 'head-eye-landmarks-v3'
+    }
+  },
+  {
+    key: '6841',
+    rejected: undefined,
+    report: {
+      guide: [Object],
+      scalpUncovered: 0,
+      eyesCovered: 0.024464831804281346,
+      eyeProtection: 'colored-iris',
+      verticalShift: -15.719999999999999,
+      fringeTip: 231.99956923076925,
+      fringeTarget: 227.72,
+      warnings: [],
+      uniformOnly: true,
+      fitVersion: 'head-eye-landmarks-v3'
+    }
+  }
+]

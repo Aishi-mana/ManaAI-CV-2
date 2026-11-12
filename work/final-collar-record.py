@@ -1,0 +1,2 @@
+from pathlib import Path
+p=Path('work/verify-record-collar.py');s=p.read_text().replace("if name!='mint-dress':assert not d.any()","if name not in ['mint-dress','purple']:assert not d.any()").replace('mint removes1540pixels','mint removes1557pixels').replace('rose/sailor/purple unchanged byte-for-byte versus prior outputs','purple also removes a similar shaded collar insert; rose/sailor unchanged byte-for-byte versus prior outputs');p.write_text(s)

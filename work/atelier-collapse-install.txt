@@ -1,0 +1,11 @@
+   Compiling mana v0.1.0 (C:\AI\ManaAI-CV-2\src-tauri)
+warning: hard linking files in the incremental compilation cache failed. copying files instead. consider moving the cache directory to a file system which supports hard linking in session dir `\\?\C:\AI\ManaAI-CV-2\src-tauri\target\debug\incremental\mana_lib-3u0vwfuwsolv7\s-hnq4kzn0hm-0u99lnh-working`
+
+warning: `mana` (lib) generated 1 warning
+warning: hard linking files in the incremental compilation cache failed. copying files instead. consider moving the cache directory to a file system which supports hard linking in session dir `\\?\C:\AI\ManaAI-CV-2\src-tauri\target\debug\incremental\mana-2cofi526lbbo2\s-hnq4l5rzug-0yf3e3y-working`
+
+warning: `mana` (bin "mana") generated 1 warning
+error: failed to remove file `C:\AI\ManaAI-CV-2\src-tauri\target\debug\mana.exe`
+
+Caused by:
+  Access is denied. (os error 5)

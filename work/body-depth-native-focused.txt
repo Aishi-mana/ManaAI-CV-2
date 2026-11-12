@@ -1,0 +1,26 @@
+   Compiling mana v0.1.0 (C:\AI\ManaAI-CV-2\src-tauri)
+warning: hard linking files in the incremental compilation cache failed. copying files instead. consider moving the cache directory to a file system which supports hard linking in session dir `\\?\C:\AI\ManaAI-CV-2\src-tauri\target\debug\incremental\mana_lib-198gv5erphajf\s-hnq35ajjw8-0r915xz-working`
+
+warning: `mana` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.48s
+     Running unittests src\lib.rs (src-tauri\target\debug\deps\mana_lib-4834e32b2002e09c.exe)
+
+running 2 tests
+test generated_outfits::body_depth_tests::approval_uses_separate_layers_not_occluded_review_preview ... FAILED
+test outfit_prototype::body_depth_tests::saves_both_body_depth_layers_and_editable_source ... ok
+
+failures:
+
+---- generated_outfits::body_depth_tests::approval_uses_separate_layers_not_occluded_review_preview stdout ----
+
+thread 'generated_outfits::body_depth_tests::approval_uses_separate_layers_not_occluded_review_preview' (179224) panicked at src\generated_outfits.rs:329:421:
+called `Result::unwrap()` on an `Err` value: "Access is denied. (os error 5)"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    generated_outfits::body_depth_tests::approval_uses_separate_layers_not_occluded_review_preview
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 98 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--lib`

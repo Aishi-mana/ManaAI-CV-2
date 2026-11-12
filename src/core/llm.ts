@@ -90,6 +90,7 @@ export async function streamChat(opts: {
   temperature: number;
   signal?: AbortSignal;
   onToken: (token: string) => void;
+  onModel?: (model: string) => void;
   maxTokens?:number;
   rejectTruncated?:boolean;
 }): Promise<void> {
@@ -132,6 +133,7 @@ export async function streamChat(opts: {
   let buffer = "";
   let finished = false;
   let finishReason='';
+  let reportedModel=false;
   const checkComplete=()=>{if(opts.rejectTruncated&&finishReason==='length')throw Error('Game draft reached its output limit and is incomplete. Previous source kept; request a smaller game or revision.');if(opts.rejectTruncated&&!finished)throw Error('The response stream ended before the model finished replying.');};
 
   while (true) {
@@ -148,6 +150,10 @@ export async function streamChat(opts: {
       if (data === "[DONE]"){checkComplete();return;}
       try {
         const json = JSON.parse(data);
+        if(!reportedModel&&typeof json.model==='string'&&json.model.trim()){
+          reportedModel=true;
+          opts.onModel?.(json.model);
+        }
         if (json.choices?.[0]?.finish_reason != null){finished=true;finishReason=String(json.choices[0].finish_reason);}
         const delta = json.choices?.[0]?.delta?.content;
         if (typeof delta === "string" && delta) opts.onToken(delta);

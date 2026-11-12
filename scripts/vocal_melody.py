@@ -46,10 +46,14 @@ def clean_held_notes(raw,source,sr=24000):
   notes.append(n)
  return notes
 
-def track_vocal_notes(source,seconds,instrument='harmonica'):
+def vocal_pitch(source):
+ from arrangement_replacement import SR
+ return librosa.pyin(source,sr=SR,fmin=librosa.note_to_hz('C3'),fmax=librosa.note_to_hz('C6'),frame_length=2048,hop_length=120,fill_na=np.nan)
+
+def track_vocal_notes(source,seconds,instrument='harmonica',pitch_data=None):
  from arrangement_replacement import SR
  hop=120
- f0,voiced,prob=librosa.pyin(source,sr=SR,fmin=librosa.note_to_hz('C3'),fmax=librosa.note_to_hz('C6'),frame_length=2048,hop_length=hop,fill_na=np.nan)
+ f0,voiced,prob=vocal_pitch(source) if pitch_data is None else pitch_data
  valid=voiced & np.isfinite(f0) & (prob>=.45)
  pitch=np.zeros(len(f0),dtype=int);pitch[valid]=np.rint(librosa.hz_to_midi(f0[valid])).astype(int)
  for i in range(1,len(pitch)-1):
@@ -63,6 +67,61 @@ def track_vocal_notes(source,seconds,instrument='harmonica'):
   first=i
  notes=clean_held_notes(raw,source)
  return notes
+
+def band_vocal_notes(source,seconds):
+ """Recover quiet pitched notes between the stable notes used for the band lead."""
+ from arrangement_replacement import SR
+ hop=120/SR
+ def rms(a,b):
+  samples=source[round(a*SR):round(b*SR)]
+  return float(np.sqrt(np.mean(samples**2))) if len(samples) else 0.
+ # Track bounded, overlapping windows for whole songs. Keep notes by onset.
+ tracked=[];candidates=[]
+ for start in range(0,len(source),24*SR):
+  left=max(0,start-2*SR);right=min(len(source),start+26*SR)
+  segment=source[left:right]
+  if np.max(np.abs(segment))<1e-6:continue
+  # Peak normalization keeps quiet pitch candidates independent of stem gain.
+  pitch_data=vocal_pitch(segment)
+  normalized=segment*(.85/np.max(np.abs(segment)))
+  recovery=vocal_pitch(normalized)
+  offset=left/SR
+  for a,b,p,v in track_vocal_notes(segment,len(segment)/SR,'electric-piano',pitch_data):
+   a,b=a+offset,min(seconds,b+offset)
+   if start/SR<=a<(start+24*SR)/SR and a<b:tracked.append([a,b,p,v])
+  f0,voiced,prob=recovery
+  valid=voiced & np.isfinite(f0) & (prob>=.42)
+  pitch=np.zeros(len(f0),int)
+  pitch[valid]=np.rint(librosa.hz_to_midi(f0[valid])).astype(int)
+  pitch=median_filter(pitch,size=5)
+  bounds=np.r_[0,np.flatnonzero(pitch[1:]!=pitch[:-1])+1,len(pitch)]
+  for a,b in zip(bounds,bounds[1:]):
+   begin=a*hop+offset
+   if pitch[a]>0 and b-a>=11 and start/SR<=begin<(start+24*SR)/SR:
+    candidates.append((begin,min(seconds,b*hop+offset),int(pitch[a]),prob,a))
+ if not tracked:raise ValueError('No stable sung melody found. Choose a section with a clear lead vocal.')
+ strengths=[rms(a,b) for a,b,_,_ in tracked]
+ reference=max(float(np.percentile(strengths,85)),1e-9)
+ melody=[]
+ for (a,b,p,_),level in zip(tracked,strengths):
+  if level<reference*.10:continue
+  if melody and a<melody[-1][1]:
+   if p==melody[-1][2]:
+    melody[-1][1]=max(melody[-1][1],b);continue
+   a=melody[-1][1]
+  if a<b:melody.append([a,b,p,float(np.clip(level/reference,.15,1))])
+ if not melody:raise ValueError('No audible lead notes found.')
+ rests=[(0.,melody[0][0])]+[(a[1],b[0]) for a,b in zip(melody,melody[1:])]+[(melody[-1][1],seconds)]
+ restored=[]
+ for a,b,p,prob,frame in candidates:
+  for start,end in rests:
+   begin,finish=max(a,start,restored[-1][1] if restored else 0.),min(b,end)
+   if finish-begin<.07:continue
+   confidence=float(np.mean(prob[frame+round((begin-a)/hop):frame+round((finish-a)/hop)]))
+   strength=rms(begin,finish)/reference
+   if confidence>=.65 and strength>=.035:
+    restored.append([begin,finish,p,float(np.clip(strength,.18,1))])
+ return sorted(melody+restored)
 
 def render_vocal(path,seconds,root,instrument,custom):
  from arrangement_replacement import SR,render_soundfont,customize_notes

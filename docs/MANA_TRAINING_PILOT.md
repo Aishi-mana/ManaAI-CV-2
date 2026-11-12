@@ -1,5 +1,10 @@
 # Mana GPT-SoVITS training pilot
 
+<!-- current-status-2026-11-06 -->
+## Current status — 2026-11-06
+
+This is the archived optional legacy GPT-SoVITS pilot, not the current production voice-training path or a blocker. Approved Mana and Mousey voices were subsequently trained separately with RVC using their reviewed datasets. Dedicated GPT-SoVITS fine-tuning and older exact pilot transcript approval have not been completed. See [VOICE_PRESETS.md](VOICE_PRESETS.md) and [CURRENT_STATUS.md](CURRENT_STATUS.md).
+
 The initial 20-recording generation completed on 2026-10-10. All WAVs load, file hashes are distinct, and the review flags remain false. Listening and exact transcript approval are the next gate before creating a verified training list.
 
 The next experiment transfers legacy Mana's approved vocal identity through recordings, rather than loading RVC weights into GPT-SoVITS. New Mana continues to use GPT-SoVITS for playback. The old Kokoro/RVC pipeline is used offline to create candidate training material.

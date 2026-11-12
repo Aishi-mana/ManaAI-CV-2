@@ -1,0 +1,2 @@
+from pathlib import Path
+p=Path('src/components/OutfitPrototype.tsx');s=p.read_text(encoding='utf-8').replace('<div className="outfit-workspace-body">','<div className="outfit-workspace-body"><div className="atelier-project-backup"><button className="btn" disabled={!source||!!stroke||points.length>0} onClick={()=>void exportProject()}>Export editable project</button></div>',1);p.write_text(s,encoding='utf-8')

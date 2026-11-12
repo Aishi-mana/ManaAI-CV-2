@@ -75,3 +75,23 @@ The manual picker exposes Character reference when Qwen/reference is enabled. Cu
 The prompt follows the supplied reference's face, hair and eye colors rather than hardcoding Mana's present colors, making replacement avatar models usable. Turnaround sheet remains default. Chat can opt into the snapshot with `Draw yourself reading using your current avatar using Qwen`. No extra generation was performed for this option; visual fidelity remains a user check. Validation:294 foundation pass/2 optional skip,3 native image tests,2 Python input tests.
 
 Turnaround references can occasionally produce duplicate characters. The artwork prompt explicitly requests one subject and avoids repeated views; this is guidance rather than a guarantee. The current-avatar reference supplies one dressed view and is another option when this occurs.
+
+## Current-look default — 2026-10-24
+
+When character reference is enabled, Qwen now defaults to the current dressed avatar if available. The turnaround sheet remains selectable, and is the fallback without an avatar preparation callback. Each job still prepares the current equipped look afresh. Scene or pose requests now explicitly retain her face, apparent age, proportions, hair, outfit, footwear and accessories unless the user requests a change. Color/features are taken from the reference, not hardcoded.
+
+Validated default-avatar and explicit-sheet payload routing and prompt contracts; 324 tests passed, 2 optional skipped; desktop build passed. These changes guide generation but have not yet been compared with new GPU outputs. Visual identity and anatomy remain probabilistic.
+
+## Expressive poses — 2026-10-24
+
+Reference artwork instructions now rebuild the whole figure for an action, allowing perspective instead of copying the reference stance. Walking, running, dancing, reading and waving receive specific gesture cues. Explicit still poses remain respected. Identity/current-look instructions remain; isolated garments and unreferenced art are unchanged. Qwen conditioning prompt validation matches the backend6000-character bound; user input remains1500.326 tests passed,2 skipped; desktop build passed. New GPU outputs have not yet been visually compared.
+
+## Concise reference artwork default — 2026-10-24
+
+After successful diagnostic comparisons, the app now uses a shorter reference-relative description of face shape, apparent age and head/body proportions. Round cheeks/large eyes/short chin/compact stylization are retained where present in the supplied reference, rather than prescribing fixed colors or clothing. Generic whole-body movement follows the user request; action-specific regex hints were removed. You can request kneeling, leaning, tying shoes, still poses or other actions directly without setting up each pose. Clothing-only and unreferenced paths are unchanged.
+
+327 tests passed,2 optional skipped; desktop build passed. Exact integrated prompt was exported and used by production Qwen worker for seated reading in exports/images/qwen-concise-integrated-20261024; exit0,88.03s. Visually closer round face/compact appearance, current hoodie/headset/clip and mismatched socks retained. This is not a fidelity guarantee; different kimono/hair and arbitrary actions still require visual evaluation.
+
+### Proportion wording restored after user comparison
+
+The initial integration softened the approved compact-proportion description and did not consistently match the useraccepted result. A fixed-reference/fixed-seed rerun of the user running request improved relative head size using the original explicit identity sentences. Those exact sentences are now restored in production and guarded by a regression test.328 tests passed,2 skipped; desktop build succeeded. Socks still vary in color placement. Compact stylization is now explicit for Mana; future changed character models may need a configurable proportion description rather than assuming these traits.

@@ -1,0 +1,6 @@
+
+> mana@0.1.0 build
+> tsc && vite build
+
+src/core/outfitPrototype.ts(95,98): error TS2550: Property 'at' does not exist on type 'Point[]'. Do you need to change your target library? Try changing the 'lib' compiler option to 'es2022' or later.
+src/core/outfitPrototype.ts(95,123): error TS2550: Property 'at' does not exist on type 'Point[]'. Do you need to change your target library? Try changing the 'lib' compiler option to 'es2022' or later.

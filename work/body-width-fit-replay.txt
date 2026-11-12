@@ -1,0 +1,58 @@
+{
+  "fit_version": 7,
+  "source": "body-guided-clothing-only",
+  "shoulder_erasure": false,
+  "shoulder_repainting": false,
+  "hair_mask_used": false,
+  "neck_bounds": [
+    392,
+    341,
+    452,
+    399
+  ],
+  "main_transform": [
+    [
+      1.0246613025665283,
+      0.0,
+      -7.308419227600098
+    ],
+    [
+      0.0,
+      0.9322916865348816,
+      61.953125
+    ]
+  ],
+  "body_width_scale": 1.0246612903225807,
+  "body_center_shift": 3.0,
+  "footwear": {
+    "closed_shoes_only": true,
+    "feet": [
+      {
+        "side": "left",
+        "fitted": true,
+        "foot_pixels_exposed_before": 250,
+        "foot_pixels_exposed_after": 0,
+        "scale_x": 1.0,
+        "scale_y": 1.04,
+        "move_down": 3,
+        "move_sideways": 6
+      },
+      {
+        "side": "right",
+        "fitted": true,
+        "foot_pixels_exposed_before": 64,
+        "foot_pixels_exposed_after": 0,
+        "scale_x": 1.0,
+        "scale_y": 1.04,
+        "move_down": 0,
+        "move_sideways": 0
+      }
+    ],
+    "review_required": true,
+    "automatic_save_allowed": false
+  },
+  "review_required": true,
+  "opening_body_pixels_removed": 19409,
+  "width": 843,
+  "height": 1264
+}

@@ -1,5 +1,16 @@
 # Roadmap
 
+## Current milestone — V1.x, 2026-11-12
+
+Cover work is closed at the user's request. See [current status](CURRENT_STATUS.md) for the installed features, validation scope and remaining work.
+
+- [x] Source-guided Rock, Jazz, Pop and Country backing with selectable leads, excerpts and whole songs up to six minutes.
+- [x] Follow guitar, acoustic piano, keys or vocal melody, with an independent Follow bass groove option.
+- [x] Band preview volume, solo, mute, reset and explicit save. Saved cover previews can open directly in Edit Tracks, where New accompaniment shares Create Cover's band choices.
+- [x] Shared electric guitar and piano source-note replacement across the cover tools where applicable. Piano trio and electric guitar source-note options support sections up to 60 seconds.
+
+Earlier ACE-Step backing experiments are recorded in the project history. The installed band workflow uses detected notes and beats.
+
 Repository: [Aishi-mana/ManaAI-CV-2](https://github.com/Aishi-mana/ManaAI-CV-2.git)
 
 Extracted from ManaAI.md on 2026-10-09. This file owns the milestone checklist.
@@ -52,6 +63,29 @@ with a readable message rather than silently deleting essential evidence. This i
 reactive recovery, not an exact tokenizer-based context budget; larger-context-only
 requests may still need less selected evidence or shorter user input.
 
+## Remaining V1.x work
+
+- [x] Restore Headpat, Boop, Hug and Hold hand on the avatar portrait, with an Interact menu for keyboard access and cropped views. Includes a separate double-click reaction, temporary expressions, chat history and small relationship updates. The native build and automated tests passed. The user confirmed the feature works in their live check.
+- [x] Record first-time portrait milestones and allow portrait interactions to be saved as special moments from the Growth Timeline.
+- [x] First chat-grounding pass. Short social turns use focused context, and ordinary chat recall filters for relevant memories. Common wording variants and explicit follow-ups are covered by tests.
+- [x] The user confirmed chat reliability was tested earlier. Semantic search is installed and the local Qwen model passed a paraphrase ranking smoke test. The user verified Search by meaning in Memories and explicit recall in chat.
+- [x] The user verified SearXNG lookup, source links, and automatic chat routing. A public release-date question showed web sources, while personal recall questions stayed local. The explicit **Search the web** command is covered by an automated routing test. Mana drafts an answer locally from search snippets and shows the source links. See [Web search setup](WEB_SEARCH.md).
+- [x] Restore the Cover Builder working draft and completed unsaved Cover and Original Song previews across restarts. Cover preview mix controls are retained.
+- [x] Support larger metadata backups. Validation passed for 1,000 artwork-heavy projects above the old 20 MB cap. Native JSON read and write now allow up to 256 MB.
+- [x] Portable ZIP export and restore for referenced Studio music, disk gallery images and the optional configured GGUF chat model.
+- [x] Portable ZIP options for custom avatar assets, installed Wardrobe items, vision GGUFs and the llama-server runtime. Bundled avatar, model and runtime paths are resolved on the destination.
+- [x] Broaden portable ZIP backups to include the Game Dev GGUF and Whisper model, executable, and DLLs. Restore rewrites bundled paths for the destination.
+- [ ] Live-check the expanded portable ZIP on restore. This is the remaining V1.x acceptance item.
+- [x] Chat voice and mouth timing polish. Compared both trained voices across neutral, cheerful, and gentle delivery. The user verified the mouth timing in Mana and closed this pass.
+- [x] Close the planned fresh outfit and hairstyle fit review at the user's request.
+### Future enhancements carried forward from V1.x
+
+- [ ] ACE-Step original vocal artifacts and broader voice refinement.
+- [ ] Broader vision, wardrobe fit and visual consistency, memory retrieval, and game and coding capabilities, including the first successful autonomous game build.
+- [ ] Portability for additional local runtimes and their dependencies.
+
+Hands-free testing is closed at the user's request. V2 Companion Room and V3 Manaverse are later milestones.
+
 ## V1 — Foundation
 
 Status: the scoped V1 foundation checklist is fully implemented. Personality length/style and
@@ -85,7 +119,7 @@ and profile prose. Long-session stability and regression review remain ongoing q
 - [x] Personality foundation (optional persistent voice traits; model adherence varies)
 - [x] Persistent local database (SQLite settings, chat, avatar loadout, and progress)
 - [x] Manual memory storage foundation (SQLite, importance, pinning, timestamps)
-- [x] Basic memory retrieval (keyword matches and pinned-note priority; semantic retrieval planned)
+- [x] Basic memory retrieval (keyword matches and pinned-note priority; semantic search available in Memories and for explicit chat recall)
 - [x] Memory strength and decay (importance-based half-life, non-destructive floor, pinned protection)
 - [x] Memory reinforcement (relevant context on completed replies, recall count and timestamp)
 - [x] Memory management UI (add, edit, delete, search, pin)
@@ -100,6 +134,8 @@ and profile prose. Long-session stability and regression review remain ongoing q
 ## V1.x — Growing Mana
 
 ### Future interface polish
+
+- [x] Compact chat controls for voice settings, export, search, input settings, microphone and attachments. Icon buttons have accessible names and hover/focus labels, while stop and recording actions retain explicit text.
 
 - [ ] Replace word-heavy action buttons with clear, consistent icons to reduce crowding.
 - [ ] Add descriptive tooltips on hover and keyboard focus, plus accessible names for screen readers.
@@ -244,11 +280,13 @@ do not use this context. Identity, mood and relationship stats remain unchanged.
 - [x] Music Studio stage 1: full-size pastel library/player using the existing cover workflow, with basic artwork and saved project settings (user passed tests 1–4; see MUSIC_STUDIO.md)
 - [x] Music Studio stage 2: artwork, saved project settings, mix/export controls and reviewed chat excerpts without reconversion (implemented; see MUSIC_STUDIO.md)
 - [x] Music Studio stage 3: instrument melody workflow and prompt-driven original songs (user accepted)
-- [ ] Resolve sung high-note distortion and trembling (deferred at the user's request; see MUSIC_STUDIO_PLAN.md)
+- [ ] Deferred by user: revisit reported sung-word distortion, sharp notes and trembling if singing quality work resumes
 - [x] Supplied-guide singing workbench (Demucs + pitch-conditioned Seed-VC, vocal/backing WAV previews; five-second CPU smoke and all four manual checks passed; speed tuning remains)
-- [ ] Custom trained Mana voice and singing quality/timing refinement
+- [x] Separate approved trained Mana v1 and Mousey v2 RVC voice profiles for chat and songs
+- [ ] Broader singing articulation, distortion and timing refinement (known defects remain)
 - [x] Independent Japanese/English reference and reply language controls; confirmed main-reference words rendered in Japanese
-- [ ] Stable Mana voice profile and expression references; optional dedicated speech/singing fine-tuning
+- [x] Approved trained voice identities and independent persistent chat/singing selection
+- [ ] Broader expression consistency; optional dedicated speech/singing fine-tuning beyond the installed RVC models
 - [x] Provisional voice collection catalogue and short audition references (269 cuts; listening/transcript approval pending)
 - [x] Short style auditions approved; longer 7–9 second reference candidates and source comparisons prepared
 - [x] Final default, thoughtful, revised cheerful and gentle delivery selections approved
@@ -258,7 +296,7 @@ do not use this context. Identity, mood and relationship stats remain unchanged.
 - [x] Supplied Mana v2 Default/Cheerful/Gentle/Sad/Worried/Angry references prepared; automatic per-reply emotion routing connected to Speak, read-aloud and hands-free
 - [ ] Mana v2 same-sentence emotion audition approval and exact reference transcript verification
 - [x] Offline English pilot generated from legacy Mana: 16 training candidates and four separate held-out recordings; prompts and quality metadata saved
-- [ ] Listening approval and exact transcript verification for the pilot, followed by GPT-SoVITS fine-tuning and held-out sentence evaluation
+- [ ] Optional archived legacy GPT-SoVITS pilot: exact transcript/listening approval, fine-tuning and held-out evaluation; not a prerequisite for the approved RVC voices
 - [ ] Optional generation timing breakdown, warm singing worker, reference/stem/audio caches and preview/final quality presets (current speed acceptable without competing ComfyUI workload)
 - [ ] VRAM-aware GPU scheduling with CPU fallback; benchmark alongside the chat model
 - [x] Opt-in musical initiative foundation: original wordless piano/guitar candidates, persistent cooldowns, typed requests, shared Stop/mute and microphone coordination
@@ -282,14 +320,29 @@ do not use this context. Identity, mood and relationship stats remain unchanged.
 - [x] User-confirmed saved-image avatar labels with backup persistence and grounded chat context (implemented; live acceptance pending)
 - [ ] Automatic self-recognition across new artwork (beyond saved user labels/reference resemblance)
 - [x] Manual local picture generation through installed Stable Diffusion engine and headless all-in-one NetaYume, preview/save/stop (user accepted generation, library Save, Stop and standalone NetaYume speed around3min, 2026-10-19)
-- [ ] Artwork provenance/self-recognition
+- [x] Record the local image generation job, model, seed and reference on new artwork. Retain that information in chat, gallery and backups. Reused artwork keeps the generation record separate from user-confirmed identity.
+- [ ] Live-check the new artwork origin display and reuse path.
 - [x] Manual JavaScript canvas coding playground with model-assisted drafts (live checks 1–4 passed after state-reset repair)
 - [x] Saved game versions, exact-source run reports and report-based revision drafts (user passed checks1–4; generated-code quality remains variable)
 - [x] Bounded automatic game smoke checks with explicit saved evidence (implemented; live acceptance pending)
 - [x] Standalone playable HTML game export with isolated Run/Stop (user accepted)
 - [x] Bounded multi-file game projects, local assets, mouse/buttons, sprites, tile collision, game progress and visual wall/star editing (combined user acceptance passed)
-- [ ] Broader coding activities and independent correctness assessment
-- [ ] Future autonomous game projects: occasional initiation, incremental days/weeks work, automatic playtesting and saving to the game library, while retaining manual requests
+- [x] Star Collector pilot checks visible movement, collection, scoring, winning and restart in the isolated game runner. Mana gets one repair attempt before a failed candidate is rejected.
+- [ ] Live-check the Star Collector draft with the configured chat model and broaden game correctness checks.
+- [x] Mana's Game Dev, a full-screen menu separate from Code playground. Reuse the existing editor, isolated runner and verification tools where they fit.
+- [x] Keep ongoing projects and published games in the same Game Dev workspace, with separate Projects and Published views as the initial layout.
+- [x] Opt-in daily development pilot progresses through core gameplay, presentation and release verification, with saved project state and session notes. The first game family uses the Star Collector verifier.
+- [x] Publish a pilot game to the local library after movement, collection, scoring, win and restart checks pass.
+- [x] Run one to three daily automated playtests on randomly selected published games, keep notes, and optionally include those records in the diary.
+- [x] Projects and Published have independent automatic schedules and limits of one to three attempts per day. Projects can use an optional local GGUF model for drafting and restore the Mana-managed chat model afterward.
+- [x] New projects use a genre pool. Mana invents the premise and mechanics, and development notes show the model identifier when the server reports it.
+- [x] Projects and Published use game grids with a details drawer and an isolated manual playtest.
+- [ ] Automate genre-specific playability checks. Genre projects use genre-tailored smoke inputs and manual playability confirmation before publishing.
+- [ ] Live-check model drafting, next-day continuation and publishing. Expand game types and playtest strategies beyond the collector pilot.
+- [ ] Develop more complex games with multiple levels, deeper mechanics, and progress saved across development sessions.
+- [ ] Let Mana generate cover art for ongoing projects and show it on their cards in Projects and Published.
+- [ ] Let Mana generate game assets such as sprites, tiles, and backgrounds, then wire them into her games through the existing asset pipeline.
+- [ ] Let Mana record her own gameplay and add commentary. Start with one game that exposes enough state for her to make decisions, record the game canvas, and use the playtest events to write and narrate commentary afterward.
 - [x] Simple JavaScript canvas game foundation with source review and explicit Run/Stop (user accepted)
 - [x] Restricted worker-in-opaque-frame browser game runner with watchdog (Run/movement/Stop live checks passed; security boundary not independently audited)
 - [ ] Broader code sandbox/tool runners and stronger resource isolation
@@ -297,7 +350,7 @@ do not use this context. Identity, mood and relationship stats remain unchanged.
 - [x] Selectable avatar backgrounds and local custom-picture import, persisted with backups (user accepted, 2026-10-19)
 - [x] Saved looks (named loadouts, safe apply, backup/restore)
 - [x] Seasonal look assignments using current/saved looks, manual Apply, calendar settings and backup persistence (user accepted, 2026-10-19)
-- [ ] Additional seasonal clothing artwork (user has no new outfit assets yet)
+- [ ] Broader seasonal artwork variety and visual acceptance; generation and seasonal inventory assignments already exist
 - [x] Opt-in random morning/night looks from user-approved pools, editable times and persistent deduplication (implemented; live schedule acceptance pending)
 - [ ] Broader preference-driven outfit choice beyond approved random pools
 
@@ -305,13 +358,17 @@ do not use this context. Identity, mood and relationship stats remain unchanged.
 
 ## V2 — Companion Room
 
-- [ ] Persistent virtual room
+The room is available from More → Companion Room. It uses legacy room art and miniature Mana sprites. Mana routes around furniture across the floor, including the space behind the table. Watering the plant saves the room state.
+
+- [x] Persistent virtual room
 - [ ] Memory-linked room objects, furniture preferences and home stories
-- [ ] Miniature Mana avatar
-- [ ] Walking and navigation
+- [x] Miniature Mana avatar
+- [x] Click and keyboard walking around room furniture
 - [ ] Idle behaviors
 - [ ] Activities
-- [ ] Interactive objects
+- [ ] Restore and expand the legacy room activities with their own animations and state. Include desk thinking, relaxing, watching the window, playing, reading, plant care, and remembering at the photo frame.
+- [ ] Build on legacy idle activity choices, furniture preferences, room thoughts, and time-of-day behavior.
+- [x] First interactive object, a plant Mana can water
 - [ ] Furniture
 - [ ] Plants
 - [ ] Gaming area
@@ -322,7 +379,7 @@ do not use this context. Identity, mood and relationship stats remain unchanged.
 - [ ] Mana needs/state
 - [ ] Activity-driven animation
 - [ ] Autonomous daily routine
-- [ ] Room persistence
+- [x] Persist Mana’s position and the last watering in local storage and backups
 
 ---
 
@@ -401,18 +458,35 @@ User passed combined check and requested visual star placement. Star-aware grid 
 
 User passed combined toolkit and star placement. Current small-game scope accepted. Future autonomous project development/playtesting over days or weeks recorded separately; it is not implemented or automatically started. Continue V1.x; backgrounds and broader avatar presentation remain open.
 
-- [ ] Future: Mana-designed outfit concepts, with a separate reviewed process to turn artwork into usable avatar assets (requested2026-10-19; deferred).
+- [x] Mana-designed clothing concepts and clothing-only PNG fitting/editable review workflow (implemented October 2026; quality remains review-dependent).
 
 - [x] Saved Images thumbnail gallery with search, date sorting, detail and enlarge (implemented2026-10-20; live check pending).
 - [x] Chat picture requests through local backends; inline progress/result, explicit Save and conversation persistence implemented (inline live check pending).
 
 - [x] Avatar-referenced self portraits and outfit concept entry from Wardrobe (implemented2026-10-20; live resemblance/quality pending).
-- [ ] Convert generated outfit concepts into usable layered/rigged avatar assets; no automatic installation.
+- [x] Editable layered transparent PNG wearable generation and reviewed installation
+- [ ] General rigged/animated avatar-asset export beyond the current PNG layer workflow
 
-- [ ] Clothing-only transparent PNG generation with avatar-fit/alignment and reviewed installation; preserve character layers (clarified2026-10-21).
+- [x] Clothing-only transparent PNG generation with avatar-fit/alignment and reviewed installation; preserve character layers (implemented; automatic cleanup remains off).
 
 - [x] Disk-backed gallery with thumbnail index, automatic preserved migration and no8MB/100-picture gallery cap (implemented2026-10-21; live migration acceptance pending).
 
 ## Implemented — Wardrobe inventory workspace (2026-10-22)
 
 User brought the deferred redesign forward. Wardrobe is now a full-page inventory with item thumbnail grids for outfits, hair, skin and accessories, a current-look preview, search and availability/equipped/locked filters. Equipping, optional accessory toggles, saved looks, unlocks and daily/seasonal outfit pools remain supported. Atelier remains a separate linked Design → Make → Edit → Save workspace. This does not add automatic installation of Atelier PNG exports; the inventory shows wearable items loaded from the avatar asset folders. See WARDROBE_INVENTORY.md.
+
+### 2026-11-08 shared piano conversion requirement
+User requests the accepted piano-specific transcription improvement across other cover features when wired. Integration scope: shared source-piano transcription for Create Cover piano arrangement, Cover Builder piano-source instrument replacement, and Edit Tracks piano-source conversion; preserve destination sound/bank/customizers, relative velocities and timing. Do not run piano model on guitar/vocal/mixed sources. Local CRNN model required, no silent Basic Pitch fallback for piano. Current accepted short fixtures are piano intro and Mousey vocal section; longer45s30-75s fixture in progress. Not installed or complete.
+
+
+### 2026-11-08 shared piano path installed
+User approved the intro, vocal excerpt and45svocal audition, then requested integration across cover tools. Create Cover backing style Piano trio uses Mega acoustic-piano extraction, local piano-specific CRNN (author checkpoint c3fa9730725bf4a762f1c14bc80cd5986eacda01b026f5a4a2525cd607876141), model note velocities, warm keys and sparse source-note bass. Soft percussion taps are optional/default off. Same Piano trio is default New accompaniment option in Edit Tracks; acoustic piano-source replacement in Builder/Edit Tracks uses shared CRNN for all banks, with existing destination/customizer paths retained. Acoustic piano extraction now uses accepted Mega target instead of nearly silent Banquet. Existing saved audio is not regenerated.
+Trio1–60s, best on piano-led sources; no general/full-song jazz guarantee. Original backing remains default. Rock/Pop ACE previews remain unaccepted and unchanged. User's background sound cause is unconfirmed.
+Validation: frontend/build/native check;394JS pass/2optional skips;5shared piano unit tests;2genre tests; existing direct-track Builder replacement regression passed. Production extraction/transcription reproduces accepted44-note intro pitches/onset/offset rounded. Real separate/LiveHQ/FluidR3 piano replacement render checks passed. Native debug build succeeded, packaged scripts verified. Artifacts/logs work/piano-shared-*. No active render/install job. App listening/UI acceptance after restart remains pending.
+
+### 2026-11-08 original three-genre task resumed
+User reports installed piano trio is not useful on guitar-led Country Roads and correctly says it does not fulfill Rock/Jazz/Pop request. Piano trio remains optional, not genre solution. Researched official ACE source/reference distinction and alternative JASCO (explicit chord/drum/melody controls but10soutputs, not installed) / control-transfer-diffusion (separate structure/style inputs; not installed). No model downloads. New bounded nativeACE standard-cover experiment uses same20sCountry Roads backing from1794090410615, source guidance1.0, no --ref-audio (earlier tests supplied source as timbre reference), seed42/baseQ8/50steps across three genre captions. This is a hypothesis with known standard-cover rewrite risk, not a proven fix. All3renders completed finite20s; lowfreq fractions Rock.14714/Jazz.06882/Pop.01737 are diagnostic only. Level-matched auditions: exports/singing/country-three-genres-20261108/{Original Country Roads backing,Rock backing test,Jazz backing test,Pop backing test}.wav. Sourcehashunchanged, requests/native logs/checks retained; production unchanged. User must assess both meaningful genre change and preserved original song/rhythm; no active jobs.
+
+
+### 2026-11-08 immediate local FlowEdit research test
+User rejects approval-gated dependencies; JASCO access/download plan canceled. No waiting on external approvals and no new model downloads. Built isolated research ace-flowedit.exe in work/native-flowedit using installed acestep.cpp headers/static core/GGML DLLs, without modifying C:/AI/acestep.cpp or Mana runtime. New paired velocity-difference editor starts from clean VAE source latents; source/target captions share context/noise.16steps t.75->.05, sequential branch forwards, guidance1, noFSQ. First batch adapter identity drifted.139; sequential but cancellation-prone input algebra drifted.0137. Reordered target=input_source+(edited-original) to avoid f32 cancellation; final real identity latent delta exactly0. Rock target relative latent delta.49319, below100Hz.01360, same12sduration. Source waveform correlation vs codec identity.96344, Rock.84171; aligned chroma cosine.93978. Metrics are diagnostic, not proof of audible melody or genre. New fixture Country Roads backing6-18s from1794090410615, sourcehashunchanged. exports/singing/flowedit-country-stable-20261108/{Original - 12s,Identity - 12s,Rock - 12s}.wav plus checks/native logs. Only Rock candidate generated after identity gate; Jazz/Pop await meaningful rock fidelity/style feedback. No production changes or active jobs. User notification only for ready test/required action.

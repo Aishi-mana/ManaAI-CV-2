@@ -1,0 +1,22 @@
+✔ hidden fabric protection uses selected front hair above the outfit, excluding back hair and accessories (1.0518ms)
+✔ outfit creation preserves the referenced avatar geometry before extraction (0.4834ms)
+✔ review previews replace the outfit while preserving the body and front hair order (0.2336ms)
+✔ Mana can choose complete default outfit ideas without user text (2.4307ms)
+✔ skirt requests exclude extra trousers while trouser requests do not force a skirt (1.0106ms)
+✔ automatic ideas do not repeat recent combinations even after renaming (4.4786ms)
+✔ idea rotation has variety and remains bounded with exhausted history (40.0237ms)
+✔ custom ideas receive readable names while dress requests do not add a second bottom (0.605ms)
+✔ seasonal ideas change fabric and sleeves without changing user descriptions (0.7276ms)
+✔ creative outfit ideas are free-form validated descriptions with seasonal and recent-design context (1.7683ms)
+✔ generation preserves blank head margin and specifies intact comfortably fitted cuffs (0.3495ms)
+✔ outfit presets offer unique editable complete clothing ideas (1.8014ms)
+✔ outfit launch accepts clothing-only reference preparation instead of demanding an avatar composite (1.9103ms)
+✔ automatic outfit pool spans 480 distinct combinations including new silhouettes (64.6657ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 637.1321

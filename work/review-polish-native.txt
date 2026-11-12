@@ -1,0 +1,31 @@
+   Compiling mana v0.1.0 (C:\AI\ManaAI-CV-2\src-tauri)
+warning: hard linking files in the incremental compilation cache failed. copying files instead. consider moving the cache directory to a file system which supports hard linking in session dir `\\?\C:\AI\ManaAI-CV-2\src-tauri\target\debug\incremental\mana_lib-198gv5erphajf\s-hnle21u79l-1c3r69v-working`
+
+warning: hard linking files in the incremental compilation cache failed. copying files instead. consider moving the cache directory to a file system which supports hard linking in session dir `\\?\C:\AI\ManaAI-CV-2\src-tauri\target\debug\incremental\mana_lib-3u0vwfuwsolv7\s-hnle21u7ac-1ah5i4s-working`
+
+warning: `mana` (lib test) generated 1 warning
+warning: `mana` (lib) generated 1 warning
+warning: hard linking files in the incremental compilation cache failed. copying files instead. consider moving the cache directory to a file system which supports hard linking in session dir `\\?\C:\AI\ManaAI-CV-2\src-tauri\target\debug\incremental\mana-23m7at82p7rk2\s-hnle264uqm-0kbknvr-working`
+
+warning: `mana` (bin "mana" test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.61s
+     Running unittests src\lib.rs (src-tauri\target\debug\deps\mana_lib-4834e32b2002e09c.exe)
+
+running 8 tests
+test generated_outfits::edit_review_tests::edited_pending_design_approves_once_and_rejects_stale_or_saved_overwrite ... ok
+test generated_outfits::idea_history_tests::history_includes_approved_and_dismissed_designs_after_reopen ... ok
+test generated_outfits::legacy_fit_tests::older_reviews_default_to_legacy_fit_and_cannot_be_saved_before_update ... ok
+test generated_outfits::project_recovery_tests::editable_project_survives_reopen_and_approval_without_stale_overwrite ... ok
+test generated_outfits::project_recovery_tests::recovery_lists_only_reusable_unqueued_clothing_jobs_and_rejects_escape ... ok
+test generated_outfits::recovery_tests::failed_immediate_save_retains_review_and_partial_staging_can_retry ... ok
+test generated_outfits::schedule_tests::schedule_is_opt_in_persistent_and_never_catches_up_in_a_burst ... ok
+test generated_outfits::tests::queue_survives_reopen_and_approval_is_idempotent ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 86 filtered out; finished in 0.17s
+
+     Running unittests src\main.rs (src-tauri\target\debug\deps\mana-589937a703703807.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

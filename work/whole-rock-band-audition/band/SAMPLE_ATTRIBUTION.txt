@@ -1,0 +1,5 @@
+Separate-library instrument rendering
+Piano: Accurate-Salamander by Chiaki Yamauchi, derived from Salamander Grand Piano by Alexander Holm; CC BY 3.0. https://www.ir.isas.jaxa.jp/~cyamauch/AccurateSalamander/ and https://creativecommons.org/licenses/by/3.0/
+Guitar: Black And Green Guitars, Karoryfer Lecolds; recorded by Brian Wood, copyright 2022; included CC0 license. https://shop.karoryfer.com/pages/free-black-and-green-guitars
+Sax: Weresax, Karoryfer; included CC0 license. https://shop.karoryfer.com/pages/free-weresax
+Rendered with sfizz 1.2.3. Source library files unchanged. Audition modifications: identical MIDI from gap-repaired guitar transcription, mono mixdown, 12-second trim, matched gain and mix with supplied vocal/accompaniment. Distorted guitar additionally uses high-pass, tanh drive and cabinet-like low-pass processing; it is not a separately recorded distorted patch. No endorsement is implied.

@@ -13,3 +13,6 @@ src-tauri/gen
 # Claude's versions.
 /appsteps/
 exports/
+
+# Approved local clothing parser weights (download manifest is stored beside them).
+/models/clothing-segformer-b2/

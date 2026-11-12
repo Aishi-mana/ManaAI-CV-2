@@ -1,0 +1,21 @@
+✔ Qwen routes independently with bounded artwork dimensions and explicit reference (59.0575ms)
+✔ Qwen chat launch uses character conditioning without avatar masks (66.1108ms)
+✔ Qwen current-avatar chat reference snapshots dressed layers without requiring the sheet (36.7432ms)
+✔ Qwen current avatar routing follows reference features rather than fixed colors (12.6701ms)
+✔ Qwen outfit design generates separated clothing without attaching the character (41.8951ms)
+✔ outfit design defaults to a complete Qwen garment set and preserves requested items (8.4187ms)
+✔ Atelier preview opacity and zoom leave the transparent outfit composite unchanged (177.1937ms)
+✔ zoomed preview drag uses canvas display coordinates and turnaround prompt requests one subject (24.6066ms)
+✔ mouse wheel zoom prevents page scrolling and anchors the image under the pointer (5.8571ms)
+✔ Qwen reference artwork preserves current wardrobe and proportions without freezing pose or scenery (7.0784ms)
+✔ Qwen accepts arbitrary actions without a per-pose mapping (8.9121ms)
+✔ expanded Qwen pose prompt fits native bounds without expanding other model limits (5.3455ms)
+✔ concise Qwen artwork retains reference-relative face and colors without hardcoded avatar colors (7.76ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 800.1208

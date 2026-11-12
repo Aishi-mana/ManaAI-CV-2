@@ -1,3 +1,6 @@
+import {GAME_DEV_KEY,validateGameDev} from "./gameDev";
+import {ROOM_KEY,validateRoom} from "./companionRoom";
+import {validateStudio} from './musicStudio';
 import {validateCodeGames} from './codeGames';
 import {validateCustomVoice,upgradeCustomVoice} from './customVoice';
 import {validateWhisper} from './whisper';
@@ -28,9 +31,13 @@ import {validateNarratives} from './narratives';
 import {validatePractice} from './skills';
 import {validateSpeechPreferences} from './speechPreferences';
 import {validateVisionSettings} from './vision';
+import {MUSIC_DRAFTS_KEY,validateMusicDrafts} from './musicDrafts';
 import {validateSavedImages} from './savedImages';
 
 const validators:Record<string,(value:unknown)=>unknown>={
+ [MUSIC_DRAFTS_KEY]:validateMusicDrafts,
+ [GAME_DEV_KEY]:validateGameDev,
+ [ROOM_KEY]:validateRoom,
  'mana.settings.v1':validateSettings,'mana.chat.v1':validateChat,'mana.identity.v1':validateIdentity,
  'mana.memories.v1':validateMemories,'mana.stats.v1':validateStats,'mana.avatar.v1':validateAvatarConfig,
  'mana.diary.v1':validateDiary,'mana.daily_journal.v1':validateJournalState,'mana.initiative.v1':validateInitiative,
@@ -53,15 +60,34 @@ const validators:Record<string,(value:unknown)=>unknown>={
  'mana.whisper.v1':validateWhisper,
  'mana.custom_voice.v1':validateCustomVoice,
 };
+export const BACKUP_MAX_BYTES=256_000_000;
 export interface Backup {format:'mana-backup';version:1;createdAt:string;data:Record<string,unknown>}
 const sorted=(v:unknown):unknown=>Array.isArray(v)?v.map(sorted):isRecord(v)?Object.fromEntries(Object.keys(v).sort().map(k=>[k,sorted(v[k])])):v;
 export function validateBackup(raw:string):Backup {
- if(raw.length>20_000_000)throw new Error('Backup exceeds 20 MB.');
+ if(raw.length>BACKUP_MAX_BYTES||(raw.length>BACKUP_MAX_BYTES/3&&new TextEncoder().encode(raw).length>BACKUP_MAX_BYTES))throw new Error('Backup exceeds 256 MB.');
  const value:unknown=JSON.parse(raw);
  if(!isRecord(value)||value.format!=='mana-backup'||value.version!==1||typeof value.createdAt!=='string'||!Number.isFinite(Date.parse(value.createdAt))||!isRecord(value.data))throw new Error('Unsupported or malformed Mana backup.');
  const data={...value.data};
+ if(!Object.prototype.hasOwnProperty.call(data,GAME_DEV_KEY))data[GAME_DEV_KEY]=validateGameDev(null);
+ if(!Object.prototype.hasOwnProperty.call(data,ROOM_KEY))data[ROOM_KEY]=validateRoom(null);
+ if(!Object.prototype.hasOwnProperty.call(data,MUSIC_DRAFTS_KEY))data[MUSIC_DRAFTS_KEY]=validateMusicDrafts(null);
  if(isRecord(data['mana.initiative.v1'])&&!Object.prototype.hasOwnProperty.call(data['mana.initiative.v1'],'music'))data['mana.initiative.v1']={...data['mana.initiative.v1'],music:validateInitiative(null).music};
  if(isRecord(data['mana.initiative.v1'])&&!Object.prototype.hasOwnProperty.call(data['mana.initiative.v1'],'studio'))data['mana.initiative.v1']={...data['mana.initiative.v1'],studio:validateInitiative(null).studio};
+ const storedInitiative=data['mana.initiative.v1'];
+ if(isRecord(storedInitiative)&&isRecord(storedInitiative.studio)&&Array.isArray(storedInitiative.studio.projects)){
+   // Older v1 exports did not store these optional arrangement settings.
+   const projects=storedInitiative.studio.projects.map(project=>{
+     if(!isRecord(project)||!isRecord(project.settings))return project;
+     const normalized=validateStudio({projects:[project]}).projects[0];
+     if(!normalized)return project;
+     const settings={...project.settings};
+     for(const key of ['percussion','genreLead','bandSource','followBass'] as const){
+       if(!(key in settings)&&normalized.settings[key]!==undefined)settings[key]=normalized.settings[key];
+     }
+     return {...project,settings};
+   });
+   data['mana.initiative.v1']={...storedInitiative,studio:{...storedInitiative.studio,projects}};
+ }
  const initiative=data['mana.initiative.v1'];
  if(isRecord(initiative)&&isRecord(initiative.music)&&!Object.prototype.hasOwnProperty.call(initiative.music,'songs'))data['mana.initiative.v1']={...initiative,music:{...initiative.music,songs:validateInitiative(null).music!.songs}};
  if(isRecord(data['mana.custom_voice.v1']))data['mana.custom_voice.v1']=upgradeCustomVoice(data['mana.custom_voice.v1']);
@@ -110,8 +136,9 @@ export function backupCounts(backup:Backup):string {
  const count=(key:string)=>Array.isArray(backup.data[key])?(backup.data[key] as unknown[]).length:0;
  return `${count('mana.chat.v1')} chat messages · ${count('mana.memories.v1')} memories · ${count('mana.diary.v1')} diary entries (including deleted) · ${count('mana.goals.v1')} goals · ${count('mana.work.v1')} artifacts · ${count('mana.playtests.v1')} playtests · ${(backup.data['mana.code_games.v1'] as {games:unknown[]}).games.length} game versions · ${(backup.data['mana.code_games.v1'] as {reports:unknown[]}).reports.length} game reports`;
 }
-export async function restoreBackup(backup:Backup){
+export async function restoreBackup(backup:Backup,prepareFiles?:()=>Promise<void>){
  const valid=validateBackup(JSON.stringify(backup));
  const safety=await createBackup();
- await restoreStored(Object.fromEntries(Object.entries(valid.data).map(([k,v])=>[k,JSON.stringify(v)])),JSON.stringify(safety,null,2));
+ if(prepareFiles)await prepareFiles();
+ await restoreStored(Object.fromEntries(Object.entries(valid.data).map(([k,v])=>[k,JSON.stringify(v)])),JSON.stringify(safety));
 }

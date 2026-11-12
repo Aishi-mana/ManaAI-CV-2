@@ -1,0 +1,24 @@
+[
+  {
+    slot: 'front',
+    bounds: { x: 100, y: 31, width: 293, height: 271 },
+    piece: {
+      id: 'bangs',
+      name: 'Bangs',
+      depth: 'front',
+      regions: [Array],
+      transform: [Object]
+    }
+  },
+  {
+    slot: 'back',
+    bounds: { x: 38, y: 27, width: 436, height: 546 },
+    piece: {
+      id: 'back-hair',
+      name: 'Back hair',
+      depth: 'back',
+      regions: [Array],
+      transform: [Object]
+    }
+  }
+]

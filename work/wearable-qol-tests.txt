@@ -1,0 +1,11 @@
+✔ wearable reviews filter and sort without modifying the durable list (81.462ms)
+✔ shared creation lease rejects overlapping wearable and outfit timers (5.7154ms)
+✔ occasional schedule waits for idle visibility and always releases the shared queue (34.0199ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 472.2295

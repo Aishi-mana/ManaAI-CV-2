@@ -19,7 +19,8 @@ async function diskRecord(image:ImageAttachment,prior?:SavedImage):Promise<Saved
  const bytes=jpegBytes(image.dataUrl),fingerprint=await imageFingerprint(image.dataUrl),preview=await thumbnail(bytes),id=prior?.id??uid();
  await invoke('gallery_write',{id,bytes:Array.from(bytes)});
  // The native write is immutable and verifies the completed file before returning.
- return {id,filename:image.filename.slice(0,200),createdAt:prior?.createdAt??new Date().toISOString(),dataUrl:preview,diskId:id,byteSize:bytes.length,fingerprint,...(prior?.depictsAvatar?{depictsAvatar:true as const}:{})};
+ const origin=prior?.origin??image.origin;
+ return {...(origin?{origin}:{}),id,filename:image.filename.slice(0,200),createdAt:prior?.createdAt??new Date().toISOString(),dataUrl:preview,diskId:id,byteSize:bytes.length,fingerprint,...(prior?.depictsAvatar?{depictsAvatar:true as const}:{})};
 }
 export async function migrateGallery(images:SavedImage[]):Promise<SavedImage[]>{
  const legacy=images.filter(image=>!image.diskId);if(!legacy.length)return images;
@@ -30,14 +31,17 @@ export async function migrateGallery(images:SavedImage[]):Promise<SavedImage[]>{
 }
 export async function addDiskImage(images:SavedImage[],image:ImageAttachment):Promise<{images:SavedImage[];imageId:string}>{
  const fingerprint=await imageFingerprint(image.dataUrl),existing=images.find(i=>i.fingerprint===fingerprint||(!i.diskId&&i.dataUrl===image.dataUrl));
- if(existing)return {images,imageId:existing.id};
+ if(existing){
+  if(!existing.origin&&image.origin)return {images:images.map(item=>item.id===existing.id?{...item,origin:image.origin}:item),imageId:existing.id};
+  return {images,imageId:existing.id};
+ }
  const saved=await diskRecord(image);return {images:[...images,saved],imageId:saved.id};
 }
 export async function fullGalleryImage(image:SavedImage):Promise<SavedImage>{
  if(!image.diskId)return image;
  const raw=await invoke<ArrayBuffer|number[]>('gallery_read',{id:image.diskId}),bytes=new Uint8Array(raw);let encoded='';
  for(let i=0;i<bytes.length;i+=16384)encoded+=String.fromCharCode(...bytes.subarray(i,i+16384));
- const dataUrl='data:image/jpeg;base64,'+btoa(encoded);if(!validImageData(dataUrl))throw Error('The gallery file is not a supported JPEG.');return {...image,dataUrl};
+ const dataUrl='data:image/jpeg;base64,'+btoa(encoded);if(!validImageData(dataUrl))throw Error('The gallery file is not a supported JPEG.');if(image.fingerprint&&await imageFingerprint(dataUrl)!==image.fingerprint)throw Error('The gallery image no longer matches its saved fingerprint.');return {...image,dataUrl};
 }
 export async function removeDiskImage(image:SavedImage):Promise<void>{if(image.diskId)await invoke('gallery_remove',{id:image.diskId});}
 export const galleryFolder=()=>invoke<string>('gallery_folder');

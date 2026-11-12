@@ -1,0 +1,3 @@
+from pathlib import Path
+for f in ['docs/GENERATED_OUTFITS.md','docs/DEVLOG.md','docs/NEXT_CHAT_HANDOFF.md']:
+ p=Path(f);p.write_text(p.read_text(encoding='utf-8-sig')+'\nOctober 31 correction: expanded the automatic combination pool from 120 to 480 (8 palettes × 10 garment styles × 6 details). Chat-invented designs receive a varied, non-repeating pool direction they may reinterpret; direct descriptions still take priority. The 16 manual shortcuts are separate and now live in a collapsed, height-limited button picker rather than a native dropdown. Targeted generation tests: 14 passed.\n',encoding='utf-8')

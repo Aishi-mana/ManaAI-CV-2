@@ -1,0 +1,6 @@
+
+> mana@0.1.0 build
+> tsc && vite build
+
+src/App.tsx(268,192): error TS2339: Property 'config' does not exist on type '{ assets: AvatarAssets | null; status: AvatarStatus; error: string; reload: () => void; }'.
+src/App.tsx(268,217): error TS2339: Property 'config' does not exist on type '{ assets: AvatarAssets | null; status: AvatarStatus; error: string; reload: () => void; }'.

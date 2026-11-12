@@ -1,0 +1,21 @@
+{
+  "job": "exports\\singing\\1792874633232",
+  "source": "C:\\Users\\Admin\\Downloads\\country roads.mp3",
+  "reference": "C:/AI/ManaAI-CV-2/data/custom-voice/references/mana-v2/singing.wav",
+  "referenceProvenance": {
+    "source": "exports/singing/singing-reference-audition-2026-10-13/derived-mana-singing-reference.wav",
+    "copiedTo": "data/custom-voice/references/mana-v2/singing.wav",
+    "seconds": 8,
+    "previouslyConverted": true,
+    "purpose": "Approved zero-shot Seed-VC singing reference; chat references unchanged",
+    "approvedOn": "2026-10-13"
+  },
+  "completed": true,
+  "pitchShiftSemitones": 0,
+  "autoF0Adjust": false,
+  "referenceMedianHz": 390.82287831334475,
+  "guideMedianHz": 306.781564247528,
+  "outputMedianHz": 305.2462356732353,
+  "assessment": "Correct configured singing reference used; output follows guide pitch. Speaker resemblance cannot be established by pitch statistics. No listening tool available; user reports identity mismatch. Reference is an eight-second previously converted sample, not a dedicated trained singing voice.",
+  "changedAudio": false
+}

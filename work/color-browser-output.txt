@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>PASS</title></head><body>PASS 12 browser canvas checks
+Fill recolors connected opaque area
+Fill preserves outside area
+Fill preserves separate transparent hole
+Magic eraser samples current filled color
+Magic eraser stays connected
+Background brush erases sampled white
+Background brush protects different-colored cloth
+Background brush stays within stroke
+Fill paints transparent enclosed hole
+Transparent fill preserves surrounding cloth
+Restore brush recovers erased original pixels
+Color edits survive project round trip</body></html>

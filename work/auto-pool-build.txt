@@ -1,0 +1,38 @@
+
+> mana@0.1.0 tauri
+> tauri build --debug --no-bundle
+
+        Info Looking up installed tauri packages to check mismatched versions...
+     Running beforeBuildCommand `npm run build`
+
+> mana@0.1.0 build
+> tsc && vite build
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 215 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                     0.39 kB │ gzip:   0.26 kB
+dist/assets/index-BGzdpay1.css     80.60 kB │ gzip:  15.78 kB
+dist/assets/window-CBmO6Dvx.js     14.12 kB │ gzip:   3.46 kB
+dist/assets/index-Q1RTpZMw.js   1,024.04 kB │ gzip: 320.74 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 3.60s
+   Compiling mana v0.1.0 (C:\AI\ManaAI-CV-2\src-tauri)
+warning: hard linking files in the incremental compilation cache failed. copying files instead. consider moving the cache directory to a file system which supports hard linking in session dir `\\?\C:\AI\ManaAI-CV-2\src-tauri\target\debug\incremental\mana_lib-1m4ywh2wmh059\s-hnq3ob4ilc-0vrhhc1-working`
+
+warning: `mana` (lib) generated 1 warning
+warning: hard linking files in the incremental compilation cache failed. copying files instead. consider moving the cache directory to a file system which supports hard linking in session dir `\\?\C:\AI\ManaAI-CV-2\src-tauri\target\debug\incremental\mana-2pl0p64ulop0e\s-hnq3oj87fk-0qpqbzy-working`
+
+warning: `mana` (bin "mana") generated 1 warning
+error: failed to remove file `C:\AI\ManaAI-CV-2\src-tauri\target\debug\mana.exe`
+
+Caused by:
+  Access is denied. (os error 5)
+failed to build app: failed to build app
+       Error failed to build app: failed to build app

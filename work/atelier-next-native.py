@@ -1,0 +1,20 @@
+from pathlib import Path
+p=Path('src-tauri/src/generated_outfits.rs');s=p.read_text(encoding='utf-8').replace('pub needs_edits:bool}', 'pub needs_edits:bool,#[serde(default)]pub source_job_id:Option<String>}').replace('needs_edits:false};','needs_edits:false,source_job_id:None};')
+s=s.replace('let source=images.join(&id).canonicalize()', 'let source_id=d.source_job_id.as_deref().unwrap_or(&id);if !valid_id(source_id){return Err("Invalid original source ID".into())}let source=images.join(source_id).canonicalize()',1)
+s=s.replace('"generated"=>recovery_folder(&images_root(),&id)?.join("image.png")','"generated"=>{let d=record(&root(&app)?,&id)?;recovery_folder(&images_root(),d.source_job_id.as_deref().unwrap_or(&id))?.join("image.png")}')
+s+='''
+fn duplicate_review(root:&Path,id:&str,new_id:&str)->Result<Design,String>{
+ let original=record(root,id)?;if original.status!="pending"{return Err("Only pending reviews can be duplicated.".into())}if !valid_id(new_id)||root.join(new_id).exists(){return Err("Duplicate review ID is unavailable.".into())}
+ let folder=checked_folder(root,id)?;let bytes=fs::read(folder.join("outfit.png")).map_err(|e|e.to_string())?;let project=load_project(root,id)?;
+ let name=format!("{} copy",original.name.chars().take(75).collect::<String>());
+ let mut copy=enqueue(root,new_id,&name,&original.prompt,&bytes)?;
+ let target=checked_folder(root,new_id)?;
+ if let Some(mut project)=project{project["name"]=serde_json::Value::String(name.clone());copy=update_review_project(root,new_id,&bytes,0,&name,Some(project))?;}
+ let initial=folder.join("initial-fit.png");if initial.exists(){if !initial.canonicalize().map_err(|e|e.to_string())?.starts_with(&folder){return Err("Initial preview escapes review".into())}fs::copy(initial,target.join("initial-fit.png")).map_err(|e|e.to_string())?;}
+ copy.fit_version=original.fit_version;copy.fit_warnings=original.fit_warnings;copy.review_notes=original.review_notes;copy.needs_edits=original.needs_edits;copy.source_job_id=Some(original.source_job_id.unwrap_or(original.id));write_record(&target,&copy)?;Ok(copy)
+}
+#[tauri::command]pub fn generated_outfits_duplicate(app:tauri::AppHandle,id:String)->Result<Design,String>{let _guard=QUEUE.lock().map_err(|e|e.to_string())?;let new_id=format!("image-{}",std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_err(|e|e.to_string())?.as_nanos());duplicate_review(&root(&app)?,&id,&new_id)}
+#[cfg(test)]mod duplicate_tests{use super::*;#[test]fn duplicate_is_independent_and_preserves_original(){let base=std::env::temp_dir().join(format!("mana-copy-{}",std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));let bytes=include_bytes!("../../tests/fixtures/outfit-alpha.png");enqueue(&base,"image-111","Dress","dress",bytes).unwrap();annotate(&base,"image-111","Cuff",true).unwrap();let copy=duplicate_review(&base,"image-111","image-222").unwrap();assert_eq!(copy.name,"Dress copy");assert_eq!(copy.source_job_id.as_deref(),Some("image-111"));assert!(copy.needs_edits);annotate(&base,"image-222","Changed",false).unwrap();assert_eq!(record(&base,"image-111").unwrap().review_notes,"Cuff");assert_eq!(fs::read(base.join("image-111/outfit.png")).unwrap(),bytes);assert!(duplicate_review(&base,"image-111","image-222").is_err());fs::remove_dir_all(base).unwrap();}}
+''';p.write_text(s,encoding='utf-8')
+p=Path('src-tauri/src/lib.rs');s=p.read_text(encoding='utf-8').replace('generated_outfits::generated_outfits_annotate,','generated_outfits::generated_outfits_annotate,\n            generated_outfits::generated_outfits_duplicate,');p.write_text(s,encoding='utf-8')
+p=Path('src/components/GeneratedOutfits.tsx');s=p.read_text(encoding='utf-8').replace('<button className="btn" disabled={!url} onClick={()=>setInspect(true)}>','<button className="btn" disabled={disabled} onClick={async()=>{try{await invoke(\'generated_outfits_duplicate\',{id:design.id});await onRename();}catch(e){setError(String(e));}}}>Duplicate review</button><button className="btn" disabled={!url} onClick={()=>setInspect(true)}>',1);p.write_text(s,encoding='utf-8')

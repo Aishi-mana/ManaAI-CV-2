@@ -1,0 +1,25 @@
+   Compiling mana v0.1.0 (C:\AI\ManaAI-CV-2\src-tauri)
+warning: hard linking files in the incremental compilation cache failed. copying files instead. consider moving the cache directory to a file system which supports hard linking in session dir `\\?\C:\AI\ManaAI-CV-2\src-tauri\target\debug\incremental\mana_lib-198gv5erphajf\s-hnkm1s5977-1ydnkgo-working`
+
+warning: hard linking files in the incremental compilation cache failed. copying files instead. consider moving the cache directory to a file system which supports hard linking in session dir `\\?\C:\AI\ManaAI-CV-2\src-tauri\target\debug\incremental\mana_lib-3u0vwfuwsolv7\s-hnkm1s5972-10arhlc-working`
+
+warning: `mana` (lib test) generated 1 warning
+warning: `mana` (lib) generated 1 warning
+warning: hard linking files in the incremental compilation cache failed. copying files instead. consider moving the cache directory to a file system which supports hard linking in session dir `\\?\C:\AI\ManaAI-CV-2\src-tauri\target\debug\incremental\mana-23m7at82p7rk2\s-hnkm21wjpe-0whlib4-working`
+
+warning: `mana` (bin "mana" test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 32.90s
+     Running unittests src\lib.rs (src-tauri\target\debug\deps\mana_lib-4834e32b2002e09c.exe)
+
+running 2 tests
+test wearable_reviews::tests::hair_preserves_both_layers_project_and_approval_is_idempotent ... ok
+test wearable_reviews::tests::accessories_keep_selected_depth_and_invalid_inputs_never_install ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 90 filtered out; finished in 0.08s
+
+     Running unittests src\main.rs (src-tauri\target\debug\deps\mana-589937a703703807.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

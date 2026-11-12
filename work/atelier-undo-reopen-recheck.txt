@@ -1,0 +1,11 @@
+✔ adding a source image preserves old garment coordinates including rotation and stretch (85.2264ms)
+✔ resize pointer-up records a filled outfit before cleanup undo can remove it (115.8672ms)
+✔ Wardrobe reopens the kimono PNG as a prepared fitted item instead of a blank selection (94.7634ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 512.3674

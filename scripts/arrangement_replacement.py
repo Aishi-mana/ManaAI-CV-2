@@ -453,45 +453,12 @@ def render_piano_polyphonic(path,seconds,root):
 
 
 def render_piano_preserving(path,seconds,root,patch_name=None,custom=None):
- """Approved piano path: polyphony, decay-aware attacks and source dynamics."""
- sys.path.insert(0,str(root/'data/transcription-packages'))
- from basic_pitch import build_icassp_2022_model_path,FilenameSuffix
- from basic_pitch.inference import predict
- import pretty_midi
- _,_,events=predict(path,model_or_model_path=build_icassp_2022_model_path(FilenameSuffix.onnx),minimum_note_length=60,minimum_frequency=27.5,maximum_frequency=4186,onset_threshold=.35,frame_threshold=.25)
- detected=[n for n in piano_notes(events,seconds) if n[3]>=.40]
- if not detected:raise ValueError('No usable piano notes detected. Try another section.')
- source,_=librosa.load(path,sr=SR,duration=seconds);hop=120
- spectrum=np.abs(librosa.cqt(source,sr=SR,hop_length=hop,fmin=librosa.midi_to_hz(21),n_bins=88))
- def level(pitch,start,end,percentile=50):
-  first=max(0,round(start*SR/hop));last=min(spectrum.shape[1],max(first+1,round(end*SR/hop)))
-  return float(np.percentile(spectrum[pitch-21,first:last],percentile)) if last>first else 0.
- notes=[];last={}
- for row in detected:
-  note=list(row);a,b,p,_=note;previous=last.get(p)
-  pre=level(p,a-.09,a-.025);post=level(p,a+.005,a+.06)
-  if previous is not None and abs(a-previous[1])<=.04 and pre>1e-7 and post/pre<1.1:
-   previous[1]=max(previous[1],b)
-  else:notes.append(note);last[p]=note
- strengths=[level(p,a+.015,min(b,a+.14),75) for a,b,p,_ in notes]
- reference=max(float(np.percentile(strengths,90)),1e-9)
- velocities=[int(round(1+94*float(np.clip(s/reference,0,1)))) for s in strengths]
- groups={1.:[],.4:[],.18:[],.08:[]}
- for i,(note,velocity) in enumerate(zip(notes,velocities)):
-  score=min(velocity/95,float(np.clip((note[3]-.4)/.3,0,1)))
-  gain=1. if score>=.75 else .4 if score>=.45 else .18 if score>=.25 else .08
-  groups[gain].append(i)
+ from piano_transcription import transcribe,midi_for
+ notes=transcribe(path,seconds,root)
  custom=validate_custom(custom);shift=int(custom.get('pitch',0))
  notes=customize_notes(notes,seconds,custom.get('extension',0))
- audio=np.zeros(round(seconds*SR),dtype=np.float32)
- for gain,indices in groups.items():
-  if indices:audio+=render_separate([notes[i] for i in indices],seconds,root,'piano',shift,None,patch_name,midi_velocities=[velocities[i] for i in indices])*gain
- audio*=10**(1.5/20)
- if not np.isfinite(audio).all() or np.sqrt(np.mean(audio**2))<1e-6:raise ValueError('No usable piano performance returned.')
- midi=pretty_midi.PrettyMIDI();track=pretty_midi.Instrument(program=0)
- for (a,b,p,_),v in zip(notes,velocities):track.notes.append(pretty_midi.Note(velocity=v,pitch=p+shift,start=a,end=b))
- midi.instruments.append(track)
- return audio,midi,notes
+ audio=render_separate(notes,seconds,root,'piano',shift,None,patch_name,midi_velocities=[max(1,round(n[3]*127)) for n in notes])
+ return audio,midi_for(notes,0,shift),notes
 
 
 def prepare_source_holds(notes,guitar,seconds):
@@ -588,6 +555,10 @@ def source_note_attacks(source_name,attacks):
 
 def render(guitar_path,seconds,root,instrument="sax",tone=None,bank="fluidr3",source_name="guitar",custom=None,_violin_focused=False):
  custom=validate_custom(custom)
+ if source_name=='guitar' and instrument in ['electric-guitar','electric-guitar-distorted']:
+  from guitar_arrangement import render_source
+  print('Following guitar notes with the tested electric guitar samples…',flush=True)
+  return render_source(guitar_path,seconds,root,'distorted' if instrument=='electric-guitar-distorted' or tone=='distorted' else 'clean',custom)
  if source_name=='vocal':
   from vocal_melody import render_vocal
   return render_vocal(guitar_path,seconds,root,instrument,custom)
@@ -626,77 +597,83 @@ def render(guitar_path,seconds,root,instrument="sax",tone=None,bank="fluidr3",so
  if tone is not None:
   if instrument!='electric-guitar' or tone not in ['clean','distorted']:raise ValueError('Unsupported guitar tone.')
   bank_name='distortion_guitar' if tone=='distorted' else 'electric_guitar_clean' 
- packages=root/'data/transcription-packages'
- bank_path=root/('data/instrument-samples/FluidR3_GM/'+bank_name+'-mp3.js')
- if not (packages/'basic_pitch').is_dir():raise ValueError('Transcription setup is missing at '+str(packages))
- if bank=='fluidr3' and not bank_path.is_file():raise ValueError('Instrument note bank is missing at '+str(bank_path))
- sys.path.insert(0,str(packages))
- from basic_pitch import build_icassp_2022_model_path,FilenameSuffix
- from basic_pitch.inference import predict
- low,high=source_frequency_range(source_name)
- _,midi,events=predict(guitar_path,model_or_model_path=build_icassp_2022_model_path(FilenameSuffix.onnx),minimum_note_length=90,minimum_frequency=low,maximum_frequency=high,onset_threshold=.55,frame_threshold=.35)
- if not events:raise ValueError('No melody notes detected. Choose another section.')
- duration=seconds;hop=.01;frames=round(duration/hop)
- pitches=np.array([0]+sorted({int(e[2]) for e in events}))
- energy=np.zeros((frames,len(pitches)))
- ages=np.full_like(energy,100.)
- for begin,end,pitch,amplitude,*_ in events:
-     if end-begin<.075 or amplitude<.32:continue
-     a=max(0,round(begin/hop));b=min(frames,round(end/hop))
-     k=int(np.where(pitches==pitch)[0][0]);energy[a:b,k]=np.maximum(energy[a:b,k],amplitude)
-     ages[a:b,k]=np.minimum(ages[a:b,k],np.arange(b-a)*hop)
- # Add direct fundamental support from the isolated guitar to discourage octave harmonics.
- guitar,_=librosa.load(guitar_path,sr=SR,duration=duration)
- spectrum=np.abs(librosa.stft(guitar,n_fft=2048,hop_length=240))
- freqs=librosa.fft_frequencies(sr=SR,n_fft=2048)
- support=np.zeros_like(energy)
- for k,pitch in enumerate(pitches[1:],1):
-  frequency=librosa.midi_to_hz(int(pitch));bins=np.where(np.abs(freqs-frequency)<max(18,frequency*.035))[0]
-  if len(bins):
-   values=spectrum[bins].max(axis=0);count=min(frames,len(values));support[:count,k]=values[:count]
- support/=np.maximum(support.max(axis=1,keepdims=True),.001)
- # Prefer sustained, confident notes with a continuous register over first-arriving chord notes.
- emission=melody_emission(energy,support,pitches,ages)
- distance=np.abs(pitches[:,None]-pitches[None,:])
- transition=np.minimum(distance*.08,1.8)
- transition+=np.where(distance>=10,.9,0)
- transition[0,:]=.18;transition[:,0]=.18;np.fill_diagonal(transition,0)
- scores=emission[0].copy();history=np.zeros((frames,len(pitches)),dtype=int)
- for frame in range(1,frames):
-     candidates=scores[:,None]-transition
-     history[frame]=candidates.argmax(axis=0)
-     scores=candidates.max(axis=0)+emission[frame]
- path=np.zeros(frames,dtype=int);path[-1]=scores.argmax()
- for frame in range(frames-1,0,-1):path[frame-1]=history[frame,path[frame]]
- line=median_filter(pitches[path],size=5)
- notes=[];first=0
- for frame in range(1,frames+1):
-     if frame<frames and line[frame]==line[first]:continue
-     if line[first]>0 and (frame-first)*hop>=.075:
-         confidence=float(energy[first:frame,int(np.where(pitches==line[first])[0][0])].mean())
-         notes.append([first*hop,frame*hop,int(line[first]),confidence])
-     first=frame
- notes=repair_source_gaps(refine_notes(notes),guitar)
- # Restore source pick attacks that were lost when contiguous same-pitch frames merged.
- attacks=source_note_attacks(source_name,librosa.onset.onset_detect(y=guitar,sr=SR,hop_length=240,units='time',backtrack=False))
- articulated=[]
- for begin,end,pitch,confidence in notes:
-  cuts=[begin]
-  for attack in attacks:
-   if begin+.09<attack<end-.09 and attack-cuts[-1]>=.09:
-    # Require a detector event onset at this pitch; chord/noise onsets alone do not split.
-    if any(int(e[2])==pitch and abs(float(e[0])-attack)<.045 and float(e[3])>=.4 for e in events):cuts.append(float(attack))
-  cuts.append(end)
-  articulated.extend([[a,b,pitch,confidence] for a,b in zip(cuts,cuts[1:])])
- notes=extend_source_tails(align_source_attacks(remove_weak_detours(articulated,guitar),attacks,events,seconds),guitar,seconds)
- if instrument=='electric-piano':
+ from piano_transcription import PIANO_SOURCES
+ if source_name in PIANO_SOURCES:
+  from piano_transcription import transcribe
+  notes=transcribe(guitar_path,seconds,root)
+  guitar,_=librosa.load(guitar_path,sr=SR,duration=seconds)
+ else:
+  packages=root/'data/transcription-packages'
+  bank_path=root/('data/instrument-samples/FluidR3_GM/'+bank_name+'-mp3.js')
+  if not (packages/'basic_pitch').is_dir():raise ValueError('Transcription setup is missing at '+str(packages))
+  if bank=='fluidr3' and not bank_path.is_file():raise ValueError('Instrument note bank is missing at '+str(bank_path))
+  sys.path.insert(0,str(packages))
+  from basic_pitch import build_icassp_2022_model_path,FilenameSuffix
+  from basic_pitch.inference import predict
+  low,high=source_frequency_range(source_name)
+  _,midi,events=predict(guitar_path,model_or_model_path=build_icassp_2022_model_path(FilenameSuffix.onnx),minimum_note_length=90,minimum_frequency=low,maximum_frequency=high,onset_threshold=.55,frame_threshold=.35)
+  if not events:raise ValueError('No melody notes detected. Choose another section.')
+  duration=seconds;hop=.01;frames=round(duration/hop)
+  pitches=np.array([0]+sorted({int(e[2]) for e in events}))
+  energy=np.zeros((frames,len(pitches)))
+  ages=np.full_like(energy,100.)
+  for begin,end,pitch,amplitude,*_ in events:
+      if end-begin<.075 or amplitude<.32:continue
+      a=max(0,round(begin/hop));b=min(frames,round(end/hop))
+      k=int(np.where(pitches==pitch)[0][0]);energy[a:b,k]=np.maximum(energy[a:b,k],amplitude)
+      ages[a:b,k]=np.minimum(ages[a:b,k],np.arange(b-a)*hop)
+  # Add direct fundamental support from the isolated guitar to discourage octave harmonics.
+  guitar,_=librosa.load(guitar_path,sr=SR,duration=duration)
+  spectrum=np.abs(librosa.stft(guitar,n_fft=2048,hop_length=240))
+  freqs=librosa.fft_frequencies(sr=SR,n_fft=2048)
+  support=np.zeros_like(energy)
+  for k,pitch in enumerate(pitches[1:],1):
+   frequency=librosa.midi_to_hz(int(pitch));bins=np.where(np.abs(freqs-frequency)<max(18,frequency*.035))[0]
+   if len(bins):
+    values=spectrum[bins].max(axis=0);count=min(frames,len(values));support[:count,k]=values[:count]
+  support/=np.maximum(support.max(axis=1,keepdims=True),.001)
+  # Prefer sustained, confident notes with a continuous register over first-arriving chord notes.
+  emission=melody_emission(energy,support,pitches,ages)
+  distance=np.abs(pitches[:,None]-pitches[None,:])
+  transition=np.minimum(distance*.08,1.8)
+  transition+=np.where(distance>=10,.9,0)
+  transition[0,:]=.18;transition[:,0]=.18;np.fill_diagonal(transition,0)
+  scores=emission[0].copy();history=np.zeros((frames,len(pitches)),dtype=int)
+  for frame in range(1,frames):
+      candidates=scores[:,None]-transition
+      history[frame]=candidates.argmax(axis=0)
+      scores=candidates.max(axis=0)+emission[frame]
+  path=np.zeros(frames,dtype=int);path[-1]=scores.argmax()
+  for frame in range(frames-1,0,-1):path[frame-1]=history[frame,path[frame]]
+  line=median_filter(pitches[path],size=5)
+  notes=[];first=0
+  for frame in range(1,frames+1):
+      if frame<frames and line[frame]==line[first]:continue
+      if line[first]>0 and (frame-first)*hop>=.075:
+          confidence=float(energy[first:frame,int(np.where(pitches==line[first])[0][0])].mean())
+          notes.append([first*hop,frame*hop,int(line[first]),confidence])
+      first=frame
+  notes=repair_source_gaps(refine_notes(notes),guitar)
+  # Restore source pick attacks that were lost when contiguous same-pitch frames merged.
+  attacks=source_note_attacks(source_name,librosa.onset.onset_detect(y=guitar,sr=SR,hop_length=240,units='time',backtrack=False))
+  articulated=[]
+  for begin,end,pitch,confidence in notes:
+   cuts=[begin]
+   for attack in attacks:
+    if begin+.09<attack<end-.09 and attack-cuts[-1]>=.09:
+     # Require a detector event onset at this pitch; chord/noise onsets alone do not split.
+     if any(int(e[2])==pitch and abs(float(e[0])-attack)<.045 and float(e[3])>=.4 for e in events):cuts.append(float(attack))
+   cuts.append(end)
+   articulated.extend([[a,b,pitch,confidence] for a,b in zip(cuts,cuts[1:])])
+  notes=extend_source_tails(align_source_attacks(remove_weak_detours(articulated,guitar),attacks,events,seconds),guitar,seconds)
+ if instrument=='electric-piano' and source_name not in PIANO_SOURCES:
   from electric_piano_replacement import render_electric_piano
   return render_electric_piano(notes,guitar,seconds,root,custom)
  if instrument=='violin' and not _violin_focused:
   from violin_replacement import render_focused_violin
   return render_focused_violin(notes,guitar,seconds,root,custom)
  if instrument in ['electric-guitar','strings']:notes=source_supported_overlap(notes,guitar,seconds)
- string_velocities=None
+ string_velocities=[max(1,round(n[3]*127)) for n in notes] if source_name in PIANO_SOURCES else None
  flute_entrances=[]
  ocarina_entrances=[]
  if instrument=='synth-saw':
@@ -729,12 +706,12 @@ def render(guitar_path,seconds,root,instrument="sax",tone=None,bank="fluidr3",so
   notes=customize_notes(notes,seconds,custom.get('extension',0))
   shift+=int(custom.get('pitch',0))
  if bank=='separate':
-  if sax_variant=='sax-tenor':melody=render_soundfont(notes,seconds,root,66,shift,release_scale=1.6)
-  elif sax_variant=='sax-weresax':melody=render_separate(notes,seconds,root,'sax',shift,None,sax_release_cc=32)
+  if sax_variant=='sax-tenor':melody=render_soundfont(notes,seconds,root,66,shift,release_scale=1.6,midi_velocities=string_velocities)
+  elif sax_variant=='sax-weresax':melody=render_separate(notes,seconds,root,'sax',shift,None,sax_release_cc=32,midi_velocities=string_velocities)
   elif bright_room:
    melody,notes=render_bright_room(notes,guitar,seconds,root,nam_variant,custom)
    shift=int(custom.get('pitch',NAM_GUITARS[nam_variant]['shift']))
-  else:melody=render_separate(notes,seconds,root,instrument,shift,tone,patch_name)
+  else:melody=render_separate(notes,seconds,root,instrument,shift,tone,patch_name,midi_velocities=string_velocities)
  elif bank=='livehq':
   program={**EXTRA_PROGRAMS,'sax':65,'piano':0,'electric-guitar':30 if tone=='distorted' else 27}[instrument]
   melody=render_soundfont(notes,seconds,root,program,shift,midi_velocities=string_velocities,release_scale=1.5 if instrument=='strings' else 1.3 if instrument=='flute' else 1.25 if instrument=='trumpet' else 1.35 if instrument=='ocarina' else 1)
@@ -763,7 +740,9 @@ def render(guitar_path,seconds,root,instrument="sax",tone=None,bank="fluidr3",so
   melody=np.zeros(round(seconds*SR))
   for index,(begin,end,pitch,velocity) in enumerate(notes):
    legato=index>0 and begin-notes[index-1][1]<.04
-   signal=sampled_note(pitch+shift,end-begin,velocity,legato);offset=round(begin*SR);count=min(len(signal),len(melody)-offset)
+   signal=sampled_note(pitch+shift,end-begin,velocity,legato)
+   if source_name in PIANO_SOURCES:signal*=velocity/max(.48+.52*velocity,1e-9)
+   offset=round(begin*SR);count=min(len(signal),len(melody)-offset)
    if count>0:melody[offset:offset+count]+=signal[:count]
  if not notes or np.sqrt(np.mean(melody**2))<.00001:raise ValueError('No usable replacement melody detected.')
  notes=playback_notes(notes)

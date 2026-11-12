@@ -1,4 +1,5 @@
-import { useState } from "react";
+import {searchMemoriesByMeaning} from '../core/semanticMemory';
+import { useEffect, useRef, useState } from "react";
 import PersonalityControls from './PersonalityControls';
 import type { Identity, Memory } from "../core/character";
 import { memoryStrength, newMemory, updateMemory, validateIdentity } from "../core/character";
@@ -21,6 +22,24 @@ export default function MemoryDrawer({ charName, identity, memories, suggestions
   const [values, setValues] = useState(identity.values.join("\n"));
   const [interests, setInterests] = useState(identity.interests.join("\n"));
   const [query, setQuery] = useState("");
+  const [meaning,setMeaning]=useState<Memory[]|null>(null);
+  const [searching,setSearching]=useState(false);
+  const [searchStatus,setSearchStatus]=useState("");
+  const searchRequest=useRef<AbortController|null>(null);
+  useEffect(()=>()=>searchRequest.current?.abort(),[]);
+  useEffect(()=>{searchRequest.current?.abort();setMeaning(null);setSearching(false);setSearchStatus("");},[memories]);
+  async function searchMeaning(){
+    searchRequest.current?.abort();
+    const request=new AbortController();
+    searchRequest.current=request;
+    setSearching(true);setSearchStatus("");setMeaning(null);
+    try{
+      const results=await searchMemoriesByMeaning(memories,query,request.signal);
+      if(!request.signal.aborted){setMeaning(results);setSearchStatus(results.length+' meaning matches.');}
+    }catch(error){
+      if(!request.signal.aborted)setSearchStatus(String(error)+' Showing keyword matches.');
+    }finally{if(!request.signal.aborted)setSearching(false);}
+  }
   const [editing, setEditing] = useState<string | null>(null);
   const [content, setContent] = useState("");
   const [category, setCategory] = useState<Memory["category"]>("shared");
@@ -33,7 +52,7 @@ export default function MemoryDrawer({ charName, identity, memories, suggestions
     else onMemories([...memories, newMemory(content, category, importance)]);
     reset();
   }
-  const visible = memories.filter((m) => m.content.toLowerCase().includes(query.toLowerCase()))
+  const visible = meaning ?? memories.filter((m) => m.content.toLowerCase().includes(query.toLowerCase()))
     .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.importance - a.importance || b.updatedAt.localeCompare(a.updatedAt));
   return <>
     <div className="scrim" onClick={onClose} />
@@ -78,7 +97,11 @@ export default function MemoryDrawer({ charName, identity, memories, suggestions
           </div>
           <div className="chips"><button className="btn primary" disabled={!content.trim()} onClick={save}>{editing ? "Save changes" : "Add memory"}</button>{editing && <button className="btn" onClick={reset}>Cancel edit</button>}</div>
           <h3>Saved memories ({memories.length})</h3>
-          <label className="field"><span>Search memories</span><input value={query} onChange={(e) => setQuery(e.target.value)} /></label>
+          <label className="field"><span>Search memories</span><input value={query} onChange={(e) => {
+            searchRequest.current?.abort();setQuery(e.target.value);setMeaning(null);setSearching(false);setSearchStatus("");
+          }} /></label>
+          <button type="button" className="btn" disabled={!query.trim()||!memories.length||searching} onClick={()=>void searchMeaning()}>{searching?'Searching…':'Search by meaning'}</button>
+          {searchStatus&&<p role="status">{searchStatus}</p>}
           {visible.length === 0 && <p className="hint-soft">{memories.length ? "No memories match your search." : "No memories saved yet. Add something meaningful above."}</p>}
           {visible.map((m) => <article className="memory-card" key={m.id}>
             <p className="memory-content">{m.content}</p>

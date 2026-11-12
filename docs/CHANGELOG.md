@@ -1,5 +1,24 @@
 # Mana changelog
 
+## 2026-11-12 — Cover milestone closed
+
+Source-guided Rock, Jazz, Pop and Country backings are installed with selectable leads, independent bass following, whole-song previews, preview mixing and the saved-cover handoff to Edit Tracks. The user closed the current cover milestone. Current scope, evidence and deferred work are recorded in [Current status](CURRENT_STATUS.md) and [Roadmap](ROADMAP.md).
+
+## 2026-11-08 — tested source-note electric guitar integrated
+
+Replaced failed Create Cover Rock regeneration with clearly labeled Electric guitar · source notes; shared route in Edit Tracks New accompaniment and guitar-part Clean/Distorted conversion in Builder/Edit Tracks. Installed guitar-specific Tsumugi runtime/checkpoint validation, electric samples/NAM, source-derived dynamics and gentle dip treatment. Retains other backing instruments/stereo, preview/explicitsave, existing songs and selected voices.60sCreate/Editsectionlimit; Builder existing chunking retained. Full genre rearrangement and precise bends/slides remain open. User melody gates passed on Country Roads and Reach Out to the Truth; remaining Country level dips accepted for now.
+
+Frontend/native build,394JS tests(2optional skips),11Python checks,actualtwo-song productioncalls and packaged EditTracks/Builder smoke checks passed. See current status and work/guitar-integration-*.log.
+
+## User test update — 2026-11-07
+
+Genre changing failed the user’s three-song test: very poor quality and added windy noises. Earlier pipeline success is not musical acceptance. Hands-free is closed and removed from the pending list at the user’s request. This update changes documentation only; no code, saved audio, models or settings were altered. See [current status](CURRENT_STATUS.md).
+
+<!-- current-status-2026-11-06 -->
+## Current status — 2026-11-06
+
+2026-11-06 reconciliation: approved independent Mana/Mousey voice choices; clarified speech-guide versus final identity; hands-free pause/silence guards and reduced prompt echo hints; library capacity 1,000 and manual discovery; corrected Builder Save gate/Stop status; added optional instrumental-only genre remix; installed Create Cover Play/seek/Stop plus explicit exact-preview Save. These are implemented changes, not proof of universal vocal quality. See [CURRENT_STATUS.md](CURRENT_STATUS.md) for remaining defects and verification provenance.
+
 ## Local picture generation — 2026-10-19
 
 User chose installed stable-diffusion.cpp and requested standalone NetaYume, checkpoints at C:/Users/Admin/AppData/Local/Comfy-Desktop/ComfyUI-Shared/models/checkpoints. Added More → Create picture: checkpoint picker, prompt/negative, size/steps/guidance/seed, GPU/CPU option, manual Generate/Stop, preview and Save to existing image library. Native scans safetensor headers (no weights loaded during discovery), supports SD1/SDXL via C:/AI/stable-diffusion.cpp/build/bin/Release/sd-cli.exe and all-in-one Lumina2/Gemma NetaYume via installed Comfy Python tensor/conditioning libraries. Neta runs headlessly in one owned Python job; no ComfyUI window/server/custom nodes or downloads. Unsupported architectures (Flux/HiDream etc) disabled. Uses existing Comfy .venv Python; other image-generator repository/installed environments are unmodified. Each job exits/releases models; cancellation/close/app exit terminate only Mana-owned process tree, scoped job IDs protect replacement jobs. Models are never copied. Originals/JPEG previews, request and generation metadata saved in exports/images/image-*; explicit library Save stores a prepared JPEG in existing images backup key. No automatic avatar/self-recognition labels. UI suppresses idle/journal model work while open. Tests: both SD and Neta completed one128x128/one-step CPU connection check, not quality approval; Neta import preflight also passed. Native request/header tests passed. Live normal-resolution generation/save/Stop acceptance pending.
@@ -1194,3 +1213,8 @@ Validation270 frontend tests passed,2 optional skipped; frontend/native builds p
 Animagine candidate outcome: no completed image accepted. After user stopped model, a final host comparison still spilled to RAM (~39s/step). Stopped only exact-request-path-matched owned Python process tree to avoid a long run; no unrelated models/apps stopped. Two earlier GPU attempts failed memory checks. Prompt compiler is deployed and automated tests/builds passed, but visual dress adherence is pending one user run with sufficient free GPU memory. Do not repeat generation automatically or claim candidate quality verified.
 
 2026-10-21: Added manual outfit PNG prototype with body preview/alignment and selection reload/export. Improved outfit framing and accessory omission; dress references use a neutral guide. See OUTFIT_PNG_PROTOTYPE.md.
+
+### 2026-11-08 shared piano path installed
+User approved the intro, vocal excerpt and45svocal audition, then requested integration across cover tools. Create Cover backing style Piano trio uses Mega acoustic-piano extraction, local piano-specific CRNN (author checkpoint c3fa9730725bf4a762f1c14bc80cd5986eacda01b026f5a4a2525cd607876141), model note velocities, warm keys and sparse source-note bass. Soft percussion taps are optional/default off. Same Piano trio is default New accompaniment option in Edit Tracks; acoustic piano-source replacement in Builder/Edit Tracks uses shared CRNN for all banks, with existing destination/customizer paths retained. Acoustic piano extraction now uses accepted Mega target instead of nearly silent Banquet. Existing saved audio is not regenerated.
+Trio1–60s, best on piano-led sources; no general/full-song jazz guarantee. Original backing remains default. Rock/Pop ACE previews remain unaccepted and unchanged. User's background sound cause is unconfirmed.
+Validation: frontend/build/native check;394JS pass/2optional skips;5shared piano unit tests;2genre tests; existing direct-track Builder replacement regression passed. Production extraction/transcription reproduces accepted44-note intro pitches/onset/offset rounded. Real separate/LiveHQ/FluidR3 piano replacement render checks passed. Native debug build succeeded, packaged scripts verified. Artifacts/logs work/piano-shared-*. No active render/install job. App listening/UI acceptance after restart remains pending.

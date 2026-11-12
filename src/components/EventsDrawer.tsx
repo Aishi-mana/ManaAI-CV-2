@@ -2,7 +2,7 @@ import {useState} from 'react';
 import {EVENT_KINDS,EVENT_LIMIT} from '../core/events';
 import type {RecordedEvent,EventKind} from '../core/events';
 import EpisodesReview from './EpisodesReview';
-import type {Episode} from '../core/episodes';
+import {EPISODE_LIMIT,reviewedEpisode,type Episode} from '../core/episodes';
 import GrowthTimeline from './GrowthTimeline';
 import type {Relationship} from '../core/relationship';
 
@@ -10,14 +10,19 @@ export default function EventsDrawer({events,onChange,onClose,editable,episodes,
  const [tab,setTab]=useState<'history'|'timeline'>('history');
  const [source,setSource]=useState<RecordedEvent|null>(null);
  const [query,setQuery]=useState('');const [kind,setKind]=useState<EventKind|'all'>('all');
+ function savePortraitMoment(event:RecordedEvent) {
+  if(!editable||event.kind!=='portrait'||episodes.length>=EPISODE_LIMIT||episodes.some(note=>note.source.eventId===event.eventId))return;
+  const moment=reviewedEpisode(event,event.outcome,'special','portrait');
+  if(moment)onEpisodes([...episodes,moment]);
+ }
  const matches=[...events].reverse().filter(e=>(kind==='all'||e.kind===kind)&&`${e.title} ${e.outcome} ${e.id}`.toLowerCase().includes(query.trim().toLowerCase()));
  return <><div className="scrim" onClick={onClose}/><section className="drawer" role="dialog" aria-label="Recorded event history"><header className="drawer-head"><h2>Recorded event history</h2><button className="btn" onClick={onClose}>Close</button></header><div className="drawer-body">
  <div className="tabs" role="tablist" aria-label="History views"><button className="tab" role="tab" aria-selected={tab==='history'} onClick={()=>setTab('history')}>History &amp; memories</button><button className="tab" role="tab" aria-selected={tab==='timeline'} onClick={()=>setTab('timeline')}>Our timeline</button></div>
- {tab==='timeline'?<GrowthTimeline events={events} episodes={episodes} relationship={relationship} timeZone={timeZone}/>:<>
+ {tab==='timeline'?<GrowthTimeline events={events} episodes={episodes} relationship={relationship} timeZone={timeZone} canSavePortraitMoment={editable&&episodes.length<EPISODE_LIMIT} onSavePortraitMoment={savePortraitMoment}/>:<>
  <p>Records saved actions from this update onward. Goal and activity completion is user-recorded; drafts and simulated reflections are not proof of executed work. History does not automatically change memories or identity.</p>
  <p>{events.length}/{EVENT_LIMIT} records. At the limit, new events stop recording until you remove records; nothing is automatically pruned.</p>
  <label>Search history<input type="search" value={query} onChange={e=>setQuery(e.target.value)}/></label>
- <label>Category<select value={kind} onChange={e=>setKind(e.target.value as EventKind|'all')}><option value="all">All</option>{EVENT_KINDS.map(k=><option key={k} value={k}>{k}</option>)}</select></label>
+ <label>Category<select value={kind} onChange={e=>setKind(e.target.value as EventKind|'all')}><option value="all">All</option>{EVENT_KINDS.map(k=><option key={k} value={k}>{k==='portrait'?'Portrait interactions':k}</option>)}</select></label>
  <EpisodesReview source={source} entries={episodes} editable={editable} onChange={onEpisodes} onDone={()=>setSource(null)}/>
  <h3>Recorded events</h3><p>{matches.length} matching records</p>
  {events.length===EVENT_LIMIT&&<p role="status">History is full. New actions still work, but their events will not be recorded.</p>}

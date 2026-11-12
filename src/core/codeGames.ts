@@ -5,7 +5,7 @@ import {uid} from './types';
 import {sandboxCode,sandboxDraftInstructions} from './codeSandbox';
 export interface CodeGame{id:string;rootId:string;parentId?:string;version:number;title:string;code:string;createdAt:string}
 export type GameRunReason='stopped'|'error'|'timeout'|'hidden'|'limit'|'closed';
-export interface GameRunEvidence{checkKind?:'smoke';code:string;startedAt:string;endedAt:string;elapsedMs:number;frames:number;keysUsed:string[];reason:GameRunReason;detail:string;logs:string[]}
+export interface GameRunEvidence{checkKind?:'smoke'|'star-collector';code:string;startedAt:string;endedAt:string;elapsedMs:number;frames:number;keysUsed:string[];reason:GameRunReason;detail:string;logs:string[]}
 export interface GameRunReport extends GameRunEvidence{id:string;gameId?:string;title:string;savedAt:string;outcome:'not-reviewed'|'worked'|'needs-fix';notes:string}
 export interface CodeGamesState{games:CodeGame[];reports:GameRunReport[];progress?:{scope:string;value:Record<string,unknown>}[]}
 export const CODE_GAMES_KEY='mana.code_games.v1',GAME_LIMIT=50,GAME_REPORT_LIMIT=100;
@@ -15,8 +15,8 @@ const date=(v:unknown):v is string=>typeof v==='string'&&Number.isFinite(Date.pa
 const text=(v:unknown,max:number):v is string=>typeof v==='string'&&v.length<=max;
 const code=(v:unknown):v is string=>text(v,180000)&&!!v.trim()&&(v.length<=16000||!!readGameProject(v));
 export function validateRunEvidence(v:unknown):GameRunEvidence|undefined{
- if(!record(v)||v.checkKind!==undefined&&v.checkKind!=='smoke'||!code(v.code)||!date(v.startedAt)||!date(v.endedAt)||Date.parse(v.endedAt)<Date.parse(v.startedAt)||typeof v.elapsedMs!=='number'||!Number.isFinite(v.elapsedMs)||v.elapsedMs<0||v.elapsedMs>86400000||typeof v.frames!=='number'||!Number.isInteger(v.frames)||v.frames<0||v.frames>100000||!['stopped','error','timeout','hidden','limit','closed'].includes(String(v.reason))||!text(v.detail,600)||!Array.isArray(v.keysUsed)||v.keysUsed.length>5||v.keysUsed.some(k=>!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(k))||new Set(v.keysUsed).size!==v.keysUsed.length||!Array.isArray(v.logs)||v.logs.length>30||v.logs.some(l=>!text(l,300)))return;
- return {...(v.checkKind==='smoke'?{checkKind:'smoke' as const}:{}),code:v.code,startedAt:v.startedAt,endedAt:v.endedAt,elapsedMs:v.elapsedMs,frames:v.frames,reason:v.reason as GameRunReason,detail:v.detail,keysUsed:[...v.keysUsed],logs:[...v.logs]};
+ if(!record(v)||v.checkKind!==undefined&&v.checkKind!=='smoke'&&v.checkKind!=='star-collector'||!code(v.code)||!date(v.startedAt)||!date(v.endedAt)||Date.parse(v.endedAt)<Date.parse(v.startedAt)||typeof v.elapsedMs!=='number'||!Number.isFinite(v.elapsedMs)||v.elapsedMs<0||v.elapsedMs>86400000||typeof v.frames!=='number'||!Number.isInteger(v.frames)||v.frames<0||v.frames>100000||!['stopped','error','timeout','hidden','limit','closed'].includes(String(v.reason))||!text(v.detail,600)||!Array.isArray(v.keysUsed)||v.keysUsed.length>5||v.keysUsed.some(k=>!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(k))||new Set(v.keysUsed).size!==v.keysUsed.length||!Array.isArray(v.logs)||v.logs.length>30||v.logs.some(l=>!text(l,300)))return;
+ return {...((v.checkKind==='smoke'||v.checkKind==='star-collector')?{checkKind:v.checkKind}:{}),code:v.code,startedAt:v.startedAt,endedAt:v.endedAt,elapsedMs:v.elapsedMs,frames:v.frames,reason:v.reason as GameRunReason,detail:v.detail,keysUsed:[...v.keysUsed],logs:[...v.logs]};
 }
 export function validateCodeGames(value:unknown):CodeGamesState{
  const state:CodeGamesState={games:[],reports:[]};if(!record(value))return state;const seen=new Set<string>();

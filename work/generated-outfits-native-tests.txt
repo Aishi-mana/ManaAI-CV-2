@@ -1,0 +1,139 @@
+warning: hard linking files in the incremental compilation cache failed. copying files instead. consider moving the cache directory to a file system which supports hard linking in session dir `\\?\C:\AI\ManaAI-CV-2\src-tauri\target\debug\incremental\mana_lib-3u0vwfuwsolv7\s-hnjjy1y6h5-0ui4z9g-working`
+
+warning: hard linking files in the incremental compilation cache failed. copying files instead. consider moving the cache directory to a file system which supports hard linking in session dir `\\?\C:\AI\ManaAI-CV-2\src-tauri\target\debug\incremental\mana_lib-198gv5erphajf\s-hnjjy1y6h9-0fjrkld-working`
+
+warning: `mana` (lib) generated 1 warning
+warning: `mana` (lib test) generated 1 warning
+warning: hard linking files in the incremental compilation cache failed. copying files instead. consider moving the cache directory to a file system which supports hard linking in session dir `\\?\C:\AI\ManaAI-CV-2\src-tauri\target\debug\incremental\mana-23m7at82p7rk2\s-hnjjyfu774-0454rfn-working`
+
+warning: `mana` (bin "mana" test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.73s
+     Running unittests src\lib.rs (src-tauri\target\debug\deps\mana_lib-4834e32b2002e09c.exe)
+
+running 85 tests
+test custom_voice::tests::port_is_loopback_service_range ... ok
+test dictation::tests::rejects_missing_or_oversize_language ... ok
+test dictation::tuning_tests::bounded_names_are_data ... ok
+test dictation::tests::stopping_idle_dictation_is_safe ... ok
+test image_generation::qwen_tests::qwen_bounds_and_reference_are_independent ... ok
+test image_generation::tests::rejects_unsafe_requests ... ok
+test lyrics::tests::idle_stop_is_safe ... ok
+test lyrics::word_tests::multiword_legacy_segments_keep_line_fallback ... ok
+test lyrics::tests::parses_timed_lines_and_skips_invalid_segments ... ok
+test lyrics::word_tests::groups_real_word_offsets_and_clips_audio_end ... ok
+test lyrics::word_tests::saved_cli_smoke_fixture_has_word_offsets ... ok
+test outfit_prototype::tests::validates_rgba_dimensions_and_metadata_before_writes ... ok
+test outfit_prototype::wardrobe_rejection_tests::invalid_install_does_not_create_library ... ok
+test singing::builder_import_tests::reject_missing_builder_import ... ok
+test singing::builder_note_tests::edited_notes_reject_invalid_values_before_launch ... ok
+test singing::harmony_tests::keys_reject_unknown_modes_and_tonics ... ok
+test singing::instrument_custom_tests::tuning_rejects_bad_values_before_launch ... ok
+test game_export::tests::exports_unique_playable_html_without_overwriting ... ok
+test gallery::tests::scoped_immutable_verified_files ... ok
+test backup_file_tests::backup_files_roundtrip_without_overwriting_existing_content ... ok
+test avatar_files::tests::rejects_directories_missing_files_and_missing_roots ... ok
+test outfit_prototype::large_history_tests::rejects_oversized_metadata ... ok
+test outfit_prototype::export_tests::exports_real_png_and_selection_to_new_folders ... ok
+test singing::library_tests::excerpts_preserve_frames_and_reject_invalid_ranges ... ok
+test singing::original_input_tests::original_request_validation ... ok
+test speech::control_tests::speed_and_volume_reject_invalid_values_before_playback ... ok
+test outfit_prototype::wardrobe_tests::saves_new_wearable_item_without_overwriting ... ok
+test avatar_files::tests::rejects_traversal_absolute_windows_prefixes_and_streams ... ok
+test conversation_export::tests::exports_unicode_in_category_folder_without_overwriting ... ok
+test store::tests::chat_archive_survives_clearing_current_chat ... ok
+test singing::library_tests::arrangement_preflight_checks_shorter_stem_before_launch ... ok
+test avatar_files::tests::double_dots_inside_a_filename_are_not_traversal ... ok
+test store::tests::daily_journal_entry_and_completion_state_save_atomically ... ok
+test store::tests::diary_persists_and_deletes_independently ... ok
+test store::tests::companion_state_persists_independently_of_chat_and_memory ... ok
+test avatar_files::tests::reads_images_and_root_catalog_and_scans_only_allowed_files ... ok
+test store::tests::event_history_persists_separately ... ok
+test image_generation::header_tests::classifies_tensor_layout_without_loading_weights ... ok
+test store::tests::episodes_preserve_source_snapshot_independently_of_history ... ok
+test singing::library_tests::wav_metadata_reads_duration_and_rejects_invalid_header ... ok
+test backup_file_tests::restore_retains_safety_copy_and_does_not_replace_data_on_validation_failure ... ok
+test store::tests::goals_persist_and_delete_without_changing_chat ... ok
+test store::tests::followup_notes_persist_with_review_ids_without_changing_goals ... ok
+test generated_outfits::tests::queue_survives_reopen_and_approval_is_idempotent ... ok
+test outfit_prototype::large_history_tests::exports_history_larger_than_old_cap ... ok
+test avatar_files::tests::repository_avatar_assets_scan_and_read_successfully ... ok
+test store::tests::memory_review_decisions_persist_without_altering_memories ... ok
+test store::tests::failed_migration_can_be_retried_without_partial_data ... ok
+test store::tests::migration_runs_once_and_does_not_resurrect_cleared_chat ... ok
+test store::tests::imports_all_categories_and_preserves_raw_backup ... ok
+test store::tests::narrative_versions_preserve_evidence ... ok
+test outfit_prototype::atelier_item_tests::installs_hair_and_accessories_at_validated_slots ... ok
+test store::tests::identity_and_memory_records_round_trip_edit_pin_and_delete ... ok
+test store::tests::initiative_and_chat_save_together_and_roll_back_on_failure ... ok
+test store::tests::invalid_memory_batch_does_not_erase_existing_records ... ok
+test store::tests::playtest_reports_persist_without_changing_artifacts ... ok
+test store::tests::data_survives_reopening_and_newer_schemas_are_rejected ... ok
+test store::tests::practice_records_persist_without_granting_coding_stats ... ok
+test store::tests::malformed_legacy_json_is_backed_up_and_existing_state_wins ... ok
+test whisper::audio_tests::validates_audio_format_and_detects_silence ... ok
+test whisper::tests::idle_stop_is_safe ... ok
+test whisper::tests::rejects_invalid_and_silent_audio ... ok
+test store::tests::code_game_versions_and_run_reports_survive_reopen ... ok
+test store::tests::shared_activity_sessions_persist_without_changing_chat ... ok
+test store::tests::relationship_timeout_state_and_chat_save_atomically ... ok
+test store::tests::thoughts_persist_without_changing_chat ... ok
+test store::tests::vision_configuration_persists_without_images_or_chat ... ok
+test store::tests::reviewed_work_saves_independently_of_goals ... ok
+test store::tests::write_errors_roll_back_the_entire_batch ... ok
+test store::tests::speech_preferences_persist_independently_of_chat ... ok
+test store::tests::strength_and_recall_metadata_round_trip_and_invalid_changes_roll_back ... ok
+test backup_file_tests::malformed_and_oversize_files_are_rejected ... ok
+test store::tests::version_one_upgrade_preserves_existing_state ... ok
+test store::tests::version_two_upgrade_preserves_memories_and_initializes_strength_once ... ok
+test store::tests::saved_pixels_and_chat_links_survive_reopen_and_explicit_pixel_deletion ... ok
+test avatar_files::tests::external_directory_links_are_neither_scanned_nor_read ... FAILED
+test avatar_files::tests::internal_links_and_a_linked_selected_root_still_work ... FAILED
+test avatar_files::tests::bundled_resources_match_source_and_work_after_relocation ... ok
+test custom_voice::tests::large_result_uses_file_and_cleanup_removes_it ... ok
+test speech::tests::stop_terminates_and_reaps_owned_helper ... ok
+test whisper::audio_tests::dropped_session_removes_temporary_audio_and_transcript ... ok
+test singing::builder_import_tests::builder_import_resamples_without_touching_source ... ok
+test speech::tests::windows_speech_reads_unicode_json_as_data_into_wave ... FAILED
+test singing::original_process_tests::dropping_original_job_stops_its_child_process ... FAILED
+test singing::library_tests::discovered_covers_use_existing_generated_files ... ok
+
+failures:
+
+---- avatar_files::tests::external_directory_links_are_neither_scanned_nor_read stdout ----
+
+thread 'avatar_files::tests::external_directory_links_are_neither_scanned_nor_read' (107352) panicked at src\avatar_files.rs:268:13:
+junction failed: Output { status: ExitStatus(ExitStatus(1)), stdout: "", stderr: "Access is denied.\r\n" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- avatar_files::tests::internal_links_and_a_linked_selected_root_still_work stdout ----
+
+thread 'avatar_files::tests::internal_links_and_a_linked_selected_root_still_work' (108152) panicked at src\avatar_files.rs:268:13:
+junction failed: Output { status: ExitStatus(ExitStatus(1)), stdout: "", stderr: "Access is denied.\r\n" }
+
+---- speech::tests::windows_speech_reads_unicode_json_as_data_into_wave stdout ----
+
+thread 'speech::tests::windows_speech_reads_unicode_json_as_data_into_wave' (91900) panicked at src\speech.rs:84:9:
+Exception setting "Rate": "Object reference not set to an instance of an object."
+At line:3 char:112
++ ... h.Synthesis.SpeechSynthesizer]::new(); try {  $s.Rate=$p.rate; $s.Vol ...
++                                                   ~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:) [], ParentContainsErrorRecordException
+    + FullyQualifiedErrorId : ExceptionWhenSetting
+ 
+
+
+---- singing::original_process_tests::dropping_original_job_stops_its_child_process stdout ----
+
+thread 'singing::original_process_tests::dropping_original_job_stops_its_child_process' (89160) panicked at src\singing.rs:838:3:
+Owned generator child should stop with its job
+
+
+failures:
+    avatar_files::tests::external_directory_links_are_neither_scanned_nor_read
+    avatar_files::tests::internal_links_and_a_linked_selected_root_still_work
+    singing::original_process_tests::dropping_original_job_stops_its_child_process
+    speech::tests::windows_speech_reads_unicode_json_as_data_into_wave
+
+test result: FAILED. 81 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.45s
+
+error: test failed, to rerun pass `--lib`

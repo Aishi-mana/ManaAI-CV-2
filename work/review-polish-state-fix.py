@@ -1,0 +1,3 @@
+from pathlib import Path
+p=Path('src/components/OutfitPrototype.tsx');s=p.read_text(encoding='utf-8').replace(" const [draftStatus,setDraftStatus]=useState('');\n",'').replace(" const [imageImporting,setImageImporting]=useState(false);"," const [imageImporting,setImageImporting]=useState(false);\n const [draftStatus,setDraftStatus]=useState('');");p.write_text(s,encoding='utf-8')
+p=Path('src-tauri/src/generated_outfits.rs');s=p.read_text(encoding='utf-8').replace('assert_eq!(changed.revision,1);assert_eq!(changed.name,"Adjusted sailor");','assert_eq!(changed.revision,1);assert_eq!(changed.name,"Adjusted sailor");assert_eq!(fs::read(root.join("image-111/initial-fit.png")).unwrap(),original);');p.write_text(s,encoding='utf-8')

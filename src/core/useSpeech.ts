@@ -4,7 +4,7 @@ import {CUSTOM_VOICE,loadCustomVoice,voiceReference,customSpeechText,customSpeec
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { playbackMouth } from './speechMouth';
+import { playbackMouth, speechMouthTrack } from './speechMouth';
 import type { Vowel } from './avatar';
 import { uid } from './types';
 import { loadSpeechPreferences, saveSpeechPreferences, validateSpeechPreferences } from './speechPreferences';
@@ -51,16 +51,56 @@ export function useSpeech() {
     const timer=setInterval(()=>{const checkedId=playbackId.current;void invoke<boolean>('speech_running').then(r=>{if(mounted.current&&checkedId===playbackId.current&&!r){playbackId.current='';setMouth(null);setSpeaking(false);}}).catch(e=>{if(mounted.current&&checkedId===playbackId.current){playbackId.current='';setMouth(null);setSpeaking(false);setError(String(e));}});},500);
     return ()=>clearInterval(timer);
   },[speaking,voice,musicPlaying]);
-  async function playCustomAudio(bytes:Uint8Array,text:string,id:string){const context=new AudioContext();let decoded:AudioBuffer;try{decoded=await context.decodeAudioData(bytes.slice().buffer as ArrayBuffer);}finally{await context.close();}if(playbackId.current!==id)return false;const samples=decoded.getChannelData(0);if(!samples.some(value=>Math.abs(value)>0.001))throw Error('Voice service returned silence. Check custom-voice.log.');customUrl.current=URL.createObjectURL(new Blob([bytes.slice().buffer as ArrayBuffer],{type:'audio/wav'}));const audio=new Audio(customUrl.current);customAudio.current=audio;audio.volume=preferences.volume/100;audio.onended=()=>{if(playbackId.current===id){clearCustom();playbackId.current='';setMouth(null);setSpeaking(false);}};audio.onerror=()=>{if(playbackId.current===id){clearCustom();playbackId.current='';setMouth(null);setSpeaking(false);setError('Custom audio playback failed.');}};await audio.play();if(playbackId.current!==id){clearCustom();return false;}setGenerating(false);mouthTimer.current=setInterval(()=>{if(playbackId.current===id)setMouth(audioMouth(decoded.getChannelData(0),audio.currentTime,decoded.sampleRate,text,decoded.duration));},40);return true;}
+  async function playCustomAudio(bytes: Uint8Array, text: string, id: string, music = false) {
+    const context = new AudioContext();
+    let decoded: AudioBuffer;
+    try {
+      decoded = await context.decodeAudioData(bytes.slice().buffer as ArrayBuffer);
+    } finally {
+      await context.close();
+    }
+    if (playbackId.current !== id) return false;
+    const samples = decoded.getChannelData(0);
+    if (!samples.some(value => Math.abs(value) > 0.001)) throw Error("Voice service returned silence. Check custom-voice.log.");
+    const mouthAt = music
+      ? (seconds: number) => audioMouth(samples, seconds, decoded.sampleRate, text, decoded.duration)
+      : speechMouthTrack(samples, decoded.sampleRate, text);
+    customUrl.current = URL.createObjectURL(new Blob([bytes.slice().buffer as ArrayBuffer], { type: "audio/wav" }));
+    const audio = new Audio(customUrl.current);
+    customAudio.current = audio;
+    audio.volume = preferences.volume / 100;
+    function finish(error?: string) {
+      if (playbackId.current !== id) return;
+      clearCustom();
+      playbackId.current = "";
+      setMouth(null);
+      setSpeaking(false);
+      if (error) setError(error);
+    }
+    audio.onended = () => finish();
+    audio.onerror = () => finish("Custom audio playback failed.");
+    audio.onwaiting = () => { if (playbackId.current === id) setMouth(null); };
+    await audio.play();
+    if (playbackId.current !== id) return false;
+    setGenerating(false);
+    const updateMouth = () => {
+      if (playbackId.current === id) {
+        setMouth(audio.paused || audio.ended || audio.readyState < 3 ? null : mouthAt(audio.currentTime));
+      }
+    };
+    updateMouth();
+    mouthTimer.current = setInterval(updateMouth, music ? 40 : 20);
+    return true;
+  }
   async function playMusic(path:string){
     if(pending.current||speaking||preferences.volume===0)return false;
     pending.current=true;setMediaOccupied(true);const id=uid();playbackId.current=id;setError('');setMusicPlaying(true);setSpeaking(true);
-    try{const data=await invoke<ArrayBuffer|number[]>('singing_audio',{path});if(!mounted.current||playbackId.current!==id)return false;const bytes=data instanceof ArrayBuffer?new Uint8Array(data):new Uint8Array(data);if(bytes.length<44||String.fromCharCode(...bytes.slice(0,4))!=='RIFF')throw Error('Musical clip is not WAV audio.');return await playCustomAudio(bytes,'uauauauauauau',id);}
+    try{const data=await invoke<ArrayBuffer|number[]>('singing_audio',{path});if(!mounted.current||playbackId.current!==id)return false;const bytes=data instanceof ArrayBuffer?new Uint8Array(data):new Uint8Array(data);if(bytes.length<44||String.fromCharCode(...bytes.slice(0,4))!=='RIFF')throw Error('Musical clip is not WAV audio.');return await playCustomAudio(bytes,'uauauauauauau',id,true);}
     catch(e){if(playbackId.current===id){clearCustom();setSpeaking(false);setError(`Musical moment unavailable: ${String(e)}`);}return false;}
     finally{pending.current=false;if(stopRequested.current){stopRequested.current=false;await stop();}}
   }
   useEffect(()=>{if(musicPlaying&&preferences.volume===0)void stop();},[musicPlaying,preferences.volume]);
   async function stop(){playbackId.current='';clearCustom();setGenerating(false);setSpeaking(false);void invoke('custom_voice_stop').catch(()=>{});setMouth(null);if(pending.current){stopRequested.current=true;return;}pending.current=true;try{await invoke('speech_stop');setSpeaking(false);}catch(e){setError(String(e));}finally{pending.current=false;}}
-  async function speak(text:string,emotion?:string|null){if(pending.current||!voices.includes(voice))return false;pending.current=true;setMediaOccupied(true);playbackId.current=uid();const requestId=playbackId.current;setMouth(null);setError('');try{if(voice===CUSTOM_VOICE){const id=playbackId.current;const config=loadCustomVoice();setGenerating(true);setSpeaking(true);await invoke('custom_voice_generate',{port:config.port,text:customSpeechText(text,config),referencePath:voiceReference(config,emotion).path,referenceText:voiceReference(config,emotion).text,referenceLanguage:config.preset==='automatic'?'en':config.referenceLanguage,replyLanguage:config.replyLanguage,rate:customSpeechRate(preferences.rate,config)});let result:{done:boolean;audio?:string;error?:string}={done:false};const deadline=Date.now()+190000;while(!result.done){if(!mounted.current||playbackId.current!==id){await invoke('custom_voice_stop').catch(()=>{});return false;}if(Date.now()>deadline)throw Error('Custom voice timed out.');await new Promise(r=>setTimeout(r,250));if(playbackId.current!==id){await invoke('custom_voice_stop').catch(()=>{});return false;}result=await invoke('custom_voice_poll');}if(result.error)throw Error(result.error);return await playCustomAudio(waveBytes(result.audio??''),text,id);}await invoke('speech_speak',{text,voice,rate:preferences.rate,volume:preferences.volume,playbackId:playbackId.current});if(mounted.current)setSpeaking(true);return true;}catch(e){if(playbackId.current!==requestId)return false;playbackId.current='';setMouth(null);if(mounted.current){setGenerating(false);setSpeaking(false);setError(String(e));}void invoke('custom_voice_stop').catch(()=>{});clearCustom();return false;}finally{pending.current=false;if(stopRequested.current){stopRequested.current=false;await stop();}}}
+  async function speak(text:string,emotion?:string|null){if(pending.current||!voices.includes(voice))return false;pending.current=true;setMediaOccupied(true);playbackId.current=uid();const requestId=playbackId.current;setMouth(null);setError('');try{if(voice===CUSTOM_VOICE){const id=playbackId.current;const config=loadCustomVoice();const spokenText=customSpeechText(text,config);setGenerating(true);setSpeaking(true);await invoke('custom_voice_generate',{voiceProfile:config.chatVoiceProfile,trainedVoice:config.trainedChat,port:config.port,text:spokenText,referencePath:voiceReference(config,emotion).path,referenceText:voiceReference(config,emotion).text,referenceLanguage:config.preset==='automatic'?'en':config.referenceLanguage,replyLanguage:config.replyLanguage,rate:customSpeechRate(preferences.rate,config)});let result:{done:boolean;audio?:string;error?:string}={done:false};const deadline=Date.now()+(config.trainedChat?300000:190000);while(!result.done){if(!mounted.current||playbackId.current!==id){await invoke('custom_voice_stop').catch(()=>{});return false;}if(Date.now()>deadline)throw Error('Custom voice timed out.');await new Promise(r=>setTimeout(r,250));if(playbackId.current!==id){await invoke('custom_voice_stop').catch(()=>{});return false;}result=await invoke('custom_voice_poll');}if(result.error)throw Error(result.error);return await playCustomAudio(waveBytes(result.audio??''),spokenText,id);}await invoke('speech_speak',{text,voice,rate:preferences.rate,volume:preferences.volume,playbackId:playbackId.current});if(mounted.current)setSpeaking(true);return true;}catch(e){if(playbackId.current!==requestId)return false;playbackId.current='';setMouth(null);if(mounted.current){setGenerating(false);setSpeaking(false);setError(String(e));}void invoke('custom_voice_stop').catch(()=>{});clearCustom();return false;}finally{pending.current=false;if(stopRequested.current){stopRequested.current=false;await stop();}}}
   return {voices,voice,setVoice,automatic:preferences.automatic,setAutomatic,rate:preferences.rate,setRate,volume:preferences.volume,setVolume,speaking,generating,musicPlaying,mouth,error,loading,voiceStarting,speak,playMusic,stop,available:!loading&&!voiceStarting&&voices.includes(voice)};
 }

@@ -1,0 +1,8 @@
+{
+  "strict_state_dict": "<All keys matched successfully>",
+  "sample_rate": 32000,
+  "cuda": "NVIDIA GeForce RTX 5070 Laptop GPU",
+  "allocated_bytes": 1590185984,
+  "duration": 10,
+  "drum_input": "must be pre-separated"
+}

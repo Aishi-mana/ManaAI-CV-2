@@ -1,10 +1,11 @@
+import { imageOriginLabel } from "../core/imageOrigin";
 import {useRef} from 'react';
 import type {ImageAttachment} from '../core/vision';
 import {pictureDetails} from '../core/imageGeneration';
 
 export default function GeneratedPictureView({image}:{image:ImageAttachment}){
  const viewer=useRef<HTMLDialogElement>(null);
- const details=pictureDetails(image.filename);
+ const details=image.origin?imageOriginLabel(image.origin):pictureDetails(image.filename);
  return <>
   {details&&<p className="hint-soft">{details}</p>}
   <button type="button" aria-label="Enlarge generated image" onClick={()=>viewer.current?.showModal()} style={{display:'block',padding:0,border:0,background:'transparent',cursor:'zoom-in',maxWidth:480,width:'100%',marginTop:12}}>

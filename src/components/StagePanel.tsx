@@ -5,10 +5,11 @@ import { EMOTION_MAP, VIEWS, buildLayers, requiredProblem } from "../core/avatar
 import type { AvatarConfig, Vowel } from "../core/avatar";
 import { uid } from "../core/types";
 import type { AvatarState } from "../core/useAvatar";
+import {PORTRAIT_ACTIONS, PORTRAIT_REACTIONS, type PortraitInteraction} from "../core/portraitInteractions";
 import type { Speech } from "../core/useLipSync";
 
 interface Props {
-  voiceMouth?:Vowel|null;
+  voiceMouth?:Vowel|null|"idle";
   charName: string;
   emotion: string | null;
   busy: boolean;
@@ -18,9 +19,10 @@ interface Props {
   onCfg: (c: AvatarConfig) => void;
   onOpenBackgrounds: () => void;
   onOpenWardrobe: () => void;
+  onInteract: (action: PortraitInteraction) => boolean;
 }
 
-export default function StagePanel({ charName, emotion, busy, speech, voiceMouth, avatar, cfg, onCfg, onOpenWardrobe, onOpenBackgrounds }: Props) {
+export default function StagePanel({ charName, emotion, busy, speech, voiceMouth, avatar, cfg, onCfg, onOpenWardrobe, onOpenBackgrounds, onInteract }: Props) {
   const { assets, status, error, reload } = avatar;
   const layers = useMemo(() => (assets ? buildLayers(assets, cfg) : []), [assets, cfg]);
   const problem = assets ? requiredProblem(assets, cfg) : null;
@@ -35,17 +37,31 @@ export default function StagePanel({ charName, emotion, busy, speech, voiceMouth
   // Test controls (preview an emotion / make her say something) - they yield to real chat.
   const [preview, setPreview] = useState<string | null>(null);
   const [testSpeech, setTestSpeech] = useState<Speech | null>(null);
+  const [reaction, setReaction] = useState<string | null>(null);
+  const reactionTimer = useRef<number | undefined>(undefined);
   const timer = useRef<number | null>(null);
 
-  useEffect(()=>{if(voiceMouth){setTestSpeech(null);setPreview(null);}},[voiceMouth]);
+  useEffect(()=>{if(voiceMouth&&voiceMouth!=="idle"){setTestSpeech(null);setPreview(null);}},[voiceMouth]);
 
   useEffect(() => {
     if (busy) {
       setPreview(null);
       setTestSpeech(null);
+      setReaction(null);
     }
   }, [busy]);
   useEffect(() => () => { if (timer.current) window.clearTimeout(timer.current); }, []);
+
+  useEffect(() => () => window.clearTimeout(reactionTimer.current), []);
+
+  function reactTo(action: PortraitInteraction) {
+    if (!onInteract(action)) return;
+    setPreview(null);
+    setTestSpeech(null);
+    setReaction(PORTRAIT_REACTIONS[action].emotion);
+    window.clearTimeout(reactionTimer.current);
+    reactionTimer.current = window.setTimeout(() => setReaction(null), 4500);
+  }
 
   function pickView(key: string) {
     const v = VIEWS[key];
@@ -69,7 +85,7 @@ export default function StagePanel({ charName, emotion, busy, speech, voiceMouth
     setTestSpeech({ id: uid(), text: `hi hi! I'm ${charName}, it's so nice to meet you, hehe! Do you want to play a game?` });
   }
 
-  const liveEmotion = preview ?? (busy && !speech?.text ? "thinking" : (emotion ?? "neutral"));
+  const liveEmotion = preview ?? reaction ?? (busy && !speech?.text ? "thinking" : (emotion ?? "neutral"));
   const liveSpeech = testSpeech ?? speech;
 
   return (
@@ -80,7 +96,7 @@ export default function StagePanel({ charName, emotion, busy, speech, voiceMouth
       <div className="avatar-area">
         {backgroundImage(cfg.background,cfg.backgroundImage)&&<div className="avatar-backdrop" aria-hidden="true" style={{backgroundImage:`url("${backgroundImage(cfg.background,cfg.backgroundImage)}")`}}/>}
         {status === "ready" && !problem && layers.length > 0 ? (
-          <Avatar layers={layers} emotion={liveEmotion} speech={liveSpeech} voiceMouth={testSpeech?undefined:voiceMouth} view={view} onWheelZoom={wheelZoom} />
+          <Avatar layers={layers} emotion={liveEmotion} speech={liveSpeech} voiceMouth={testSpeech?undefined:voiceMouth} view={view} onWheelZoom={wheelZoom} onInteract={busy?undefined:reactTo} />
         ) : (
           <p className="avatar-msg">
             {status === "loading" ? "Loading her avatar..." : problem || error || "No images found in the avatar folder."}
@@ -97,6 +113,13 @@ export default function StagePanel({ charName, emotion, busy, speech, voiceMouth
         <button className="chip" onClick={onOpenBackgrounds}>Backgrounds</button>
         <button className="chip" onClick={onOpenWardrobe} disabled={!assets}>Wardrobe</button>
       </div>
+
+      {status === 'ready' && !problem && layers.length > 0 && <details className="portrait-actions">
+        <summary>Interact</summary>
+        <div className="chips" role="group" aria-label="Portrait interactions">
+          {PORTRAIT_ACTIONS.map(action => <button key={action} type="button" className="chip" disabled={busy} onClick={() => reactTo(action)}>{PORTRAIT_REACTIONS[action].label}</button>)}
+        </div>
+      </details>}
 
       <details className="dressup">
         <summary>Test</summary>

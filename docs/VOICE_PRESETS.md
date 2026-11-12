@@ -1,5 +1,10 @@
 # Mana voice presets
 
+<!-- current-status-2026-11-06 -->
+## Current status — 2026-11-06
+
+The current voice choices are Mana trained v1, Mousey v2 trained, and Mana reference voice. Chat and singing select independently. Both trained voices have user-approved 50-pass RVC checkpoints; English chat generates a GPT-SoVITS speech guide then applies the selected converter. Emotion references guide delivery, not a separately trained emotion model. Japanese chat retains the reference route. Voice settings now open a dedicated modal; the user accepted this presentation. Older audition/transcript notes below remain historical or optional validation. See [CURRENT_STATUS.md](CURRENT_STATUS.md).
+
 ## Automatic reply emotion (Mana v2)
 
 Default 2 was approved on 2026-10-11 and replaces the story-reading automatic fallback. Its full 9.76-second recording is preserved unchanged as `default-r2.wav`, paired with its English transcript draft. Matching saved story-reference path/transcript pairs migrate together; custom edits and other emotion references remain intact. Neutral/thinking/surprised/missing tags and automatic-mode singing now use this brighter fallback. Speed and volume settings are unchanged.

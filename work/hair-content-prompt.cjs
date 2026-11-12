@@ -1,0 +1,1 @@
+const fs=require('fs'),ts=require('typescript'),vm=require('vm');const api={};vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/core/generatedHair.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{exports:api});fs.writeFileSync('work/hair-content-prompt.json',JSON.stringify({prompt:api.HAIR_PROMPT}));

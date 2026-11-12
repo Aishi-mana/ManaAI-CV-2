@@ -1,0 +1,1 @@
+Error: Crown-like spikes or headgear were generated. Hair must have a smooth top edge; no review was saved.

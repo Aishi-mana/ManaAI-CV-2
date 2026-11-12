@@ -1,12 +1,15 @@
+import type { ImageOrigin } from "./imageOrigin";
+
 export interface Msg {
   id: string;
   role: "user" | "assistant";
   /** Raw text exactly as the model produced it (includes the [emotion] tag). */
   content: string;
   error?: string;
+  webSources?: { title: string; url: string }[];
   createdAt?: string;
-  imageReport?: { filename:string; description:string; imageId?:string; userConfirmedAvatar?:true };
-  generatedPicture?: {filename:string;dataUrl:string};
+  imageReport?: { filename:string; description:string; imageId?:string; userConfirmedAvatar?:true; origin?:ImageOrigin };
+  generatedPicture?: {filename:string;dataUrl:string;origin?:ImageOrigin};
   diagnostics?: { attempts: { text: string; issue: "repetition" | "capability" | "return-role" | null }[]; comparison?: string };
 }
 

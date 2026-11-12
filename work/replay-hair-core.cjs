@@ -1,0 +1,4 @@
+const fs=require('fs'),ts=require('typescript'),vm=require('vm');const api={};vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/core/generatedHair.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText,{exports:api,Uint8ClampedArray,Int32Array,Uint8Array,Error});
+const raw=fs.readFileSync('work/hair-trial.rgba'),report=[];
+for(const [index,slot] of ['front','back'].entries()){const panel=new Uint8ClampedArray(512*768*4);for(let y=0;y<768;y++)panel.set(raw.subarray((y*1024+index*512)*4,(y*1024+index*512+512)*4),y*512*4);const clean=api.cleanHairPanel(panel,512,768,slot);fs.writeFileSync('work/hair-'+slot+'.rgba',clean.data);report.push({slot,bounds:clean.bounds,piece:api.hairPiece(slot,{...clean.bounds,x:clean.bounds.x+index*512},{width:1024,height:768},{width:843,height:1264})});}
+fs.writeFileSync('work/hair-runtime-replay.json',JSON.stringify(report,null,2));console.log(report);

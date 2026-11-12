@@ -1,0 +1,3 @@
+from pathlib import Path
+p=Path('scripts/garment_only.py');s=p.read_text().replace('from outfit_quality import clean_opening_edges,broader_fit_checks','from outfit_quality import clean_opening_edges,broader_fit_checks,clean_collar_insert');s=s.replace(' result,opening_cleanup=clean_opening_edges(',''' result,collar_cleanup=clean_collar_insert(result,[left-2,neck-20,right+2,bottom],protected)
+ result,opening_cleanup=clean_opening_edges(''');s=s.replace(' fit_checks,fit_warnings=broader_fit_checks',' opening_cleanup.update(collar_cleanup)\n fit_checks,fit_warnings=broader_fit_checks');p.write_text(s)

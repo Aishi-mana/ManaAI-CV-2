@@ -1,0 +1,48 @@
+INFO:root:Found comfy_kitchen backend hip: {'available': False, 'disabled': False, 'unavailable_reason': 'PyTorch ROCm/HIP runtime not available', 'capabilities': []}
+INFO:root:Found comfy_kitchen backend triton: {'available': False, 'disabled': True, 'unavailable_reason': "ImportError: No module named 'triton'", 'capabilities': []}
+INFO:root:Found comfy_kitchen backend cuda: {'available': True, 'disabled': False, 'unavailable_reason': None, 'capabilities': ['adaln', 'apply_rope', 'apply_rope1', 'apply_rope1_', 'apply_rope_', 'apply_rope_split_half', 'apply_rope_split_half1', 'apply_rope_split_half1_', 'apply_rope_split_half_', 'convrot_w4a4_linear', 'dequantize_convrot_w4a4_weight', 'dequantize_int8_convrot_weight', 'dequantize_int8_convrot_weight_dtype', 'dequantize_int8_simple', 'dequantize_int8_simple_dtype', 'dequantize_nvfp4', 'dequantize_per_tensor_fp8', 'dequantize_w4a8_int8_weight', 'gemv_awq_w4a16', 'int8_linear', 'na3d', 'prepare_int4_weight_for_int8_linear', 'quantize_and_rotate_rowwise', 'quantize_convrot_w4a4_weight', 'quantize_int8_convrot_weight', 'quantize_int8_rowwise', 'quantize_int8_tensorwise', 'quantize_mxfp8', 'quantize_nvfp4', 'quantize_per_tensor_fp8', 'quantize_svdquant_w4a4', 'quantize_w4a8_int8_weight', 'rms_adaln', 'rms_rope', 'rms_rope1', 'rms_rope1_', 'rms_rope_', 'rms_rope_split_half', 'rms_rope_split_half1', 'rms_rope_split_half1_', 'rms_rope_split_half_', 'rotate_int8_convrot_weight', 'scaled_mm_nvfp4', 'scaled_mm_svdquant_w4a4', 'sol_attn', 'stochastic_rounding_fp8', 'w4a8_int8_linear']}
+INFO:root:Found comfy_kitchen backend eager: {'available': True, 'disabled': False, 'unavailable_reason': None, 'capabilities': ['adaln', 'apply_rope', 'apply_rope1', 'apply_rope1_', 'apply_rope_', 'apply_rope_split_half', 'apply_rope_split_half1', 'apply_rope_split_half1_', 'apply_rope_split_half_', 'convrot_w4a4_linear', 'dequantize_convrot_w4a4_weight', 'dequantize_int8_convrot_weight', 'dequantize_int8_convrot_weight_dtype', 'dequantize_int8_embedding', 'dequantize_int8_simple', 'dequantize_int8_simple_dtype', 'dequantize_mxfp8', 'dequantize_nvfp4', 'dequantize_per_tensor_fp8', 'dequantize_w4a8_int8_weight', 'gemv_awq_w4a16', 'int8_linear', 'na3d', 'prepare_int4_weight_for_int8_linear', 'quantize_and_rotate_rowwise', 'quantize_convrot_w4a4_weight', 'quantize_int8_convrot_weight', 'quantize_int8_rowwise', 'quantize_int8_tensorwise', 'quantize_mxfp8', 'quantize_nvfp4', 'quantize_per_tensor_fp8', 'quantize_svdquant_w4a4', 'quantize_w4a8_int8_weight', 'rms_adaln', 'rms_rope', 'rms_rope1', 'rms_rope1_', 'rms_rope_', 'rms_rope_split_half', 'rms_rope_split_half1', 'rms_rope_split_half1_', 'rms_rope_split_half_', 'rotate_int8_convrot_weight', 'scaled_mm_mxfp8', 'scaled_mm_nvfp4', 'scaled_mm_svdquant_w4a4', 'sol_attn', 'stochastic_rounding_fp8', 'w4a8_int8_linear']}
+INFO:root:Checkpoint files will always be loaded safely.
+INFO:root:Total VRAM 8151 MB, total RAM 32189 MB
+INFO:root:pytorch version: 2.10.0+cu130
+INFO:root:Set vram state to: NORMAL_VRAM
+INFO:root:Device: cuda:0 NVIDIA GeForce RTX 5070 Laptop GPU : native
+INFO:root:Using async weight offloading with 2 streams
+INFO:root:Enabled pinned memory 12875.0
+INFO:root:working around nvidia conv3d memory bug.
+INFO:root:Using pytorch attention
+INFO:root:aimdo: src-win/cuda-detour.c:38:INFO:aimdo_setup_hooks: installing 6 hooks
+INFO:root:aimdo: src/control.c:269:INFO:comfy-aimdo NVML pressure enabled
+INFO:root:aimdo: src-win/shmem-detect.c:80:INFO:comfy-aimdo WDDM adapter match: NVIDIA GeForce RTX 5070 Laptop GPU runtime_luid=00000000:0001390d dxgi_luid=00000000:0001390d
+INFO:root:aimdo: src/control.c:284:INFO:comfy-aimdo inited for GPU: NVIDIA GeForce RTX 5070 Laptop GPU (VRAM: 8150 MB)
+{'stage': 'dynamic_memory_enabled', 'elapsed_seconds': 22.68}
+{'stage': 'loading_reference_encoders', 'elapsed_seconds': 22.83}
+INFO:root:Using pytorch attention in VAE
+INFO:root:Using pytorch attention in VAE
+INFO:root:VAE load device: cuda:0, offload device: cpu, dtype: torch.bfloat16
+INFO:root:Found quantization metadata version 1
+INFO:root:Using MixedPrecisionOps for text encoder
+INFO:root:CLIP/text encoder model load device: cuda:0, offload device: cpu, current: cpu, dtype: torch.float16
+{'stage': 'encoding_reference', 'elapsed_seconds': 23.62}
+INFO:root:Requested to load WanVAE
+INFO:root:Model WanVAE prepared for dynamic VRAM loading. 241MB Staged. 0 patches attached. Force pre-loaded 60 weights: 61 KB.
+INFO:root:Requested to load QwenImageTEModel_
+INFO:root:Model QwenImageTEModel_ prepared for dynamic VRAM loading. 7910MB Staged. 0 patches attached. Force pre-loaded 122 weights: 561 KB.
+INFO:root:0 models unloaded.
+INFO:root:Model WanVAE prepared for dynamic VRAM loading. 241MB Staged. 0 patches attached. Force pre-loaded 60 weights: 61 KB.
+INFO:root:Model QwenImageTEModel_ prepared for dynamic VRAM loading. 7910MB Staged. 0 patches attached. Force pre-loaded 122 weights: 561 KB.
+{'stage': 'loading_diffusion', 'elapsed_seconds': 36.78}
+INFO:root:model weight dtype torch.float8_e4m3fn, manual cast: torch.bfloat16
+INFO:root:model_type FLUX
+{'stage': 'sampling', 'elapsed_seconds': 37.21, 'step': 0, 'total': 4}
+INFO:root:Requested to load QwenImage
+INFO:root:Model QwenImage prepared for dynamic VRAM loading. 19483MB Staged. 840 patches attached. Force pre-loaded 241 weights: 37 KB.
+{'stage': 'sampling', 'elapsed_seconds': 63.84, 'step': 1, 'total': 4}
+{'stage': 'sampling', 'elapsed_seconds': 75.84, 'step': 2, 'total': 4}
+{'stage': 'sampling', 'elapsed_seconds': 88.9, 'step': 3, 'total': 4}
+{'stage': 'sampling', 'elapsed_seconds': 102.95, 'step': 4, 'total': 4}
+{'stage': 'decoding', 'elapsed_seconds': 102.96}
+INFO:root:Requested to load WanVAE
+INFO:root:0 models unloaded.
+INFO:root:Model WanVAE prepared for dynamic VRAM loading. 241MB Staged. 0 patches attached. Force pre-loaded 60 weights: 61 KB.
+{'stage': 'ready', 'elapsed_seconds': 103.83}

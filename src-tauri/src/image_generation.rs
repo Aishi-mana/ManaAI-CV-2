@@ -8,7 +8,7 @@ const ENGINE:&str=r"C:\AI\stable-diffusion.cpp\build\bin\Release\sd-cli.exe";
 
 const COMFY:&str=r"C:\Users\Admin\AppData\Local\Comfy-Desktop\ComfyUI-Installs\ComfyUI\ComfyUI";
 
-const PYTHON:&str=r"C:\Users\Admin\AppData\Local\Comfy-Desktop\ComfyUI-Installs\ComfyUI\ComfyUI\.venv\Scripts\python.exe";
+pub(crate) const PYTHON:&str=r"C:\Users\Admin\AppData\Local\Comfy-Desktop\ComfyUI-Installs\ComfyUI\ComfyUI\.venv\Scripts\python.exe";
 
 const QWEN_MODEL:&str="Qwen-Rapid-AIO-SFW-v23.safetensors";
 
@@ -58,7 +58,14 @@ fn valid_dimensions(r:&Request)->bool{let qwen=r.model==QWEN_MODEL;let limit=if 
 
 fn validate(r:&Request)->Result<(),String>{if r.model==QWEN_MODEL{if r.cpu{return Err("Qwen currently requires the NVIDIA GPU. Turn off Use CPU.".into());}if (r.reference.is_some()&&r.character_reference)||r.reference_mask.is_some(){return Err("Choose one Qwen reference: character sheet or current avatar, without a clothing mask.".into());}}else if r.character_reference{return Err("Character sheet references require Qwen.".into());}if let Some(mask)=&r.reference_mask{let data=mask.strip_prefix("data:image/jpeg;base64,").ok_or("Use a JPEG clothing mask.")?;if r.reference.is_none()||mask.len()>1_000_000||!data.starts_with("/9j/")||data.len()%4!=0||!data.bytes().all(|b|b.is_ascii_alphanumeric()||b"+/=".contains(&b)){return Err("Invalid clothing mask.".into());}}if r.reference_strength.is_some_and(|n|!n.is_finite()||n<0.2||n>0.8){return Err("Reference variation must be 0.2–0.8.".into());}if let Some(image)=&r.reference{let encoded=image.strip_prefix("data:image/jpeg;base64,").ok_or("Use a JPEG avatar reference.")?;if image.len()>1_000_000||!encoded.starts_with("/9j/")||encoded.len()%4!=0||!encoded.bytes().all(|b|b.is_ascii_alphanumeric()||b"+/=".contains(&b)){return Err("Invalid avatar reference.".into());}}if r.model.is_empty()||Path::new(&r.model).components().count()!=1||r.model.contains(['/', '\\'])||!r.model.ends_with(".safetensors")||r.prompt.trim().is_empty()||r.prompt.len()>6000||r.negative.len()>6000||r.width<128||r.height<128||!valid_dimensions(r)||r.steps<1||r.steps>50||!r.cfg.is_finite()||r.cfg<1.0||r.cfg>15.0{return Err("Use a local checkpoint, a prompt, dimensions 128–1024 in multiples of64, 1–50 steps and guidance1–15.".into());}Ok(())}
 
-#[tauri::command]pub fn image_generation_start(app:tauri::AppHandle,state:tauri::State<ImageGeneration>,request:Request)->Result<String,String>{
+#[tauri::command]pub fn image_generation_start(app:tauri::AppHandle,state:tauri::State<ImageGeneration>,request:Request)->Result<String,String>{start_job(app,state,request,None)}
+#[tauri::command]pub fn outfit_generation_start(app:tauri::AppHandle,state:tauri::State<ImageGeneration>,request:Request,body:Vec<u8>,front_hair:Option<Vec<u8>>)->Result<String,String>{
+ let body_size=crate::outfit_prototype::png_dimensions(&body)?;
+ if let Some(front)=front_hair.as_ref(){if crate::outfit_prototype::png_dimensions(front)?!=body_size{return Err("Front hair and body canvases must match.".into());}}
+ if request.model!=QWEN_MODEL{return Err("Outfit creation requires the local Qwen model.".into());}
+ start_job(app,state,request,Some((body,front_hair)))
+}
+fn start_job(app:tauri::AppHandle,state:tauri::State<ImageGeneration>,request:Request,body:Option<(Vec<u8>,Option<Vec<u8>>)>)->Result<String,String>{
 
  validate(&request)?;let mut slot=state.0.lock().map_err(|e|e.to_string())?;if let Some(job)=slot.as_mut(){if job.child.try_wait().map_err(|e|e.to_string())?.is_none(){return Err("Stop the current image job first.".into());}}
 
@@ -66,10 +73,17 @@ fn validate(r:&Request)->Result<(),String>{if r.model==QWEN_MODEL{if r.cpu{retur
 
  let dir=Path::new(r"C:\AI\ManaAI-CV-2\exports\images").join(format!("image-{}",std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_err(|e|e.to_string())?.as_nanos()));fs::create_dir_all(&dir).map_err(|e|e.to_string())?;
 
- let mut payload=serde_json::to_value(&request).map_err(|e|e.to_string())?;payload["checkpoint"]=serde_json::json!(checkpoint);payload["backend"]=serde_json::json!(if kind=="qwen"{"qwen"}else if kind=="neta"{"neta"}else{"sd"});payload["engine"]=serde_json::json!(ENGINE);payload["comfy"]=serde_json::json!(COMFY);if is_qwen{payload["qwenFiles"]=qwen_files();if request.character_reference{payload["qwenReference"]=serde_json::json!(qwen_reference());}}let input=dir.join("request.json");fs::write(&input,serde_json::to_vec_pretty(&payload).map_err(|e|e.to_string())?).map_err(|e|e.to_string())?;
+ let mut payload=serde_json::to_value(&request).map_err(|e|e.to_string())?;payload["checkpoint"]=serde_json::json!(checkpoint);payload["backend"]=serde_json::json!(if kind=="qwen"{"qwen"}else if kind=="neta"{"neta"}else{"sd"});payload["engine"]=serde_json::json!(ENGINE);payload["comfy"]=serde_json::json!(COMFY);if is_qwen{payload["qwenFiles"]=qwen_files();if request.character_reference{payload["qwenReference"]=serde_json::json!(qwen_reference());}}if let Some((body,front_hair))=body{let body_path=dir.join("avatar-body.png");fs::write(&body_path,body).map_err(|e|e.to_string())?;payload["outfitBody"]=serde_json::json!(body_path);payload["outfitExtraction"]=serde_json::json!("garment-only-body-guide");if let Some(front)=front_hair{let front_path=dir.join("avatar-front-hair.png");fs::write(&front_path,front).map_err(|e|e.to_string())?;payload["outfitFrontHair"]=serde_json::json!(front_path);}}
+ let input=dir.join("request.json");fs::write(&input,serde_json::to_vec_pretty(&payload).map_err(|e|e.to_string())?).map_err(|e|e.to_string())?;
 
  let script=app.path().resolve("scripts/image_job.py",tauri::path::BaseDirectory::Resource).map_err(|e|e.to_string())?;let script=if script.is_file(){script}else{Path::new(env!("CARGO_MANIFEST_DIR")).join("../scripts/image_job.py")};
 
+ if payload["outfitExtraction"]=="garment-only-body-guide"{
+  let folder=script.parent().ok_or("Image tools folder is unavailable.")?;
+  for file in ["garment_only.py","generated_outfit.py","clothing_fit.py","clothing_extract.py","outfit_quality.py"]{
+   if !folder.join(file).is_file(){return Err(format!("The outfit update is incomplete (missing {file}). No image generation was started."));}
+  }
+ }
  let log=fs::File::create(dir.join("job.log")).map_err(|e|e.to_string())?;let err=log.try_clone().map_err(|e|e.to_string())?;let mut command=Command::new(PYTHON);command.arg(script).arg(input).current_dir(&dir).env("PYTHONIOENCODING","utf-8").stdout(Stdio::from(log)).stderr(Stdio::from(err));
 
  #[cfg(windows)]{use std::os::windows::process::CommandExt;command.creation_flags(0x08000000);}
@@ -100,3 +114,14 @@ pub fn stop(state:&ImageGeneration)->Result<(),String>{let mut slot=state.0.lock
 
 #[cfg(test)]mod qwen_tests{use super::*;#[test]fn qwen_bounds_and_reference_are_independent(){let mut r=Request{model:QWEN_MODEL.into(),prompt:"library".into(),negative:String::new(),width:1280,height:720,steps:4,cfg:1.0,seed:42,cpu:false,character_reference:true,reference:None,reference_strength:None,reference_mask:None};assert!(validate(&r).is_ok());r.cpu=true;assert!(validate(&r).is_err());r.cpu=false;r.height=1280;assert!(validate(&r).is_err());r.height=720;r.reference=Some("data:image/jpeg;base64,/9j/AA==".into());assert!(validate(&r).is_err());r.character_reference=false;assert!(validate(&r).is_ok());r.reference=None;r.character_reference=true;r.model="photon_v1.safetensors".into();assert!(validate(&r).is_err());}}
 
+
+pub fn completed_outfit(state:&ImageGeneration,job_id:&str)->Result<PathBuf,String>{
+ let mut slot=state.0.lock().map_err(|e|e.to_string())?;let job=slot.as_mut().ok_or("No outfit job")?;
+ if job.dir.to_string_lossy()!=job_id||job.stopped||!job.child.try_wait().map_err(|e|e.to_string())?.is_some_and(|s|s.success())||!job.dir.join("outfit.png").is_file(){return Err("Outfit is not ready.".into());}Ok(job.dir.clone())
+}
+
+pub(crate) fn idle_guard(state:&ImageGeneration)->Result<std::sync::MutexGuard<'_,Option<Job>>,String>{
+ let mut guard=state.0.lock().map_err(|e|e.to_string())?;
+ if let Some(job)=guard.as_mut(){if job.child.try_wait().map_err(|e|e.to_string())?.is_none(){return Err("Wait for the current image job before recovering an outfit.".into())}}
+ Ok(guard)
+}

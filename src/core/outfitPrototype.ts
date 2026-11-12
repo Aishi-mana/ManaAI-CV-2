@@ -1,19 +1,21 @@
 export interface Point{x:number;y:number}
-export interface CutRegion{points:Point[];erase:boolean;kind?:'polygon'|'brush'|'background'|'clip';brushSize?:number;tolerance?:number;group?:number}
-export interface OutfitTransform{scale:number;x:number;y:number;frame:number}
-export interface Box{x:number;y:number;width:number;height:number}
+export interface CutRegion{points:Point[];erase:boolean;kind?:'polygon'|'brush'|'background'|'background-brush'|'fill'|'clip';brushSize?:number;tolerance?:number;color?:string;group?:number}
+export interface OutfitTransform{scale:number;x:number;y:number;frame:number;stretchX?:number;stretchY?:number;rotation?:number}
+export interface Box{x:number;y:number;width:number;height:number;rotation?:number}
 export const MIN_OUTFIT_SCALE=.02,MAX_OUTFIT_SCALE=4;
 export function fitOutfit(sourceWidth:number,sourceHeight:number,width:number,height:number,t:OutfitTransform){
  if(![sourceWidth,sourceHeight,width,height].every(n=>Number.isFinite(n)&&n>0&&n<=4096)||!Number.isFinite(t.scale)||t.scale<MIN_OUTFIT_SCALE||t.scale>MAX_OUTFIT_SCALE||!Number.isFinite(t.frame)||t.frame<.5||t.frame>1||![t.x,t.y].every(n=>Number.isFinite(n)&&Math.abs(n)<=2048))throw Error('Choose valid outfit alignment.');
+ if(![t.stretchX??1,t.stretchY??1].every(n=>Number.isFinite(n)&&n>=.05&&n<=10)||!Number.isFinite(t.rotation??0)||Math.abs(t.rotation??0)>360)throw Error('Choose valid stretch and rotation.');
  const s=Math.max(width/(sourceWidth*t.frame),height/(sourceHeight*t.frame))*t.scale;
- return {x:(width-sourceWidth*s)/2+t.x,y:(height-sourceHeight*s)/2+t.y,width:sourceWidth*s,height:sourceHeight*s};
+ const w=sourceWidth*s*(t.stretchX??1),h=sourceHeight*s*(t.stretchY??1);return {x:(width-w)/2+t.x,y:(height-h)/2+t.y,width:w,height:h,...(t.rotation?{rotation:t.rotation}:{})};
 }
 export function polygonArea(points:Point[]){return Math.abs(points.reduce((sum,p,i)=>{const q=points[(i+1)%points.length];return sum+p.x*q.y-q.x*p.y;},0)/2);}
 export function validRegion(points:Point[],width:number,height:number){return points.length>=3&&points.length<=200&&points.every(p=>validPoint(p,width,height))&&polygonArea(points)>=4;}
 function validPoint(p:Point,width:number,height:number){return p&&typeof p==='object'&&Number.isFinite(p.x)&&Number.isFinite(p.y)&&p.x>=0&&p.y>=0&&p.x<=width&&p.y<=height;}
 export function validCut(r:CutRegion,width:number,height:number){
  if(!r||typeof r.erase!=='boolean'||!Array.isArray(r.points)||(r.group!==undefined&&(!Number.isSafeInteger(r.group)||r.group<0)))return false;
- if(r.kind==='brush')return r.points.length>0&&r.points.length<=2048&&r.points.every(p=>validPoint(p,width,height))&&Number.isFinite(r.brushSize)&&r.brushSize!>=1&&r.brushSize!<=500;
+ if(r.kind==='brush'||r.kind==='background-brush')return r.points.length>0&&r.points.length<=2048&&r.points.every(p=>validPoint(p,width,height))&&Number.isFinite(r.brushSize)&&r.brushSize!>=1&&r.brushSize!<=500&&(r.kind!=='background-brush'||r.erase&&Number.isFinite(r.tolerance)&&r.tolerance!>=0&&r.tolerance!<=120);
+ if(r.kind==='fill')return !r.erase&&/^#[0-9a-f]{6}$/i.test(r.color??'')&&r.points.length===1&&validPoint(r.points[0],width-1,height-1)&&Number.isFinite(r.tolerance)&&r.tolerance!>=0&&r.tolerance!<=120;
  if(r.kind==='background')return r.erase&&r.points.length===1&&validPoint(r.points[0],width-1,height-1)&&Number.isFinite(r.tolerance)&&r.tolerance!>=0&&r.tolerance!<=120;
  return (!r.kind||r.kind==='polygon'||r.kind==='clip')&&validRegion(r.points,width,height);
 }
@@ -22,8 +24,15 @@ export function backgroundPixels(data:Uint8ClampedArray,width:number,height:numb
  if(data.length!==width*height*4||!validPoint(seed,width-1,height-1)||!Number.isFinite(tolerance)||tolerance<0||tolerance>120)throw Error('Choose a background pixel and tolerance between 0 and 120.');
  const count=width*height,seen=new Uint8Array(count),queue=new Int32Array(count),selected=new Uint8Array(count),first=Math.floor(seed.y)*width+Math.floor(seed.x),offset=first*4;
  let read=0,write=1;queue[0]=first;seen[first]=1;
- const matches=(i:number)=>{const p=i*4;return Math.max(Math.abs(data[p]-data[offset]),Math.abs(data[p+1]-data[offset+1]),Math.abs(data[p+2]-data[offset+2]),Math.abs(data[p+3]-data[offset+3]))<=tolerance;};
+ const matches=(i:number)=>{const p=i*4;if(data[p+3]===0&&data[offset+3]===0)return true;return Math.max(Math.abs(data[p]-data[offset]),Math.abs(data[p+1]-data[offset+1]),Math.abs(data[p+2]-data[offset+2]),Math.abs(data[p+3]-data[offset+3]))<=tolerance;};
  while(read<write){const i=queue[read++];if(!matches(i))continue;selected[i]=255;const x=i%width;for(const n of [x>0?i-1:-1,x<width-1?i+1:-1,i>=width?i-width:-1,i+width<count?i+width:-1])if(n>=0&&!seen[n]){seen[n]=1;queue[write++]=n;}}
+ return selected;
+}
+/** Brush samples the starting color; unlike the bucket it stays in the stroke. */
+export function backgroundBrushPixels(data:Uint8ClampedArray,width:number,height:number,seed:Point,tolerance:number,footprint:Uint8ClampedArray){
+ if(data.length!==width*height*4||footprint.length!==width*height||!validPoint(seed,width-1,height-1)||!Number.isFinite(tolerance)||tolerance<0||tolerance>120)throw Error('Choose a valid background sample.');
+ const selected=new Uint8Array(width*height),offset=(Math.floor(seed.y)*width+Math.floor(seed.x))*4;
+ for(let i=0;i<selected.length;i++){const p=i*4;if(footprint[i]&&data[p+3]>0&&Math.max(Math.abs(data[p]-data[offset]),Math.abs(data[p+1]-data[offset+1]),Math.abs(data[p+2]-data[offset+2]),Math.abs(data[p+3]-data[offset+3]))<=tolerance)selected[i]=footprint[i];}
  return selected;
 }
 export function loadOutfitImage(url:string):Promise<HTMLImageElement>{return new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=()=>reject(Error('Could not load this picture.'));im.src=url;});}
@@ -32,8 +41,16 @@ export function cutOutfit(source:HTMLImageElement,regions:CutRegion[]){
  const original=document.createElement('canvas');original.width=mask.width;original.height=mask.height;const raw=original.getContext('2d')!;raw.drawImage(source,0,0);let pixels:Uint8ClampedArray|undefined;
  for(const region of regions){
   if(!validCut(region,mask.width,mask.height))throw Error('Invalid clothing outline or brush stroke.');m.globalCompositeOperation=region.erase?'destination-out':'source-over';m.fillStyle='white';
-  if(region.kind==='background'){
-   pixels??=raw.getImageData(0,0,mask.width,mask.height).data;const selected=backgroundPixels(pixels,mask.width,mask.height,region.points[0],region.tolerance!);const c=document.createElement('canvas');c.width=mask.width;c.height=mask.height;const ctx=c.getContext('2d')!,im=ctx.createImageData(mask.width,mask.height);for(let i=0;i<selected.length;i++)im.data[i*4+3]=selected[i];ctx.putImageData(im,0,0);m.drawImage(c,0,0);
+  if(region.kind==='background'||region.kind==='fill'||region.kind==='background-brush'){
+   const c=document.createElement('canvas');c.width=mask.width;c.height=mask.height;const ctx=c.getContext('2d')!;
+   ctx.drawImage(original,0,0);ctx.globalCompositeOperation='destination-in';ctx.drawImage(mask,0,0);pixels=ctx.getImageData(0,0,mask.width,mask.height).data;ctx.clearRect(0,0,mask.width,mask.height);ctx.globalCompositeOperation='source-over';
+   let footprint:Uint8ClampedArray|undefined;
+   if(region.kind==='background-brush'){ctx.strokeStyle='white';ctx.fillStyle='white';ctx.lineWidth=region.brushSize!;ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();region.points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();for(const p of [region.points[0],region.points[region.points.length-1]]){ctx.beginPath();ctx.arc(p.x,p.y,region.brushSize!/2,0,Math.PI*2);ctx.fill();}const stroke=ctx.getImageData(0,0,mask.width,mask.height).data;footprint=new Uint8ClampedArray(mask.width*mask.height);for(let i=0;i<footprint.length;i++)footprint[i]=stroke[i*4+3];}
+   const seed={x:Math.min(mask.width-1,Math.floor(region.points[0].x)),y:Math.min(mask.height-1,Math.floor(region.points[0].y))};
+   const selected=footprint?backgroundBrushPixels(pixels,mask.width,mask.height,seed,region.tolerance!,footprint):backgroundPixels(pixels,mask.width,mask.height,seed,region.tolerance!);
+   const im=ctx.createImageData(mask.width,mask.height);for(let i=0;i<selected.length;i++)im.data[i*4+3]=selected[i];ctx.clearRect(0,0,mask.width,mask.height);ctx.putImageData(im,0,0);
+   if(region.kind==='fill'){const colored=raw.getImageData(0,0,mask.width,mask.height),hex=region.color!;const rgb=[1,3,5].map(p=>parseInt(hex.slice(p,p+2),16));for(let i=0;i<selected.length;i++)if(selected[i]){for(let j=0;j<3;j++)colored.data[i*4+j]=rgb[j];colored.data[i*4+3]=pixels[i*4+3]||255;}raw.putImageData(colored,0,0);m.globalCompositeOperation='source-over';}
+   m.drawImage(c,0,0);
   }else if(region.kind==='brush'){
    m.strokeStyle='white';m.lineWidth=region.brushSize!;m.lineCap='round';m.lineJoin='round';m.beginPath();region.points.forEach((p,i)=>i?m.lineTo(p.x,p.y):m.moveTo(p.x,p.y));m.stroke();for(const p of [region.points[0],region.points[region.points.length-1]]){m.beginPath();m.arc(p.x,p.y,region.brushSize!/2,0,Math.PI*2);m.fill();}
   }else if(region.kind==='clip'){const c=document.createElement('canvas');c.width=mask.width;c.height=mask.height;const ctx=c.getContext('2d')!;ctx.fillStyle='white';ctx.beginPath();region.points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.fill();m.globalCompositeOperation='destination-in';m.drawImage(c,0,0);
@@ -41,15 +58,17 @@ export function cutOutfit(source:HTMLImageElement,regions:CutRegion[]){
  }
  raw.globalCompositeOperation='destination-in';raw.drawImage(mask,0,0);return original;
 }
-export function placeOutfit(cut:HTMLCanvasElement,width:number,height:number,t:OutfitTransform){const out=document.createElement('canvas');out.width=width;out.height=height;const fit=fitOutfit(cut.width,cut.height,width,height,t);out.getContext('2d')!.drawImage(cut,fit.x,fit.y,fit.width,fit.height);return out;}
+export function placeOutfit(cut:HTMLCanvasElement,width:number,height:number,t:OutfitTransform){const out=document.createElement('canvas');out.width=width;out.height=height;const fit=fitOutfit(cut.width,cut.height,width,height,t);const c=out.getContext('2d')!;if(fit.rotation){c.translate(fit.x+fit.width/2,fit.y+fit.height/2);c.rotate(fit.rotation*Math.PI/180);c.drawImage(cut,-fit.width/2,-fit.height/2,fit.width,fit.height);}else c.drawImage(cut,fit.x,fit.y,fit.width,fit.height);return out;}
 export function renderOutfit(source:HTMLImageElement,regions:CutRegion[],width:number,height:number,t:OutfitTransform){return placeOutfit(cutOutfit(source,regions),width,height,t);}
 export function alphaBounds(data:Uint8ClampedArray,width:number,height:number):Box|null{let left=width,top=height,right=-1,bottom=-1;for(let y=0;y<height;y++)for(let x=0;x<width;x++)if(data[(y*width+x)*4+3]>0){left=Math.min(left,x);right=Math.max(right,x);top=Math.min(top,y);bottom=Math.max(bottom,y);}return right<0?null:{x:left,y:top,width:right-left+1,height:bottom-top+1};}
-export function transformedBounds(bounds:Box,fit:Box,source:{width:number;height:number}):Box{return {x:fit.x+bounds.x*fit.width/source.width,y:fit.y+bounds.y*fit.height/source.height,width:bounds.width*fit.width/source.width,height:bounds.height*fit.height/source.height};}
+export function outfitPoint(point:Point,fit:Box,source:{width:number;height:number},inverse=false):Point{const angle=(fit.rotation??0)*Math.PI/180,c=Math.cos(angle),s=Math.sin(angle),cx=fit.x+fit.width/2,cy=fit.y+fit.height/2;if(inverse){const x=point.x-cx,y=point.y-cy;return {x:(x*c+y*s+fit.width/2)*source.width/fit.width,y:(-x*s+y*c+fit.height/2)*source.height/fit.height};}const x=point.x*fit.width/source.width-fit.width/2,y=point.y*fit.height/source.height-fit.height/2;return {x:cx+x*c-y*s,y:cy+x*s+y*c};}
+export function transformedBounds(bounds:Box,fit:Box,source:{width:number;height:number}):Box{const points=[{x:bounds.x,y:bounds.y},{x:bounds.x+bounds.width,y:bounds.y},{x:bounds.x+bounds.width,y:bounds.y+bounds.height},{x:bounds.x,y:bounds.y+bounds.height}].map(p=>outfitPoint(p,fit,source));const xs=points.map(p=>p.x),ys=points.map(p=>p.y);return {x:Math.min(...xs),y:Math.min(...ys),width:Math.max(...xs)-Math.min(...xs),height:Math.max(...ys)-Math.min(...ys)};}
+
 export function readOutfitSelection(value:unknown,width:number,height:number):{name:string;regions:CutRegion[];transform:OutfitTransform}{
  const v=value as {name?:unknown;regions?:unknown;transform?:unknown;sourceSize?:{width:number;height:number}};
  if(!v||typeof v!=='object'||typeof v.name!=='string'||v.name.length>80||!Array.isArray(v.regions)||v.regions.length>250||!v.sourceSize||v.sourceSize.width!==width||v.sourceSize.height!==height)throw Error('Load the matching source picture before its selection.');
  const regions=v.regions.map((item:unknown)=>{const r=item as CutRegion;if(!validCut(r,width,height))throw Error('Invalid clothing edit.');return {...r,points:r.points.map(p=>({x:p.x,y:p.y}))};});
- const t=v.transform as OutfitTransform;if(!t)throw Error('Outfit alignment is missing.');fitOutfit(width,height,843,1264,t);return {name:v.name,regions,transform:{x:t.x,y:t.y,scale:t.scale,frame:t.frame}};
+ const t=v.transform as OutfitTransform;if(!t)throw Error('Outfit alignment is missing.');fitOutfit(width,height,843,1264,t);return {name:v.name,regions,transform:{x:t.x,y:t.y,scale:t.scale,frame:t.frame,...(t.stretchX!==undefined?{stretchX:t.stretchX}:{}),...(t.stretchY!==undefined?{stretchY:t.stretchY}:{}),...(t.rotation!==undefined?{rotation:t.rotation}:{})}};
 }
 export function dragOutfit(start:Point,delta:Point,display:{width:number;height:number},body:{width:number;height:number}){
  if(![start.x,start.y,delta.x,delta.y,display.width,display.height,body.width,body.height].every(Number.isFinite)||display.width<=0||display.height<=0||body.width<=0||body.height<=0)throw Error('Preview size is unavailable.');
@@ -63,20 +82,49 @@ export function resizeOutfit(start:OutfitTransform,box:Box,corner:number,pointer
 }
 
 export function undoOutfitEdit(regions:CutRegion[]){if(!regions.length||regions[regions.length-1].kind==='clip')return regions;const group=regions[regions.length-1].group;if(group===undefined)return regions.slice(0,-1);let end=regions.length-1;while(end>0&&regions[end-1].group===group)end--;return regions.slice(0,end);}
-export interface OutfitPiece{id:string;name:string;regions:CutRegion[];transform:OutfitTransform;hidden?:boolean}
+export interface OutfitPiece{id:string;name:string;regions:CutRegion[];transform:OutfitTransform;hidden?:boolean;locked?:boolean;depth?:'front'|'back'}
+/** Open a cleaned, body-aligned PNG as independently movable connected pieces. */
+export function preparedOutfitPieces(data:Uint8ClampedArray,width:number,height:number):OutfitPiece[]{
+ if(data.length!==width*height*4||width<1||height<1||width>4096||height>4096)throw Error('Invalid prepared outfit canvas.');
+ type Part={left:number;top:number;right:number;bottom:number;area:number};
+ const visited=new Uint8Array(width*height),queue=new Int32Array(width*height),parts:Part[]=[];
+ for(let start=0;start<visited.length;start++){
+  if(visited[start]||data[start*4+3]===0)continue;
+  let head=0,tail=1;queue[0]=start;visited[start]=1;const part:Part={left:width,top:height,right:0,bottom:0,area:0};
+  while(head<tail){const p=queue[head++],x=p%width,y=Math.floor(p/width);part.left=Math.min(part.left,x);part.right=Math.max(part.right,x+1);part.top=Math.min(part.top,y);part.bottom=Math.max(part.bottom,y+1);part.area++;
+   for(const n of [x>0?p-1:-1,x+1<width?p+1:-1,y>0?p-width:-1,y+1<height?p+width:-1])if(n>=0&&!visited[n]&&data[n*4+3]>0){visited[n]=1;queue[tail++]=n;}
+  }parts.push(part);
+  if(parts.length>4096)throw Error('Too many disconnected marks to separate this outfit safely.');
+
+ }
+ if(!parts.length)return [];
+ const merge=(a:Part,b:Part):Part=>({left:Math.min(a.left,b.left),top:Math.min(a.top,b.top),right:Math.max(a.right,b.right),bottom:Math.max(a.bottom,b.bottom),area:a.area+b.area});
+ // Small disconnected buckles/outlines belong to their nearest garment, not a
+ // new layer. Merge overlapping boxes too so no pixel renders in two layers.
+ parts.sort((a,b)=>b.area-a.area);
+ for(let i=parts.length-1;i>0;i--)if(parts[i].area<16||parts.length>12){const a=parts[i];let best=0,score=Infinity;for(let j=0;j<i;j++){const b=parts[j],d=Math.hypot(Math.max(0,a.left-b.right,b.left-a.right),Math.max(0,a.top-b.bottom,b.top-a.bottom));if(d<score){score=d;best=j;}}parts[best]=merge(parts[best],a);parts.splice(i,1);}
+ let again=true;while(again){again=false;outer:for(let i=0;i<parts.length;i++)for(let j=i+1;j<parts.length;j++){const a=parts[i],b=parts[j];if(a.left<b.right&&b.left<a.right&&a.top<b.bottom&&b.top<a.bottom){parts[i]=merge(a,b);parts.splice(j,1);again=true;break outer;}}}
+ // Keep detached sock rims, buckles and antialias fragments with their foot.
+ // Clothing is one editable group; left/right footwear remain independent.
+ const groups=new Map<string,Part>();
+ for(const p of parts){const key=p.top>height*.70&&p.bottom>height*.90?(p.left+p.right<width?'Left footwear':'Right footwear'):'Main clothing';groups.set(key,groups.has(key)?merge(groups.get(key)!,p):p);}
+ const ordered=['Main clothing','Left footwear','Right footwear'].filter(key=>groups.has(key));
+ const rect=(p:Part,erase=false):CutRegion=>({points:[{x:p.left,y:p.top},{x:p.right,y:p.top},{x:p.right,y:p.bottom},{x:p.left,y:p.bottom}],erase});
+ return ordered.map((name,i)=>{const p=groups.get(name)!;const regions=[rect(p)];if(name==='Main clothing')for(const key of ['Left footwear','Right footwear']){const foot=groups.get(key);if(foot&&p.left<foot.right&&foot.left<p.right&&p.top<foot.bottom&&foot.top<p.bottom)regions.push(rect(foot,true));}return {id:'prepared-'+(i+1),name,regions,transform:{x:0,y:0,scale:1,frame:1}};});
+}
 export function snapshotOutfitPieces(pieces:OutfitPiece[],activeId:string,regions:CutRegion[],transform:OutfitTransform){return pieces.map(p=>p.id===activeId?{...p,regions,transform:{...transform}}:p);}
 export function readOutfitProject(value:unknown,width:number,height:number):{name:string;pieces:OutfitPiece[];activeId:string}{
  const v=value as {name?:unknown;parts?:unknown;activePartId?:unknown;sourceSize?:unknown};
  if(!v||typeof v!=='object')throw Error('Invalid outfit project.');
  if(v.parts===undefined){const old=readOutfitSelection(value,width,height);return {name:old.name,pieces:[{id:'piece-1',name:'Outfit',regions:old.regions,transform:old.transform}],activeId:'piece-1'};}
  if(typeof v.name!=='string'||v.name.length>80||!Array.isArray(v.parts)||v.parts.length<1||v.parts.length>12)throw Error('Outfit projects need 1–12 pieces.');
- const ids=new Set<string>();const pieces=v.parts.map((item:unknown)=>{const p=item as OutfitPiece;if(!p||typeof p.id!=='string'||!/^[a-zA-Z0-9_-]{1,64}$/.test(p.id)||ids.has(p.id)||typeof p.name!=='string'||!p.name.trim()||p.name.length>40)throw Error('Invalid or duplicate outfit piece.');ids.add(p.id);const checked=readOutfitSelection({name:p.name,regions:p.regions,transform:p.transform,sourceSize:v.sourceSize},width,height);if(p.hidden!==undefined&&typeof p.hidden!=='boolean')throw Error('Invalid layer visibility.');return {id:p.id,name:checked.name,regions:checked.regions,transform:checked.transform,...(p.hidden?{hidden:true}:{})};});
+ const ids=new Set<string>();const pieces=v.parts.map((item:unknown)=>{const p=item as OutfitPiece;if(!p||typeof p.id!=='string'||!/^[a-zA-Z0-9_-]{1,64}$/.test(p.id)||ids.has(p.id)||typeof p.name!=='string'||!p.name.trim()||p.name.length>40)throw Error('Invalid or duplicate outfit piece.');ids.add(p.id);const checked=readOutfitSelection({name:p.name,regions:p.regions,transform:p.transform,sourceSize:v.sourceSize},width,height);if(p.depth!==undefined&&p.depth!=='front'&&p.depth!=='back')throw Error('Invalid layer position.');if(p.hidden!==undefined&&typeof p.hidden!=='boolean')throw Error('Invalid layer visibility.');if(p.locked!==undefined&&typeof p.locked!=='boolean')throw Error('Invalid layer lock.');return {id:p.id,name:checked.name,regions:checked.regions,transform:checked.transform,...(p.hidden?{hidden:true}:{}),...(p.locked?{locked:true}:{}),...(p.depth?{depth:p.depth}:{})};});
  return {name:v.name,pieces,activeId:typeof v.activePartId==='string'&&ids.has(v.activePartId)?v.activePartId:pieces[0].id};
 }
 
 /** Split existing cleaned pixels without reintroducing their removed background. */
 export function splitOutfitPiece(pieces:OutfitPiece[],activeId:string,points:Point[],id:string,name:string,width:number,height:number){
- if(pieces.length>=12||pieces.some(p=>p.id===id)||!validRegion(points,width,height))throw Error('Choose an outline and leave room for another piece.');const selected=pieces.find(p=>p.id===activeId);if(!selected)throw Error('Select a piece first.');
+ if(pieces.find(p=>p.id===activeId)?.locked||pieces.length>=12||pieces.some(p=>p.id===id)||!validRegion(points,width,height))throw Error('Choose an outline and leave room for another piece.');const selected=pieces.find(p=>p.id===activeId);if(!selected)throw Error('Select a piece first.');
  const cut=selected.regions.some(r=>!r.erase)?[...selected.regions,{kind:'clip' as const,points,erase:false}]:[{points,erase:false}];
  return [...pieces.map(p=>p.id===activeId?{...p,regions:[...p.regions,{points,erase:true}]}:p),{id,name,regions:cut,transform:{...selected.transform}}];
 }
@@ -85,7 +133,70 @@ export const MAX_OUTFIT_PROJECT_BYTES=16_000_000;
 /** Save final pixels even when the optional editable history exceeds its bounded file size. */
 export function outfitSaveMetadata(name:string,width:number,height:number,parts:OutfitPiece[],activePartId:string,sourceSize:{width:number;height:number}){
  const full=JSON.stringify({name,width,height,parts,activePartId,prototype:true,sourceSize});
- if(new TextEncoder().encode(full).length<=MAX_OUTFIT_PROJECT_BYTES)return {metadata:full,flattened:false};
+ if(new TextEncoder().encode(full).length<=MAX_OUTFIT_PROJECT_BYTES-1024)return {metadata:full,flattened:false};
  const metadata=JSON.stringify({name,width,height,prototype:true,flattened:true,sourceSize:{width,height},regions:[{points:[{x:0,y:0},{x:width,y:0},{x:width,y:height},{x:0,y:height}],erase:false}],transform:{x:0,y:0,scale:1,frame:1}});
  return {metadata,flattened:true};
 }
+
+/** Selection geometry stays in original image pixels, independent of view zoom or fit. */
+export function rectangleSelection(a:Point,b:Point,square=false):Point[]{let dx=b.x-a.x,dy=b.y-a.y;if(square){const size=Math.min(Math.abs(dx),Math.abs(dy));dx=Math.sign(dx)*size;dy=Math.sign(dy)*size;}return [{...a},{x:a.x+dx,y:a.y},{x:a.x+dx,y:a.y+dy},{x:a.x,y:a.y+dy}];}
+export function appendLassoPoint(points:Point[],point:Point){if(points.length&&Math.hypot(points[points.length-1].x-point.x,points[points.length-1].y-point.y)<2)return points;const bounded=points.length>=200?points.filter((_,i)=>i%2===0||i===points.length-1):points;return [...bounded,point];}
+/** Local magnetic assistance: favor nearby alpha or color edges, never the avatar underneath. */
+export function snapOutfitEdge(data:Uint8ClampedArray,width:number,height:number,point:Point,radius=12):Point{
+ if(data.length!==width*height*4||!Number.isFinite(radius)||radius<1||radius>32)return point;
+ const pixel=(x:number,y:number)=>Math.max(0,Math.min(height-1,y))*width*4+Math.max(0,Math.min(width-1,x))*4;
+ let best=0,result=point;for(let y=Math.max(1,Math.round(point.y-radius));y<Math.min(height-1,point.y+radius);y++)for(let x=Math.max(1,Math.round(point.x-radius));x<Math.min(width-1,point.x+radius);x++){
+  const distance=Math.hypot(x-point.x,y-point.y);if(distance>radius)continue;let edge=0;for(const [a,b] of [[pixel(x-1,y),pixel(x+1,y)],[pixel(x,y-1),pixel(x,y+1)]])for(let c=0;c<4;c++)edge=Math.max(edge,Math.abs(data[a+c]-data[b+c]));
+  const score=edge-30-distance*8;if(score>best){best=score;result={x,y};}
+ }return result;
+}
+
+export function reorderOutfitLayer(pieces:OutfitPiece[],from:string,to:string){const a=pieces.findIndex(p=>p.id===from),b=pieces.findIndex(p=>p.id===to);if(a<0||b<0||a===b||pieces[a].locked)return pieces;const next=[...pieces],item=next.splice(a,1)[0];next.splice(b,0,item);return next;}
+
+/** Independent local-axis stretch, preserving the opposite handle as anchor. Shift uses uniform resize instead. */
+export function stretchResizeOutfit(start:OutfitTransform,box:Box,corner:number,pointer:Point,body:{width:number;height:number}):OutfitTransform{
+ const corners=[{x:box.x,y:box.y},{x:box.x+box.width,y:box.y},{x:box.x+box.width,y:box.y+box.height},{x:box.x,y:box.y+box.height}],anchor=corners[(corner+2)%4],handle=corners[corner];if(!anchor||!handle)return start;
+ const angle=(start.rotation??0)*Math.PI/180,c=Math.cos(angle),s=Math.sin(angle),local=(p:Point)=>({x:(p.x-anchor.x)*c+(p.y-anchor.y)*s,y:-(p.x-anchor.x)*s+(p.y-anchor.y)*c}),v=local(handle),p=local(pointer),sx=start.stretchX??1,sy=start.stretchY??1,nx=Math.max(.05,Math.min(10,sx*(Math.abs(v.x)<.001?1:p.x/v.x))),ny=Math.max(.05,Math.min(10,sy*(Math.abs(v.y)<.001?1:p.y/v.y))),center=local({x:body.width/2+start.x,y:body.height/2+start.y}),x=center.x*nx/sx,y=center.y*ny/sy;
+ return {...start,stretchX:nx,stretchY:ny,x:Math.max(-2048,Math.min(2048,anchor.x+x*c-y*s-body.width/2)),y:Math.max(-2048,Math.min(2048,anchor.y+x*s+y*c-body.height/2))};
+}
+
+/** Adjust rotation/stretch around the selected garment's own center, not the source sheet center. */
+export function refitOutfitTransform(start:OutfitTransform,changes:Partial<OutfitTransform>,bounds:Box,source:{width:number;height:number},body:{width:number;height:number}){const next={...start,...changes},point={x:bounds.x+bounds.width/2,y:bounds.y+bounds.height/2},before=outfitPoint(point,fitOutfit(source.width,source.height,body.width,body.height,start),source),after=outfitPoint(point,fitOutfit(source.width,source.height,body.width,body.height,next),source);return {...next,x:Math.max(-2048,Math.min(2048,next.x+before.x-after.x)),y:Math.max(-2048,Math.min(2048,next.y+before.y-after.y))};}
+
+export type AtelierCategory='outfit'|'hair'|'accessory';
+export type AtelierDepth='back'|'behind-body'|'behind-front-hair'|'top';
+/** Insert a new item into the same depth ordering used by the live avatar. */
+export function atelierPreviewPlan(keys:string[],category:AtelierCategory,depth:AtelierDepth='top'){
+ const filtered=keys.filter(key=>!(category==='hair'?key.startsWith('hairstyles/'):category==='outfit'?key.startsWith('outfits/'):false));
+ const rank=(key:string)=>key.startsWith('base/')?40:key.startsWith('outfits/')?(/back/i.test(key)?30:50):key.startsWith('mouth/')?60:key.startsWith('eyes/')?70:key.startsWith('hairstyles/')?(/back/i.test(key)?10:90):key.startsWith('accessories/back/')?0:key.startsWith('accessories/behind-body/')?20:key.startsWith('accessories/behind-front-hair/')?80:key.startsWith('accessories/top/')?100:80;
+ const index=(r:number)=>{const i=filtered.findIndex(k=>rank(k)>r);return i<0?filtered.length:i;};
+ const inserts=category==='hair'?[{at:index(10),key:'@back'},{at:index(90),key:'@front'}]:category==='outfit'?[{at:index(30),key:'@back'},{at:index(50),key:'@front'}]:[{at:index(({back:0,'behind-body':20,'behind-front-hair':80,top:100})[depth]),key:'@front'}];
+ const result:string[]=[];for(let i=0;i<=filtered.length;i++){for(const entry of inserts)if(entry.at===i)result.push(entry.key);if(i<filtered.length)result.push(filtered[i]);}return result;
+}
+
+export interface AtelierSnapshot{pieces:OutfitPiece[];activeId:string}
+export interface AtelierHistory{past:AtelierSnapshot[];present:AtelierSnapshot;future:AtelierSnapshot[]}
+export function recordAtelierHistory(history:AtelierHistory,next:AtelierSnapshot):AtelierHistory{if(JSON.stringify(history.present.pieces)===JSON.stringify(next.pieces))return {...history,present:next};return {past:[...history.past,history.present].slice(-40),present:next,future:[]};}
+export function stepAtelierHistory(history:AtelierHistory,redo=false):AtelierHistory{if(redo){if(!history.future.length)return history;return {past:[...history.past,history.present],present:history.future[0],future:history.future.slice(1)};}if(!history.past.length)return history;return {past:history.past.slice(0,-1),present:history.past[history.past.length-1],future:[history.present,...history.future]};}
+
+/** Keep old pixels at the same body coordinates when an image is appended to a source sheet. */
+export function extendOutfitSource(t:OutfitTransform,oldSize:{width:number;height:number},newSize:{width:number;height:number},body:{width:number;height:number}){const before=fitOutfit(oldSize.width,oldSize.height,body.width,body.height,t),oldUnit=Math.max(body.width/(oldSize.width*t.frame),body.height/(oldSize.height*t.frame)),newUnit=Math.max(body.width/(newSize.width*t.frame),body.height/(newSize.height*t.frame)),next={...t,scale:t.scale*oldUnit/newUnit},fit=fitOutfit(newSize.width,newSize.height,body.width,body.height,next),point={x:oldSize.width/2,y:oldSize.height/2},a=outfitPoint(point,before,oldSize),b=outfitPoint(point,fit,newSize),result={...next,x:next.x+a.x-b.x,y:next.y+a.y-b.y};fitOutfit(newSize.width,newSize.height,body.width,body.height,result);return result;}
+
+/** Validate persisted undo/redo snapshots against the same original source. */
+export function readAtelierHistory(value:unknown,width:number,height:number):AtelierHistory|null{
+ const v=value as {history?:AtelierHistory;sourceSize?:{width:number;height:number}};if(!v?.history)return null;if(v.sourceSize&&(v.sourceSize.width!==width||v.sourceSize.height!==height))throw Error('History belongs to a different source picture.');const h=v.history;
+ if(!Array.isArray(h.past)||!Array.isArray(h.future)||h.past.length>40||h.future.length>40)throw Error('Invalid editor history.');
+ const read=(snapshot:AtelierSnapshot)=>{const p=readOutfitProject({name:'History',parts:snapshot?.pieces,activePartId:snapshot?.activeId,sourceSize:{width,height}},width,height);return {pieces:p.pieces,activeId:p.activeId};};
+ return {past:h.past.map(read),present:read(h.present),future:h.future.map(read)};
+}
+
+/** Appending a source image keeps earlier undo/redo states at the same body coordinates. */
+export function extendAtelierHistory(history:AtelierHistory,oldSize:{width:number;height:number},newSize:{width:number;height:number},body:{width:number;height:number}):AtelierHistory{
+ const map=(snapshot:AtelierSnapshot)=>({...snapshot,pieces:snapshot.pieces.map(piece=>({...piece,transform:extendOutfitSource(piece.transform,oldSize,newSize,body)}))});
+ return {past:history.past.map(map),present:map(history.present),future:history.future.map(map)};
+}
+
+
+export function polygonLassoClosed(points:Point[]):boolean{return points.length>=4&&points[0].x===points[points.length-1].x&&points[0].y===points[points.length-1].y;}
+export function closePolygonLasso(points:Point[]):Point[]{return points.length<3||polygonLassoClosed(points)?points:[...points,{...points[0]}];}
+export function appendPolygonLasso(points:Point[],point:Point,tolerance:number):Point[]{if(polygonLassoClosed(points))return points;if(points.length>=3&&Math.hypot(point.x-points[0].x,point.y-points[0].y)<=tolerance)return closePolygonLasso(points);if(points.length&&Math.hypot(point.x-points[points.length-1].x,point.y-points[points.length-1].y)<.01)return points;return points.length<199?[...points,point]:points;}

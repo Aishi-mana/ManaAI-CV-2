@@ -1,3 +1,4 @@
+import { validateImageOrigin } from "./imageOrigin";
 import type { Msg } from "./types";
 import { EMOTIONS, REPLY_FORMAT_RULES } from "./emotion";
 import { uid } from "./types";
@@ -115,7 +116,20 @@ export function validateChat(value: unknown, limit = 200): Msg[] {
     if (typeof entry.error === "string") message.error = entry.error;
     if(entry.role==='user'&&entry.imageReport!==undefined){const report=validateImageReport(entry.imageReport);if(report)message.imageReport=report;}
     const picture=entry.generatedPicture;
-    if(entry.role==='assistant'&&isRecord(picture)&&typeof picture.filename==='string'&&picture.filename.trim()&&picture.filename.length<=200&&validImageData(picture.dataUrl)&&pictureBytes+picture.dataUrl.length<=8_000_000){message.generatedPicture={filename:picture.filename,dataUrl:picture.dataUrl};pictureBytes+=picture.dataUrl.length;}
+    if(entry.role==='assistant'&&isRecord(picture)&&typeof picture.filename==='string'&&picture.filename.trim()&&picture.filename.length<=200&&validImageData(picture.dataUrl)&&pictureBytes+picture.dataUrl.length<=8_000_000){const origin=validateImageOrigin(picture.origin);message.generatedPicture={filename:picture.filename,dataUrl:picture.dataUrl,...(origin?{origin}:{})};pictureBytes+=picture.dataUrl.length;}
+    if (entry.role === "assistant" && Array.isArray(entry.webSources)) {
+      const sources: NonNullable<Msg["webSources"]> = [];
+      for (const source of entry.webSources.slice(0, 5)) {
+        if (!isRecord(source) || typeof source.title !== "string" || typeof source.url !== "string" || source.url.length > 2048) continue;
+        try {
+          const url = new URL(source.url);
+          if (["http:", "https:"].includes(url.protocol) && !url.username && !url.password) {
+            sources.push({ title: source.title.slice(0, 200) || url.hostname, url: url.href });
+          }
+        } catch { continue; }
+      }
+      if (sources.length) message.webSources = sources;
+    }
     if (entry.role === "assistant") message.diagnostics = validateDiagnostics(entry.diagnostics);
     if (typeof entry.createdAt === "string" && Number.isFinite(Date.parse(entry.createdAt))) message.createdAt = entry.createdAt;
     messages.push(message);

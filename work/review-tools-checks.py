@@ -1,0 +1,7 @@
+from pathlib import Path
+p=Path('src/core/reviewTools.ts');s=p.read_text(encoding='utf-8');s+='''
+export function inspectionLayers<T extends {key:string}>(layers:T[],showFrontHair:boolean):T[]{return showFrontHair?layers:layers.filter(l=>!/^hairstyles\\/.*hair_(front|ahoge)/i.test(l.key));}
+''';p.write_text(s,encoding='utf-8')
+p=Path('src/components/OutfitInspector.tsx');s=p.read_text(encoding='utf-8');s="import {inspectionLayers} from '../core/reviewTools';\n"+s;s=s.replace("layers.filter(l=>showHair||!/^hairstyles\\/.*hair_(front|ahoge)/i.test(l.key))",'inspectionLayers(layers,showHair)');p.write_text(s,encoding='utf-8')
+p=Path('src/components/GeneratedOutfits.tsx');s=p.read_text(encoding='utf-8').replace('if(alive.current)setDesigns(entries);','if(alive.current){setDesigns(entries);setSelected(ids=>ids.filter(id=>entries.some(d=>d.id===id)));}',1);s=s.replace("onChange={e=>setNeedsEdits(e.target.checked)}", "onChange={e=>{setNeedsEdits(e.target.checked);setNoteStatus('Unsaved notes');}}",1);s=s.replace('<button className="btn primary" onClick={()=>void batch(confirmBatch)}>', '<button className="btn primary" disabled={running||!!acting} onClick={()=>void batch(confirmBatch)}>',1);p.write_text(s,encoding='utf-8')
+p=Path('tests/editor-drafts.test.cjs');s=p.read_text(encoding='utf-8').replace("await api.deleteEditorDraft('outfit:workspace');", "assert.equal((await api.listEditorDrafts()).length,2);assert.equal((await api.listEditorDrafts())[0].key,'outfit:workspace');await api.deleteEditorDraft('outfit:workspace');");p.write_text(s,encoding='utf-8')

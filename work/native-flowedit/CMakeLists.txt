@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.20)
+project(mana_flowedit_research LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(ACE "C:/AI/acestep.cpp")
+add_executable(ace-flowedit "${ACE}/tools/ace-synth.cpp" pipeline-synth-ops.cpp)
+target_include_directories(ace-flowedit PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${ACE}/src" "${ACE}" "${ACE}/build" "${ACE}/vendor/yyjson" "${ACE}/ggml/include")
+target_compile_definitions(ace-flowedit PRIVATE _CRT_SECURE_NO_WARNINGS GGML_MAX_NAME=128 GGML_USE_CPU GGML_USE_CUDA GGML_SHARED GGML_BACKEND_SHARED)
+target_link_libraries(ace-flowedit PRIVATE "${ACE}/build/Release/acestep-core.lib" "${ACE}/build/Release/yyjson.lib" "${ACE}/build/ggml/src/Release/ggml.lib" "${ACE}/build/ggml/src/Release/ggml-base.lib" "${ACE}/build/ggml/src/Release/ggml-cpu.lib" "${ACE}/build/ggml/src/ggml-cuda/Release/ggml-cuda.lib")

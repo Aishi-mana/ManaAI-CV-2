@@ -98,10 +98,11 @@ Values: ${identity.values.join(", ")}
 Interests: ${identity.interests.join(", ")}${personalityContext(loadPersonality())}`;
 }
 
-const STOP_WORDS = new Set("a an the i me my you your yours we our is am are was were be been do does did have has had it this that what which how about now remember recall know tell please favorite".split(" "));
+const STOP_WORDS = new Set("a an the i me my you your yours we our is am are was were be been do does did have has had it this that what which how about now remember recall know tell please favorite like likes just good really something thing things today".split(" "));
+const MEMORY_WORDS: Record<string,string> = {dish:'food',dishes:'food',beverage:'drink',beverages:'drink',movie:'film',movies:'film',colour:'color',colours:'color'};
 function keywords(text: string): Set<string> {
   const words = text.toLowerCase().replace(/favourite/g, "favorite").match(/[\p{L}\p{N}]+/gu) ?? [];
-  return new Set(words.map((w) => w.length > 4 && w.endsWith("s") ? w.slice(0, -1) : w).filter((w) => !STOP_WORDS.has(w)));
+  return new Set(words.map(w=>Object.prototype.hasOwnProperty.call(MEMORY_WORDS,w)?MEMORY_WORDS[w]:w).map((w) => w.length > 4 && w.endsWith("s") ? w.slice(0, -1) : w).filter((w) => !STOP_WORDS.has(w)));
 }
 
 /** Bounded keyword retrieval; pinned notes are included first. No model inference required. */
@@ -127,14 +128,29 @@ export function retrieveMemories(memories: Memory[], query: string, recentUserTe
   return selected;
 }
 
+/** Use the previous user turn only when the current request actually points back. */
+export function memoryFollowupText(query:string,previousUserText:string):string{
+ return /^(?:\s*(?:and|but|so)\s+)?\s*(?:what about (?:that|it|those|them)|how about now|can you (?:explain|expand on|say more about) (?:that|it)|what did (?:you|i) (?:mean|say) by that|what (?:was|is) (?:it|that))\b/i.test(query)
+  ? previousUserText : "";
+}
+
+export function retrieveReplyMemories(memories:Memory[],query:string,recentUserText=""):Memory[]{
+ const primary=keywords(query);
+ const recent=keywords(recentUserText);
+ const eligible=memories.filter(memory=>{
+  const terms=keywords(memory.content);
+  return [...terms].some(word=>primary.has(word)||recent.has(word));
+ });
+ return retrieveMemories(eligible,query,recentUserText);
+}
+
 /** Unrelated pinned notes are sent as context but do not gain recall counts every turn. */
 export function memoriesToReinforce(selected: Memory[], query: string, recentUserText = ""): Memory[] {
   const terms = keywords(query + " " + recentUserText);
   return selected.filter((m) => [...keywords(m.content)].some((word) => terms.has(word)));
 }
 
-export function memoryContext(memories: Memory[], query: string, recentUserText = "", charName = "Mana", userName = "Friend"): string {
-  const selected = retrieveMemories(memories, query, recentUserText);
+export function memoryContext(memories: Memory[], query: string, recentUserText = "", charName = "Mana", userName = "Friend", selected = retrieveMemories(memories, query, recentUserText)): string {
   const notes = selected.map((m) => ({ about: m.category === "user" ? userName : m.category === "mana" ? charName : `${charName} and ${userName}`, fact: m.content }));
   return `\n\nMEMORY AND HONESTY RULES
 Saved factual notes for this reply: ${JSON.stringify(notes)}

@@ -1,4 +1,4 @@
-import {validateOutfitRoutine,type OutfitRoutine} from './outfitRoutine';
+import {preferredLookNames,validateOutfitRoutine,type OutfitRoutine} from './outfitRoutine';
 import {seasonalAssignments,type Season,type SeasonCalendar} from './seasonalLooks';
 import {backgroundId,backgroundPicture,type BackgroundId} from './backgrounds';
 import { invoke } from "@tauri-apps/api/core";
@@ -34,20 +34,25 @@ export interface AvatarConfig {
   outfitRoutine?:OutfitRoutine;
   seasonalLooks?:Partial<Record<Season,SavedLook>>;
   seasonCalendar?:SeasonCalendar;
+  outfitGenerationSeason?:Season|'current'|'any';
   background?:BackgroundId;
   backgroundImage?:string;
   skin: string;
   hairstyle: string;
+  backHairstyle?: string;
   outfit: string;
   accessories: string[];
   view: string;
   looks?: SavedLook[];
+  outfitNames?: Record<string,string>;
+  itemNames?: Record<string,string>;
 }
 
 export interface SavedLook {
   name: string;
   skin: string;
   hairstyle: string;
+  backHairstyle?: string;
   outfit: string;
   accessories: string[];
 }
@@ -82,12 +87,16 @@ export function validateAvatarConfig(value: unknown): AvatarConfig {
   for (const key of ["skin", "outfit", "hairstyle"] as const) {
     if (nonEmptyString(value[key])) result[key] = value[key];
   }
+  if (nonEmptyString(value.backHairstyle) && value.backHairstyle.length <= 200) result.backHairstyle = value.backHairstyle;
   const picture=backgroundPicture(value.backgroundImage),background=backgroundId(value.background);
   if(picture)result.backgroundImage=picture;
   if(background!=='none')result.background=background==='custom'&&!picture?'none':background;
   if(value.outfitRoutine&&typeof value.outfitRoutine==='object')result.outfitRoutine=validateOutfitRoutine(value.outfitRoutine);
+  if(['any','current','spring','summer','autumn','winter'].includes(value.outfitGenerationSeason as string))result.outfitGenerationSeason=value.outfitGenerationSeason as AvatarConfig['outfitGenerationSeason'];
   if(value.seasonCalendar==='north'||value.seasonCalendar==='south')result.seasonCalendar=value.seasonCalendar;
   if(value.seasonalLooks&&typeof value.seasonalLooks==='object')result.seasonalLooks=seasonalAssignments(value.seasonalLooks);
+  if(isRecord(value.outfitNames)){result.outfitNames={};for(const [id,label] of Object.entries(value.outfitNames).slice(0,200)){if(id.length<=160&&id!=='__proto__'&&id!=='constructor'&&id!=='prototype'&&typeof label==='string'&&label.trim()&&label.trim().length<=80)result.outfitNames[id]=label.trim();}}
+  if(isRecord(value.itemNames)){result.itemNames={};for(const [id,label] of Object.entries(value.itemNames).slice(0,600)){if(/^(hair|skin|accessories):.{1,200}$/.test(id)&&typeof label==='string'&&label.trim()&&label.trim().length<=80)result.itemNames[id]=label.trim();}}
   result.accessories = stringList(value.accessories);
   if (typeof value.view === "string" && Object.prototype.hasOwnProperty.call(VIEWS, value.view)) result.view = value.view;
   if (Array.isArray(value.looks)) {
@@ -100,8 +109,12 @@ export function validateAvatarConfig(value: unknown): AvatarConfig {
       if (![look.skin, look.outfit, look.hairstyle].every(nonEmptyString)) continue;
       names.add(name.toLowerCase());
       result.looks.push({ name, skin: look.skin as string, outfit: look.outfit as string,
-        hairstyle: look.hairstyle as string, accessories: stringList(look.accessories) });
+        hairstyle: look.hairstyle as string, ...(nonEmptyString(look.backHairstyle)&&look.backHairstyle.length<=200?{backHairstyle:look.backHairstyle}:{}), accessories: stringList(look.accessories) });
     }
+  }
+  if(result.outfitRoutine?.preferredSets){
+    const {preferredSets,...routine}=result.outfitRoutine;
+    result.outfitRoutine={...routine,preferredLookNames:preferredLookNames(result.looks??[],result.outfitRoutine)};
   }
   return result;
 }
@@ -271,6 +284,10 @@ export function requiredProblem(a: AvatarAssets, cfg: AvatarConfig): string | nu
  *   [back accessories] hair back, [behind-body accessories], outfit back, body, outfit,
  *   mouths, eyes, [behind-front-hair accessories], hair front + extras (ahoge), [top accessories]
  */
+export function hasBackHair(assets: AvatarAssets, hairstyle: string): boolean {
+  return filesIn(assets, `hairstyles/${hairstyle}`).some(isBehind);
+}
+
 export function buildLayers(a: AvatarAssets, cfg: AvatarConfig): Layer[] {
   if (requiredProblem(a, cfg)) return [];
   const out: Layer[] = [];
@@ -282,11 +299,12 @@ export function buildLayers(a: AvatarAssets, cfg: AvatarConfig): Layer[] {
   const addAccessories = (slot: AccessorySlot) => chosen.filter((x) => x.slot === slot).forEach((x) => add(x.rel));
 
   const hair = filesIn(a, `hairstyles/${cfg.hairstyle}`);
+  const backHair = cfg.backHairstyle ? filesIn(a, `hairstyles/${cfg.backHairstyle}`).filter(isBehind) : [];
   const outfit = filesIn(a, `outfits/${cfg.outfit}`);
   const frontRank = (f: string) => (/front/i.test(lastPart(f)) ? 0 : 1);
 
   addAccessories("back");
-  hair.filter(isBehind).forEach((f) => add(f));
+  (backHair.length ? backHair : hair.filter(isBehind)).forEach((f) => add(f));
   addAccessories("behind-body");
   outfit.filter(isBehind).forEach((f) => add(f));
   skinFiles(a, cfg.skin).forEach((f) => add(f));

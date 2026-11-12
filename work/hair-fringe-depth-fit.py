@@ -1,0 +1,6 @@
+from pathlib import Path
+p=Path('src/core/generatedHair.ts');s=p.read_text(encoding='utf-8').replace("cap=Math.max(30,guide.mouthTop-guide.scalpTop-guide.headWidth*.06),top=guide.scalpTop;", "cap=Math.max(30,guide.mouthTop+guide.headWidth*.22-guide.scalpTop),top=guide.scalpTop;\n const tips:number[]=[];for(let x=Math.round(front.bounds.x+front.bounds.width*.35);x<front.bounds.x+front.bounds.width*.65;x++){for(let y=Math.min(front.height-1,front.bounds.y+front.bounds.height-1);y>=front.bounds.y;y--)if(front.data[(y*front.width+x)*4+3]>128){tips.push(y-front.bounds.y);break;}}tips.sort((a,b)=>a-b);const fringeDepth=tips[Math.floor(tips.length/2)]??front.bounds.height,fringeTarget=guide.eyeTop+guide.headWidth*.06;")
+s=s.replace("score=scalpMiss*12+Math.max(0,eyeCovered-.08)*8+Math.abs(ratio-1.24)*.08+Math.abs(shift)*.1", "score=scalpMiss*12+Math.max(0,eyeCovered-.12)*8+Math.abs(y+fringeDepth*scale-fringeTarget)/guide.headWidth*1.5+Math.abs(ratio-1.30)*.08+Math.abs(shift)*.1")
+s=s.replace("if(best!.scalpMiss>.02)","const fringeTip=best!.top+fringeDepth*best!.scale;if(Math.abs(fringeTip-fringeTarget)>guide.headWidth*.18)warnings.push('Fringe depth needs review.');\n if(best!.scalpMiss>.02)")
+s=s.replace("verticalShift:best!.top-top,warnings", "verticalShift:best!.top-top,fringeTip,fringeTarget,warnings")
+p.write_text(s,encoding='utf-8')

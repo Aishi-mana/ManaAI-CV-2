@@ -1,0 +1,3 @@
+guide {'voicedFrames': 1023, 'adjacentCents95': 48.42453888219432, 'medianHz': 348.1717728446114, 'fastMotionCentsRms': 24.56677120100204}
+converted50 {'voicedFrames': 1021, 'adjacentCents95': 45.48013071380128, 'medianHz': 347.5654819224747, 'fastMotionCentsRms': 45.24870329138712}
+converted70 {'voicedFrames': 1020, 'adjacentCents95': 48.11679949487441, 'medianHz': 347.563861904952, 'fastMotionCentsRms': 24.276386848356143}

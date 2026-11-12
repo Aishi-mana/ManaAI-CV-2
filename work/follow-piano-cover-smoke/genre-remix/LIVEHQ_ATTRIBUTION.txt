@@ -1,0 +1,9 @@
+Live HQ Natural SoundFont GM V3.0 by UnderxPipe1985
+Embedded engineering credit: Pipe Nacho
+Copyright notice: (C) 2020 - 2025 UnderxPipe1985
+Source: https://musical-artifacts.com/artifacts/1176
+License: CC BY 4.0, as reported by the user from the download listing.
+https://creativecommons.org/licenses/by/4.0/
+Included README and embedded metadata do not themselves state this license; preserved separately.
+Changes for these auditions: rendered MIDI notes using FluidSynth, converted to mono, trimmed to 12 seconds, adjusted gain, and mixed with supplied vocal/accompaniment. Original SF2 unchanged.
+No endorsement is implied. The README reports keyboard/Zenology sample sources; those underlying permissions have not been independently verified.

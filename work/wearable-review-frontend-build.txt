@@ -1,0 +1,6 @@
+
+> mana@0.1.0 build
+> tsc && vite build
+
+src/components/WearableReviews.tsx(12,97): error TS2322: Type '{ key: string; url: string; }[]' is not assignable to type 'Layer[]'.
+  Type '{ key: string; url: string; }' is missing the following properties from type 'Layer': slot, variant

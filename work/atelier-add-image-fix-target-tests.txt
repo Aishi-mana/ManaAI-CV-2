@@ -1,0 +1,11 @@
+✔ Atelier hands a design into one persistent editor across Make Edit and Save (113.2883ms)
+✔ Atelier preview opacity and zoom leave the transparent outfit composite unchanged (336.6381ms)
+✔ two consecutive Add image layer uploads preserve kimono and create independent layers (108.6527ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 995.8619

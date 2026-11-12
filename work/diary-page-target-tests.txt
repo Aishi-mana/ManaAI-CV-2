@@ -1,0 +1,13 @@
+✔ diary illustrations persist with entries and backups while malformed images never discard text (379.6777ms)
+✔ diary artwork chooses an imagined scene from bounded entry data using current-avatar Qwen (21.7555ms)
+✔ full-page diary supports entry selection, search, settings, writing, restore and image enlargement (35.7551ms)
+✔ diary artwork failure releases GPU lease and reports error without attaching an image (35.4265ms)
+✔ diary illustration requests a standalone scene without generated page text or book layout (13.9929ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 765.4981

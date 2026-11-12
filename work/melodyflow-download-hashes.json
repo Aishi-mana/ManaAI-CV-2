@@ -1,0 +1,22 @@
+[
+  {
+    "Path": "C:\\AI\\ManaAI-CV-2\\data\\melodyflow-models\\state_dict.bin",
+    "Hash": "E9F95857AA1E0906FB44017CA2E4E8205395599693D6E80E5C3B8B7FC16498EF"
+  },
+  {
+    "Path": "C:\\AI\\ManaAI-CV-2\\data\\melodyflow-models\\compression_state_dict.bin",
+    "Hash": "C075EE7C5B13D50937D1E4F197F3E940C3F3B74207857CB0E1E17891010FDC6D"
+  },
+  {
+    "Path": "C:\\AI\\ManaAI-CV-2\\data\\melodyflow-models\\model.safetensors",
+    "Hash": "A90903540CC02CBEB7FF9F823F1A80EB778C7E22426A0E620B01C77A5EC8F5B4"
+  },
+  {
+    "Path": "C:\\AI\\ManaAI-CV-2\\data\\melodyflow-models\\config.json",
+    "Hash": "DAD7142F62C292EBDBB3A44F1B1523E4D2D4DFE03C4271C53573144D00577429"
+  },
+  {
+    "Path": "C:\\AI\\ManaAI-CV-2\\data\\melodyflow-models\\tokenizer.json",
+    "Hash": "D2ACDE0D8D71DD30A711834B07781B9C89FEAAC33FD332F60507699282740066"
+  }
+]

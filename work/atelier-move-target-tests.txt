@@ -1,0 +1,11 @@
+✔ resize pointer-up records a filled outfit before cleanup undo can remove it (282.2244ms)
+✔ two consecutive Add image layer uploads preserve kimono and create independent layers (110.9751ms)
+✔ reopened outfit starts in move mode and pointer drag preserves its size (75.0021ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 900.7486

@@ -1,0 +1,12 @@
+✔ Atelier preview opacity and zoom leave the transparent outfit composite unchanged (150.1776ms)
+✔ rotated stretched layers map editing points roundtrip and retain transforms on save (17.7595ms)
+✔ free corner resizing stretches width and height independently and layer reorder preserves content (14.7196ms)
+✔ rotation and stretch controls keep off-center garment centered on the body (20.1615ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 399.7508

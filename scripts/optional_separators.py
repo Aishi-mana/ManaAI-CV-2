@@ -4,14 +4,16 @@ import sys, gc, hashlib
 import numpy as np
 import soundfile as sf
 
-def extract(source, root, kind):
+def extract(source, root, kind, input_rate=24000, output_rate=24000):
     import torch
     from scipy.signal import resample_poly
     torch.set_num_threads(4)
     device='cuda' if torch.cuda.is_available() else 'cpu'
-    audio=resample_poly(source,147,80).astype(np.float32) # 24k -> 44.1k
-    tensor=torch.from_numpy(np.stack([audio,audio]))
-    if kind in ['keyboard-extract','electric-piano-extract','trumpet-extract']:
+    import math
+    divisor=math.gcd(input_rate,44100)
+    audio=resample_poly(source,44100//divisor,input_rate//divisor,axis=0).astype(np.float32)
+    tensor=torch.from_numpy(np.stack([audio,audio]) if audio.ndim==1 else audio.T.copy())
+    if kind in ['bass-extract','keyboard-extract','electric-piano-extract','trumpet-extract','piano-mega']:
         sys.path[:0]=[str(root/'data/mega-packages'),str(root/'data/msst-mega')]
         import yaml
         from models.bs_roformer.bs_roformer import BSRoformer
@@ -25,7 +27,7 @@ def extract(source, root, kind):
         if 'state_dict' in state:state=state['state_dict']
         model.load_state_dict(state,strict=True);del state;gc.collect()
         model.eval().to(device)
-        target={'keyboard-extract':'keys','electric-piano-extract':'digital-piano','trumpet-extract':'trumpet'}[kind]
+        target={'bass-extract':'bass','keyboard-extract':'keys','electric-piano-extract':'digital-piano','trumpet-extract':'trumpet','piano-mega':'piano'}[kind]
         stem_id=config['training']['instruments'].index(target)
         total=np.zeros((2,len(audio)),np.float32);weights=np.zeros(len(audio),np.float32)
         with torch.inference_mode():
@@ -81,16 +83,18 @@ def extract(source, root, kind):
                 total[:,start:start+length]+=output*weight;weights[start:start+length]+=weight
         result=torch.from_numpy(total/weights)
     else:raise ValueError('Choose sax or Banquet piano extraction.')
-    samples=resample_poly(result.numpy().mean(0),80,147).astype(np.float32)
-    samples=np.pad(samples[:len(source)],(0,max(0,len(source)-len(samples))))
+    divisor=math.gcd(output_rate,44100)
+    samples=resample_poly(result.numpy().mean(0),output_rate//divisor,44100//divisor).astype(np.float32)
+    expected=round(len(source)*output_rate/input_rate)
+    samples=np.pad(samples[:expected],(0,max(0,expected-len(samples))))
     if not np.isfinite(samples).all():raise ValueError('Extractor returned invalid audio.')
     del model,result;gc.collect()
     if device=='cuda':torch.cuda.empty_cache()
     return samples
 
 def separate_parts(source,root,out,kind):
-    samples=extract(source,root,kind)
-    label={'sax-extract':'sax-extracted','piano-extract':'piano-banquet','keyboard-extract':'keyboard-extracted','electric-piano-extract':'electric-piano-extracted','trumpet-extract':'trumpet-extracted'}[kind]
+    samples=extract(source,root,'piano-mega' if kind=='piano-extract' else kind)
+    label={'sax-extract':'sax-extracted','piano-extract':'piano','keyboard-extract':'keyboard-extracted','electric-piano-extract':'electric-piano-extracted','trumpet-extract':'trumpet-extracted'}[kind]
     parts=[]
     for name,data in [(label,samples),('other',source-samples)]:
         path=out/(name+'.wav');sf.write(path,data,24000,subtype='FLOAT')

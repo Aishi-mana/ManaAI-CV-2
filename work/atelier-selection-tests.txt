@@ -1,0 +1,11 @@
+✔ outfit pieces retain independent cleanup and alignment when switching and reopening (62.8049ms)
+✔ splitting an outline retains cleaned pixels in new piece and excludes them from original (22.9178ms)
+✔ Atelier preview opacity and zoom leave the transparent outfit composite unchanged (65.5951ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 598.7238

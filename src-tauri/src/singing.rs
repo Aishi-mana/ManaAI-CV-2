@@ -100,9 +100,16 @@ pub fn singing_import_track(source:String)->Result<serde_json::Value,String>{
 
 }
 
-fn validate_arrangement_range(vocal:&str,instrumental:&str,start:f64,seconds:f64)->Result<(),String>{
+fn band_style(style:&str)->bool { matches!(style,"rock"|"jazz"|"pop"|"country") }
 
-    if !start.is_finite()||start<0.0||!seconds.is_finite()||!(1.0..=60.0).contains(&seconds){return Err("Choose a nonnegative start and 1–60 second duration.".into());}
+fn validate_arrangement_range(vocal:&str,instrumental:&str,start:f64,seconds:f64)->Result<(),String>{
+    validate_arrangement_duration(vocal,instrumental,start,seconds,false)
+}
+
+fn validate_arrangement_duration(vocal:&str,instrumental:&str,start:f64,seconds:f64,band:bool)->Result<(),String>{
+
+    let (minimum,maximum)=if band {(8.0,360.0)} else {(1.0,60.0)};
+    if !start.is_finite()||start<0.0||!seconds.is_finite()||!(minimum..=maximum).contains(&seconds){return Err(format!("Choose a nonnegative start and {minimum}–{maximum} second duration."));}
 
     let root=Path::new(r"C:\AI\ManaAI-CV-2\exports\singing").canonicalize().map_err(|e|e.to_string())?;
 
@@ -118,7 +125,7 @@ fn validate_arrangement_range(vocal:&str,instrumental:&str,start:f64,seconds:f64
 
 #[tauri::command]
 
-pub fn arrangement_validate(vocal:String,instrumental:String,start:f64,seconds:f64)->Result<(),String>{validate_arrangement_range(&vocal,&instrumental,start,seconds)}
+pub fn arrangement_validate(vocal:String,instrumental:String,start:f64,seconds:f64,style:Option<String>)->Result<(),String>{validate_arrangement_duration(&vocal,&instrumental,start,seconds,style.as_deref().is_some_and(band_style))}
 
 fn validate_instrument_custom(custom:Option<&serde_json::Value>)->Result<(),String>{
 
@@ -144,12 +151,38 @@ fn validate_instrument_custom(custom:Option<&serde_json::Value>)->Result<(),Stri
 
 }
 
+fn validate_band_source(style:&str,source:Option<String>)->Result<Option<String>,String>{
+    match source.as_deref() {
+        None => Ok(None),
+        Some("guitar"|"piano"|"keys"|"vocal") if band_style(style) => Ok(source),
+        _ => Err("Choose guitar, piano, keys or vocal melody for a band arrangement.".into()),
+    }
+}
+
+fn validate_genre_lead(style: &str, value: Option<String>) -> Result<Option<String>, String> {
+    let choices: &[&str] = match style {
+        "rock" => &["electric-guitar", "crunch-guitar", "rock-organ"],
+        "jazz" => &["sax", "clarinet", "muted-trumpet"],
+        "country" => &["fiddle", "clean-guitar", "harmonica", "banjo", "pedal-steel", "acoustic-guitar"],
+        "pop" => &["electric-piano", "acoustic-piano", "synth-lead", "clean-guitar"],
+        _ => &[],
+    };
+    let value=value.filter(|v| !v.is_empty());
+    if choices.is_empty() {
+        return if value.is_none() { Ok(None) } else { Err("This backing style does not offer a lead selector.".into()) };
+    }
+    let value=value.unwrap_or_else(||choices[0].to_string());
+    if choices.contains(&value.as_str()) { Ok(Some(value)) } else { Err("Choose a lead offered for this backing style.".into()) }
+}
+
 #[tauri::command]
 
-pub fn arrangement_start(app:tauri::AppHandle,state:tauri::State<Singing>,python:String,vocal:String,instrumental:String,style:String,start:f64,seconds:f64,preview_only:Option<bool>,guitar:Option<String>,stems:Option<Vec<serde_json::Value>>,bank:Option<String>,source_name:Option<String>,custom:Option<serde_json::Value>,notes:Option<Vec<serde_json::Value>>)->Result<(),String>{
+pub fn arrangement_start(app:tauri::AppHandle,state:tauri::State<Singing>,python:String,vocal:String,instrumental:String,style:String,start:f64,seconds:f64,preview_only:Option<bool>,guitar:Option<String>,stems:Option<Vec<serde_json::Value>>,bank:Option<String>,source_name:Option<String>,custom:Option<serde_json::Value>,notes:Option<Vec<serde_json::Value>>,percussion:Option<bool>,genre_lead:Option<String>,band_source:Option<String>,follow_bass:Option<bool>)->Result<(),String>{
 
-    if !["sax-extract","piano-extract","keyboard-extract","electric-piano-extract","trumpet-extract","fine-stems","piano","gentle-piano","jazz","rock","review-stems","replace-guitar-sax-tenor","replace-guitar-sax-weresax","replace-guitar-sax","replace-guitar-piano","replace-guitar-electric-guitar","replace-guitar-electric-guitar-distorted","replace-guitar-acoustic-guitar","replace-guitar-nylon-guitar","replace-guitar-picked-bass","replace-guitar-finger-bass","replace-guitar-acoustic-bass","replace-guitar-violin","replace-guitar-strings","replace-guitar-flute","replace-guitar-trumpet","replace-guitar-harp","replace-guitar-drums-standard","replace-guitar-drums-rock","replace-guitar-drums-jazz","replace-guitar-drums-brush","replace-guitar-drums-electronic","replace-guitar-electric-piano","replace-guitar-fm-piano","replace-guitar-organ","replace-guitar-accordion","replace-guitar-harpsichord","replace-guitar-clavinet","replace-guitar-harmonica","replace-guitar-ocarina","replace-guitar-synth-square","replace-guitar-synth-saw","replace-guitar-synth-pad","replace-guitar-synth-poly","replace-guitar-weresax-synth","replace-guitar-weresax-saxcordion","replace-guitar-guitar-nam-warm","replace-guitar-guitar-nam-rhythm","replace-guitar-guitar-nam-lead","replace-guitar-guitar-bright-room","replace-guitar-guitar-black","replace-guitar-guitar-combo","replace-guitar-piano-treble","replace-guitar-piano-bass"].contains(&style.as_str())||!start.is_finite()||start<0.0||!seconds.is_finite()||!(1.0..=60.0).contains(&seconds){return Err("Choose a supported style and a 1–60 second section.".into());}
+    if !["sax-extract","piano-extract","keyboard-extract","electric-piano-extract","trumpet-extract","fine-stems","piano-trio","piano","gentle-piano","jazz","rock","pop","country","guitar-electric","review-stems","replace-guitar-sax-tenor","replace-guitar-sax-weresax","replace-guitar-sax","replace-guitar-piano","replace-guitar-electric-guitar","replace-guitar-electric-guitar-distorted","replace-guitar-acoustic-guitar","replace-guitar-nylon-guitar","replace-guitar-picked-bass","replace-guitar-finger-bass","replace-guitar-acoustic-bass","replace-guitar-violin","replace-guitar-strings","replace-guitar-flute","replace-guitar-trumpet","replace-guitar-harp","replace-guitar-drums-standard","replace-guitar-drums-rock","replace-guitar-drums-jazz","replace-guitar-drums-brush","replace-guitar-drums-electronic","replace-guitar-electric-piano","replace-guitar-fm-piano","replace-guitar-organ","replace-guitar-accordion","replace-guitar-harpsichord","replace-guitar-clavinet","replace-guitar-harmonica","replace-guitar-ocarina","replace-guitar-synth-square","replace-guitar-synth-saw","replace-guitar-synth-pad","replace-guitar-synth-poly","replace-guitar-weresax-synth","replace-guitar-weresax-saxcordion","replace-guitar-guitar-nam-warm","replace-guitar-guitar-nam-rhythm","replace-guitar-guitar-nam-lead","replace-guitar-guitar-bright-room","replace-guitar-guitar-black","replace-guitar-guitar-combo","replace-guitar-piano-treble","replace-guitar-piano-bass"].contains(&style.as_str()){return Err("Choose a supported arrangement style.".into());}
 
+    let genre_lead=validate_genre_lead(&style,genre_lead)?;
+    let band_source=validate_band_source(&style,band_source)?;
     validate_instrument_custom(custom.as_ref())?;
     if let Some(ref rows)=notes{validate_builder_notes(rows,seconds)?;if !style.starts_with("replace-guitar-"){return Err("Edited notes require an instrument replacement.".into());}}
 
@@ -161,7 +194,7 @@ pub fn arrangement_start(app:tauri::AppHandle,state:tauri::State<Singing>,python
 
     let bank=bank.unwrap_or_else(||"fluidr3".into());if !["fluidr3","livehq","separate"].contains(&bank.as_str()){return Err("Choose a supported instrument bank.".into());}
 
-    validate_arrangement_range(&vocal,&instrumental,start,seconds)?;
+    validate_arrangement_duration(&vocal,&instrumental,start,seconds,band_style(&style))?;
 
     let root=Path::new(r"C:\AI\ManaAI-CV-2");let exports=root.join("exports/singing").canonicalize().map_err(|e|e.to_string())?;
 
@@ -201,7 +234,7 @@ pub fn arrangement_start(app:tauri::AppHandle,state:tauri::State<Singing>,python
 
     #[cfg(windows)] {use std::os::windows::process::CommandExt;cmd.creation_flags(0x08000000);}
 
-    let mut child=cmd.spawn().map_err(|e|e.to_string())?;let data=serde_json::to_vec(&serde_json::json!({"notes":notes,"custom":custom,"data_root":root,"vocal":vocal,"instrumental":instrumental,"style":style,"previewOnly":preview_only.unwrap_or(false),"bank":bank,"source_name":source_name,"guitar":guitar,"stems":stems.unwrap_or_default(),"start":start,"seconds":seconds,"output":dir,"result":dir.join("result.json")})).map_err(|e|e.to_string())?;
+    let mut child=cmd.spawn().map_err(|e|e.to_string())?;let data=serde_json::to_vec(&serde_json::json!({"notes":notes,"follow_bass":band_style(&style)&&follow_bass.unwrap_or(false),"band_source":band_source,"genre_lead":genre_lead,"percussion":percussion.unwrap_or(false),"custom":custom,"data_root":root,"vocal":vocal,"instrumental":instrumental,"style":style,"previewOnly":preview_only.unwrap_or(false),"bank":bank,"source_name":source_name,"guitar":guitar,"stems":stems.unwrap_or_default(),"start":start,"seconds":seconds,"output":dir,"result":dir.join("result.json")})).map_err(|e|e.to_string())?;
 
     let result=fs::write(dir.join("request.json"),&data).map_err(|e|e.to_string()).and_then(|_|child.stdin.take().ok_or("Job input unavailable".into()).and_then(|mut f|f.write_all(&data).map_err(|e|e.to_string())));
 
@@ -295,9 +328,21 @@ pub fn singing_start(
 
     harmony_key: Option<String>,
     harmony_direction: Option<String>,
+    voice_profile: Option<String>,
+    genre: Option<String>,
+    genre_lead: Option<String>,
+    band_source: Option<String>,
+    follow_bass: Option<bool>,
+    percussion: Option<bool>,
+    preview_only: Option<bool>,
 
 ) -> Result<(), String> {
 
+    let genre=genre.unwrap_or_else(||"original".into());
+    if !["original","rock","jazz","pop","country","piano-trio","guitar-electric"].contains(&genre.as_str()) {return Err("Choose a supported backing style.".into());}
+    if genre!="original" && (!separate || harmony_key.is_some()) {return Err("Genre remix requires separated instruments and a lead vocal cover.".into());}
+    let genre_lead=validate_genre_lead(&genre,genre_lead)?;
+    let band_source=validate_band_source(&genre,band_source)?;
     let extractor=extractor.unwrap_or_else(||"mega-lead".into());
 
     if !["mega-lead","demucs"].contains(&extractor.as_str()) {return Err("Choose lead-only or Demucs vocal extraction.".into());}
@@ -337,6 +382,7 @@ pub fn singing_start(
 
     }
 
+    let (minimum,maximum)=if band_style(&genre) {(8.0,360.0)} else {(1.0,60.0)};
     if !whole_song && (!start.is_finite()
 
         || !seconds.is_finite()
@@ -345,11 +391,11 @@ pub fn singing_start(
 
         || start > 3600.0
 
-        || !(1.0..=60.0).contains(&seconds))
+        || !(minimum..=maximum).contains(&seconds))
 
     {
 
-        return Err("Use a segment of 1–60 seconds, starting within one hour.".into());
+        return Err(format!("Use a segment of {minimum}–{maximum} seconds, starting within one hour."));
 
     }
 
@@ -363,7 +409,17 @@ pub fn singing_start(
 
     }
 
-    if !Path::new(&repo).join("inference.py").is_file() {
+    let inferred_profile = [
+        ("mana-trained-v1", "data/applio-training/engine/logs/mana-current-trial-v1/mana-current-trial-v1_50e_2800s.pth"),
+        ("mousey-trained-v2", "data/applio-training/engine/logs/mousey-v2-trial-v1/mousey-v2-trial-v1_50e_8300s.pth"),
+    ].into_iter().find(|(_,relative)| reference.replace('\\',"/").eq_ignore_ascii_case(&format!("{}/{}",root.to_string_lossy().replace('\\',"/"),relative))).map(|(id,_)|id);
+    let trained_voice = harmony_key.is_none() && inferred_profile.is_some();
+    if voice_profile.is_some() && harmony_key.is_none() {
+        let selected=crate::custom_voice::trained_voice_selection(voice_profile.as_deref(),false)?;
+        if selected!=trained_voice || (selected && voice_profile.as_deref()!=inferred_profile) {return Err("The selected singing voice does not match its installed voice file.".into());}
+    }
+
+    if !trained_voice && !Path::new(&repo).join("inference.py").is_file() {
 
         return Err("Seed-VC source folder is missing.".into());
 
@@ -441,7 +497,7 @@ pub fn singing_start(
 
     let mut child = cmd.spawn().map_err(|e| e.to_string())?;
 
-    let data=serde_json::to_vec(&serde_json::json!({"harmony_key":harmony_key,"harmony_direction":harmony_direction,"data_root":root,"repo":repo,"source":source,"reference":reference,"start":if whole_song {0.0}else{start},"seconds":seconds,"whole_song":whole_song,"separate":separate,"extractor":extractor,"diffusion_steps":50,"pitch_smoothing":true,"seed":42,"backing_gain":backing_gain,"output":dir,"result":dir.join("result.json")})).map_err(|e|e.to_string())?;
+    let data=serde_json::to_vec(&serde_json::json!({"previewOnly":preview_only.unwrap_or(false),"percussion":percussion.unwrap_or(false),"genre":genre,"follow_bass":band_style(&genre)&&follow_bass.unwrap_or(false),"band_source":band_source,"genre_lead":genre_lead,"voice_profile":if trained_voice {inferred_profile}else{None},"trained_voice":trained_voice,"harmony_key":harmony_key,"harmony_direction":harmony_direction,"data_root":root,"repo":repo,"source":source,"reference":reference,"start":if whole_song {0.0}else{start},"seconds":seconds,"whole_song":whole_song,"separate":separate,"extractor":extractor,"diffusion_steps":50,"pitch_smoothing":true,"seed":42,"backing_gain":backing_gain,"output":dir,"result":dir.join("result.json")})).map_err(|e|e.to_string())?;
 
     if let Err(error)=fs::write(dir.join("request.json"),&data){let _=child.kill();let _=child.wait();return Err(error.to_string());}
 
@@ -595,9 +651,9 @@ pub fn singing_library()->Result<Vec<serde_json::Value>,String>{
 
         let title=if original{request.get("title").and_then(|v|v.as_str()).filter(|s|!s.trim().is_empty()).unwrap_or("Original song").to_owned()}else{Path::new(source).file_stem().and_then(|s|s.to_str()).map(str::to_owned).unwrap_or_else(||format!("Saved cover {name}"))};
 
-        projects.push(serde_json::json!({"kind":if original{"original"}else{"cover"},"original":if original{request.clone()}else{serde_json::Value::Null},"generatedLyrics":result.get("generatedLyrics"),"id":id,"title":title,"createdAtMs":entry.metadata().ok().and_then(|m|m.modified().ok()).and_then(|t|t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d|d.as_millis()).unwrap_or(0),"status":"ready","stems":result.get("stems").and_then(|v|v.as_array()).map(|parts|parts.iter().take(8).map(|part|serde_json::json!({"name":part.get("name"),"path":safe(part.get("path").and_then(|v|v.as_str()).unwrap_or("")),"gain":1,"muted":false})).collect::<Vec<_>>()).unwrap_or_default(),"source":source,"vocal":vocal,"mix":mix,"instrumental":instrumental,"seconds":wav_seconds(Path::new(if vocal.is_empty(){&mix}else{&vocal})).unwrap_or(0.0),"artwork":"","error":"","settings":{"wholeSong":request.get("whole_song").and_then(|v|v.as_bool()).unwrap_or(false),"start":request.get("start").and_then(|v|v.as_f64()).unwrap_or(0.0),"seconds":request.get("seconds").and_then(|v|v.as_f64()).unwrap_or(10.0),"separate":request.get("separate").and_then(|v|v.as_bool()).unwrap_or(true),"extractor":request.get("extractor").and_then(|v|v.as_str()).unwrap_or("demucs"),"backingGain":request.get("backing_gain").and_then(|v|v.as_f64()).unwrap_or(0.3),"reference":request.get("reference").and_then(|v|v.as_str()).unwrap_or("")}}));
+        projects.push(serde_json::json!({"kind":if original{"original"}else{"cover"},"original":if original{request.clone()}else{serde_json::Value::Null},"generatedLyrics":result.get("generatedLyrics"),"id":id,"title":title,"createdAtMs":entry.metadata().ok().and_then(|m|m.modified().ok()).and_then(|t|t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d|d.as_millis()).unwrap_or(0),"status":"ready","stems":result.get("stems").and_then(|v|v.as_array()).map(|parts|parts.iter().take(8).map(|part|serde_json::json!({"name":part.get("name"),"path":safe(part.get("path").and_then(|v|v.as_str()).unwrap_or("")),"gain":1,"muted":false})).collect::<Vec<_>>()).unwrap_or_default(),"source":source,"vocal":vocal,"mix":mix,"instrumental":instrumental,"seconds":wav_seconds(Path::new(if vocal.is_empty(){&mix}else{&vocal})).unwrap_or(0.0),"artwork":"","error":"","settings":{"percussion":request.get("percussion").and_then(|v|v.as_bool()).unwrap_or(false),"genre":request.get("genre").and_then(|v|v.as_str()).unwrap_or("original"),"genreLead":request.get("genre_lead"),"bandSource":request.get("band_source"),"followBass":request.get("follow_bass"),"wholeSong":request.get("whole_song").and_then(|v|v.as_bool()).unwrap_or(false),"start":request.get("start").and_then(|v|v.as_f64()).unwrap_or(0.0),"seconds":request.get("seconds").and_then(|v|v.as_f64()).unwrap_or(10.0),"separate":request.get("separate").and_then(|v|v.as_bool()).unwrap_or(true),"extractor":request.get("extractor").and_then(|v|v.as_str()).unwrap_or("demucs"),"backingGain":request.get("backing_gain").and_then(|v|v.as_f64()).unwrap_or(0.3),"reference":request.get("reference").and_then(|v|v.as_str()).unwrap_or("")}}));
 
-        if projects.len()>=50{break;}
+        if projects.len()>=1000{break;}
 
     }Ok(projects)
 
@@ -726,6 +782,51 @@ pub async fn singing_excerpt(path:String,start:f64,seconds:f64)->Result<String,S
 }
 
 
+
+#[tauri::command]
+pub async fn singing_band_mix(app:tauri::AppHandle,paths:Vec<String>,gains:Vec<f64>)->Result<serde_json::Value,String>{
+    const PARTS:[&str;5]=["vocal.wav","lead.wav","accompaniment.wav","bass.wav","drums.wav"];
+    if paths.len()!=PARTS.len()||gains.len()!=PARTS.len()||gains.iter().any(|g|!g.is_finite()||!(0.0..=1.5).contains(g)){
+        return Err("Choose five band tracks with levels between 0% and 150%.".into());
+    }
+    tauri::async_runtime::spawn_blocking(move||{
+        let project=Path::new(r"C:\AI\ManaAI-CV-2");
+        let root=project.join("exports/singing").canonicalize().map_err(|e|e.to_string())?;
+        let mut parts=Vec::new();
+        for (path,name) in paths.iter().zip(PARTS){
+            let part=Path::new(path).canonicalize().map_err(|e|e.to_string())?;
+            if !part.starts_with(&root)||!part.is_file()
+                ||part.file_name().and_then(|s|s.to_str())!=Some(name)
+                ||part.parent().and_then(Path::file_name).and_then(|s|s.to_str())!=Some("band-mix-parts")
+                ||parts.first().is_some_and(|first:&PathBuf|first.parent()!=part.parent()){
+                return Err("Choose the five tracks from the same band preview.".into());
+            }
+            parts.push(part);
+        }
+        let parent=root.join("mixes");
+        fs::create_dir_all(&parent).map_err(|e|e.to_string())?;
+        let parent=parent.canonicalize().map_err(|e|e.to_string())?;
+        if !parent.starts_with(&root){return Err("Invalid mix folder.".into());}
+        let id=std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_err(|e|e.to_string())?.as_nanos();
+        let output=parent.join(format!("band-{id}"));
+        fs::create_dir(&output).map_err(|e|e.to_string())?;
+        let script=app.path().resolve("scripts/band_mix.py",tauri::path::BaseDirectory::Resource).ok().filter(|p|p.is_file()).unwrap_or_else(||project.join("scripts/band_mix.py"));
+        let mut cmd=Command::new(project.join("data/music-tools/Scripts/python.exe"));
+        cmd.arg(script).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
+        #[cfg(windows)] {use std::os::windows::process::CommandExt;cmd.creation_flags(0x08000000);}
+        let mut child=cmd.spawn().map_err(|e|e.to_string())?;
+        let request=serde_json::to_vec(&serde_json::json!({"paths":parts,"gains":gains,"output":output})).map_err(|e|e.to_string())?;
+        child.stdin.take().ok_or("Cannot open the mix worker input.")?.write_all(&request).map_err(|e|e.to_string())?;
+        let result=child.wait_with_output().map_err(|e|e.to_string())?;
+        if !result.status.success(){return Err(String::from_utf8_lossy(&result.stderr).lines().last().unwrap_or("Band mix failed.").to_owned());}
+        let mut paths:serde_json::Value=serde_json::from_slice(&result.stdout).map_err(|e|e.to_string())?;
+        for name in ["mix","vocal","instrumental"]{
+            let path=paths[name].as_str().ok_or("The mix worker returned an incomplete mix.")?;
+            paths[name]=serde_json::Value::String(path.trim_start_matches(r"\\?\").replace('\\',"/"));
+        }
+        Ok(paths)
+    }).await.map_err(|e|e.to_string())?
+}
 
 #[tauri::command]
 

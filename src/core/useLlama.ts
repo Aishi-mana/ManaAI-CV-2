@@ -15,6 +15,8 @@ export function useLlama(settings: Settings) {
   const [imageBusy,setImageBusy]=useState(false);
   const imageActive=useRef(false),imageLeases=useRef<Promise<void>>(Promise.resolve());
   const settingsRef = useRef(settings);
+  const managedSettings = useRef<Settings | null>(null);
+  const drafting = useRef(false);
   settingsRef.current = settings;
   const generation = useRef(0);
   const timer = useRef<number | null>(null);
@@ -77,7 +79,7 @@ export function useLlama(settings: Settings) {
   }, []);
 
   const start = useCallback(async () => {
-    if(imageActive.current)return;
+    if(imageActive.current||drafting.current)return;
     const token = invalidate();
     const s = settingsRef.current;
     setPort(s.port);
@@ -103,6 +105,7 @@ export function useLlama(settings: Settings) {
           exePath: s.exePath, modelPath: s.modelPath, port: s.port,
           ctxSize: s.ctxSize, gpuLayers: s.gpuLayers,
         });
+        if (generation.current === token) managedSettings.current = s;
       } catch (e) {
         if (generation.current === token) {
           setRunning(false);
@@ -118,6 +121,7 @@ export function useLlama(settings: Settings) {
   }, [command, invalidate, monitor]);
 
   const stop = useCallback(async () => {
+    if(drafting.current)return;
     const token = invalidate();
     setStatus("stopped");
     setRunning(false);
@@ -125,6 +129,7 @@ export function useLlama(settings: Settings) {
     if (inTauri) {
       try {
         await command("stop_llama");
+        if (generation.current === token) managedSettings.current = null;
       } catch (e) {
         if (generation.current === token) {
           setRunning(true);
@@ -134,6 +139,67 @@ export function useLlama(settings: Settings) {
       }
     }
   }, [command, invalidate]);
+
+  const withGameModel = useCallback(async (
+    modelPath: string | undefined, activePort: number, signal: AbortSignal, draft: () => Promise<void>,
+  ) => {
+    signal.throwIfAborted();
+    if (!modelPath) return draft();
+    const chat = managedSettings.current;
+    if (!inTauri || !chat || chat.port !== activePort) {
+      throw Error("Start the chat model from Mana to use a separate development model.");
+    }
+    if (modelPath === chat.modelPath) return draft();
+    if (drafting.current || imageActive.current) throw Error("The model is busy.");
+
+    const launch = (path: string) => command("start_llama", {
+      exePath: chat.exePath, modelPath: path, port: chat.port,
+      ctxSize: chat.ctxSize, gpuLayers: chat.gpuLayers,
+    });
+    drafting.current = true;
+    let paused = false;
+    try {
+      paused = await command("pause_llama_for_image") as boolean;
+      if (!paused) throw Error("Mana could not pause its chat model for development.");
+      invalidate();
+      setStatus("starting");
+      setDetail("Loading the game development model…");
+      signal.throwIfAborted();
+      await launch(modelPath);
+      const deadline = Date.now() + 180_000;
+      while (Date.now() < deadline) {
+        signal.throwIfAborted();
+        if (!await invoke<boolean>("llama_running")) {
+          throw Error("The development model stopped while loading. " + await invoke<string>("llama_log_tail"));
+        }
+        if (await checkHealth(activePort) === "ok") {
+          signal.throwIfAborted();
+          setDetail("Drafting with the game development model…");
+          await draft();
+          return;
+        }
+        await new Promise(resolve => window.setTimeout(resolve, 500));
+      }
+      throw Error("The development model took more than three minutes to load.");
+    } finally {
+      try {
+        if (paused) {
+          setDetail("Restoring the chat model…");
+          await command("stop_llama");
+          await launch(chat.modelPath);
+          monitor(activePort, true, generation.current);
+        }
+      } catch (error) {
+        managedSettings.current = null;
+        setRunning(false);
+        setStatus("error");
+        setDetail("Could not restore the chat model. Use Start model to retry. " + String(error));
+        throw Error("Could not restore the chat model. Use Start model to retry.");
+      } finally {
+        drafting.current = false;
+      }
+    }
+  }, [command, invalidate, monitor]);
 
   useEffect(() => {
     const token = invalidate();
@@ -156,14 +222,16 @@ export function useLlama(settings: Settings) {
     const previous=imageLeases.current;let unlock!:()=>void;imageLeases.current=new Promise<void>(resolve=>{unlock=resolve;});await previous;
     const before=generation.current;
     try{
+      if(drafting.current)throw Error('The game development model is busy.');
+      imageActive.current=true;
       const paused=inTauri?await command('pause_llama_for_image') as boolean:false;
       if(!paused&&await checkHealth(settingsRef.current.port)==='ok')throw Error('The chat model was started outside Mana. Stop it in its own app before GPU image generation, or choose Use CPU.');
       const current=generation.current===before,token=current?invalidate():generation.current;
-      imageActive.current=true;setImageBusy(true);
+      setImageBusy(true);
       if(paused&&current){setRunning(false);setStatus('stopped');setDetail('Chat model paused while creating a picture.');}
       let released=false;
       return async()=>{if(released)return;released=true;imageActive.current=false;setImageBusy(false);try{if(paused&&current&&generation.current===token)await start();}finally{unlock();}};
-    }catch(e){unlock();throw e;}
+    }catch(e){imageActive.current=false;unlock();throw e;}
   },[command,invalidate,start]);
-  return { status, detail, port, running, start, stop,imageBusy,pauseForImage };
+  return { status, detail, port, running, start, stop,imageBusy,pauseForImage,withGameModel };
 }

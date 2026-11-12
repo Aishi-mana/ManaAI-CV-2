@@ -1,5 +1,14 @@
 # Music Studio — agreed plan
 
+## User test update — 2026-11-07
+
+Genre changing failed the user’s three-song test: very poor quality and added windy noises. Earlier pipeline success is not musical acceptance. Hands-free is closed and removed from the pending list at the user’s request. This update changes documentation only; no code, saved audio, models or settings were altered. See [current status](CURRENT_STATUS.md).
+
+<!-- current-status-2026-11-06 -->
+## Current status — 2026-11-06
+
+Stages 1–3 are implemented within their accepted scope. This document is a chronological plan/evidence history, not the current backlog. See [CURRENT_STATUS.md](CURRENT_STATUS.md): latest preview/player and genre flows are installed, with user tests pending; vocal quality remains open. The user reauthorized singing-quality work in November, superseding older blanket deferrals. Do not regenerate candidates without a current request.
+
 ## Native editor build completed — 2026-10-18
 
 Native debug build completed successfully after Mana was closed. Includes the compact dark tools dock, responsive piano roll, clip fades and instrument note editing. Bundled arrangement_job.py and builder_notes.py hashes match current source. Frontend production build previously passed; visual/user acceptance of the revised dock remains pending. No new audio generated.

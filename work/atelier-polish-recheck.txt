@@ -1,0 +1,11 @@
+✔ full-page wardrobe inventory keeps selection locks accessory toggles and look controls (139.399ms)
+✔ Atelier preview opacity and zoom leave the transparent outfit composite unchanged (84.8856ms)
+✔ saved outfit display names survive config validation without changing outfit identifiers (27.5898ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 436.6401

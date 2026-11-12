@@ -143,6 +143,34 @@ def track_bass_notes(source,seconds):
     return notes,velocities
 
 
+def track_band_bass(source,seconds):
+    """Keep transcription windows bounded while preserving notes across their overlaps."""
+    if len(source)<=24*SR:
+        notes,velocities=track_bass_notes(source,seconds)
+        return [[a,b,p,v/127] for (a,b,p,_),v in zip(notes,velocities)]
+    result=[]
+    for start in range(0,len(source),24*SR):
+        left=max(0,start-2*SR);right=min(len(source),start+26*SR)
+        segment=source[left:right]
+        if np.max(np.abs(segment))<1e-5:continue
+        try:
+            notes,velocities=track_bass_notes(segment,len(segment)/SR)
+        except ValueError as error:
+            if not str(error).startswith('No clear bass'):raise
+            continue
+        for (a,b,p,_),v in zip(notes,velocities):
+            a,b=a+left/SR,min(seconds,b+left/SR)
+            if not start/SR<=a<(start+24*SR)/SR:continue
+            if result and a<result[-1][1]:
+                if p==result[-1][2]:
+                    result[-1][1]=max(result[-1][1],b)
+                    continue
+                result[-1][1]=a
+            if a<b:result.append([a,b,p,v/127])
+    if not result:raise ValueError('No clear bass notes detected. Try another section.')
+    return result
+
+
 def render_bass(path,seconds,root,program,custom=None):
     from arrangement_replacement import render_soundfont,validate_custom,customize_notes
     import sys

@@ -1,0 +1,17 @@
+   Compiling mana v0.1.0 (C:\AI\ManaAI-CV-2\src-tauri)
+warning: hard linking files in the incremental compilation cache failed. copying files instead. consider moving the cache directory to a file system which supports hard linking in session dir `\\?\C:\AI\ManaAI-CV-2\src-tauri\target\debug\incremental\mana_lib-198gv5erphajf\s-hnq87eakam-0yx5cbx-working`
+
+warning: `mana` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.98s
+     Running unittests src\lib.rs (src-tauri\target\debug\deps\mana_lib-4834e32b2002e09c.exe)
+
+running 6 tests
+test wearable_reviews::tests::generated_fit_warnings_survive_reopening ... ok
+test outfit_prototype::wardrobe_tests::saves_new_wearable_item_without_overwriting ... ok
+test generated_outfits::wearable_schedule_tests::schedules_are_independent_durable_off_by_default_and_claim_once ... ok
+test wearable_reviews::tests::hair_preserves_both_layers_project_and_approval_is_idempotent ... ok
+test wearable_reviews::management_tests::notes_rename_and_duplicate_preserve_revision_art_and_original ... ok
+test wearable_reviews::tests::accessories_keep_selected_depth_and_invalid_inputs_never_install ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 96 filtered out; finished in 0.12s
+
