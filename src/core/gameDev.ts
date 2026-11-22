@@ -8,9 +8,11 @@ export const GAME_DEV_LIMIT=30;
 export const GAME_DEV_STEPS=['Core gameplay','Presentation','Release check'] as const;
 export const GAME_DEV_GENRES=['Puzzle','Platformer','Arcade','Strategy','Adventure','Rhythm','Racing','Simulation'] as const;
 export type GameGenre=typeof GAME_DEV_GENRES[number];
-export interface DevProject {id:string;title:string;theme:string;code:string;step:number;genre?:GameGenre;publishedAt?:string}
+export interface DevProject {id:string;title:string;theme:string;code:string;step:number;genre?:GameGenre;publishedAt?:string;failedDraft?:{code:string;detail:string}}
 export interface DevNote {id:string;projectId:string;createdAt:string;kind:'development'|'playtest';text:string;diaryText?:string;model?:string}
 export type DailyAttempts=1|2|3;
+export const canRecoverStarCollector=(project:DevProject|undefined)=>
+ !!project&&!project.publishedAt&&!project.genre&&project.step===0&&!!project.failedDraft;
 export interface GameDevState {
  developmentEnabled:boolean;playtestsEnabled:boolean;diary:boolean;
  developmentPerDay:DailyAttempts;playsPerDay:DailyAttempts;projects:DevProject[];notes:DevNote[];
@@ -47,8 +49,11 @@ export function validateGameDev(value:unknown):GameDevState {
    typeof item.title!=='string'||!item.title.trim()||item.title.length>80||typeof item.theme!=='string'||item.theme.length>150||
    typeof item.code!=='string'||item.code.length>16000||typeof item.step!=='number'||!Number.isInteger(item.step)||item.step<0||item.step>3||
    (item.step>0&&(!item.code.trim()||!genre&&!item.code.startsWith(STAR_COLLECTOR_MARKER+'\n')))||(item.step===3&&!stamp(item.publishedAt)))continue;
+  const failed=item.failedDraft;
+  const failedDraft=item.step<2&&isRecord(failed)&&typeof failed.code==='string'&&failed.code.trim()&&failed.code.length<=16000&&
+   typeof failed.detail==='string'&&failed.detail.length<=600?{code:failed.code,detail:failed.detail}:undefined;
   state.projects.push({id:item.id,title:item.title,theme:item.theme,code:item.code,step:item.step,
-   ...(genre?{genre}:{}),...(item.step===3&&stamp(item.publishedAt)?{publishedAt:item.publishedAt}:{})});
+   ...(failedDraft?{failedDraft}:{}),...(genre?{genre}:{}),...(item.step===3&&stamp(item.publishedAt)?{publishedAt:item.publishedAt}:{})});
  }
  for(const note of Array.isArray(value.notes)?value.notes.slice(-90):[]){
   if(isRecord(note)&&key(note.id)&&key(note.projectId)&&stamp(note.createdAt)&&

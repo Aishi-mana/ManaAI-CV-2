@@ -29,8 +29,8 @@ api.onFrame = (dt, keys) => {
     }
   }
   api.clear("#000000");
-  api.text("Collect stars! Arrow keys move.", 12, 21, "#ffffff");
-  api.text("Space resets. Score: " + score, 12, 43, "#ffffff");
+  api.text("Collect stars! Arrows move. Space resets.", 12, 21, "#ffffff");
+  api.text("Score: " + score, 12, 43, "#ffffff");
   for (const star of stars) api.circle(star.x, star.y, star.r, "#ffffff");
   api.circle(x, y, 10, "#ffff00");
 };`;

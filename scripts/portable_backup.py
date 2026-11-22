@@ -6,6 +6,7 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 import shutil
 import sys
 import tempfile
+import time
 import zipfile
 
 BACKUP = 'Mana-backup.json'
@@ -19,6 +20,12 @@ MODEL_SETTINGS = {
     'mana.whisper.v1': ('modelPath',),
 }
 MUSIC_SUFFIXES = {'.wav', '.mid', '.json', '.mp3', '.flac', '.ogg', '.m4a'}
+
+
+def metadata_json(metadata):
+    # JavaScript strings can contain lone UTF-16 surrogates. Keep them as JSON
+    # escapes while preserving ordinary Unicode and the compact metadata size.
+    return json.dumps(metadata, ensure_ascii=False, separators=(',', ':')).encode('utf-8', 'backslashreplace')
 
 
 def values(value):
@@ -101,8 +108,12 @@ def runtime_entry(source, files, workspace, executable):
     return (workspace / 'data/portable-runtimes' / folder / executable).as_posix()
 
 
-def export(path, data, workspace, gallery, model, avatars=False, vision=False, runtime=False, developer=False, whisper=False):
+def export(path, data, workspace, gallery, model, avatars=False, vision=False, runtime=False, developer=False, whisper=False, progress=lambda **event: None):
+    if path.exists():
+        raise ValueError('A file already exists at that destination. Choose a new backup name.')
+    progress(stage='Collecting music and gallery files')
     metadata = json.loads(data)
+    metadata['portableMetadataEncoding'] = 'utf-8'
     music = workspace / 'exports/singing'
     prefix = music.as_posix().lower() + '/'
     files = {}
@@ -132,6 +143,7 @@ def export(path, data, workspace, gallery, model, avatars=False, vision=False, r
             missing.add(name)
     settings = metadata['data']['mana.settings.v1']
     if avatars:
+        progress(stage='Collecting avatar and Wardrobe files')
         avatar_dir = settings.get('avatarDir', '')
         if avatar_dir:
             if add_tree(files, Path(avatar_dir), 'avatar'):
@@ -142,6 +154,8 @@ def export(path, data, workspace, gallery, model, avatars=False, vision=False, r
             else:
                 missing.add(avatar_dir)
         add_tree(files, gallery.parent / 'wardrobe', 'wardrobe')
+    if model or vision or runtime or developer or whisper:
+        progress(stage='Checking selected model and runtime files')
     if model:
         source = Path(settings.get('modelPath', '')).resolve()
         if not source.is_file() or source.suffix.lower() != '.gguf':
@@ -170,20 +184,46 @@ def export(path, data, workspace, gallery, model, avatars=False, vision=False, r
             raise ValueError('Choose an available Whisper .bin model or turn off Include Whisper.')
         voice_input['modelPath'] = model_entry(source, files, workspace)
         voice_input['exePath'] = runtime_entry(Path(voice_input.get('exePath', '')).resolve(), files, workspace, 'whisper-cli.exe')
-    payload = json.dumps(metadata, ensure_ascii=False, separators=(',', ':')).encode()
+    payload = metadata_json(metadata)
     if len(payload) > MAX_METADATA or len(files) >= MAX_ENTRIES:
         raise ValueError('Portable backup exceeds its metadata or file-count limit.')
-    with path.open('xb') as stream:
-        try:
-            with zipfile.ZipFile(stream, 'w', allowZip64=True) as archive:
-                archive.writestr(BACKUP, payload)
-                for name, source in files.items():
-                    allowed_relative(name)
-                    archive.write(source, name)
-        except Exception:
-            stream.close()
-            path.unlink(missing_ok=True)
-            raise
+    total_bytes = len(payload) + sum(source.stat().st_size for source in files.values())
+    written = 0
+    completed = 0
+    last_update = 0
+
+    def report_write(force=False):
+        nonlocal last_update
+        now = time.monotonic()
+        if force or now - last_update >= .25:
+            progress(stage='Writing ZIP', bytesWritten=written, totalBytes=total_bytes,
+                     completedFiles=completed, totalFiles=len(files))
+            last_update = now
+
+    report_write(force=True)
+    with tempfile.NamedTemporaryFile(dir=path.parent, prefix=path.name + '.', suffix='.partial', delete=False) as stream:
+        temporary = Path(stream.name)
+    try:
+        with zipfile.ZipFile(temporary, 'w', allowZip64=True) as archive:
+            archive.writestr(BACKUP, payload)
+            written += len(payload)
+            for name, source in files.items():
+                allowed_relative(name)
+                info = zipfile.ZipInfo.from_file(source, name)
+                with source.open('rb') as incoming, archive.open(info, 'w') as outgoing:
+                    for block in iter(lambda: incoming.read(1024 * 1024), b''):
+                        outgoing.write(block)
+                        written += len(block)
+                        report_write()
+                completed += 1
+            report_write(force=True)
+            progress(stage='Finalizing ZIP')
+        if os.name == 'nt':
+            temporary.rename(path)
+        else:
+            os.link(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
     return {'files':len(files),'missing':len(missing)}
 
 
@@ -287,8 +327,22 @@ def restore(archive, workspace, gallery):
     return {'files':len(copied)}
 
 
-def inspect_metadata(payload, archive, workspace, gallery):
+def read_portable_metadata(payload):
     metadata = json.loads(payload)
+    if metadata.pop('portableMetadataEncoding', None) is None:
+        # Older Windows helpers read the UTF-8 request through a CP1252 text
+        # stream. Undefined CP1252 bytes were retained as surrogate escapes.
+        text = json.dumps(metadata, ensure_ascii=False)
+        if any('\udc80' <= char <= '\udcff' for char in text):
+            try:
+                metadata = json.loads(text.encode('cp1252', 'surrogateescape').decode('utf-8'))
+            except (UnicodeError, ValueError):
+                pass
+    return metadata
+
+
+def inspect_metadata(payload, archive, workspace, gallery):
+    metadata = read_portable_metadata(payload)
     paths = {item.filename: destination(item.filename, workspace, gallery)
              for item in archive.infolist() if item.filename != BACKUP}
     if len({str(target.resolve()).lower() for target in paths.values()}) != len(paths):
@@ -318,15 +372,17 @@ def inspect_metadata(payload, archive, workspace, gallery):
                 runtime_settings['exePath'] = paths[entry].as_posix()
                 if section == 'mana.settings.v1':
                     runtime_settings['autoStart'] = False
-    return json.dumps(metadata, ensure_ascii=False, separators=(',', ':'))
+    return metadata_json(metadata).decode('utf-8')
 
 
 def main():
     operation,path,workspace,gallery = sys.argv[1:]
     path,workspace,gallery = map(Path,(path,workspace,gallery))
-    request = json.load(sys.stdin)
+    request = json.load(sys.stdin.buffer)
     if operation == 'export':
-        return export(path,request['content'],workspace,gallery,request['model'], request.get('avatars'), request.get('vision'), request.get('runtime'), request.get('developer'), request.get('whisper'))
+        def report(**event):
+            print(json.dumps({'progress': event}), flush=True)
+        return export(path,request['content'],workspace,gallery,request['model'], request.get('avatars'), request.get('vision'), request.get('runtime'), request.get('developer'), request.get('whisper'), report)
     with zipfile.ZipFile(path) as archive:
         payload = metadata_bytes(archive)
         directory = [(item.filename, item.file_size, item.CRC) for item in archive.infolist()]

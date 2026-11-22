@@ -1,0 +1,5 @@
+Built-in imagegen generation
+transparent_background = true
+Saved project asset = public/companion-room/town-christmas-tree.png
+
+Create one isolated Christmas tree game prop on a genuinely transparent background. Style is a cozy hand-painted anime storybook fantasy town game, delicate dark brown outlines, softly painted evergreen branches, warm golden fairy lights, small red and gold round ornaments, a small five-point golden star on top, a simple wooden tree stand and two modest wrapped presents at its foot. Three-quarter view with slight elevated game camera, entire tree and base visible, centered and tightly framed. Match a bright charming illustrated European fantasy village aesthetic. No people, no buildings, no floor plane, no landscape, no text or border. Opaque tree with clean transparent alpha outside the silhouette, no background glow rectangle. This is a reusable transparent PNG decoration for an existing game scene.

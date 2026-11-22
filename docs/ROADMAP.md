@@ -75,7 +75,7 @@ requests may still need less selected evidence or shorter user input.
 - [x] Portable ZIP export and restore for referenced Studio music, disk gallery images and the optional configured GGUF chat model.
 - [x] Portable ZIP options for custom avatar assets, installed Wardrobe items, vision GGUFs and the llama-server runtime. Bundled avatar, model and runtime paths are resolved on the destination.
 - [x] Broaden portable ZIP backups to include the Game Dev GGUF and Whisper model, executable, and DLLs. Restore rewrites bundled paths for the destination.
-- [ ] Live-check the expanded portable ZIP on restore. This is the remaining V1.x acceptance item.
+- [x] Live-check portable ZIP export and restore with custom avatar and Wardrobe enabled. The user exported 252 files and confirmed the saved outfit returned after restore.
 - [x] Chat voice and mouth timing polish. Compared both trained voices across neutral, cheerful, and gentle delivery. The user verified the mouth timing in Mana and closed this pass.
 - [x] Close the planned fresh outfit and hairstyle fit review at the user's request.
 ### Future enhancements carried forward from V1.x
@@ -361,37 +361,80 @@ do not use this context. Identity, mood and relationship stats remain unchanged.
 The room is available from More → Companion Room. It uses legacy room art and miniature Mana sprites. Mana routes around furniture across the floor, including the space behind the table. Watering the plant saves the room state.
 
 - [x] Persistent virtual room
-- [ ] Memory-linked room objects, furniture preferences and home stories
+- [x] Switch between Avatar + Chat, Avatar + Room + Chat, and Room + Chat from the main screen. The room continues its routine when its panel is hidden.
+- [x] Photo board can display a saved special moment, episode, or memory.
+- [x] Completed Companion Room activities feed the daily diary and can be reviewed as memories from Event history.
+- [x] Completed room activities establish furniture favorites. Favorites are slightly more likely during automatic activity selection and can inform the diary as background context.
+- [x] Home Stories groups recorded room activities and game releases by day in Mana’s phone.
 - [x] Miniature Mana avatar
 - [x] Click and keyboard walking around room furniture
-- [ ] Idle behaviors
-- [ ] Activities
-- [ ] Restore and expand the legacy room activities with their own animations and state. Include desk thinking, relaxing, watching the window, playing, reading, plant care, and remembering at the photo frame.
-- [ ] Build on legacy idle activity choices, furniture preferences, room thoughts, and time-of-day behavior.
+- [x] Mana walks for 20 seconds, then either heads straight to a furniture activity (25%) or idles for 15 seconds before walking again (75%). Activities run for two minutes and trigger a saved five-minute cooldown for automatic choices. Furniture can still be selected manually during cooldown.
+- [x] Click miniature Mana for a reaction or drag her around the floor. Dragging pauses and resumes her current action.
+- [x] First interactive room activities with legacy sprites. Water the plant, read at the bookshelf, play at the table, and nap in the chair.
+- [x] Restore legacy desk thinking, window watching, and remembering at the photo board.
+- [x] Brief room thoughts reflect the activity, time of day at the window, and whether there are memories at the photo board.
 - [x] First interactive object, a plant Mana can water
-- [ ] Furniture
-- [ ] Plants
-- [ ] Gaming area
-- [ ] Computer/coding area
-- [ ] Bed/sleep system
-- [ ] Room customization
-- [ ] Time-of-day presentation
-- [ ] Mana needs/state
-- [ ] Activity-driven animation
-- [ ] Autonomous daily routine
+- [x] Room editor catalog places or stores a rose beanbag, side table, and small potted plant. Floor furniture can be mirrored, with collision and route checks applied to the resulting placement.
+- [x] The game table opens published games and their isolated player.
+- [x] The desk opens Mana’s Game Dev workspace and individual projects.
+- [x] Mana walks to the desk for actual Game Dev work, automated playtests, and games running in Game Dev.
+- [x] Click the bed to have Mana walk over and sleep briefly using the legacy bed and sleeping sprites.
+- [x] Mana goes to bed at 10 PM and wakes at 6 AM in her configured time zone. Room activities use energy, and naps or sleep restore it. A manual wake skips the rest of the current night.
+- [x] Edit the floor layout with drag or keyboard placement, route checks, saved arrangements, and reset to the legacy layout.
+- [x] Preview and save wall and floor finishes, and move the sign, wall shelf, and photo board within their walls.
+- [x] Full-window room editor with a scrollable catalog and individual piece colors.
+- [x] Cartoon room shell and furniture sprites are the default room art. New shop designs use the matching cartoon sprites as references.
+- [x] Daylight, sunset, and night lighting follow Mana’s configured time zone.
+- [x] Room header shows Mana’s energy and whether she is rested, getting tired, low on energy, or recovering during sleep.
+- [x] Play activity animations on arrival and persist the last completed activity.
+- [x] Automatic room activities favor plant care and window watching in the morning, play and desk time on rested afternoons, quiet activities in the evening, and rest when energy is low.
+- [x] The Furniture shop uses a matching room sprite as a three-quarter camera reference for local Qwen generation. It isolates the generated piece before stocking it, and purchased pieces can be placed from the room editor catalog.
+- [x] Choose seating, tables, storage, or plants for shop generation, or let Mana pick from any category.
+- [x] Placed shop seating, bookcases, and planters support naps, reading, and watering. The room editor previews generated empty backgrounds and checks their outline before saving.
+- [x] Generated room backgrounds are saved in a separate library and can be applied or swapped back to Default.
+- [x] Completed furniture activities apply legacy-inspired focus, happiness, knowledge, and gaming effects. The room shows the changes and uses low focus and happiness to gently bias future activities.
 - [x] Persist Mana’s position and the last watering in local storage and backups
 
 ---
 
 ## V3 — Manaverse
 
-- [ ] Expand room into multiple areas
+- [x] A southeast bedroom exit and a living space door connect the rooms. Mana roams and can use the living room plant, bookshelf, and beanbag. Each area saves her position separately.
+- [x] Mana can choose to change rooms. The camera can browse independently or follow her, and resumes following after 30 seconds of inactivity.
+- [x] Invite Luna to the living space. She uses her own locally generated sprite, roams independently, and returns to the door when the visit ends.
+- [x] Luna has a walk cycle and idle blink, and greets Mana and says goodbye when they share the living space.
+- [x] Mana and Luna can meet by the living room beanbag for a brief conversation during a visit.
+- [x] Luna remembers completed beanbag chats and visits Mana slept through, and can mention the latest one in a later greeting.
+- [x] Mana’s phone stores a local text thread with Luna, including visit follow-ups, check-ins, and automatic replies.
+- [x] Luna occasionally texts to ask to visit. Mana can accept when free, walk to the living space, and meet her at the door.
+- [x] Luna has her own personality and interests, with varied local dialogue for texts and visits and greetings that draw on her visit memories.
+- [x] Lyra joins as a second visitor with a portrait-matched sprite, her own phone thread and visit memories, and dialogue drawn from her Manaverse profile.
+- [x] The living space's southeast exit links to a street and Lyra's library. Visitors use the street entrance, and a small clickable frame in the library reveals the founding quote and its authors.
+- [x] Mana can walk along the street between her home, Lyra’s library, and Luna’s home. Visitors use the same street on their way to and from Mana’s living space.
+- [x] Mana, Lyra, and Luna alternate between indoor routines and independent walks on the cobblestones. Bedtime brings them home.
+- [x] Lyra reads, sorts her bottles, and occasionally stops at the library frame to comment on the note.
+- [x] Mana stops at the library frame when she visits, and Luna sometimes visits the library during an outing. Both have their own reactions to the note.
+- [x] Manaverse Park is a pannable outdoor area off the street, with a walkable loop around a pond and evening lanterns.
+- [x] The Manaverse map in Mana’s phone shows her location and lets you switch the camera between places while her activities continue.
+- [x] The Plans phone app shows park meetups and pending living-space visits, with camera links and park meetup cancellation. Mana can also invite Luna or Lyra over.
+- [x] Luna and Lyra can invite Mana to their own places. Plans shows the invitation and lets you cancel it or view the destination. Mana waits until she and the host are available, then walks there.
+- [x] Plans can schedule, reschedule, or cancel home and library visits. If the time passes while either character is unavailable, the visit waits until both are free.
+- [x] Planned park meetups use activity poses and dialogue for sketching with Luna, reading with Lyra, or stargazing after dark before bedtime. Completed activities appear in Home Stories.
+- [x] Plan the first town expansion and show its landmarks on the phone map. See [Manaverse town layout](MANAVERSE_TOWN.md).
+- [ ] Build the route from Manaverse Street through Town Square to a second street, then open the AI Workforce Office, Coffee Shop, and Workshop along it.
+- [ ] Open the Community Garden from the park.
+- [ ] Illustrate the neighborhood map once these routes and entrances are in place.
+- [x] Luna sketches and Lyra reads by the pond. Characters can stop for chance chats, and Mana can arrange a bench meetup through her phone.
+- [ ] Add AI visitors to the living space, with their own identities, memories, and relationships as outlined in the legacy Manaverse roadmap.
 - [ ] Multiple AI characters
 - [ ] Independent character identities
 - [ ] Independent personalities
 - [ ] Independent memories
 - [ ] Independent avatars
-- [ ] Character goals
+- [x] Luna’s first persistent goal is to finish a pond sketch with Mana. She sends an invitation, records the outcome in Plans, and follows up on a later day if the meetup is deferred.
+- [x] Lyra drafts the story behind the framed note, invites Mana to the library, and keeps her draft if the visit is deferred. The finished story appears in Home Stories.
+- [x] Mana chooses a recent Home Stories moment and pursues a persistent goal to pin it to her photo board. Plans shows her progress.
+- [x] Mana can save one shared keepsake alongside her solo keepsake. She asks Luna or Lyra about a recorded park meetup or visit, then uses their reply in the caption.
 - [ ] Character activities
 - [ ] Relationships
 - [ ] AI-to-AI communication

@@ -5,6 +5,491 @@ const path = require("node:path");
 const vm = require("node:vm");
 const ts = require("typescript");
 
+test('Second Street links the square and all three door approaches on walkable ground',()=>{
+ const {districtBuildings,districtEntry,districtPoint,isDistrictFloor,isSquareFloor,squareDistrictExit,streetPositionAt,streetTravelMs}=loader()('src/core/manaverseStreet.ts');
+ assert.ok(isSquareFloor(squareDistrictExit));
+ assert.ok(!isDistrictFloor({x:53,y:62}));
+ assert.ok(isDistrictFloor(districtPoint(0,0)));
+ for(const {door} of Object.values(districtBuildings)){
+  for(const fraction of [0,.25,.5,.75,1]){
+   const duration=streetTravelMs(districtEntry,door);
+   assert.ok(isDistrictFloor(streetPositionAt({from:districtEntry,to:door,started:0},duration*fraction)));
+  }
+ }
+});
+
+test('Every Manaverse doorway uses the same arrival and departure points in both directions',()=>{
+ const load=loader(),{manaverseDoorways,manaversePassage}=load('src/core/manaversePassage.ts');
+ const walk=load('src/core/officeWalk.ts'),street=load('src/core/manaverseStreet.ts'),park=load('src/core/manaversePark.ts');
+ const floors={office:walk.isOfficeFloor,cafe:walk.isCafeFloor,workshop:walk.isWorkshopFloor,'town-hall':walk.isTownHallFloor,
+  'meeting-room':walk.isMeetingRoomFloor,street:street.isStreetFloor,square:street.isSquareFloor,district:street.isDistrictFloor,park:park.isParkFloor};
+ for(const [from,exit,to,entry] of manaverseDoorways){
+  assert.equal(manaversePassage(from,to).entry,entry);
+  assert.equal(manaversePassage(to,from).exit,entry);
+  assert.equal(manaversePassage(from,to).exit,exit);
+  assert.equal(manaversePassage(to,from).entry,exit);
+  for(const [area,point] of [[from,exit],[to,entry]]){
+   const floor=floors[area]??(walk.isWalkableOfficeRoom(area)?point=>walk.isOfficeRoomFloor(area,point):
+    ['library','lyra-room','luna-home'].includes(area)?point=>walk.isResidentFloor(area,point):undefined);
+   if(floor)assert.ok(floor(point),`${area} doorway ${JSON.stringify(point)} must be on the walkable floor`);
+  }
+ }
+ const cafe=manaversePassage('district','cafe').entry;
+ for(const spot of [{x:50,y:73},{x:31,y:65},{x:78,y:65},{x:63,y:57},{x:72,y:58}]){
+  assert.ok(walk.cafeRoute(cafe,spot).length>1);
+  assert.ok(walk.cafeRoute(spot,cafe).length>1);
+ }
+});
+
+test('The shared walker connects every arrival point to the other exits in its map',()=>{
+ const load=loader();
+ const {manaverseDoorways}=load('src/core/manaversePassage.ts');
+ const {planManaverseTransfer}=load('src/core/manaverseNavigation.ts');
+ const links=new Map();
+ for(const [a,at,b,bt] of manaverseDoorways){
+  links.set(a,[...(links.get(a)??[]),{to:b,point:at}]);
+  links.set(b,[...(links.get(b)??[]),{to:a,point:bt}]);
+ }
+ assert.equal(links.size,18);
+ for(const [area,doors] of links){
+  for(const entrance of doors){
+   for(const exit of doors){
+    const transfer=planManaverseTransfer(area,exit.to,entrance.point);
+    assert.ok(transfer,`${area}: ${entrance.to} to ${exit.to}`);
+    assert.equal(transfer.entry,links.get(exit.to).find(link=>link.to===area).point);
+    assert.ok(Math.hypot(transfer.route.at(-1).x-exit.point.x,transfer.route.at(-1).y-exit.point.y)<.01);
+   }
+  }
+ }
+});
+
+test('Christmas decoration settings cover every December day and survive room saves',()=>{
+ const load=loader(),festivities=load('src/core/townFestivities.ts'),room=load('src/core/companionRoom.ts');
+ for(const date of ['2026-12-01','2026-12-15','2026-12-31','2027-12-10']){
+  assert.equal(festivities.townFestivities([],undefined,date).christmas,true);
+  assert.equal(festivities.townFestivities([],undefined,date).active,true);
+ }
+ for(const date of ['2026-11-30','2027-01-01'])assert.equal(festivities.townFestivities([],undefined,date).christmas,false);
+ const event={id:'christmas',title:'Christmas Day',date:'2026-12-25',start:'10:00',end:'22:00',active:true};
+ assert.equal(festivities.townFestivities([],{christmas:'event'},'2026-12-10').christmas,false);
+ assert.equal(festivities.townFestivities([event],{christmas:'event'},event.date).christmas,true);
+ assert.equal(festivities.townFestivities([event],{christmas:'off'},event.date).active,false);
+ const saved=room.validateRoom(JSON.parse(JSON.stringify({townDecorations:{christmas:'off'}})));
+ assert.equal(festivities.townFestivities([event],saved.townDecorations,event.date).active,false);
+ assert.equal(festivities.townFestivities([],festivities.validateTownDecorations({christmas:'bad'}),'2026-12-01').christmas,true);
+ assert.match(festivities.townFestivityContext([],undefined,'2026-12-12'),/No calendar event is active/);
+ assert.doesNotMatch(festivities.townFestivityContext([],undefined,'2026-12-12'),/currently celebrating/);
+ const newYear={...event,id:'newyear',title:'New Year Festival',date:'2027-01-01'};
+ assert.equal(festivities.townFestivities([newYear],{christmas:'off'},newYear.date).newYear,true);
+});
+
+test('decoration date schedules combine choices, repeat across years and preserve one-time dates',()=>{
+ const load=loader(),f=load('src/core/townFestivities.ts');
+ const rule={id:'winter',name:'Winter',enabled:true,decorations:['lights'],trigger:'dates',start:'2026-12-20',end:'2027-01-05',yearly:true,event:''};
+ const settings={schedules:[rule]};
+ for(const day of ['2026-12-20','2027-01-05','2030-12-31','2031-01-01'])assert.equal(f.townFestivities([],settings,day).lights,true);
+ for(const day of ['2026-12-19','2027-01-06','2030-06-01'])assert.equal(f.townFestivities([],settings,day).active,false);
+ const once={schedules:[{...rule,yearly:false}]};
+ assert.equal(f.townFestivities([],once,'2026-12-31').lights,true);
+ assert.equal(f.townFestivities([],once,'2027-12-31').lights,false);
+ const combined={schedules:[rule,{...rule,id:'sparks',decorations:['fireworks']}]};
+ const theme=f.townFestivities([],combined,'2027-01-01');
+ assert.equal(theme.lights,true);assert.equal(theme.fireworks,true);assert.equal(theme.newYear,false);assert.equal(theme.garlands,false);
+ assert.equal(f.townFestivities([],{schedules:[{...rule,enabled:false}]},'2027-01-01').active,false);
+ assert.equal(f.townFestivities([],{schedules:[]},'2026-12-25').active,false);
+ const leap={schedules:[{...rule,start:'2000-02-29',end:'2000-02-29'}]};
+ assert.equal(f.townFestivities([],leap,'2028-02-29').lights,true);
+ assert.equal(f.townFestivities([],leap,'2027-02-28').lights,false);
+ assert.equal(f.validDecorationDate('2027-02-29'),false);
+ assert.equal(f.validateTownDecorations({schedules:[{...rule,start:'bad'}]}).schedules.length,0);
+ assert.equal(f.validateTownDecorations({schedules:[rule,rule]}).schedules.length,1);
+ const saved=load('src/core/companionRoom.ts').validateRoom(JSON.parse(JSON.stringify({townDecorations:combined})));
+ assert.equal(f.townFestivities([],saved.townDecorations,'2030-12-25').fireworks,true);
+ const event={title:'Art day',active:true};
+ const custom={schedules:[{...rule,trigger:'event',event:'Art day',decorations:['golden-display']}]};
+ assert.equal(f.townFestivities([event],custom).newYear,true);
+ assert.equal(f.townFestivities([{...event,active:false}],custom).active,false);
+});
+
+test('saved November decoration dates activate without any Christmas calendar event',()=>{
+ const jsx=(type,props)=>({type,props});
+ const load=loader({'react/jsx-runtime':{jsx,jsxs:jsx,Fragment:'fragment'},'./SceneVoice':{useSceneLine:()=>undefined},
+  './TownFireworks':{__esModule:true,default:()=>null}}),f=load('src/core/townFestivities.ts');
+ const settings=load('src/core/companionRoom.ts').validateRoom({townDecorations:{schedules:[{
+  id:'christmas',name:'December decorations',enabled:true,trigger:'dates',start:'2000-11-01',end:'2000-11-30',
+  yearly:true,event:'@christmas',decorations:['garlands','lights','christmas-tree'],
+ }]}}).townDecorations;
+ const clock=load('src/core/townEvents.ts').townEventCalendar(new Date('2026-11-19T06:23:00Z'),'Asia/Singapore');
+ assert.equal(clock.active.length,0);
+ const theme=f.townFestivities(clock.active,settings,clock.clock.date);
+ assert.equal(theme.active,true);assert.equal(theme.christmas,true);assert.equal(theme.garlands,true);assert.equal(theme.lights,true);
+ assert.equal(f.activeDecorationSchedules(clock.active,settings,clock.clock.date)[0].id,'christmas');
+ assert.equal(load('src/core/manaverseStreet.ts').isSquareFloor(f.TOWN_TREE_POINT),false);
+ assert.ok(f.TOWN_TREE_POINT.x>=25&&f.TOWN_TREE_POINT.x<=75,'tree stays near the central square view');
+ assert.equal(f.townFestivities([],settings,'2026-12-01').active,false);
+ const rendered=load('src/components/TownFestivities.tsx').default({events:clock.active,settings,date:clock.clock.date});
+ const nodes=[];function visit(node){if(Array.isArray(node)){node.forEach(visit);return;}if(!node||typeof node!=='object')return;nodes.push(node);if(typeof node.type==='function')visit(node.type(node.props));else for(const child of [node.props?.children].flat())visit(child);}visit(rendered);
+ const tree=nodes.find(node=>node.type==='img'&&node.props.className==='town-christmas-tree');
+ assert.ok(tree,'the saved November schedule renders the tree without any active event');
+ assert.equal(nodes.find(node=>node.props?.['data-kind']==='christmas-tree').props.style.left,`${f.TOWN_TREE_POINT.x}%`);
+});
+
+test('town decorations and New Year fireworks follow the saved event hours in later years',()=>{
+ const load=loader(),calendar=load('src/core/townEvents.ts'),festivities=load('src/core/townFestivities.ts');
+ const custom=[{id:'newyear',title:'New Year’s Festival',date:'2026-01-01',start:'18:00',end:'20:00'},
+  {id:'christmas',title:'Christmas Day',date:'2026-12-25',start:'10:00',end:'22:00'}];
+ const midnight=new Date('2027-01-01T11:00:00Z');
+ let active=calendar.townEventCalendar(midnight,'Asia/Singapore',custom).active;
+ assert.equal(festivities.townFestivities(active).newYear,true);
+ assert.equal(festivities.townFestivities(active).christmas,false);
+ assert.match(festivities.townFestivityContext(active),/fireworks overhead/);
+ active=calendar.townEventCalendar(new Date('2027-01-01T12:00:00Z'),'Asia/Singapore',custom).active;
+ assert.equal(festivities.townFestivities(active).active,false);
+ active=calendar.townEventCalendar(new Date('2027-12-25T04:00:00Z'),'Asia/Singapore',custom).active;
+ assert.equal(festivities.townFestivities(active).christmas,true);
+ assert.equal(festivities.townFestivities(active).newYear,false);
+ assert.ok(fs.existsSync(path.join(__dirname,'..','public','companion-room','town-christmas-tree.png')));
+ assert.equal(load('src/core/manaverseStreet.ts').isSquareFloor({x:11,y:43}),false);
+ assert.equal(festivities.townFestivities([{title:'Town Market',active:true}]).active,true);
+ assert.equal(festivities.townFestivities([{title:'New Year Festival',active:false}]).newYear,false);
+});
+
+test('firework sparks expire with finite motion and cap elapsed time after a pause',()=>{
+ const fireworks=loader()('src/core/townFireworks.ts');
+ const sparks=fireworks.fireworkBurst(300,120,400,'#ffe4a1',()=>.5);
+ assert.equal(sparks.length,36);
+ const before=sparks[0].life;
+ fireworks.stepFirework(sparks[0],1000,20);
+ assert.ok(Math.abs(sparks[0].life-(before-.05))<1e-8);
+ for(let i=0;i<45;i++)for(const spark of sparks)fireworks.stepFirework(spark,.05,20);
+ assert.ok(sparks.every(spark=>spark.life<=0&&Number.isFinite(spark.x)&&Number.isFinite(spark.y)));
+});
+
+test('the Today feed reflects live gatherings and goals and excludes another day’s visits',()=>{
+ const load=loader(),today=load('src/core/townToday.ts'),goals=load('src/core/townPersonalGoals.ts'),phone=load('src/core/roomPhone.ts');
+ const now=new Date('2026-11-19T08:00:00Z');
+ const goal=goals.readTownGoal('{"choice":"sketch-collection","reason":"I’d like a little collection."}','luna',now);
+ const state={characters:{luna:{location:'park'}},activeEvents:[],goals:[goal],friends:{host:'lyra',activity:'read',ready:false,joining:false}};
+ const future={...phone.phoneMessage('luna','visit-request'),scheduledFor:'2026-11-20T08:00:00Z'};
+ let cards=today.townTodayCards(state,future,undefined,'Asia/Singapore',now);
+ assert.equal(cards.length,2);
+ assert.equal(cards[0].area,'park');
+ assert.match(cards[0].detail,/On their way/);
+ assert.equal(cards.find(card=>card.id===goal.id).area,'park');
+ assert.ok(!cards.some(card=>card.id==='home-invitation'));
+ state.friends.ready=true;
+ cards=today.townTodayCards(state,{...future,scheduledFor:now.toISOString()},undefined,'Asia/Singapore',now);
+ assert.match(cards[0].detail,/Together by/);
+ assert.equal(cards.find(card=>card.id==='home-invitation').area,'living');
+ assert.equal(today.townTodayCards({characters:{},activeEvents:[],goals:[]},undefined,undefined,'Asia/Singapore',now).length,0);
+ state.goals=[];delete state.friends;
+ assert.equal(today.townTodayCards(state,undefined,undefined,'Asia/Singapore',now).length,0);
+});
+
+test('social meetup controls keep invitations, cancellation and busy-state checks together',()=>{
+ const react={useState:initial=>[typeof initial==='function'?initial():initial,()=>{}],useRef:current=>({current})};
+ const load=loader({react});
+ const {useTownSocialState,useSocialMeetups}=load('src/components/useSocialActivities.ts');
+ const state=useTownSocialState(),messages=[];
+ state.setMeetup=contact=>{state.meetup=contact;};
+ state.setMeetupPlace=place=>{state.meetupPlace=place;};
+ const room={current:{layout:2,phoneMessages:[]}};
+ const options={state,room,sleeping:false,visitorAvailable:true,hostPlanned:false,isBedtime:()=>undefined,timeZone:'Asia/Singapore',onMessage:message=>messages.push(message),onPondSketch:()=>{}};
+ let controls=useSocialMeetups(options);
+ assert.equal(controls.startMeetup('lyra','cafe'),true);
+ assert.equal(state.meetup,'lyra');assert.equal(state.meetupPlace,'cafe');
+ assert.equal(messages.map(message=>message.kind).join(','),'cafe-invite,cafe-accepted');
+ controls.cancelMeetup();
+ assert.equal(state.meetup,undefined);assert.equal(messages.at(-1).kind,'cafe-cancelled');
+ const count=messages.length;
+ controls=useSocialMeetups({...options,sleeping:true});
+ assert.equal(controls.startMeetup('luna','park'),undefined);assert.equal(messages.length,count);
+ state.friendMeetup={host:'luna',activity:'sketch',at:Date.now(),text:'Join me?',reply:'Sure.'};
+ controls=useSocialMeetups(options);
+ assert.equal(controls.startMeetup('luna','park'),undefined);assert.equal(messages.length,count);
+});
+
+test('Mana travel waits for doorway arrival and cancels interrupted interior journeys',()=>{
+ const slots=[],timers=new Map(),delays=[];
+ let cursor=0,timerId=0,pending=[],arrivedHome=0;
+ const react={
+  useState(initial){const id=cursor++;if(!Object.hasOwn(slots,id))slots[id]=typeof initial==='function'?initial():initial;return [slots[id],value=>{slots[id]=typeof value==='function'?value(slots[id]):value;}];},
+  useRef(initial){const id=cursor++;return slots[id]??(slots[id]={current:initial});},
+  useEffect(effect,deps){
+   const id=cursor++,previous=slots[id];
+   if(previous&&deps.every((value,index)=>value===previous.deps[index]))return;
+   const entry={deps};slots[id]=entry;
+   pending.push(()=>{previous?.cleanup?.();entry.cleanup=effect();});
+  },
+ };
+ const load=loader({react},{window:{matchMedia:()=>({matches:true}),setTimeout:(fn,delay)=>{const id=++timerId;timers.set(id,fn);delays.push(delay);return id;}},clearTimeout:id=>timers.delete(id)});
+ const {useManaTravel}=load('src/components/useManaTravel.ts');
+ const {manaversePassage}=load('src/core/manaversePassage.ts');
+ const {officeWorkApproach}=load('src/core/officeWalk.ts');
+ const {districtEntry,townBuildings,streetDoors}=load('src/core/manaverseStreet.ts');
+ function render(){cursor=0;pending=[];const state=useManaTravel(undefined,undefined,()=>arrivedHome++,()=>{});pending.forEach(effect=>effect());return state;}
+ function step(){const [id,fn]=timers.entries().next().value;timers.delete(id);fn();return render();}
+ let state=render();
+ state.setManaArea('district');state.setManaStreetPosition(districtEntry);state=render();
+ state.startStreetWalk(townBuildings.office.door,'office');state=render();
+ assert.equal(state.manaArea,'district');assert.ok(state.manaStreetTrip);
+ assert.ok(delays.at(-1)>0,'reduced motion must preserve walking time');
+ state=step();
+ assert.equal(state.manaArea,'office');
+ assert.equal(state.officePosition,manaversePassage('district','office').entry);
+ const desk=officeWorkApproach(state.officePosition);
+ assert.equal(state.walkThroughOfficeDoor('office','office',desk),true);state=render();
+ for(let i=0;i<100&&state.officeTrip;i++){assert.equal(state.manaArea,'office');state=step();}
+ assert.equal(state.officeTrip,undefined);assert.equal(state.officePosition,desk);
+ state.leaveTownBuilding('office');state=render();
+ assert.equal(state.manaArea,'office');assert.ok(state.officeTrip);
+ for(let i=0;i<100&&state.officeTrip;i++)state=step();
+ assert.equal(state.manaArea,'district');
+ assert.equal(state.manaStreetPosition,manaversePassage('office','district').entry);
+ state.setManaArea('street');state.setManaStreetPosition(streetDoors.living);state=render();
+ state.startStreetWalk(streetDoors.living,'living');state=render();
+ assert.equal(arrivedHome,0);state=step();
+ assert.equal(state.manaArea,'living');assert.equal(arrivedHome,1);
+ state.setManaArea('library');state=render();state.leaveResidentHome('library');state=render();
+ state.finishResidentExit('luna-home');state=render();assert.equal(state.manaArea,'library');
+ state.finishResidentExit('library');state=render();
+ assert.equal(state.manaArea,'street');assert.equal(state.manaStreetPosition,manaversePassage('library','street').entry);
+ state.setManaArea('office');state.setOfficePosition(manaversePassage('district','office').entry);state=render();
+ state.walkThroughOfficeDoor('office','office',desk);state=render();assert.ok(timers.size);
+ state.setManaArea('bedroom');state=render();state=render();
+ assert.equal(state.officeTrip,undefined);assert.equal(timers.size,0);assert.equal(state.manaArea,'bedroom');
+ state.setManaArea('street');state.setManaStreetPosition(streetDoors.living);state=render();
+ state.startStreetWalk(townBuildings.workshop.door,'workshop');state=render();
+ assert.equal(state.manaStreetTrip,undefined,'the workshop cannot be entered directly from Manaverse Street');
+ for(const [from,to] of [['street','square'],['square','district'],['district','workshop']]){
+  const passage=manaversePassage(from,to);
+  state.startStreetWalk(passage.exit,to);state=render();
+  assert.equal(state.manaArea,from);assert.equal(state.manaStreetTrip.room,from);
+  assert.ok(delays.at(-1)>0);
+  state=step();assert.equal(state.manaArea,to);
+ }
+ state.setManaArea('street');state.setManaStreetPosition(streetDoors.living);state=render();
+ state.startStreetWalk(streetDoors.square,'square');state=render();assert.ok(timers.size);
+ state.setManaArea('workshop');state=render();state=render();
+ assert.equal(state.manaStreetTrip,undefined);assert.equal(timers.size,0,'interrupted outdoor timers must not move Mana later');
+ assert.equal(state.walkThroughOfficeDoor('office','office',desk),undefined,'stale room actions cannot create an interior trip');
+});
+
+test('workshop activity waits for arrival at the bench and cancels when Mana leaves',()=>{
+ const slots=[],timers=new Map();let cursor=0,pending=[],timerId=0,approaches=0,completed=0;
+ const react={
+  useState(initial){const id=cursor++;if(!Object.hasOwn(slots,id))slots[id]=initial;return [slots[id],value=>slots[id]=value];},
+  useRef(initial){const id=cursor++;return slots[id]??(slots[id]={current:initial});},
+  useEffect(effect,deps){const id=cursor++,previous=slots[id];if(previous&&deps.every((value,index)=>Object.is(value,previous.deps[index])))return;
+   const entry={deps};slots[id]=entry;pending.push(()=>{previous?.cleanup?.();entry.cleanup=effect();});},
+ };
+ const {useWorkshopActivity,WORKSHOP_WORK_POINT}=loader({react},{window:{setTimeout:(fn,delay)=>{assert.equal(delay,5500);timers.set(++timerId,fn);return timerId;}},clearTimeout:id=>timers.delete(id)})('src/components/useWorkshopActivity.ts');
+ function render(present,point,moving=false,blocked=false){cursor=0;pending=[];const working=useWorkshopActivity(present,blocked,point,moving,()=>approaches++,()=>completed++);pending.forEach(effect=>effect());return working;}
+ const entry={x:72,y:81.5};
+ assert.equal(render(false,entry),false);assert.equal(approaches,0);
+ assert.equal(render(true,entry),false);assert.equal(approaches,1);assert.equal(timers.size,0);
+ assert.equal(render(true,entry,true),false);assert.equal(completed,0);
+ render(true,WORKSHOP_WORK_POINT);assert.equal(render(true,WORKSHOP_WORK_POINT),true);assert.equal(timers.size,1);
+ render(false,entry);assert.equal(timers.size,0);assert.equal(completed,0);
+ render(true,WORKSHOP_WORK_POINT);assert.equal(render(true,WORKSHOP_WORK_POINT),true);
+ const [id,finish]=timers.entries().next().value;timers.delete(id);finish();
+ assert.equal(render(true,WORKSHOP_WORK_POINT),false);assert.equal(completed,1);
+ assert.equal(timers.size,0,'finishing must not restart the activity');
+});
+
+test('Mana’s morning office routine can reach a workstation after the office furniture is moved',()=>{
+ const load=loader();
+ const {manaRoutine}=load('src/core/manaverseRoutine.ts');
+ const {officeWorkApproach,officeRoute,isOfficeFloor}=load('src/core/officeWalk.ts');
+ const {officeFurnitureDefaults,workforceExitPoints}=load('src/core/manaverseStreet.ts');
+ assert.equal(manaRoutine({date:'2026-11-19',time:'08:00'}).place,'office');
+ assert.equal(manaRoutine({date:'2026-11-19',time:'11:59'}).place,'office');
+ assert.equal(manaRoutine({date:'2026-11-19',time:'12:00'}).place,'cafe');
+ const entry=workforceExitPoints.office;
+ const layouts=[officeFurnitureDefaults,{...officeFurnitureDefaults,backRow:{x:22,y:66}},
+  {...officeFurnitureDefaults,sofa:{x:29,y:60.9}}];
+ for(const layout of layouts){
+  const target=officeWorkApproach(entry,layout);
+  assert.ok(target);
+  assert.ok(Math.hypot(target.x-entry.x,target.y-entry.y)>10);
+  const route=officeRoute(entry,target,layout);
+  assert.ok(route.length>1);
+  assert.ok(route.every(point=>isOfficeFloor(point,layout)));
+  assert.equal(officeWorkApproach(target,layout).x,target.x);
+  assert.equal(officeWorkApproach(target,layout).y,target.y);
+ }
+});
+
+test('Scheduled residents wait to reach the home and café doors before changing maps',()=>{
+ const slots=[];
+ let cursor=0,timer;
+ const react={
+  useState(){const index=cursor++;return [slots[index],value=>{slots[index]=typeof value==='function'?value(slots[index]):value;}];},
+  useRef(current){const index=cursor++;return slots[index]??(slots[index]={current});},
+  useEffect(effect){effect();},
+ };
+ const date='2026-11-18',noon=Date.parse(`${date}T04:00:00Z`);
+ class Clock extends Date{constructor(...args){super(...(args.length?args:[noon]));}static now(){return noon;}}
+ const load=loader({react},{Date:Clock,window:{matchMedia:()=>({matches:false}),setTimeout(fn){timer=fn;return 1;}},clearTimeout(){}});
+ const {useResidentOuting}=load('src/components/useResidentOuting.ts');
+ const {manaversePassage}=load('src/core/manaversePassage.ts');
+ const render=()=>{cursor=0;timer=undefined;return useResidentOuting('lyra',false,'Asia/Singapore',{date,time:'12:00'});};
+ render();timer();
+ let scene=render();
+ assert.ok(scene.outing.homeExit);
+ assert.equal(scene.outing.trip,undefined);
+ assert.equal(timer,undefined);
+ scene.leaveHome();
+ scene=render();
+ assert.equal(scene.outing.trip.from,manaversePassage('library','street').entry);
+ for(let i=0;i<12&&scene.outing.cafeStage!=='leaving';i++){
+  assert.equal(typeof timer,'function');
+  timer();scene=render();
+ }
+ assert.equal(scene.outing.cafeStage,'leaving');
+ assert.equal(scene.outing.trip,undefined);
+ assert.equal(timer,undefined);
+ scene.leaveCafe();
+ scene=render();
+ assert.equal(scene.outing.cafeStage,'from-cafe');
+ assert.equal(scene.outing.trip.from,manaversePassage('cafe','district').entry);
+});
+
+test('The same walk distance takes the same time in homes, streets and the park',()=>{
+ const {sceneTravelMs,walkTravelMs,travelPoint}=loader()('src/core/manaverseMovement.ts');
+ const from={x:0,y:0};
+ for(const [area,width] of [['bedroom',799],['living',799],['park',2500],['street',1440],['square',1440],['district',1440],['library',900],['cafe',1120]]){
+  const to={x:13000/width,y:0};
+  assert.ok(Math.abs(sceneTravelMs(area,from,to)-1000)<1e-8,area);
+ }
+ assert.equal(walkTravelMs(from,{x:0,y:130}),1000);
+ assert.equal(travelPoint(from,{x:10,y:20},25,100).y,5);
+});
+
+test('Library visitors can walk from the framed note back to the shared doorway',()=>{
+ const {libraryStreetThreshold,residentFloorRoute}=loader()('src/core/officeWalk.ts');
+ for(const note of [{x:13,y:68},{x:19,y:68}]){
+  const route=residentFloorRoute('library',note,libraryStreetThreshold);
+  assert.ok(route.length>1);
+  assert.equal(route.at(-1),libraryStreetThreshold);
+ }
+});
+
+test('Outdoor Pet Bot walks independently and returns through the home entrance',()=>{
+ let tick,now=0,atHome=false;
+ let goal={area:'street',point:{x:50,y:87}};
+ const positions=[];
+ const react={useState:initial=>[initial,position=>positions.push(position)],useRef:current=>({current}),useEffect:effect=>effect()};
+ const load=loader({react},{Date:{now:()=>now},document:{visibilityState:'visible'},window:{
+  matchMedia:()=>({matches:false}),setInterval:fn=>{tick=fn;return 1;},clearInterval(){},
+ }});
+ const {useOutdoorPetWalk,nextOutdoorArea}=load('src/components/useOutdoorPetWalk.ts');
+ assert.equal(nextOutdoorArea('park','district'),'street');
+ assert.equal(nextOutdoorArea('district','park'),'square');
+ const start=useOutdoorPetWalk(true,()=>goal,()=>{atHome=true;}).point;
+ now+=80;tick();
+ assert.ok(positions.at(-1).point.x>start.x&&positions.at(-1).point.x<goal.point.x);
+ goal={area:'park',point:{x:50,y:70}};
+ for(let i=0;i<600&&positions.at(-1).area!=='park';i++){now+=80;tick();}
+ assert.equal(positions.at(-1).area,'park');
+ goal={area:'street',point:start,goingHome:true};
+ for(let i=0;i<600&&!atHome;i++){now+=80;tick();}
+ assert.equal(atHome,true);
+});
+
+test('park walking reaches the central lawn and routes around the pond',()=>{
+ const {parkLoop,parkStops,parkRoute,parkStep,nearestParkStop,isParkPond,parkFloorRoute,isParkFloor}=loader()('src/core/manaversePark.ts');
+ assert.equal(nearestParkStop({x:50,y:47}),undefined);
+ assert.ok(nearestParkStop({x:50,y:66})>=parkLoop.length);
+ assert.ok(parkStep(0,0,-1)>=parkLoop.length);
+ const checked=new Set();
+ for(const start of parkStops.keys()){
+  const route=parkRoute(start,(start+12)%parkStops.length);
+  assert.equal(route.at(-1),(start+12)%parkStops.length);
+  let from=parkStops[start];
+  for(const stop of route){
+   const to=parkStops[stop];
+   const key=`${from.x},${from.y}:${to.x},${to.y}`;
+   if(!checked.has(key)){
+    checked.add(key);
+    const legs=parkFloorRoute(from,to);
+    assert.ok(legs.length>1,`Park leg ${key}`);
+    assert.ok(legs.every(isParkFloor));
+   }
+   for(const fraction of [0,.25,.5,.75,1]){
+    assert.ok(!isParkPond({x:from.x+(to.x-from.x)*fraction,y:from.y+(to.y-from.y)*fraction}));
+   }
+   from=to;
+  }
+ }
+});
+
+test('Town Square routes stay on the open cobblestones and connect to the street',()=>{
+ const {squareEntry,squareSpots,squarePoint,isSquareFloor,streetDoors,isStreetFloor,streetPositionAt,streetTravelMs}=loader()('src/core/manaverseStreet.ts');
+ assert.ok(isStreetFloor(streetDoors.square));
+ assert.ok(!isSquareFloor({x:50,y:40}));
+ assert.ok(isSquareFloor({x:50,y:45}));
+ assert.ok(isSquareFloor(squarePoint(-10,110)));
+ const stops=[squareEntry,...squareSpots,squareEntry];
+ for(let i=1;i<stops.length;i++){
+  const from=stops[i-1],to=stops[i];
+  for(const fraction of [0,.25,.5,.75,1]){
+   assert.ok(isSquareFloor(streetPositionAt({from,to,started:0},streetTravelMs(from,to)*fraction)));
+  }
+ }
+});
+
+test('shared keepsake remembers the participant and activity through phone and room saves',()=>{
+ const load=loader();
+ const {chooseManaKeepsake,sharedKeepsakeExchange}=load('src/core/manaKeepsake.ts');
+ const {validateRoom}=load('src/core/companionRoom.ts');
+ const time='2026-11-15T01:00:00.000Z';
+ const moments=[
+  {kind:'activity',id:'room-2026-11-15-park-meetup',outcome:'Mana and Lyra read together by the park pond.',recordedAt:time},
+  {kind:'activity',id:'room-2026-11-15-water',outcome:'Mana watered the plant.',recordedAt:time},
+ ];
+ const shared=chooseManaKeepsake(moments,0,'shared');
+ const solo=chooseManaKeepsake(moments,0,'solo');
+ assert.equal(shared.shared.contact,'lyra');
+ assert.equal(validateRoom({sharedKeepsake:shared}).sharedKeepsake.caption,'');
+ const {messages,caption}=sharedKeepsakeExchange(shared.shared,shared.moment,time);
+ assert.match(caption,/quiet chapter/);
+ const restored=validateRoom({manaKeepsake:solo,phoneMessages:messages,
+  sharedKeepsake:{...shared,caption,pinned:true,shared:{...shared.shared,answered:true}}});
+ assert.equal(restored.manaKeepsake.spot,'water');
+ assert.equal(restored.sharedKeepsake.caption,caption);
+ assert.deepEqual(Array.from(restored.phoneMessages,message=>message.from),['mana','contact']);
+ assert.equal(restored.phoneMessages[1].text,undefined);
+ assert.match(restored.phoneMessages[1].detail,/quiet chapter/);
+});
+
+test('Phone drafts retain their plan metadata and only use the matching thread as context',()=>{
+ const load=loader(),phone=load('src/core/roomPhone.ts'),room=load('src/core/companionRoom.ts');
+ const time='2026-11-18T04:00:00.000Z';
+ const draft={...phone.phoneMessage('lyra','host-accepted',time),scheduledFor:time};
+ const saved=room.validateRoom({aiPhone:true,phoneMessages:[draft]});
+ assert.equal(saved.aiPhone,true);
+ assert.equal(saved.phoneMessages[0].text,undefined);
+ assert.equal(saved.phoneMessages[0].scheduledFor,time);
+ const prompt=phone.phoneMessagePrompt(draft,[
+  {...phone.phoneMessage('lyra','host-invite',time),text:'Come visit the library.'},
+  {...phone.phoneMessage('luna','host-invite',time),text:'Come see my sketchbook.'},
+ ],'November 18, 12:00 PM');
+ assert.match(prompt,/as Mana to Lyra/);
+ assert.match(prompt,/Come visit the library/);
+ assert.match(prompt,/12:00 PM/);
+ assert.doesNotMatch(prompt,/Come see my sketchbook/);
+ assert.equal(phone.readPhoneText(draft,'{"text":"I’d love to visit. See you soon!"}'),'I’d love to visit. See you soon!');
+ assert.equal(phone.readPhoneText(draft,'Sure! Here is the phone text: I’ll visit.'),'');
+ const rejected=phone.validatePhone([
+  {...draft,text:"Sure! Here's the phone text for the event: I’ll visit."},
+  {...phone.phoneMessage('lyra','cafe-invite',time),text:'Let’s meet at the café! I’ll bring my game.'},
+  {...phone.phoneMessage('luna','host-completed',time),text:'Let’s sketch under the stars again soon.'},
+ ]);
+ assert.deepEqual(Array.from(rejected,message=>message.text),[undefined,undefined,undefined]);
+ assert.equal(rejected[0].scheduledFor,time);
+});
+
 test('portrait targets are disjoint and all four actions have chat reactions',()=>{
  const {PORTRAIT_ZONES:zones,PORTRAIT_ACTIONS:actions,PORTRAIT_REACTIONS:reactions}=loader()('src/core/portraitInteractions.ts');
  assert.deepEqual(Array.from(actions),['headpat','boop','hug','handhold']);
@@ -120,13 +605,13 @@ function loader(mocks = {}, globals = {}) {
     const module = { exports: {} };
     cache.set(file, module.exports);
     const code = ts.transpileModule(fs.readFileSync(file, "utf8"), {
-      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2021, esModuleInterop: true },
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2021, esModuleInterop: true, jsx: ts.JsxEmit.ReactJSX },
     }).outputText;
     const requireModule = (id) => {
       if (Object.hasOwn(mocks, id)) return mocks[id];
       if (id.startsWith(".")) {
         const resolved = path.resolve(path.dirname(file), id);
-        return load(path.extname(resolved) ? resolved : resolved + ".ts");
+        return load(path.extname(resolved) ? resolved : fs.existsSync(resolved+".ts")?resolved+".ts":resolved+".tsx");
       }
       return require(id);
     };
@@ -720,7 +1205,54 @@ test('backup validation accepts 1,000 artwork-heavy library records above the ol
 test("Companion Room keeps movement within its floor and restores plant care",()=>{
  const stored=new Map();
  const r=loader({}, {localStorage:{getItem:key=>stored.get(key)??null,setItem:(key,value)=>stored.set(key,value)}})("src/core/companionRoom.ts");
+ assert.equal(r.roomLighting(new Date("2026-11-12T22:00:00Z"),"Asia/Singapore"),"daylight");
+ assert.equal(r.roomLighting(new Date("2026-11-13T10:00:00Z"),"Asia/Singapore"),"sunset");
+ assert.equal(r.roomLighting(new Date("2026-11-13T11:30:00Z"),"Asia/Singapore"),"night");
+ assert.equal(r.roomLighting(new Date("2026-11-13T11:30:00Z"),"UTC"),"daylight");
+ const eveningView=new Date("2026-11-13T11:30:00Z");
+ assert.match(r.roomActivityThought("window",eveningView,"Asia/Singapore",false),/night/);
+ assert.match(r.roomActivityThought("window",eveningView,"UTC",false),/daylight/);
+ assert.match(r.roomActivityThought("remember",eveningView,"UTC",false),/someday/);
+ const firstReadingThought=r.roomActivityThought("read",eveningView,"UTC",false);
+ assert.notEqual(r.roomActivityThought("read",eveningView,"UTC",false,firstReadingThought),firstReadingThought);
+ assert.equal(r.roomActivityThought("bed",eveningView,"UTC",false),undefined);
+ assert.equal(r.roomSleepNight(new Date("2026-11-13T14:00:00Z"),"Asia/Singapore"),"2026-11-13");
+ assert.equal(r.roomSleepNight(new Date("2026-11-13T16:00:00Z"),"Asia/Singapore"),"2026-11-13");
+ assert.equal(r.roomSleepNight(new Date("2026-11-13T22:00:00Z"),"Asia/Singapore"),undefined);
+ assert.equal(r.roomEnergyAfterActivity(5,"water"),0);
+ assert.equal(r.roomEnergyAfterActivity(85,"bed"),100);
+ assert.equal(r.roomEnergyAfterActivity(25,"sleep"),40);
+ assert.equal(r.roomEnergyAfterActivity(25,"read"),20);
+ assert.equal(r.roomEnergyAfterActivity(25,"play"),10);
+ assert.equal(r.roomEnergyState(70),"Rested");
+ assert.equal(r.roomEnergyState(69),"Getting tired");
+ assert.equal(r.roomEnergyState(36),"Getting tired");
+ assert.equal(r.roomEnergyState(35),"Low energy");
+ assert.equal(r.roomEnergyState(35,true),"Recovering");
+ const reading=r.completeRoomActivity({...r.validateRoom(null),energy:70},"read");
+ assert.equal(reading.energy,65);
+ assert.equal(reading.stats.knowledge,1);
+ assert.ok(reading.changes.includes("Focus +12"));
+ const play=r.completeRoomActivity({...r.validateRoom(null),effectStats:{...reading.stats,happiness:98}},"play");
+ assert.equal(play.stats.happiness,100);
+ assert.equal(play.stats.gaming,1);
+ assert.ok(play.changes.includes("Happiness +2"));
+ assert.equal(r.validateRoom({effectStats:play.stats}).effectStats.gaming,1);
+ const bedroomPosition={u:.23,v:.41},livingPosition={u:.75,v:.65};
+ r.saveRoom({layout:2,position:bedroomPosition,livingPosition});
+ const home=r.loadRoom();
+ assert.equal(home.livingPosition.u,.75);
+ assert.equal(home.livingPosition.v,.65);
+ assert.ok(Math.abs(home.position.u-bedroomPosition.u)<1e-8);
  const point=r.roomPoint(r.PLANT_POSITION),position=r.roomPosition(point.x,point.y);
+ const bed=r.ROOM_OBJECTS.find(object=>object.id==='bed');
+ const bedDepth=r.sharedRoomFurnitureDepth(bed);
+ assert.ok(r.sharedRoomActorDepth({x:140,y:390})<bedDepth);
+ assert.ok(bedDepth<r.sharedRoomActorDepth({x:270,y:490}));
+ const coffeeTable=r.arrangedRoom({table:{dx:8,dy:-15}}).find(object=>object.id==='table');
+ const tableDepth=r.sharedRoomFurnitureDepth(coffeeTable);
+ assert.ok(r.sharedRoomActorDepth({x:465,y:417})<tableDepth);
+ assert.ok(tableDepth<r.sharedRoomActorDepth({x:465,y:519}));
  assert.ok(Math.abs(position.u-r.PLANT_POSITION.u)<1e-8);
  assert.ok(Math.abs(position.v-r.PLANT_POSITION.v)<1e-8);
  const outside=r.roomPosition(-999,-999);
@@ -730,9 +1262,92 @@ test("Companion Room keeps movement within its floor and restores plant care",()
  assert.ok(route.length>1);
  assert.equal(route[route.length-1],destination);
  assert.ok(route.slice(0,-1).some(waypoint=>r.roomPoint(waypoint).x<391||r.roomPoint(waypoint).x>533));
- r.saveRoom({layout:2,position,wateredAt:"2026-11-12T09:00:00Z"});
+ for(const [x,y] of [[679,445],[549,475],[627,424],[275,458],[432,335],[307,328],[562,354]])assert.ok(r.roomRoute(position,r.roomPosition(x,y)).length);
+ r.saveRoom({layout:2,position,wateredAt:"2026-11-12T09:00:00Z",lastActivity:"remember",idleActivities:false,activityCooldownUntil:"2026-11-12T09:05:00Z"});
  assert.equal(r.loadRoom().wateredAt,"2026-11-12T09:00:00Z");
  assert.ok(Math.abs(r.loadRoom().position.u-position.u)<1e-8);
+ assert.equal(r.loadRoom().lastActivity,"remember");
+ assert.equal(r.loadRoom().idleActivities,false);
+ assert.equal(r.loadRoom().activityCooldownUntil,"2026-11-12T09:05:00Z");
+ const placements={plant:{dx:-30,dy:-50}};
+ const arranged=r.arrangedRoom(placements);
+ assert.equal(arranged.find(object=>object.id==='plant').footprint.left,408);
+ assert.equal(r.roomPlacementProblem('plant',arranged),undefined);
+ assert.match(r.roomPlacementProblem('plant',r.arrangedRoom({plant:{dx:0,dy:-110}})),/space between/);
+ assert.match(r.roomPlacementProblem('plant',r.arrangedRoom({plant:{dx:0,dy:100}})),/on the floor/);
+ assert.equal(r.roomPlacementProblem('photo-board',r.arrangedRoom({'photo-board':{dx:16,dy:8}})),undefined);
+ assert.match(r.roomPlacementProblem('photo-board',r.arrangedRoom({'photo-board':{dx:-32,dy:-16}})),/between wall decorations/);
+ assert.match(r.roomPlacementProblem('sign',r.arrangedRoom({sign:{dx:16,dy:0}})),/on its wall/);
+ assert.ok(r.roomRoute(position,r.roomPosition(380,555,arranged),arranged).length);
+ placements['photo-board']={dx:16,dy:8};
+ r.saveRoom({...r.loadRoom(),placements,finishes:{wall:"Cool blue",floor:"Dark walnut"},energy:25,sleep:{night:"2026-11-13",startedAt:"2026-11-13T14:00:00Z"}});
+ assert.equal(r.loadRoom().placements.plant.dx,-30);
+ assert.equal(r.loadRoom().placements['photo-board'].dy,8);
+ assert.equal(r.loadRoom().finishes.wall,"Cool blue");
+ assert.equal(r.loadRoom().finishes.floor,"Dark walnut");
+ assert.equal(r.validateRoom({finishes:{wall:"Invalid",floor:"Original"}}).finishes,undefined);
+ assert.equal(r.loadRoom().energy,25);
+ assert.equal(r.loadRoom().sleep.night,"2026-11-13");
+ const usedOnce=r.recordFurnitureUse(r.loadRoom(),"read");
+ assert.equal(r.favoriteRoomActivity(usedOnce),undefined);
+ const usedTwice=r.recordFurnitureUse(usedOnce,"read");
+ assert.equal(r.favoriteRoomActivity(usedTwice),"read");
+ const picks=(state,at,zone="Asia/Singapore")=>Array.from({length:1000},(_,index)=>
+  r.chooseRoomActivity(state,new Date(at),zone,(index+.5)/1000));
+ const count=(choices,...activities)=>choices.filter(choice=>activities.includes(choice)).length;
+ const afternoon="2026-11-13T07:00:00Z";
+ const evening="2026-11-13T12:00:00Z";
+ const rested={...r.validateRoom(null),energy:100};
+ const tired={...rested,energy:25};
+ assert.ok(count(picks(tired,afternoon),"sleep","bed")>count(picks(rested,afternoon),"sleep","bed"));
+ assert.ok(count(picks(rested,afternoon),"play","think")>count(picks(tired,afternoon),"play","think"));
+ assert.ok(count(picks(rested,evening),"read","remember")>count(picks(rested,evening,"UTC"),"read","remember"));
+ assert.ok(count(picks(usedTwice,afternoon),"read")>count(picks(usedOnce,afternoon),"read"));
+ assert.equal(new Set(picks(tired,evening)).size,8);
+ r.saveRoom(usedTwice);
+ assert.equal(r.loadRoom().furnitureUses.read,2);
+ assert.equal(r.arrangedRoom().some(object=>object.id==='side-table'),false);
+ const withSideTable={...r.loadRoom(),placements:{'side-table':{dx:0,dy:0}},pieceColors:{'side-table':'Sage',window:'Rose',chair:'Invalid'}};
+ r.saveRoom(withSideTable);
+ const furnished=r.arrangedRoom(r.loadRoom().placements);
+ assert.equal(r.roomPlacementProblem('side-table',furnished),undefined);
+ const table=furnished.find(object=>object.id==='side-table');
+ assert.equal(table.width,124);
+ assert.deepEqual(Object.entries(r.loadRoom().pieceColors),[['side-table','Sage']]);
+ const {left,right,top,bottom}=table.footprint;
+ const blocked=r.roomPoint(r.roomPosition((left+right)/2,(top+bottom)/2,furnished));
+ assert.ok(blocked.x<=left||blocked.x>=right||blocked.y<=top||blocked.y>=bottom);
+ const mirrored=r.validateRoom({placements:{bookshelf:{dx:0,dy:0,mirrored:true},'photo-board':{dx:16,dy:8,mirrored:true}}});
+ assert.equal(mirrored.placements.bookshelf.mirrored,true);
+ assert.equal(mirrored.placements['photo-board'].mirrored,undefined);
+ assert.equal(r.arrangedRoom(mirrored.placements).find(object=>object.id==='bookshelf').footprint.left,697);
+ assert.match(r.roomPlacementProblem('side-table',r.arrangedRoom({'side-table':{dx:-90,dy:0}})),/between furniture/);
+ r.saveRoom({...withSideTable,placements:{}});
+ assert.equal(r.arrangedRoom(r.loadRoom().placements).some(object=>object.id==='side-table'),false);
+ assert.equal(r.loadRoom().pieceColors['side-table'],'Sage');
+ const shopApi=loader()("src/core/roomShop.ts");
+ const listing={id:"shop-test",name:"Mint planter",aspect:1,owned:false,
+  image:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWZkAAAAASUVORK5CYII="};
+ const shop={coins:100,pieces:[listing]};
+ for(const category of shopApi.ROOM_SHOP_CATEGORIES){
+  assert.equal(shopApi.chooseRoomDesign(category,[],0).category,category);
+  assert.equal(shopApi.chooseRoomDesign(category,[],.99).category,category);
+ }
+ assert.equal(shopApi.chooseRoomDesign("Plants",[listing],0).name,"Terracotta fern");
+ assert.equal(shopApi.chooseRoomDesign("Plants",[listing,{...listing,name:"Terracotta fern"}],0).category,"Plants");
+ assert.equal(shopApi.shopPieceActivity("Mint planter"),"water");
+ assert.equal(shopApi.shopPieceActivity("Lavender ottoman"),"sleep");
+ assert.equal(shopApi.shopPieceActivity("Cloud bookcase"),"read");
+ assert.equal(shopApi.shopPieceActivity("Moonstone side table"),undefined);
+ assert.equal(r.arrangedRoom({'shop-test':{dx:0,dy:0}},shop).some(object=>object.id==='shop-test'),false);
+ assert.equal(shopApi.buyRoomPiece({...shop,coins:39},listing.id).coins,39);
+ const purchased=shopApi.buyRoomPiece(shop,listing.id);
+ assert.equal(purchased.coins,60);
+ assert.equal(shopApi.buyRoomPiece(purchased,listing.id),purchased);
+ const withPurchase=r.validateRoom({shop:purchased,placements:{'shop-test':{dx:0,dy:0,mirrored:true}}});
+ assert.equal(withPurchase.shop.pieces[0].image,listing.image);
+ assert.equal(r.arrangedRoom(withPurchase.placements,withPurchase.shop).find(object=>object.id===listing.id).mirrored,true);
+ assert.equal(r.arrangedRoom(withPurchase.placements,withPurchase.shop).find(object=>object.id===listing.id).activity,"water");
 });
 
 test("backup roundtrip validates every section and rejects damaged files before writes", async () => {
@@ -740,7 +1355,16 @@ test("backup roundtrip validates every section and rejects damaged files before 
  const b=load("src/core/backup.ts"),d=load("src/core/diary.ts"),c=load("src/core/character.ts");
  d.saveDiary([{id:"d",content:"Keep me",createdAt:"2026-10-09T01:00:00Z",deletedAt:"2026-10-09T02:00:00Z",sourceMessageIds:[],sourceMemoryIds:[],mood:"happy"}]);
  c.saveMemories([c.newMemory("Favorite game is Go.","mana",3)]);
+ const roomKey="mana.companion_room.v1";
+ const oldRoom={position:{u:.23,v:.51},wateredAt:"2026-11-12T09:00:00Z"};
+ data.set(roomKey,JSON.stringify(oldRoom));
  const backup=await b.createBackup();const valid=b.validateBackup(JSON.stringify(backup));
+ assert.equal(valid.data[roomKey].layout,2);
+ assert.equal(valid.data[roomKey].wateredAt,oldRoom.wateredAt);
+ const oldRoomBackup={...backup,data:{...backup.data,[roomKey]:oldRoom}};
+ assert.equal(JSON.stringify(b.validateBackup(JSON.stringify(oldRoomBackup)).data[roomKey]),JSON.stringify(valid.data[roomKey]));
+ oldRoomBackup.data[roomKey]={...oldRoom,position:{u:2,v:.51}};
+ assert.throws(()=>b.validateBackup(JSON.stringify(oldRoomBackup)),/Invalid data in mana.companion_room/);
  assert.equal(valid.data["mana.diary.v1"][0].deletedAt,"2026-10-09T02:00:00Z");
  assert.match(b.backupCounts(valid),/1 memories/);
  assert.equal(Object.keys(valid.data).length,35);
@@ -1482,6 +2106,33 @@ test("daily journal prompts distinguish dated conversation from background prefe
   assert.match(quiet[0].content,/background knowledge, not events/);
   assert.match(quiet[1].content,/journal date 2026-10-08/);
   assert.doesNotMatch(quiet[1].content,/notes may be older/);
+});
+
+test("completed Companion Room activities feed only their own journal date",()=>{
+ const load=loader();
+ const events=load("src/core/events.ts"),journal=load("src/core/dailyJournal.ts");
+ const zone="Asia/Singapore",recordedAt=new Date("2026-11-12T16:05:00Z");
+ const history=events.appendRoomEvent([],"water","Water the plant","Mana watered the plant.",zone,recordedAt);
+ assert.equal(history.length,1);
+ assert.equal(events.appendRoomEvent(history,"water","Water the plant","Mana watered the plant.",zone,recordedAt),history);
+ const sources=events.roomEventSources(history,zone);
+ assert.match(events.roomEventContext(history,zone,'What did you do in Manaverse?'),/Mana watered the plant/);
+ assert.equal(events.roomEventContext(history,zone,'Hi!'),'');
+ assert.equal(events.roomEventContext(history,zone,'Did you visit Luna?'),'');
+ assert.equal(sources[0].date,"2026-11-13");
+ assert.equal(journal.dueJournalDate(journal.validateJournalState(null),[],new Date("2026-11-13T16:05:00Z"),sources.map(event=>event.date)),"2026-11-13");
+ const payload=[{role:"system",content:""},{role:"user",content:""}];
+ assert.match(journal.dailyJournalPayload(payload,"2026-11-13",true,[],zone,[],sources)[1].content,/Mana watered the plant/);
+ assert.doesNotMatch(journal.dailyJournalPayload(payload,"2026-11-14",true,[],zone)[1].content,/watered the plant/);
+ const games=[
+  {title:"Draft game"},
+  {title:"Star Collector",publishedAt:"2026-11-12T16:30:00Z"},
+  {title:"Earlier game",publishedAt:"2026-11-12T15:30:00Z"},
+ ];
+ assert.deepEqual(JSON.parse(JSON.stringify(events.homeStoryDays(history,games,zone))),[
+  {date:"2026-11-13",entries:["Mana published “Star Collector” after its release check passed.","Mana watered the plant."]},
+  {date:"2026-11-12",entries:["Mana published “Earlier game” after its release check passed."]},
+ ]);
 });
 
 test("live local model streams a reflection from supplied evidence", { skip: !process.env.MANA_LIVE_TEST, timeout: 30000 }, async () => {
@@ -2968,6 +3619,363 @@ test('user-confirmed avatar image labels survive backups without inferring ident
  const {depictsAvatar,...unlabeled}=loaded[0];images.saveSavedImages([unlabeled]);assert.equal(images.loadSavedImages()[0].depictsAvatar,undefined);
 });
 
+test('personal goals count only matching completed sessions and preserve progress across room saves',()=>{
+ const load=loader(),goals=load('src/core/townPersonalGoals.ts'),room=load('src/core/companionRoom.ts');
+ const now=new Date('2026-11-19T08:00:00Z');
+ const luna=goals.readTownGoal('{"choice":"sketch-collection","reason":"I want to study the ripples in a few small sketches."}','luna',now);
+ const lyra=goals.readTownGoal('{"choice":"reading-afternoon","reason":"I’d like to share a quiet chapter with friends."}','lyra',now);
+ assert.ok(luna&&lyra);
+ assert.equal(goals.readTownGoal('{"choice":"invented","reason":"A new unsupported activity."}','luna',now),undefined);
+ assert.equal(goals.readTownGoal('{"choice":null,"reason":"I’ll rest today."}','luna',now),undefined);
+ let state=[luna,lyra];
+ assert.equal(goals.progressTownGoals(state,'wrong','walk','Walking.',['luna'],now),state);
+ state=goals.progressTownGoals(state,'home-1','home-sketch','Luna completed a sketch.',['luna'],now);
+ assert.equal(state[0].evidence.length,1);
+ assert.equal(goals.progressTownGoals(state,'home-1','home-sketch','Luna completed a sketch.',['luna'],now),state);
+ assert.equal(goals.progressTownGoals(state,'home-read','home-read','Lyra read alone.',['lyra'],now),state);
+ state=goals.progressTownGoals(state,'group-1','aishi-group-read','Aishi, Luna and Lyra read together.',['aishi','luna','lyra'],now);
+ assert.equal(state[1].evidence.length,1);
+ state=goals.progressTownGoals(state,'home-2','home-sketch','Luna completed a sketch.',['luna'],now);
+ state=goals.progressTownGoals(state,'home-3','home-sketch','Luna completed a sketch.',['luna'],now);
+ assert.equal(state[0].completedAt,now.toISOString());
+ const restored=room.validateRoom(JSON.parse(JSON.stringify({personalGoals:state}))).personalGoals;
+ assert.equal(restored.find(goal=>goal.owner==='luna').evidence.length,3);
+ assert.equal(restored.find(goal=>goal.owner==='lyra').evidence.length,1);
+ assert.equal(goals.canChooseTownGoal(restored,'lyra',now.getTime()+48*60*60_000),false);
+ assert.equal(goals.canChooseTownGoal(restored,'luna',now.getTime()),false);
+ assert.equal(goals.canChooseTownGoal(restored,'luna',now.getTime()+24*60*60_000),true);
+ assert.match(goals.townGoalContext(restored,'luna'),/Collect three sketches/);
+ assert.equal(goals.townGoalContext(restored,'mana'),'');
+ assert.equal(room.validateRoom({}).personalGoals,undefined);
+});
+
+test('the shared scene scheduler prevents overlapping tasks and cancels only its own work',async()=>{
+ let tick,cleanup,finish,signal,started=0;
+ const lease={current:undefined};
+ const react={useRef:current=>({current}),useEffect:effect=>{cleanup=effect();}};
+ const load=loader({react},{AbortController,document:{visibilityState:'visible'},window:{
+  setInterval:fn=>{tick=fn;return 1;},clearInterval:()=>{},setTimeout:()=>2,clearTimeout:()=>{},
+ }});
+ load('src/components/useSceneTask.ts').useSceneTask(true,true,60_000,lease,nextSignal=>{
+  started++;signal=nextSignal;return new Promise(resolve=>{finish=resolve;});
+ });
+ tick();tick();
+ assert.equal(started,1);
+ assert.equal(lease.current.signal,signal);
+ cleanup();
+ assert.equal(signal.aborted,true);
+ const other=new AbortController();lease.current=other;
+ finish();await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(lease.current,other);
+});
+
+test('Aishi can approach both pond groups and join only with a valid AI reply',()=>{
+ const load=loader(),activity=load('src/core/aishiActivities.ts'),park=load('src/core/manaversePark.ts');
+ for(const host of ['luna','lyra']){
+  const bench=park.parkBenches[host];
+  const from=park.parkStops[bench.meetupStop];
+  const target=activity.parkGroupJoinPoint(from,host);
+  assert.ok(target);
+  assert.ok(park.isParkFloor(target));
+  assert.ok(park.parkFloorRoute(from,target).length);
+  assert.ok(Math.hypot(target.x-from.x,target.y-from.y)>3);
+  assert.equal(activity.parkGroupJoinPoint(park.parkStreetThreshold,host),undefined);
+ }
+ assert.equal(activity.readGroupJoinReply('{"accepted":true,"text":"Come sketch with us, Aishi."}').accepted,true);
+ assert.equal(activity.readGroupJoinReply('{"accepted":false,"text":"Maybe after this chapter, Aishi."}').accepted,false);
+ assert.equal(activity.readGroupJoinReply('{"accepted":"true","text":"Come over."}'),undefined);
+ assert.equal(activity.readGroupJoinReply('Sure, come join us!'),undefined);
+ const prompt=activity.groupJoinPrompt('lyra','read',[]);
+ assert.match(prompt,/You and Luna are reading together/);
+ assert.match(prompt,/asked to join/);
+ const memories=load('src/core/residentRelationships.ts').rememberSharedActivity([],'group-read','Group reading','Aishi, Luna and Lyra read together by the pond.',['aishi','luna','lyra']);
+ assert.equal(memories.length,4);
+ assert.ok(memories.every(memory=>memory.owner!=='mana'));
+ const keepsakes=load('src/core/activityKeepsakes.ts').recordActivityKeepsake([],'group-read','aishi-group-read','Aishi, Luna and Lyra read together by the pond.',['aishi','luna','lyra']);
+ assert.equal(keepsakes[0].participants.join(','),'aishi,luna,lyra');
+});
+
+test('a planned pond gathering waits while a join request or group activity is in progress',()=>{
+ let timer,completed=0;
+ const react={useRef:current=>({current}),useEffect:effect=>effect()};
+ const load=loader({react},{window:{setTimeout:callback=>{timer=callback;return 1;}}});
+ const {useParkChat}=load('src/components/useParkChat.ts');
+ const chat={first:'luna',second:'lyra',planned:true,activity:'read'};
+ const people=[{id:'luna'},{id:'lyra'}];
+ useParkChat(people,chat,chat,()=>{},()=>completed++,true);
+ assert.equal(timer,undefined);
+ assert.equal(completed,0);
+ useParkChat(people,chat,chat,()=>{},()=>completed++,false);
+ assert.equal(typeof timer,'function');
+ timer();
+ assert.equal(completed,1);
+});
+
+test('resident friends can make a first invitation without inventing a shared past',()=>{
+ const load=loader(),invites=load('src/core/memoryInvitations.ts'),shared=load('src/core/residentRelationships.ts');
+ const first=invites.residentFriendChoices([],'luna');
+ assert.equal(first.length,2);
+ assert.equal(first[0].recipient,'lyra');
+ assert.equal(first[0].memoryId,undefined);
+ assert.match(invites.memoryInvitationPrompt('luna',first),/no shared memory/);
+ const reply={...first[0],id:'accept',owner:'lyra',recipient:'luna',responding:true,fact:'Luna invited you to sketch by the pond.'};
+ assert.match(invites.memoryInvitationPrompt('lyra',[reply]),/Decide whether to accept/);
+ assert.equal(invites.readMemoryInvitation('{"id":null,"text":"Maybe another day."}',[reply]),undefined);
+ const memories=shared.rememberSharedActivity([],'friend-1','Reading','Luna and Lyra read together by the pond.',['luna','lyra']);
+ assert.equal(memories.length,2);
+ assert.match(shared.sharedMemoryContext(memories,'luna'),/I spent time with Lyra/);
+ assert.match(shared.sharedMemoryContext(memories,'lyra'),/I spent time with Luna/);
+ assert.equal(shared.sharedMemoryContext(memories,'mana'),'');
+ assert.ok(invites.residentFriendChoices(memories,'lyra')[0].memoryId);
+ const keepsakes=load('src/core/activityKeepsakes.ts').recordActivityKeepsake([],'friend-1','resident-park-meetup','Luna and Lyra read together by the park pond.',['luna','lyra']);
+ assert.equal(keepsakes[0].owner,'lyra');
+ assert.equal(keepsakes[0].participants.join(','),'luna,lyra');
+});
+
+test('a resident walks to their friend’s meeting stop before becoming ready for a shared activity',()=>{
+ let resting=false,walked;
+ const park={stop:10,moving:false,walker:{point:{x:28,y:25},walking:false},walk:stop=>{walked=stop;},leave:()=>assert.fail('A friend meetup should hold the resident at the park')};
+ const react={useState:()=>[resting,next=>{resting=next;}],useRef:current=>({current}),useEffect:effect=>effect()};
+ const load=loader({react,'./useParkWalk':{useParkWalk:()=>park},'../core/companionRoom':{roomSleepNight:()=>undefined}});
+ const {useParkResident}=load('src/components/useParkResident.ts');
+ const {parkBenches,parkStops}=load('src/core/manaversePark.ts');
+ assert.equal(useParkResident('lyra',true,'Asia/Singapore',()=>{},true,false,'luna').bench,undefined);
+ assert.equal(walked,parkBenches.luna.meetupStop);
+ park.stop=parkBenches.luna.meetupStop;
+ useParkResident('lyra',true,'Asia/Singapore',()=>{},true,false,'luna');
+ const ready=useParkResident('lyra',true,'Asia/Singapore',()=>{},true,false,'luna');
+ assert.equal(ready.bench.point,parkStops[parkBenches.luna.meetupStop]);
+ park.moving=true;
+ assert.equal(useParkResident('lyra',true,'Asia/Singapore',()=>{},true,false,'luna').bench,undefined);
+});
+
+test('Pet Bot keeps actual friend encounters separately from core memories across room saves',()=>{
+ const load=loader(),bot=load('src/core/petBot.ts'),room=load('src/core/companionRoom.ts');
+ const first=new Date('2026-11-19T08:00:00Z'),second=new Date('2026-11-20T08:00:00Z');
+ const friends=bot.meetPetBotFriend(bot.meetPetBotFriend({},'luna',first),'luna',second);
+ const saved=room.validateRoom(JSON.parse(JSON.stringify({petBotFriends:friends,petBotMemory:['Aishi likes blue LEDs.']})));
+ assert.equal(saved.petBotFriends.luna.visits,2);
+ assert.equal(saved.petBotFriends.luna.firstMetAt,first.toISOString());
+ assert.equal(saved.petBotFriends.luna.lastMetAt,second.toISOString());
+ assert.equal(saved.petBotFriends.lyra,undefined);
+ assert.match(bot.petBotFriendContext(saved.petBotFriends,'luna'),/Luna is here/);
+ assert.doesNotMatch(bot.petBotFriendContext(saved.petBotFriends),/Luna is here/);
+ assert.equal(saved.petBotMemory[0],'Aishi likes blue LEDs.');
+ assert.equal(Object.keys(bot.validatePetBotFriends({lyra:{firstMetAt:'bad',lastMetAt:second.toISOString(),visits:1}})).length,0);
+});
+
+test('activity keepsakes retain the latest completed sketch, bookmark and workshop trinket through room saves',()=>{
+ const load=loader(),keepsakes=load('src/core/activityKeepsakes.ts'),room=load('src/core/companionRoom.ts');
+ const at=new Date('2026-11-19T08:00:00Z');
+ let history=keepsakes.recordActivityKeepsake([],'sketch-1','aishi-sketch','Aishi and Luna sketched at the pond.',['aishi','luna'],at);
+ assert.equal(history.length,1);
+ assert.equal(history[0].kind,'sketch');
+ assert.equal(keepsakes.recordActivityKeepsake(history,'sketch-1','aishi-sketch','Aishi and Luna sketched at the pond.',['aishi','luna'],at),history);
+ history=keepsakes.recordActivityKeepsake(history,'read-1','aishi-read','Aishi and Lyra read by the window.',['aishi','lyra'],at);
+ history=keepsakes.recordActivityKeepsake(history,'tinker-1','workshop-tinkering','Mana made a wind-up star.',['mana'],at);
+ assert.equal(history.length,3);
+ assert.equal(keepsakes.recordActivityKeepsake(history,'not-complete','walk','Mana is walking.',['mana'],at),history);
+ assert.equal(keepsakes.recordActivityKeepsake(history,'wrong-person','aishi-read','Reading.',['mana'],at),history);
+ const newer=new Date(at.getTime()+60_000);
+ history=keepsakes.recordActivityKeepsake(history,'sketch-2','park-meetup','Mana and Luna sketched by the park pond.',['mana','luna'],newer);
+ assert.equal(history.length,3);
+ assert.equal(history.find(item=>item.owner==='luna').at,newer.toISOString());
+ const restored=room.validateRoom(JSON.parse(JSON.stringify({activityKeepsakes:history}))).activityKeepsakes;
+ assert.equal(restored.length,3);
+ assert.equal(restored.find(item=>item.owner==='lyra').participants.join(','),'aishi,lyra');
+ assert.equal(keepsakes.validateActivityKeepsakes([{...history[0],owner:'unknown'},{...history[0],at:'bad'}]).length,0);
+ assert.equal(room.validateRoom({}).activityKeepsakes,undefined);
+});
+
+test('memory invitations use an older completed activity with the intended participant and available activity',()=>{
+ const load=loader(),shared=load('src/core/residentRelationships.ts'),invites=load('src/core/memoryInvitations.ts');
+ const at=new Date('2026-11-19T08:00:00Z');
+ const pond=shared.rememberSharedActivity([],'shared-2026-11-19-park-meetup','Park meetup','Mana and Luna sketched by the pond.',['mana','luna'],at);
+ const reading=shared.rememberSharedActivity(pond,'shared-2026-11-19-aishi-read','Read with Lyra','Aishi and Lyra read at the library.',['aishi','lyra'],at);
+ const later=at.getTime()+10*60_000;
+ assert.equal(invites.memoryInvitations(reading,'luna','mana',undefined,at.getTime()).length,0);
+ const choices=invites.memoryInvitations(reading,'luna','mana',undefined,later);
+ assert.equal(choices.length,1);
+ assert.equal(choices[0].activity,'park');
+ assert.equal(invites.memoryInvitations(reading,'lyra','mana',undefined,later).length,0);
+ assert.equal(invites.memoryInvitations(reading,'lyra','aishi','sketch',later).length,0);
+ const aishi=invites.memoryInvitations(reading,'lyra','aishi','read',later);
+ assert.equal(aishi.length,1);
+ assert.match(invites.memoryInvitationPrompt('lyra',aishi),/Aishi and Lyra read/);
+ assert.equal(invites.readMemoryInvitation(JSON.stringify({id:choices[0].id,text:'Would you sketch by the pond with me again, Mana?'}),choices).choice.id,choices[0].id);
+ assert.equal(invites.readMemoryInvitation('{"id":null,"text":""}',choices),undefined);
+ assert.equal(invites.readMemoryInvitation('{"id":"invented","text":"Come over!"}',choices),undefined);
+ assert.equal(invites.readMemoryInvitation('Let’s meet again!',choices),undefined);
+ assert.equal(invites.memoryInvitations([],'luna','mana',undefined,later).length,0);
+});
+
+test('resident invitations and Mana’s acceptance retain the correct sender through saving',()=>{
+ const load=loader(),phone=load('src/core/roomPhone.ts'),room=load('src/core/companionRoom.ts');
+ const invite={...phone.phoneMessage('luna','park-request'),text:'Want to sketch by the pond again, Mana?',detail:'Mana and Luna sketched by the pond.'};
+ const accepted=phone.phoneMessage('luna','park-request-accepted');
+ const saved=room.validateRoom({phoneMessages:[invite,accepted]}).phoneMessages;
+ assert.equal(saved[0].from,'contact');
+ assert.equal(saved[1].from,'mana');
+ assert.equal(saved[0].text,invite.text);
+ assert.match(phone.phoneMessagePrompt(saved[1],saved),/as Mana to Luna/);
+ assert.equal(phone.phoneMessage('lyra','cafe-request').from,'contact');
+ assert.equal(phone.phoneMessage('lyra','cafe-request-accepted').from,'mana');
+});
+
+test('completed shared activities keep independent memories and survive room backups',()=>{
+ const load=loader();
+ const shared=load('src/core/residentRelationships.ts');
+ const room=load('src/core/companionRoom.ts');
+ const at=new Date('2026-11-19T08:00:00Z');
+ const memories=shared.rememberSharedActivity([],'visit-1','Sketching','Mana and Luna sketched by the pond.',['mana','luna'],at);
+ assert.equal(memories.length,2);
+ assert.equal(shared.rememberSharedActivity(memories,'visit-1','Sketching','Mana and Luna sketched by the pond.',['mana','luna'],at),memories);
+ const saved=room.validateRoom(JSON.parse(JSON.stringify({sharedMemories:memories})));
+ assert.equal(saved.sharedMemories.length,2);
+ assert.match(shared.sharedMemoryContext(saved.sharedMemories,'luna'),/I spent time with Mana/);
+ assert.equal(shared.sharedMemoryContext(saved.sharedMemories,'lyra'),'');
+ const forgotten=saved.sharedMemories.filter(memory=>memory.owner!=='luna');
+ assert.equal(shared.sharedMemoryContext(forgotten,'luna'),'');
+ assert.match(shared.sharedMemoryContext(forgotten,'mana'),/I spent time with Luna/);
+ assert.equal(shared.validateSharedMemories([{...memories[0],owner:'unknown'},{...memories[0],at:'bad'},null]).length,0);
+ const aishi=shared.rememberSharedActivity([],'read-1','Reading','Aishi and Lyra read together.',['aishi','lyra'],at);
+ assert.equal(aishi.length,1);
+ assert.equal(aishi[0].owner,'lyra');
+ assert.equal(aishi[0].with,'aishi');
+});
+
+test('resident profiles use distinct memory fields, existing sprites, and shared home entrances',()=>{
+ const load=loader();
+ const {residentProfiles,residentIds}=load('src/core/residentProfiles.ts');
+ const {manaversePassage}=load('src/core/manaversePassage.ts');
+ const keys=new Set();
+ for(const id of residentIds){
+  const profile=residentProfiles[id];
+  assert.ok(manaversePassage('street',profile.home)?.entry);
+  for(const art of [profile.avatar,profile.blink,profile.step,profile.drag]){
+   assert.ok(fs.existsSync(path.join(__dirname,'..','public',art)),art);
+  }
+  for(const key of [profile.memory.coreKey,profile.memory.visitKey]){
+   assert.ok(!keys.has(key),key);
+   keys.add(key);
+  }
+ }
+});
+
+test('Lyra’s scene prompt includes her visits and relevant recorded encounters',()=>{
+ const load=loader();
+ const {residentPrompt}=load('src/core/residentProfiles.ts');
+ const {validateRoom}=load('src/core/companionRoom.ts');
+ const {readRememberingReply}=load('src/core/sceneMemory.ts');
+ const learned=readRememberingReply('{"reply":"I’ll remember.","memory":"Aishi collects bookmarks."}');
+ const saved=validateRoom(JSON.parse(JSON.stringify({lyraCoreMemories:[learned.memory],petBotMemory:['Aishi likes blue LEDs.']})));
+ const prompt=residentPrompt('lyra','Aishi is reading by the library window.',['beanbag-chat'],[
+  {date:'2026-11-18',activity:'Mana and Lyra read by the park pond.'},
+  {date:'2026-11-18',activity:'Mana and Luna sketched by the park pond.'},
+ ],saved.lyraCoreMemories,true);
+ assert.match(prompt,/You are Lyra/);
+ assert.match(prompt,/library window/);
+ assert.match(prompt,/beanbag/);
+ assert.match(prompt,/Lyra read by the park pond/);
+ assert.doesNotMatch(prompt,/Luna sketched/);
+ assert.match(prompt,/Aishi collects bookmarks/);
+ assert.doesNotMatch(prompt,/blue LEDs/);
+});
+
+test('Luna’s saved core memories and encounters stay separate from Lyra’s',()=>{
+ const load=loader();
+ const {residentPrompt}=load('src/core/residentProfiles.ts');
+ const {validateRoom}=load('src/core/companionRoom.ts');
+ const saved=validateRoom(JSON.parse(JSON.stringify({lunaCoreMemories:['Aishi sketches with charcoal.'],lyraCoreMemories:['Aishi collects bookmarks.']})));
+ const prompt=residentPrompt('luna','Aishi is sketching by the pond.',['while-mana-slept'],[
+  {date:'2026-11-18',activity:'Mana and Luna sketched by the pond.'},
+  {date:'2026-11-18',activity:'Mana and Lyra read together.'},
+ ],saved.lunaCoreMemories,true);
+ assert.match(prompt,/You are Luna/);
+ assert.match(prompt,/sketches with charcoal/);
+ assert.match(prompt,/Mana slept/);
+ assert.match(prompt,/Mana and Luna sketched/);
+ assert.doesNotMatch(prompt,/bookmarks|Lyra read/);
+});
+
+test('Pet Bot walks to the doorway before it transfers rooms',()=>{
+ let arrived=false,begin,points=[],now=0;
+ const frames=[];
+ const react={
+  useState(initial){return [typeof initial==='function'?initial():initial,value=>{if(typeof value==='object')points.push(value);}];},
+  useRef(current){return {current};},useEffect(effect){effect();},
+ };
+ const load=loader({react},{document:{visibilityState:'visible'},performance:{now:()=>now},
+  window:{matchMedia:()=>({matches:false}),setTimeout:callback=>{begin=callback;return 1;}},
+  requestAnimationFrame:callback=>frames.push(callback)});
+ const {usePetBotRoam}=load('src/components/usePetBotRoam.ts');
+ const room=load('src/core/companionRoom.ts');
+ const {bedroomToLiving}=load('src/core/manaverseStreet.ts').homeThresholds;
+ const start=usePetBotRoam(room.ROOM_OBJECTS,undefined,bedroomToLiving,()=>{arrived=true;}).point;
+ begin();
+ now+=150;
+ frames.shift()(now);
+ assert.equal(arrived,false);
+ assert.notDeepEqual(points[0],start);
+ for(let i=0;i<20&&frames.length;i++){now+=20_000;frames.shift()(now);}
+ assert.equal(arrived,true);
+ const threshold=room.roomPoint(room.roomPosition(bedroomToLiving.x/100*799,bedroomToLiving.y/100*698));
+ assert.equal(Math.hypot(points.at(-1).x-threshold.x,points.at(-1).y-threshold.y)<.01,true);
+});
+
+test('Pet Bot walks to its original spot at bedtime and resumes roaming on wake',()=>{
+ let point,begin,now=0,index=0;
+ const frames=[];
+ const react={
+  useState(initial){
+   if(index++!==0)return [initial,()=>{}];
+   point??=initial();
+   return [point,next=>{point=next;}];
+  },
+  useRef(current){return {current};},
+  useEffect(effect){effect();},
+ };
+ const load=loader({react},{document:{visibilityState:'visible'},performance:{now:()=>now},
+  window:{matchMedia:()=>({matches:false}),setTimeout:callback=>{begin=callback;return 1;}},
+  requestAnimationFrame:callback=>frames.push(callback)});
+ const {usePetBotRoam}=load('src/components/usePetBotRoam.ts');
+ const {ROOM_OBJECTS}=load('src/core/companionRoom.ts');
+ const {bedroomToLiving}=load('src/core/manaverseStreet.ts').homeThresholds;
+ const render=(entry,bedtime)=>{
+  index=0;
+  return usePetBotRoam(ROOM_OBJECTS,entry,undefined,()=>assert.fail('Charging should not transfer rooms'),false,bedtime);
+ };
+ const dock=render(undefined,true);
+ assert.equal(dock.charging,true);
+ assert.equal(begin,undefined);
+ point=undefined;
+ assert.equal(render(bedroomToLiving,true).charging,false);
+ const walkToDock=begin;
+ begin=undefined;
+ walkToDock();
+ for(let i=0;i<20&&frames.length;i++){now+=20_000;frames.shift()(now);}
+ assert.ok(Math.hypot(point.x-dock.point.x,point.y-dock.point.y)<.01);
+ assert.equal(render(bedroomToLiving,true).charging,true);
+ assert.equal(begin,undefined);
+ assert.equal(render(bedroomToLiving,false).charging,false);
+ assert.equal(typeof begin,'function');
+});
+
+test('Pet Bot keeps core facts and supplies current world state to the model',()=>{
+ const load=loader(),room=load('src/core/companionRoom.ts'),bot=load('src/core/petBot.ts');
+ const {readRememberingReply}=load('src/core/sceneMemory.ts');
+ const saved=room.validateRoom({petBotMemory:[{message:'Old transcript',reply:'Hello'},'Aishi likes lavender.','aishi likes lavender.']});
+ const reloaded=room.validateRoom(JSON.parse(JSON.stringify(saved)));
+ const messages=bot.petBotMessages(reloaded.petBotMemory,'Do you remember?','Mana is asleep.');
+ assert.equal(JSON.stringify(reloaded.petBotMemory),'["Aishi likes lavender."]');
+ assert.match(messages[0].content,/Aishi likes lavender/);
+ assert.match(messages[0].content,/Mana is asleep/);
+ assert.doesNotMatch(messages[0].content,/Old transcript/);
+ assert.equal(messages.at(-1).content,'Do you remember?');
+ assert.equal(readRememberingReply('{"reply":"Beep!","memory":"Aishi likes tea."}').memory,'Aishi likes tea.');
+ assert.equal(readRememberingReply('Beep!').memory,undefined);
+});
+
 test('star collector fixes the actual generated frame-reset bug and preserves movement, score and restart',()=>{
  const sandbox=loader()('src/core/codeSandbox.ts');
  function runner(source){let latest,calls=0;const math=Object.create(Math);math.random=()=>{calls++;return .5;};const self={postMessage:m=>latest=m};vm.runInNewContext(sandbox.SANDBOX_WORKER,{self,Math:math});self.onmessage({data:{type:'start',code:source}});assert.equal(latest.type,'ready');return {tick(keys={},dt=.1){self.onmessage({data:{type:'tick',dt,keys}});return sandbox.validateSandboxFrame(latest);},calls:()=>calls};}
@@ -3086,7 +4094,7 @@ test('automated smoke check runs real example worker through bounded isolated me
  const staticResult=await smoke.checkGameSmoke('api.onFrame=()=>{api.clear("#fff")};');assert.equal(staticResult.passed,true);assert.equal(staticResult.warnings.length,1,'static drawing is a warning, not proof of broken gameplay');
  const broken=await smoke.checkGameSmoke('api.onFrame=()=>{throw Error("bad tick")};');assert.equal(broken.passed,false);assert.equal(broken.evidence.frames,0);assert.match(broken.evidence.detail,/bad tick/);
  const blank=await smoke.checkGameSmoke('api.onFrame=()=>{};');assert.equal(blank.passed,false);assert.match(blank.evidence.detail,/no drawing/);
- const {STAR_COLLECTOR_MARKER}=load('src/core/starCollectorCheck.ts');
+ const {STAR_COLLECTOR_MARKER,STAR_COLLECTOR_STARTER}=load('src/core/starCollectorCheck.ts');
  const collector=STAR_COLLECTOR_MARKER+`\nlet x=60,y=140,won=false;
  api.onFrame=(dt,k)=>{
    if(k.Space){x=60;y=140;won=false;}
@@ -3102,15 +4110,20 @@ test('automated smoke check runs real example worker through bounded isolated me
    if(won)api.text("You win!",10,40,"#ffffff");
  };`;
  const verified=await smoke.checkGameSmoke(collector);
+ const recovered=await smoke.checkGameSmoke(STAR_COLLECTOR_STARTER);
+ assert.equal(recovered.passed,true,recovered.evidence.detail);
+ assert.equal(recovered.evidence.frames,60);
  assert.equal(verified.passed,true,verified.evidence.detail);
  assert.equal(verified.evidence.checkKind,'star-collector');
  assert.equal(verified.evidence.frames,60);
  const validateRunEvidence=load('src/core/codeGames.ts').validateRunEvidence;
  assert.equal(validateRunEvidence(verified.evidence).checkKind,'star-collector');
  for(const [bad,reason] of [
+   [collector.replace('let x=60','let x=70'),/Starting frame.*player at \(70, 140\), expected \(60, 140\)/],
+   [collector.replace('circle(180,140,5','circle(180,140,8'),/expected #ffffff star.*found \(180, 140, radius 8\)/],
    [collector.replace('!!k.ArrowDown','false'),/Arrow key/],
    [collector.replace('Number(won)','0'),/score one/],
-   [collector.replace('if(k.Space)','if(false)'),/Space must reset/],
+   [collector.replace('if(k.Space)','if(false)'),/Space restart.*expected/],
  ]){
    const failed=await smoke.checkGameSmoke(bad);
    assert.equal(failed.passed,false);
@@ -4221,6 +5234,11 @@ test("Game Dev keeps a daily work claim and spaces published-game playtests acro
  assert.match(g.developmentRequest({...project,step:1}),/presentation/);
  const day="2026-11-12";
  const code=c.STAR_COLLECTOR_MARKER+"\napi.onFrame=()=>{}";
+ const failedDraft={code,detail:'Starting frame: no white circle.'};
+ const retry=g.validateGameDev({projects:[{...project,failedDraft}]}).projects[0];
+ assert.equal(retry.code,'');
+ assert.equal(JSON.stringify(retry.failedDraft),JSON.stringify(failedDraft));
+ assert.equal(g.validateGameDev({projects:[{...retry,code,step:2}]}).projects[0].failedDraft,undefined);
  const state=g.validateGameDev({enabled:true,playsPerDay:3,lastDevelopment:day,
   projects:[{...project,step:3,code,publishedAt:day+"T00:00:00Z"}]});
  assert.equal(g.developmentDue(state,day),false);
@@ -4252,4 +5270,694 @@ test("Game Dev keeps a daily work claim and spaces published-game playtests acro
  assert.equal(next.slot,2);
  assert.equal(g.playSlot({...state,playClaim:next},new Date(day+"T21:00:00Z"),"UTC"),undefined);
  assert.equal(g.validateGameDev({projects:[{...project,step:3,code}]}).projects.length,0);
+});
+
+test('decoration layouts retain independent object transforms, empty layouts and undo history',()=>{
+ const load=loader(),layout=load('src/core/townDecorationLayout.ts'),festivities=load('src/core/townFestivities.ts');
+ const object=layout.decorationObject('christmas-tree','tree',45,67);
+ const moved=layout.transformDecoration(object,{width:18,height:31,rotation:25,opacity:.5,layer:75,flipped:true,locked:true});
+ const schedule={...festivities.DEFAULT_TOWN_DECORATIONS.schedules[0],objects:[moved]};
+ const saved=load('src/core/companionRoom.ts').validateRoom(JSON.parse(JSON.stringify({townDecorations:{schedules:[schedule]}})));
+ assert.equal(saved.townDecorations.schedules[0].objects[0].rotation,25);
+ assert.equal(saved.townDecorations.schedules[0].objects[0].locked,true);
+ assert.equal(saved.townDecorations.schedules[0].objects[0].layer,75);
+ assert.equal(saved.townDecorations.schedules[0].objects[0].x,45);
+ assert.equal(layout.transformDecoration(object,{x:200,y:-20,width:NaN,opacity:10}).x,100);
+ assert.equal(layout.transformDecoration(object,{y:-20}).y,0);
+ assert.equal(layout.transformDecoration(object,{width:NaN}).width,object.width);
+ assert.equal(layout.validateDecorationLayout([{...object,kind:'unknown'},object,object]).length,1);
+ assert.equal(festivities.townFestivities([],{schedules:[{...schedule,objects:[]}]},'2026-12-10').active,false);
+ assert.equal(festivities.townFestivities([],{schedules:[{...schedule,objects:[{...moved,hidden:true}]}]},'2026-12-10').active,false);
+ assert.equal(layout.scheduleDecorationObjects({...schedule,objects:[]}).length,0);
+ assert.equal(layout.defaultDecorationLayout(['garlands']).length,3);
+ let history={past:[],present:[object],future:[]};
+ history=layout.recordDecorationEdit(history,[moved]);assert.equal(history.past.length,1);
+ history=layout.undoDecorationEdit(history);assert.equal(history.present[0].x,object.x);
+ history=layout.redoDecorationEdit(history);assert.equal(history.present[0].rotation,25);
+ history=layout.undoDecorationEdit(history);history=layout.recordDecorationEdit(history,[]);
+ assert.equal(history.future.length,0);assert.equal(history.present.length,0);
+});
+
+test('phone read state survives room saves and only new incoming text restores the badge',()=>{
+ const load=loader(),read=load('src/core/phoneReadState.ts');
+ const message={contact:'luna',from:'contact',kind:'host-invite',at:'2026-11-19T06:00:00.000Z',text:'Come over?'};
+ const another={...message,contact:'lyra',text:'Good morning!'};
+ const messages=[message,another];
+ assert.equal(read.unreadPhoneContacts(messages,{}).length,2);
+ const markers={luna:read.phoneMessageReadKey(message),lyra:read.phoneMessageReadKey(another)};
+ const saved=load('src/core/companionRoom.ts').validateRoom(JSON.parse(JSON.stringify({aiPhone:true,phoneReadMessages:markers,phoneMessages:messages})));
+ assert.equal(read.unreadPhoneContacts(saved.phoneMessages,saved.phoneReadMessages).length,0);
+ assert.equal(read.unreadPhoneContacts([...messages,{...message,from:'mana',text:'Sure!'}],saved.phoneReadMessages).length,0);
+ assert.equal(read.unreadPhoneContacts([...messages,{...message,text:undefined}],saved.phoneReadMessages).length,0);
+ const incoming={...message,at:'2026-11-19T07:00:00Z',text:'See you soon!'};
+ assert.equal(read.unreadPhoneContacts([...messages,incoming],saved.phoneReadMessages).join(','),'luna');
+ assert.notEqual(read.phoneMessageReadKey(message),read.phoneMessageReadKey({...message,text:'A different message'}));
+ assert.equal(Object.keys(read.validatePhoneReadState({luna:markers.luna,unknown:'value',lyra:{invalid:true}})).join(','),'luna');
+});
+
+test('decoration editor supports drag history, copy paste across schedules and mouse rotation',()=>{
+ const slots=[];let cursor=0,uuid=0;const jsx=(type,props)=>({type,props});
+ const react={useState(initial){const id=cursor++;if(!Object.hasOwn(slots,id))slots[id]=typeof initial==='function'?initial():initial;return [slots[id],value=>slots[id]=typeof value==='function'?value(slots[id]):value];},
+  useRef(initial){const id=cursor++;return slots[id]??(slots[id]={current:initial});},useEffect(){}};
+ const load=loader({react,'react/jsx-runtime':{jsx,jsxs:jsx},'react-dom':{createPortal:node=>node}},{document:{body:{}},crypto:{randomUUID:()=> `copy-${++uuid}`}});
+ const Editor=load('src/components/TownDecorationEditor.tsx').default,layout=load('src/core/townDecorationLayout.ts');
+ const schedule={name:'Test',decorations:['christmas-tree'],objects:[layout.decorationObject('christmas-tree','tree',45,67)]};
+ let saved,nodes,editorSchedule=schedule;
+ function render(){cursor=0;nodes=[];const node=Editor({schedule:editorSchedule,onSave:value=>saved=value,onClose(){}});
+  function visit(node){if(Array.isArray(node)){node.forEach(visit);return;}if(!node||typeof node!=='object')return;nodes.push(node);for(const child of [node.props?.children].flat())visit(child);}visit(node);
+  for(const node of nodes){if(node.props?.className==='town-decoration-editor-stage')node.props.ref.current={getBoundingClientRect:()=>({left:0,top:0,width:1000,height:600})};
+   if(node.props?.className==='town-decoration-editor-viewport')node.props.ref.current={scrollLeft:0,scrollTop:0};}return node;}
+ const find=className=>nodes.find(node=>node.props?.className===className);
+ const pointer=(x,y)=>({button:0,pointerId:1,clientX:x,clientY:y,preventDefault(){},stopPropagation(){},currentTarget:{setPointerCapture(){}}});
+ render();assert.ok(find('town-decoration-object town-decoration-edit-object'),JSON.stringify(nodes.map(n=>n.props?.className)));find('town-decoration-object town-decoration-edit-object').props.onPointerDown(pointer(450,400));
+ find('town-decoration-editor-viewport').props.onPointerMove(pointer(550,460));render();
+ find('town-decoration-editor-viewport').props.onPointerUp(pointer(550,460));render();
+ let object=find('town-decoration-object town-decoration-edit-object');assert.equal(object.props.style.left,'55%');
+ nodes.find(node=>node.type==='button'&&node.props.children==='Undo').props.onClick();render();
+ assert.equal(find('town-decoration-object town-decoration-edit-object').props.style.left,'45%');
+ find('town-decoration-resize').props.onPointerDown(pointer(500,400));find('town-decoration-editor-viewport').props.onPointerMove(pointer(550,440));render();
+ find('town-decoration-editor-viewport').props.onPointerUp(pointer(550,440));render();
+ nodes.find(node=>node.type==='button'&&node.props.children==='Save layout').props.onClick();
+ assert.equal(saved.length,1);assert.ok(saved[0].width>schedule.objects[0].width);assert.equal(schedule.objects[0].x,45);
+ const button=label=>nodes.find(node=>node.type==='button'&&node.props.children===label);
+ const key=(key,extra={})=>find('town-decoration-editor').props.onKeyDown({key,target:{closest:()=>null},preventDefault(){},stopPropagation(){},...extra});
+ const pivot={x:saved[0].x*10,y:saved[0].y*6};
+ find('town-decoration-rotate').props.onPointerDown(pointer(pivot.x,pivot.y-100));
+ find('town-decoration-editor-viewport').props.onPointerMove(pointer(pivot.x+100,pivot.y));render();
+ find('town-decoration-editor-viewport').props.onPointerUp(pointer(pivot.x+100,pivot.y));render();button('Save layout').props.onClick();
+ assert.equal(saved[0].rotation,90);
+ key('z',{ctrlKey:true});render();button('Save layout').props.onClick();assert.equal(saved[0].rotation,0,'mouse rotation is one undo step');
+ key('z',{ctrlKey:true,shiftKey:true});render();button('Save layout').props.onClick();assert.equal(saved[0].rotation,90);
+ key('c',{ctrlKey:true});render();assert.equal(button('Paste').props.disabled,false);
+ key('v',{ctrlKey:true});render();button('Save layout').props.onClick();assert.equal(saved.length,2);assert.equal(saved[1].rotation,90);assert.notEqual(saved[0].id,saved[1].id);
+ key('z',{ctrlKey:true});render();button('Save layout').props.onClick();assert.equal(saved.length,1);
+ key('y',{ctrlKey:true});render();button('Save layout').props.onClick();assert.equal(saved.length,2);
+ key('x',{ctrlKey:true});render();button('Save layout').props.onClick();assert.equal(saved.length,1,'cut removes the selected object');
+ key('v',{ctrlKey:true});render();button('Save layout').props.onClick();assert.equal(saved.length,2);
+ const pasted=saved[1],pastePivot={x:pasted.x*10,y:pasted.y*6};
+ find('town-decoration-rotate').props.onPointerDown(pointer(pastePivot.x,pastePivot.y-100));
+ find('town-decoration-editor-viewport').props.onPointerMove(pointer(pastePivot.x-100,pastePivot.y));render();
+ key('Escape');render();button('Save layout').props.onClick();assert.equal(saved[1].rotation,90,'Escape cancels the uncommitted rotation');
+ let intercepted=false;key('c',{ctrlKey:true,target:{closest:()=>({})},preventDefault(){intercepted=true;}});assert.equal(intercepted,false,'copy in a text field stays native');
+ slots.length=0;editorSchedule={...schedule,name:'Another schedule',objects:[]};render();
+ assert.equal(button('Paste').props.disabled,false,'the object clipboard survives changing schedule editors');
+ button('Paste').props.onClick();render();button('Save layout').props.onClick();assert.equal(saved.length,1);assert.equal(saved[0].rotation,90);
+});
+
+test('pointer rotation wraps at the angle boundary and supports 15 degree snapping',()=>{
+ const {pointerDecorationRotation:rotate}=loader()('src/core/townDecorationLayout.ts');
+ const pivot={x:0,y:0};
+ const at=angle=>({x:Math.cos(angle*Math.PI/180)*100,y:Math.sin(angle*Math.PI/180)*100});
+ assert.equal(rotate(0,at(-90),at(0),pivot),90);
+ assert.equal(rotate(0,at(179),at(-179),pivot),2);
+ assert.equal(rotate(170,at(-90),at(-50),pivot),-150);
+ assert.equal(rotate(0,at(-90),at(-68),pivot,true),15);
+ assert.equal(rotate(0,at(-90),at(-68),pivot),22);
+});
+
+
+
+test('phone UI marks a viewed conversation read and keeps it read after remounting',()=>{
+ let slots=[],cursor=0,pending=[];const jsx=(type,props)=>({type,props});
+ const react={useState(initial){const id=cursor++;if(!Object.hasOwn(slots,id))slots[id]=typeof initial==='function'?initial():initial;return [slots[id],value=>slots[id]=typeof value==='function'?value(slots[id]):value];},
+  useRef(initial){const id=cursor++;return slots[id]??(slots[id]={current:initial});},useMemo:fn=>fn(),
+  useEffect(effect,deps){const id=cursor++,previous=slots[id];if(previous&&deps.every((value,index)=>Object.is(value,previous.deps[index])))return;const entry={deps};slots[id]=entry;pending.push(()=>{previous?.cleanup?.();entry.cleanup=effect();});}};
+ const stub={__esModule:true,default:()=>null};
+ const load=loader({react,'react/jsx-runtime':{jsx,jsxs:jsx},'react-dom':{createPortal:node=>node},'./TownToday':stub,'./TownPersonalGoals':stub,'./ManaverseMap':stub,'./TownWeather':stub},
+  {window:{setTimeout:()=>1,setInterval:()=>2},clearTimeout(){},clearInterval(){}});
+ const Phone=load('src/components/RoomPhone.tsx').default;
+ let read={},nodes=[];
+ const props={visible:true,sleeping:false,messages:[{contact:'luna',from:'contact',kind:'host-invite',at:'2026-11-19T06:00:00.000Z',text:'Come over?'}],
+  onReadMessages:next=>read={...read,...next},onSend(){},timeZone:'Asia/Singapore',events:[],projects:[],meetupPlace:'park',area:'square',characters:{},onChooseArea(){},onMapOpenChange(){},
+  coreMemories:{},onForgetMemory(){},sharedMemories:[],onForgetSharedMemory(){},petBotMemories:[],onForgetPetMemory(){},manaMemories:[],onForgetManaMemory(){},petBotFriends:{},onForgetPetFriend(){},personalGoals:[],today:{}};
+ function render(){cursor=0;pending=[];nodes=[];const tree=Phone({...props,readMessages:read});function visit(node){if(Array.isArray(node)){node.forEach(visit);return;}if(!node||typeof node!=='object')return;nodes.push(node);visit(node.props?.children);}visit(tree);
+  for(const node of nodes)if(node.props?.className==='btn room-phone-button')node.props.ref.current={closest:()=>({}),focus(){}};pending.forEach(effect=>effect());}
+ render();assert.equal(nodes.find(node=>node.props?.className==='btn room-phone-button').props['data-unread'],true);
+ nodes.find(node=>node.props?.['aria-label']==='Messages, unread messages').props.onClick({currentTarget:{focus(){}}});render();
+ nodes.find(node=>node.props?.className==='room-phone-row'&&JSON.stringify(node.props.children).includes('Luna')).props.onClick();render();render();
+ assert.ok(read.luna);assert.equal(nodes.find(node=>node.props?.className==='btn room-phone-button').props['data-unread'],false);
+ slots=[];render();assert.equal(nodes.find(node=>node.props?.className==='btn room-phone-button').props['data-unread'],false);
+ props.messages.push({...props.messages[0],at:'2026-11-19T07:00:00.000Z',text:'Hello again!'});render();
+ assert.equal(nodes.find(node=>node.props?.className==='btn room-phone-button').props['data-unread'],true);
+});
+
+test('a due home visit routes Mana out of the workshop and resumes the current schedule after acceptance',()=>{
+ const load=loader(),routine=load('src/core/manaverseRoutine.ts');
+ const now=Date.parse('2026-11-19T10:54:00.000Z');
+ const clock={date:'2026-11-19',time:'18:54'};
+ const invitation={contact:'lyra',kind:'beanbag-request',from:'contact',at:'2026-11-19T07:40:36.818Z'};
+ assert.equal(routine.manaRoutine({date:clock.date,time:'15:59'}).place,'workshop');
+ assert.equal(routine.manaRoutine({date:clock.date,time:'16:00'}).place,'park');
+ assert.equal(routine.manaRoutine(clock).place,'square');
+ assert.equal(routine.manaRoutineDestination(clock,[invitation],false,now),'living');
+ const {manaversePassage}=load('src/core/manaversePassage.ts');
+ const {manaverseWalkRoute}=load('src/core/manaverseNavigation.ts');
+ const bench=load('src/components/useWorkshopActivity.ts').WORKSHOP_WORK_POINT;
+ const exit=manaversePassage('workshop','district');
+ assert.ok(manaverseWalkRoute('workshop',bench,exit.exit).length>1);
+ for(const [from,to] of [['district','square'],['square','street'],['street','living']])assert.ok(manaversePassage(from,to));
+ const accepted={contact:'lyra',kind:'visit-accepted',from:'mana',at:'2026-11-19T10:54:30.000Z'};
+ assert.equal(routine.manaRoutineDestination(clock,[invitation,accepted],false,now),'square');
+ assert.equal(routine.manaRoutineDestination(clock,[{...invitation,scheduledFor:'2026-11-19T11:30:00.000Z'}],false,now),'square');
+ assert.equal(routine.manaRoutineDestination(clock,[invitation],true,now),'bedroom');
+ const cancelled={...accepted,kind:'home-visit-cancelled'};
+ assert.equal(routine.manaRoutineDestination(clock,[invitation,cancelled],false,now),'square');
+});
+
+test('town weather is stable within a clock block, supports overrides and survives room saves',()=>{
+ const load=loader(),w=load('src/core/townWeather.ts');
+ const clock={date:'2026-11-19',time:'16:00'};
+ const automatic=w.townWeather(clock);
+ assert.equal(w.townWeather({...clock,time:'17:59'}).kind,automatic.kind);
+ assert.equal(automatic.nextChange,'18:00');
+ assert.equal(w.townWeather({...clock,time:'23:59'}).nextChange,'00:00');
+ const kinds=new Set();for(let day=1;day<=28;day++)for(let hour=0;hour<24;hour+=3)kinds.add(w.townWeather({date:`2026-11-${String(day).padStart(2,'0')}`,time:`${String(hour).padStart(2,'0')}:00`}).kind);
+ assert.ok(kinds.has('rain'));assert.ok(kinds.has('clear'));
+ const settings={mode:'rain',intensity:'steady',effects:false};
+ const saved=load('src/core/companionRoom.ts').validateRoom(JSON.parse(JSON.stringify({weather:settings})));
+ assert.equal(saved.weather.mode,'rain');assert.equal(saved.weather.effects,false);
+ assert.equal(w.townWeather(clock,saved.weather).kind,'rain');
+ assert.equal(w.townWeather({...clock,date:'2030-07-01'},saved.weather).kind,'rain');
+ assert.equal(w.townWeather(clock,{...settings,mode:'clear'}).kind,'clear');
+ assert.equal(w.validateTownWeather({mode:'blizzard',intensity:'bad'}).mode,'automatic');
+ assert.equal(w.validateTownWeather({mode:'blizzard',intensity:'bad'}).intensity,'gentle');
+ assert.match(w.townWeatherContext(w.townWeather(clock,settings)),/Indoors is sheltered/);
+});
+
+test('rain shelter destinations preserve indoor schedules and use connected shared doorways',()=>{
+ const load=loader(),w=load('src/core/townWeather.ts'),{manaversePassage}=load('src/core/manaversePassage.ts');
+ assert.equal(w.rainShelterDestination('park','square',true),'town-hall');
+ assert.equal(w.rainShelterDestination('square','district',true),'cafe');
+ assert.equal(w.rainShelterDestination('park','workshop',true),'workshop');
+ assert.equal(w.rainShelterDestination('office','street',true),'office');
+ assert.equal(w.rainShelterDestination('living','square',true),'living');
+ assert.equal(w.rainShelterDestination('bedroom','park',true),'bedroom');
+ assert.equal(w.rainShelterDestination('park','workshop',false),'park');
+ assert.equal(w.rainShelterDestination('square','town-hall',false),'square');
+ assert.equal(w.rainShelterDestination('square','district',true,true),'living','Mana brings Pet Bot home instead of leaving it outside a shelter');
+ for(const [from,to] of [['square','town-hall'],['district','cafe'],['street','living'],['park','street']])assert.ok(manaversePassage(from,to));
+ const navigation=load('src/core/manaverseNavigation.ts');
+ const square=load('src/core/manaverseStreet.ts');
+ assert.ok(navigation.planManaverseTransfer('square','town-hall',square.squareSpots[0]).route.length>1);
+});
+
+test('residents finish their current rainy street segment, return through doors and stay sheltered',()=>{
+ const slots=[],timers=new Map();let cursor=0,pending=[],timerId=0,raining=true;
+ const react={useState(initial){const id=cursor++;if(!Object.hasOwn(slots,id))slots[id]=typeof initial==='function'?initial():initial;return [slots[id],value=>slots[id]=typeof value==='function'?value(slots[id]):value];},
+  useRef(initial){const id=cursor++;return slots[id]??(slots[id]={current:initial});},
+  useEffect(effect,deps){const id=cursor++,previous=slots[id];if(previous&&deps.every((value,index)=>Object.is(value,previous.deps[index])))return;const entry={deps};slots[id]=entry;pending.push(()=>{previous?.cleanup?.();entry.cleanup=effect();});}};
+ const load=loader({react,'../core/companionRoom':{roomSleepNight:()=>undefined}},{window:{setTimeout:(fn,delay)=>{timers.set(++timerId,{fn,delay});return timerId;},matchMedia:()=>({matches:true})},clearTimeout:id=>timers.delete(id)});
+ const {useResidentOuting}=load('src/components/useResidentOuting.ts'),{manaversePassage}=load('src/core/manaversePassage.ts'),{outdoorTrip}=load('src/core/manaverseNavigation.ts');
+ function render(){cursor=0;pending=[];const result=useResidentOuting('lyra',false,'Asia/Singapore',{date:'2026-11-19',time:'16:30'},undefined,false,false,false,false,false,false,raining);pending.forEach(effect=>effect());return result;}
+ function fire(){assert.ok(timers.size);const [id,timer]=timers.entries().next().value;timers.delete(id);timer.fn();return render();}
+ render();assert.equal(timers.size,0,'a sheltered resident must not start a new park outing in rain');
+ const from=manaversePassage('park','street').entry,to=manaversePassage('street','square').exit;
+ slots[0]={position:from,goingToSquare:true,trip:outdoorTrip('street',from,to)};
+ let result=render();assert.ok(result.outing.trip);assert.equal(result.outing.goingToSquare,true,'weather must not replace an in-progress trip');
+ assert.ok([...timers.values()][0].delay>0,'reduced motion must preserve travel time');
+ result=fire();assert.equal(result.outing.squareStops,0);
+ result=fire();assert.equal(result.outing.leavingSquare,true);assert.ok(result.outing.trip);
+ result=fire();assert.equal(result.outing.position,manaversePassage('street','square').exit);
+ result=fire();assert.equal(result.outing.returning,true);
+ result=fire();assert.equal(result.outing,undefined);assert.equal(timers.size,0);
+ const cafePoint=manaversePassage('district','cafe').exit;
+ slots[0]={position:cafePoint,cafeStage:'inside'};result=render();assert.equal(timers.size,0,'rain holds residents inside the café');
+ raining=false;render();assert.equal(timers.size,1);result=fire();assert.equal(result.outing.cafeStage,'leaving');
+ raining=true;slots[0]={position:manaversePassage('street','library').exit,inLibrary:true};render();assert.equal(timers.size,0,'rain holds an indoor library visit');
+ raining=false;render();assert.equal(timers.size,1);result=fire();assert.equal(result.outing.libraryLeaving,true);
+});
+
+test('park residents leave in rain after finishing their current step',()=>{
+ let resting=true,exits=0;
+ const park={stop:10,moving:true,walker:{point:{x:28,y:25},walking:true},walk:()=>assert.fail('Rain must not start a bench activity'),leave:()=>exits++};
+ const react={useState:()=>[resting,next=>resting=next],useRef:current=>({current}),useEffect:effect=>effect()};
+ const load=loader({react,'./useParkWalk':{useParkWalk:()=>park},'../core/companionRoom':{roomSleepNight:()=>undefined}});
+ const {useParkResident}=load('src/components/useParkResident.ts');
+ useParkResident('lyra',true,'Asia/Singapore',()=>{},true,false,undefined,true);assert.equal(exits,0);
+ park.moving=false;const resident=useParkResident('lyra',true,'Asia/Singapore',()=>{},true,false,undefined,true);
+ assert.equal(exits,1);assert.equal(resident.bench,undefined);
+});
+
+test('rain postpones park meetups but allows indoor café invitations',()=>{
+ const react={useState:initial=>[typeof initial==='function'?initial():initial,()=>{}],useRef:current=>({current})};
+ const {useTownSocialState,useSocialMeetups}=loader({react})('src/components/useSocialActivities.ts');
+ const state=useTownSocialState(),messages=[];
+ state.setMeetup=contact=>state.meetup=contact;state.setMeetupPlace=place=>state.meetupPlace=place;
+ const options={state,room:{current:{layout:2,phoneMessages:[]}},sleeping:false,visitorAvailable:true,hostPlanned:false,isBedtime:()=>undefined,timeZone:'Asia/Singapore',onMessage:message=>messages.push(message),onPondSketch(){},sheltering:true};
+ let controls=useSocialMeetups(options);
+ assert.equal(controls.startMeetup('lyra','park'),undefined);assert.equal(messages.length,0);
+ assert.equal(controls.startMeetup('lyra','cafe'),true);assert.equal(state.meetupPlace,'cafe');
+ controls=useSocialMeetups(options);controls.cancelMeetup('Rain started.');
+ assert.equal(messages[messages.length-1].detail,'Rain started.');assert.equal(state.meetup,undefined);
+});
+
+
+test('weather phone controls change saved preferences and rain effects respect visibility',async()=>{
+ const contexts=[],jsx=(type,props)=>({type,props});let changed,prompt;
+ const react={createContext:value=>{const context={current:value,Provider:'provider'};contexts.push(context);return context;},useContext:context=>context.current,useMemo:fn=>fn(),useState:initial=>[initial,()=>{}]};
+ const voice={current:{ready:true,speak:async context=>{prompt=context;return 'A little rain.';}}};
+ const load=loader({react,'react/jsx-runtime':{jsx,jsxs:jsx},'./useWeatherAmbience':{useWeatherAmbience:()=>({status:'ready',enable:async()=>{}})},'./SceneVoice':{SceneVoice:voice}});
+ const ui=load('src/components/TownWeather.tsx'),core=load('src/core/townWeather.ts');
+ const settings={mode:'rain',intensity:'steady',effects:true},weather=core.townWeather({date:'2026-11-19',time:'16:30'},settings);
+ const provided=ui.TownWeatherProvider({weather,settings,onChange:value=>changed=value,children:null});
+ contexts[0].current=provided.props.value;
+ assert.equal(ui.TownWeatherArtwork({weather:contexts[0].current.weather}).props.className,'town-rain');
+ assert.equal(ui.TownWeatherArtwork({weather:contexts[0].current.weather}).props['data-intensity'],'steady');
+ const controls=ui.default(),nodes=[];function visit(node){if(Array.isArray(node)){node.forEach(visit);return;}if(!node||typeof node!=='object')return;nodes.push(node);visit(node.props?.children);}visit(controls);
+ nodes.find(node=>node.type==='select'&&node.props.value==='rain').props.onChange({target:{value:'clear'}});
+ assert.equal(changed.mode,'clear');assert.equal(changed.intensity,'steady');
+ nodes.find(node=>node.type==='input'&&node.props.type==='checkbox').props.onChange({target:{checked:false}});
+ assert.equal(changed.effects,false);
+ await provided.props.children.props.value.speak('You are inside the library.',new AbortController().signal,'lyra');
+ assert.match(prompt,/raining outside/);assert.match(prompt,/inside the library/);assert.match(prompt,/without evidence/);
+ contexts[0].current={...provided.props.value,weather:{...weather,effects:false}};assert.equal(ui.TownWeatherArtwork({weather:contexts[0].current.weather}),null);
+ contexts[0].current={...provided.props.value,weather:{...weather,kind:'clear'}};assert.equal(ui.TownWeatherArtwork({weather:contexts[0].current.weather}),null);
+});
+
+
+test('automatic snowfall is winter-only and both town season calendars are supported',()=>{
+ const load=loader(),weather=load('src/core/townWeather.ts');
+ const kinds=new Set();
+ for(const calendar of ['north','south'])for(let month=1;month<=12;month++)for(let day=1;day<=28;day++)for(let hour=0;hour<24;hour+=3){
+  const state=weather.townWeather({date:`2026-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`,time:`${String(hour).padStart(2,'0')}:00`},{...weather.DEFAULT_TOWN_WEATHER,calendar});
+  kinds.add(state.kind);
+  if(state.kind==='snow')assert.equal(state.season,'winter');
+ }
+ assert.ok(kinds.has('snow'));assert.ok(kinds.has('rain'));assert.ok(kinds.has('clear'));
+ assert.equal(weather.townWeather({date:'2026-12-25',time:'12:00'}).season,'winter');
+ assert.equal(weather.townWeather({date:'2026-12-25',time:'12:00'},{...weather.DEFAULT_TOWN_WEATHER,calendar:'south'}).season,'summer');
+ assert.equal(weather.townWeather({date:'2026-07-15',time:'12:00'},{...weather.DEFAULT_TOWN_WEATHER,calendar:'south'}).season,'winter');
+ const manual={mode:'snow',intensity:'gentle',effects:false,calendar:'south'};
+ const room=load('src/core/companionRoom.ts').validateRoom(JSON.parse(JSON.stringify({weather:manual})));
+ assert.equal(room.weather.mode,'snow');assert.equal(room.weather.calendar,'south');
+ assert.equal(weather.townWeather({date:'2026-12-25',time:'12:00'},room.weather).kind,'snow','manual testing can override the season');
+ assert.equal(weather.validateTownWeather({mode:'rain',effects:true}).calendar,'north','existing weather settings keep December winter');
+});
+
+test('gentle Christmas snow permits festivities while steady snowfall shares shelter behavior',()=>{
+ const load=loader(),w=load('src/core/townWeather.ts');
+ const clock={date:'2026-12-25',time:'18:00'};
+ const gentle=w.townWeather(clock,{...w.DEFAULT_TOWN_WEATHER,mode:'snow'});
+ const steady={...gentle,intensity:'steady'};
+ assert.equal(w.weatherNeedsShelter(gentle),false);
+ assert.equal(w.weatherNeedsShelter(steady),true);
+ assert.equal(w.weatherShelterDestination('square','square',w.weatherNeedsShelter(gentle)),'square');
+ assert.equal(w.weatherShelterDestination('square','square',w.weatherNeedsShelter(steady)),'town-hall');
+ assert.equal(w.weatherShelterDestination('square','district',w.weatherNeedsShelter(steady),true),'living');
+ assert.equal(w.weatherNeedsShelter({...gentle,kind:'rain'}),true);
+ assert.match(w.townWeatherContext(gentle),/celebrations can continue/);
+ assert.match(w.townWeatherContext(steady),/indoor shelter/);
+ assert.doesNotMatch(w.townWeatherContext(gentle),/It is raining/);
+ const festivities=load('src/core/townFestivities.ts').townFestivities([],undefined,clock.date);
+ assert.equal(festivities.christmas,true,'snow does not replace the saved decoration schedule');
+ const state={setMeetup(){},setMeetupPlace(){},meetupRequestedAt:{current:0},sketchMeetup:{current:false},setRememberedParkActivity(){}};
+ const {useSocialMeetups}=load('src/components/useSocialActivities.ts');
+ const options={state,room:{current:{phoneMessages:[]}},sleeping:false,visitorAvailable:true,hostPlanned:false,isBedtime:()=>undefined,timeZone:'Asia/Singapore',onMessage(){},onPondSketch(){}};
+ assert.equal(useSocialMeetups({...options,sheltering:w.weatherNeedsShelter(gentle)}).startMeetup('lyra','park'),true);
+ assert.equal(useSocialMeetups({...options,sheltering:w.weatherNeedsShelter(steady)}).startMeetup('lyra','park'),undefined);
+});
+
+test('snow controls and both flake layers use the shared outdoor weather renderer',()=>{
+ const contexts=[],jsx=(type,props)=>({type,props});let changed;
+ const react={createContext:value=>{const context={current:value,Provider:'provider'};contexts.push(context);return context;},useContext:context=>context.current,useMemo:fn=>fn(),useState:initial=>[initial,()=>{}]};
+ const load=loader({react,'react/jsx-runtime':{jsx,jsxs:jsx},'./useWeatherAmbience':{useWeatherAmbience:()=>({status:'ready',enable:async()=>{}})},'./SceneVoice':{SceneVoice:{current:null}}});
+ const ui=load('src/components/TownWeather.tsx'),w=load('src/core/townWeather.ts');
+ const settings={...w.DEFAULT_TOWN_WEATHER,mode:'snow'};
+ const weather=w.townWeather({date:'2026-12-25',time:'18:00'},settings);
+ const provider=ui.TownWeatherProvider({weather,settings,onChange:value=>changed=value,children:null});contexts[0].current=provider.props.value;
+ const rendered=ui.TownWeatherArtwork({weather:contexts[0].current.weather});assert.equal(rendered.props.className,'town-snow');assert.equal(rendered.props['data-intensity'],'gentle');
+ assert.equal(rendered.props.children.filter(node=>node.props?.className.includes('town-snow-flakes')).length,2);
+ const nodes=[];function visit(node){if(Array.isArray(node)){node.forEach(visit);return;}if(!node||typeof node!=='object')return;nodes.push(node);visit(node.props?.children);}visit(ui.default());
+ nodes.find(node=>node.type==='select'&&node.props.value==='north').props.onChange({target:{value:'south'}});
+ assert.equal(changed.calendar,'south');assert.equal(changed.mode,'snow');
+ contexts[0].current={...provider.props.value,weather:{...weather,effects:false}};assert.equal(ui.TownWeatherArtwork({weather:contexts[0].current.weather}),null);
+});
+
+
+test('keepsake details stay inside their room and close back to the keepsake',()=>{
+ const slots=[],room={id:'room'};let cursor=0,focuses=0,portals=0;const jsx=(type,props)=>({type,props});
+ const react={useState(initial){const id=cursor++;if(!Object.hasOwn(slots,id))slots[id]=initial;return [slots[id],value=>slots[id]=typeof value==='function'?value(slots[id]):value];},useRef(initial){const id=cursor++;return slots[id]??(slots[id]={current:initial});},useEffect(){}};
+ const load=loader({react,'react/jsx-runtime':{jsx,jsxs:jsx,Fragment:'fragment'},'react-dom':{createPortal:(node,target)=>{assert.equal(target,room);portals++;return node;}}});
+ const Keepsake=load('src/components/ActivityKeepsake.tsx').default;
+ let nodes=[];function render(){cursor=0;nodes=[];const result=Keepsake({keepsake:{id:'star',kind:'trinket',owner:'mana',participants:['mana'],moment:'Mana made a wind-up star.',at:'2026-11-19T06:06:00.000Z'},timeZone:'Asia/Singapore'});
+  function visit(node){if(Array.isArray(node)){node.forEach(visit);return;}if(!node||typeof node!=='object')return;nodes.push(node);visit(node.props?.children);}visit(result);
+  nodes.find(node=>node.props?.className==='activity-keepsake').props.ref.current={closest:selector=>{assert.equal(selector,'.companion-room');return room;},focus:()=>focuses++};}
+ render();assert.equal(portals,0);
+ nodes.find(node=>node.props?.className==='activity-keepsake').props.onClick({stopPropagation(){}});render();
+ assert.equal(portals,1);assert.equal(nodes.find(node=>node.props?.role==='dialog').props['aria-modal'],'true');
+ assert.ok(nodes.some(node=>node.props?.className==='activity-keepsake-location'));
+ nodes.find(node=>node.type==='button'&&node.props.children==='Close').props.onClick();render();
+ assert.equal(focuses,1);assert.ok(!nodes.some(node=>node.props?.role==='dialog'));
+});
+
+
+test('fog and breeze persist, leave outdoor plans available and occur in seasonal automatic weather',()=>{
+ const load=loader(),w=load('src/core/townWeather.ts');
+ for(const kind of ['fog','breeze'])for(const intensity of ['gentle','steady']){
+  const settings={mode:kind,intensity,effects:true,calendar:'north'};
+  const saved=load('src/core/companionRoom.ts').validateRoom(JSON.parse(JSON.stringify({weather:settings})));
+  assert.equal(saved.weather.mode,kind);
+  const weather=w.townWeather({date:'2026-11-20',time:'16:30'},saved.weather);
+  assert.equal(weather.kind,kind);assert.equal(w.weatherNeedsShelter(weather),false);
+  assert.equal(w.weatherShelterDestination('park','street',w.weatherNeedsShelter(weather)),'park');
+  assert.match(w.townWeatherContext(weather),/Outdoor activities can continue|outdoor activities can continue/);
+  assert.doesNotMatch(w.townWeatherContext(weather),/It is raining|snow is falling/);
+ }
+ assert.equal(w.townWeatherLabel({kind:'fog',intensity:'gentle'}),'Light mist');
+ assert.equal(w.townWeatherLabel({kind:'breeze',intensity:'steady'}),'Breezy');
+ const observed=new Set();
+ for(let month=1;month<=12;month++)for(let day=1;day<=28;day++)for(let hour=0;hour<24;hour+=3){
+  const clock={date:`2026-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`,time:`${String(hour).padStart(2,'0')}:00`};
+  const weather=w.townWeather(clock);observed.add(weather.kind);
+  assert.equal(w.townWeather({...clock,time:`${String(hour+2).padStart(2,'0')}:59`}).kind,weather.kind,'weather remains stable inside its three-hour block');
+ }
+ for(const kind of w.TOWN_WEATHER_KINDS)assert.ok(observed.has(kind));
+ for(const chance of Object.values(w.SEASONAL_WEATHER_CHANCES))assert.ok(Object.values(chance).reduce((sum,value)=>sum+value,0)<100,'each season retains some clear weather');
+});
+
+test('fog banks and seasonal breeze leaves render without rain and respect the effects toggle',()=>{
+ const contexts=[],jsx=(type,props)=>({type,props});
+ const react={createContext:value=>{const context={current:value,Provider:'provider'};contexts.push(context);return context;},useContext:context=>context.current,useMemo:fn=>fn(),useState:initial=>[initial,()=>{}]};
+ const load=loader({react,'react/jsx-runtime':{jsx,jsxs:jsx},'./useWeatherAmbience':{useWeatherAmbience:()=>({status:'ready',enable:async()=>{}})},'./SceneVoice':{SceneVoice:{current:null}}});
+ const ui=load('src/components/TownWeather.tsx'),w=load('src/core/townWeather.ts');
+ for(const kind of ['fog','breeze']){
+  const settings={...w.DEFAULT_TOWN_WEATHER,mode:kind,intensity:'steady'};
+  const weather=w.townWeather({date:'2026-11-20',time:'16:30'},settings);
+  contexts[0].current=ui.TownWeatherProvider({weather,settings,onChange(){},children:null}).props.value;
+  const effect=ui.TownWeatherArtwork({weather:contexts[0].current.weather});assert.equal(effect.props.className,`town-${kind}`);assert.equal(effect.props['aria-hidden'],'true');
+  if(kind==='fog')assert.equal(effect.props.children.length,2);
+  else {assert.equal(effect.props['data-season'],'autumn');assert.equal(effect.props.children.length,9);}
+  contexts[0].current={...contexts[0].current,weather:{...weather,effects:false}};assert.equal(ui.TownWeatherArtwork({weather:contexts[0].current.weather}),null);
+ }
+});
+
+
+test('weather ambience mixes fadeable rain and wind, muffles indoors, and preserves mute preferences',()=>{
+ const load=loader(),audio=load('src/core/weatherAmbience.ts');
+ const weather={kind:'rain',intensity:'steady'},settings={audio:true,volume:.5};
+ const outside=audio.weatherSoundMix(weather,settings,false),inside=audio.weatherSoundMix(weather,settings,true);
+ assert.ok(outside.rain>0);assert.ok(outside.wind>0);assert.ok(inside.master<outside.master);assert.ok(inside.cutoff<outside.cutoff);
+ assert.equal(audio.weatherSoundMix(weather,{...settings,audio:false},false).master,0);
+ assert.equal(audio.weatherSoundMix(weather,{...settings,volume:0},false).master,0);
+ for(const kind of ['clear','fog']){const mix=audio.weatherSoundMix({...weather,kind},settings,false);assert.equal(mix.rain,0);assert.equal(mix.wind,0);}
+ assert.ok(audio.weatherSoundMix({...weather,kind:'breeze'},settings,false).wind>0);
+ const saved=load('src/core/companionRoom.ts').validateRoom({weather:{mode:'rain',audio:false,volume:.4}});
+ assert.equal(saved.weather.audio,false);assert.equal(saved.weather.volume,.4);
+ const core=load('src/core/townWeather.ts');assert.equal(core.validateTownWeather({volume:Infinity}).volume,.25);assert.equal(core.validateTownWeather({volume:3}).volume,1);
+});
+
+test('generated weather audio fades gains and releases all sources and its audio context',async()=>{
+ const params=()=>({value:0,lastTarget:0,cancelScheduledValues(){},setTargetAtTime(value){assert.ok(Number.isFinite(value));this.lastTarget=value;}});
+ const sources=[],gains=[],filters=[],oscillators=[];let resumes=0,suspends=0,closed=0;
+ const node=()=>({connect(target){return target;},disconnect(){this.disconnected=true;}});
+ const ctx={sampleRate:100,currentTime:3,state:'suspended',destination:node(),createBuffer:(_,length)=>({getChannelData:()=>new Float32Array(length)}),
+  createBufferSource(){const source={...node(),start(){this.started=true;},stop(){this.stopped=true;}};sources.push(source);return source;},
+  createGain(){const gain={...node(),gain:params()};gains.push(gain);return gain;},createBiquadFilter(){const filter={...node(),frequency:params(),Q:params()};filters.push(filter);return filter;},
+  createOscillator(){const osc={...node(),frequency:params(),start(){},stop(){this.stopped=true;}};oscillators.push(osc);return osc;},
+  async resume(){resumes++;this.state='running';},async suspend(){suspends++;this.state='suspended';},async close(){closed++;this.state='closed';}};
+ const engine=loader()('src/core/weatherAmbience.ts').createWeatherAmbience(ctx);
+ assert.equal(sources.length,2);assert.ok(sources.every(source=>source.started));
+ await engine.resume();assert.equal(resumes,1);
+ engine.update({kind:'rain',intensity:'steady'},{audio:true,volume:.5},false);assert.ok(gains[0].gain.lastTarget>0);assert.equal(gains[3].gain.lastTarget,.5);
+ engine.update({kind:'rain',intensity:'steady'},{audio:true,volume:.5},true);assert.equal(gains[3].gain.lastTarget,.11);assert.equal(filters[2].frequency.lastTarget,900);
+ engine.update({kind:'rain',intensity:'steady'},{audio:false,volume:.5},false);assert.equal(gains[3].gain.lastTarget,0);
+ await engine.suspend();assert.equal(suspends,1);await engine.dispose();await engine.dispose();
+ assert.equal(closed,1);assert.ok(sources.every(source=>source.stopped&&source.disconnected));assert.ok(oscillators[0].stopped);
+});
+
+test('weather audio unlocks on interaction, suspends when hidden and disposes on unmount',async()=>{
+ const slots=[],listeners=new Map(),calls=[];let cursor=0,pending=[],made=0;
+ const react={useState(initial){const id=cursor++;if(!Object.hasOwn(slots,id))slots[id]=initial;return [slots[id],value=>slots[id]=value];},useRef(initial){const id=cursor++;return slots[id]??(slots[id]={current:initial});},
+  useEffect(effect,deps){const id=cursor++,previous=slots[id];if(previous&&deps.every((value,index)=>Object.is(value,previous.deps[index])))return;const entry={deps};slots[id]=entry;pending.push(()=>{previous?.cleanup?.();entry.cleanup=effect();});}};
+ const engine={update:(...args)=>calls.push(['update',...args]),resume:async()=>calls.push(['resume']),suspend:async()=>calls.push(['suspend']),dispose:async()=>calls.push(['dispose'])};
+ const doc={visibilityState:'visible',addEventListener:(name,fn)=>listeners.set(name,fn),removeEventListener:name=>listeners.delete(name)};
+ const load=loader({react,'../core/weatherAmbience':{createWeatherAmbience:()=>engine}},{document:doc,AudioContext:class{constructor(){made++;}}});
+ const {useWeatherAmbience}=load('src/components/useWeatherAmbience.ts');
+ let settings={audio:true,volume:.25},active=true,indoors=false;
+ function render(){cursor=0;pending=[];const result=useWeatherAmbience({kind:'rain',intensity:'gentle'},settings,active,indoors);pending.forEach(effect=>effect());return result;}
+ let result=render();assert.equal(made,0);await result.enable();result=render();assert.equal(made,1);assert.equal(result.status,'playing');
+ indoors=true;render();await Promise.resolve();await Promise.resolve();assert.equal(calls.filter(call=>call[0]==='update').at(-1)[3],true);
+ settings={...settings,audio:false};render();result=render();assert.equal(result.status,'muted');assert.equal(calls.filter(call=>call[0]==='update').at(-1)[2].audio,false);
+ active=false;render();assert.equal(calls.at(-1)[0],'suspend');
+ doc.visibilityState='hidden';listeners.get('visibilitychange')();assert.equal(calls.at(-1)[0],'suspend');
+ for(const slot of slots)slot?.cleanup?.();assert.equal(listeners.size,0);assert.equal(calls.at(-1)[0],'dispose');assert.equal(made,1);
+});
+
+test('weather visual layers retain outgoing artwork while their active fade target changes',()=>{
+ const contexts=[],jsx=(type,props)=>({type,props});
+ const react={createContext:value=>{const context={current:value,Provider:'provider'};contexts.push(context);return context;},useContext:context=>context.current,useMemo:fn=>fn(),useState:initial=>[initial,()=>{}]};
+ const load=loader({react,'react/jsx-runtime':{jsx,jsxs:jsx},'./useWeatherAmbience':{useWeatherAmbience:()=>({status:'ready',enable:async()=>{}})},'./SceneVoice':{SceneVoice:{current:null}}});
+ const ui=load('src/components/TownWeather.tsx'),w=load('src/core/townWeather.ts');
+ const settings={...w.DEFAULT_TOWN_WEATHER,mode:'rain'},weather=w.townWeather({date:'2026-11-20',time:'12:00'},settings);
+ contexts[0].current=ui.TownWeatherProvider({weather,settings,onChange(){},children:null}).props.value;
+ let layers=ui.TownWeatherEffects().props.children;assert.equal(layers.length,4);assert.equal(layers.filter(node=>node.props['data-active']).length,1);
+ assert.equal(layers.find(node=>node.props['data-active']).props['data-kind'],'rain');
+ contexts[0].current={...contexts[0].current,weather:{...weather,kind:'snow'}};layers=ui.TownWeatherEffects().props.children;
+ assert.equal(layers.find(node=>node.props['data-kind']==='rain').props['data-active'],false);assert.ok(layers.find(node=>node.props['data-kind']==='rain').props.children,'outgoing art remains mounted during its fade');
+ assert.equal(layers.find(node=>node.props['data-kind']==='snow').props['data-active'],true);
+ contexts[0].current={...contexts[0].current,weather:{...weather,effects:false}};assert.equal(ui.TownWeatherEffects().props.children.filter(node=>node.props['data-active']).length,0);
+});
+
+test('winter scenery follows town seasons, supports the Snow preview and saves its own visibility setting',()=>{
+ const load=loader(),winter=load('src/core/winterScenery.ts'),weather=load('src/core/townWeather.ts');
+ const clear={...weather.DEFAULT_TOWN_WEATHER,mode:'clear'};
+ const december=weather.townWeather({date:'2026-12-25',time:'12:00'},clear);
+ assert.equal(winter.winterSceneryActive(december,clear),true,'snow remains on clear winter days');
+ const november=weather.townWeather({date:'2026-11-20',time:'12:00'},clear);
+ assert.equal(winter.winterSceneryActive(november,clear),false);
+ assert.equal(winter.winterSceneryActive(november,{...clear,mode:'snow'}),true,'manual Snow previews winter scenery for testing');
+ assert.equal(winter.winterSceneryActive(december,{...clear,scenery:false}),false);
+ assert.equal(winter.winterSceneryActive(december,{...clear,effects:false}),true,'landscape is independent of falling-weather effects');
+ const south={...clear,calendar:'south'};
+ assert.equal(winter.winterSceneryActive(weather.townWeather({date:'2026-07-15',time:'12:00'},south),south),true);
+ assert.equal(winter.winterSceneryActive(weather.townWeather({date:'2026-12-25',time:'12:00'},south),south),false);
+ const saved=load('src/core/companionRoom.ts').validateRoom(JSON.parse(JSON.stringify({weather:{...clear,scenery:false}})));
+ assert.equal(saved.weather.scenery,false);assert.equal(weather.validateTownWeather({mode:'rain'}).scenery,true);
+});
+
+test('winter scenery provides every shared outdoor doorway with a clear visual approach',()=>{
+ const load=loader(),winter=load('src/core/winterScenery.ts'),{manaverseDoorways}=load('src/core/manaversePassage.ts');
+ for(const area of ['street','square','district','park']){
+  const scene=winter.WINTER_SCENERY[area];assert.ok(scene.caps.length&&scene.shrubs.length&&scene.edges.length);
+  const clear=winter.winterClearances(area);
+  for(const [from,exit,to,entry] of manaverseDoorways){
+   const point=from===area?exit:to===area?entry:undefined;if(!point)continue;
+   assert.ok(clear.some(mask=>mask.x===point.x&&mask.y===point.y&&mask.rx>=3&&mask.ry>=4),`${area}: ${from} to ${to} must stay clear`);
+  }
+  for(const path of [...scene.caps,...scene.edges])for(const match of path.matchAll(/-?\d*\.?\d+/g))assert.ok(Number(match[0])>=0&&Number(match[0])<=100);
+  for(const shrub of scene.shrubs){assert.ok(shrub.rx>0&&shrub.ry>0);assert.doesNotMatch(winter.snowShrubPath(shrub),/NaN|Infinity/);}
+ }
+});
+
+test('winter SVG is map-aligned and masks portals rather than replacing the room artwork',()=>{
+ const jsx=(type,props)=>({type,props});let current={weather:{season:'winter'},settings:{mode:'automatic',scenery:true}};
+ const load=loader({react:{useId:()=>':winter-test:'},'react/jsx-runtime':{jsx,jsxs:jsx},'./TownWeather':{useTownWeather:()=>current}});
+ const Scenery=load('src/components/WinterScenery.tsx').default;
+ for(const area of ['street','square','district','park']){
+  const result=Scenery({area});assert.equal(result.type,'svg');assert.equal(result.props.viewBox,'0 0 100 100');assert.equal(result.props['data-active'],true);assert.equal(result.props['aria-hidden'],'true');
+  const nodes=[];function visit(node){if(Array.isArray(node)){node.forEach(visit);return;}if(!node||typeof node!=='object')return;nodes.push(node);visit(node.props?.children);}visit(result);
+  const ellipses=nodes.filter(node=>node.type==='ellipse');assert.equal(ellipses.length,load('src/core/winterScenery.ts').winterClearances(area).length);
+  assert.ok(ellipses.every(node=>node.props.fill==='black'));
+  assert.ok(nodes.some(node=>node.type==='g'&&node.props.mask?.includes('-doors')));
+ }
+ current={...current,settings:{mode:'automatic',scenery:false}};assert.equal(Scenery({area:'square'}).props['data-active'],false);
+});
+
+test('autumn scenery follows the calendar and yields to visibility and Snow preview',()=>{
+ const load=loader(),{scenerySeason}=load('src/core/seasonalScenery.ts'),w=load('src/core/townWeather.ts');
+ const settings={...w.DEFAULT_TOWN_WEATHER,mode:'clear'};
+ for(const [date,calendar] of [['2026-11-20','north'],['2026-05-20','south']]){
+  const configured={...settings,calendar},weather=w.townWeather({date,time:'12:00'},configured);
+  assert.equal(scenerySeason(weather,configured),'autumn');
+  assert.equal(scenerySeason(weather,{...configured,scenery:false}),'none');
+  assert.equal(scenerySeason(weather,{...configured,mode:'snow'}),'winter');
+ }
+});
+
+test('autumn leaves remain stable and inside each map, with shared doorway masks',()=>{
+ const load=loader(),{AUTUMN_SCENERY,autumnLeaves}=load('src/core/autumnScenery.ts'),shared=load('src/core/seasonalScenery.ts');
+ const {manaverseDoorways}=load('src/core/manaversePassage.ts');
+ for(const area of ['street','square','district','park']){
+  const scene=AUTUMN_SCENERY[area],leaves=autumnLeaves(scene);
+  assert.deepEqual(leaves,autumnLeaves(scene));assert.ok(leaves.length>50);
+  assert.ok(leaves.every(leaf=>leaf.x>=0&&leaf.x<=100&&leaf.y>=0&&leaf.y<=100&&Number.isFinite(leaf.rotation)));
+  assert.ok(fs.existsSync(path.resolve('public/companion-room',shared.SCENERY_ART[area])));
+  for(const [from,exit,to,entry] of manaverseDoorways){const point=from===area?exit:to===area?entry:null;if(point)assert.ok(shared.sceneryDoorClearances(area).some(mask=>mask.x===point.x&&mask.y===point.y&&mask.rx>=3&&mask.ry>=4));}
+ }
+});
+
+test('autumn artwork aligns with every map and masks all accents around doors',()=>{
+ const jsx=(type,props)=>({type,props});let current={weather:{season:'autumn'},settings:{mode:'automatic',scenery:true}};
+ const load=loader({react:{useId:()=>':autumn-test:'},'react/jsx-runtime':{jsx,jsxs:jsx},'./TownWeather':{useTownWeather:()=>current}}),Scenery=load('src/components/AutumnScenery.tsx').default;
+ for(const area of ['street','square','district','park']){
+  const result=Scenery({area}),nodes=[];function visit(node){if(Array.isArray(node)){node.forEach(visit);return;}if(!node||typeof node!=='object')return;nodes.push(node);visit(node.props?.children);}visit(result);
+  assert.equal(result.props['data-active'],true);assert.equal(result.props.viewBox,'0 0 100 100');
+  const art=nodes.find(node=>node.type==='image');assert.equal(art.props.href,'./companion-room/'+load('src/core/seasonalScenery.ts').SCENERY_ART[area]);assert.equal(art.props.preserveAspectRatio,'none');
+  assert.ok(nodes.some(node=>node.type==='g'&&node.props.mask?.includes('-doors')));
+ }
+ current.settings.mode='snow';assert.equal(Scenery({area:'square'}).props['data-active'],false);
+ current.settings={mode:'automatic',scenery:false};assert.equal(Scenery({area:'park'}).props['data-active'],false);
+});
+
+test('spring flowers stay stable within all maps and spring never overlaps winter or autumn',()=>{
+ const load=loader(),{SPRING_SCENERY,springFlowers}=load('src/core/springScenery.ts'),{scenerySeason}=load('src/core/seasonalScenery.ts'),w=load('src/core/townWeather.ts');
+ for(const area of ['street','square','district','park']){
+  const flowers=springFlowers(SPRING_SCENERY[area]);assert.deepEqual(flowers,springFlowers(SPRING_SCENERY[area]));assert.ok(flowers.length>75);
+  assert.ok(flowers.every(flower=>flower.x>=0&&flower.x<=100&&flower.y>=0&&flower.y<=100&&Number.isFinite(flower.size)));
+ }
+ for(const [date,calendar,expected] of [['2026-04-15','north','spring'],['2026-11-20','south','spring'],['2026-11-20','north','autumn'],['2026-12-25','north','winter']]){
+  const settings={...w.DEFAULT_TOWN_WEATHER,calendar},weather=w.townWeather({date,time:'12:00'},settings);
+  assert.equal(scenerySeason(weather,settings),expected);assert.equal(scenerySeason(weather,{...settings,scenery:false}),'none');assert.equal(scenerySeason(weather,{...settings,mode:'snow'}),'winter');
+ }
+});
+
+test('spring scenery masks every doorway and has no input or moving-layout state',()=>{
+ const jsx=(type,props)=>({type,props});let current={weather:{season:'spring'},settings:{mode:'automatic',scenery:true}};
+ const load=loader({react:{useId:()=>':spring-test:'},'react/jsx-runtime':{jsx,jsxs:jsx},'./TownWeather':{useTownWeather:()=>current}}),Scenery=load('src/components/SpringScenery.tsx').default;
+ for(const area of ['street','square','district','park']){
+  const result=Scenery({area}),nodes=[];function visit(node){if(Array.isArray(node)){node.forEach(visit);return;}if(!node||typeof node!=='object')return;nodes.push(node);visit(node.props?.children);}visit(result);
+  assert.equal(result.props['data-active'],true);assert.equal(result.props.viewBox,'0 0 100 100');assert.equal(result.props['aria-hidden'],'true');
+  const clear=load('src/core/seasonalScenery.ts').sceneryDoorClearances(area),masks=nodes.filter(node=>node.type==='ellipse'&&node.props.fill==='black');assert.equal(masks.length,clear.length);
+  assert.ok(nodes.find(node=>node.type==='g'&&node.props.className==='spring-flower-beds').props.mask.endsWith('-doors)'));
+  assert.ok(nodes.every(node=>!Object.keys(node.props??{}).some(key=>key.startsWith('onPointer')||key==='onClick')));
+ }
+ current.settings.mode='snow';assert.equal(Scenery({area:'park'}).props['data-active'],false);
+ current.settings={mode:'automatic',scenery:false};assert.equal(Scenery({area:'square'}).props['data-active'],false);
+});
+
+test('phone quiet hours follow the town timezone and cover both sides of midnight',()=>{
+ const {phoneCanSend}=loader()('src/core/roomPhone.ts');
+ for(const [iso,expected] of [['2026-11-20T13:59:59Z',true],['2026-11-20T14:00:00Z',false],['2026-11-20T19:30:00Z',false],['2026-11-20T20:00:00Z',false],['2026-11-20T21:59:59Z',false],['2026-11-20T22:00:00Z',true]])assert.equal(phoneCanSend(new Date(iso),'Asia/Singapore'),expected,iso);
+ assert.equal(phoneCanSend(new Date('2026-11-20T19:30:00Z'),'UTC'),true);
+ assert.equal(phoneCanSend(new Date('2026-11-20T04:00:00Z'),'Asia/Singapore',true),false,'daytime naps also defer messages');
+});
+
+test('visit invitations cannot turn into claims that a visit already happened',()=>{
+ const phone=loader()('src/core/roomPhone.ts');
+ for(const contact of ['lyra','luna'])for(const kind of ['visit-request','host-invite','beanbag-request','cafe-invite','park-request','library-story-invite']){
+  const message=phone.phoneMessage(contact,kind);
+  for(const text of ['I stopped by while you were asleep.','I visited you earlier!','Thanks for coming over!','I am glad we got to catch up.'])assert.equal(phone.readPhoneText(message,JSON.stringify({text})), '',kind+text);
+  assert.equal(phone.readPhoneText(message,JSON.stringify({text:'Would you like to come over when you are free?'})),'Would you like to come over when you are free?');
+  assert.match(phone.phoneMessagePrompt(message,[]),/Nobody has arrived, visited, or completed it yet/);
+ }
+ assert.equal(phone.readPhoneText(phone.phoneMessage('luna','host-completed'),JSON.stringify({text:'Thanks for coming over!'})),'Thanks for coming over!','real completed visits retain their followups');
+});
+
+test('phone replies wait through sleep and recheck the clock before firing',()=>{
+ let instant=new Date('2026-11-20T19:30:00Z').getTime();
+ class ClockDate extends Date{constructor(...args){super(...(args.length?args:[instant]));}static now(){return instant;}}
+ let slots=[],cursor=0,pending=[],nextTimer=1;const timers=new Map(),intervals=new Map(),sent=[],jsx=(type,props)=>({type,props});
+ const react={useState(initial){const id=cursor++;if(!Object.hasOwn(slots,id))slots[id]=typeof initial==='function'?initial():initial;return [slots[id],value=>slots[id]=typeof value==='function'?value(slots[id]):value];},useRef(initial){const id=cursor++;return slots[id]??(slots[id]={current:initial});},useMemo:fn=>fn(),useEffect(effect,deps){const id=cursor++,previous=slots[id];if(previous&&deps.every((value,index)=>Object.is(value,previous.deps[index])))return;const entry={deps};slots[id]=entry;pending.push(()=>{previous?.cleanup?.();entry.cleanup=effect();});}};
+ const stub={__esModule:true,default:()=>null},load=loader({react,'react/jsx-runtime':{jsx,jsxs:jsx},'react-dom':{createPortal:node=>node},'./TownToday':stub,'./TownPersonalGoals':stub,'./ManaverseMap':stub,'./TownWeather':stub},{Date:ClockDate,window:{setTimeout:fn=>{const id=nextTimer++;timers.set(id,fn);return id;},setInterval:fn=>{const id=nextTimer++;intervals.set(id,fn);return id;}},clearTimeout:id=>timers.delete(id),clearInterval:id=>intervals.delete(id)});
+ const Phone=load('src/components/RoomPhone.tsx').default;
+ const props={visible:true,sleeping:false,messages:['lyra','luna'].map(contact=>({contact,from:'mana',kind:'check-in',at:'2026-11-20T13:00:00.000Z',text:'Hi!'})),readMessages:{},onReadMessages(){},onSend:message=>sent.push(message),timeZone:'Asia/Singapore',events:[],projects:[],meetupPlace:'park',area:'square',characters:{},onChooseArea(){},onMapOpenChange(){},coreMemories:{},sharedMemories:[],petBotMemories:[],manaMemories:[],petBotFriends:{},personalGoals:[],today:{}};
+ function render(){cursor=0;pending=[];Phone(props);pending.forEach(effect=>effect());}
+ render();assert.equal(timers.size,0,'neither contact replies at 3:30 AM even if Mana skips sleep');
+ instant=new Date('2026-11-20T22:00:00Z').getTime();intervals.forEach(fn=>fn());assert.equal(timers.size,2,'both pending replies resume at 6 AM');
+ instant=new Date('2026-11-21T14:00:00Z').getTime();timers.forEach(fn=>fn());assert.equal(sent.length,0,'timers crossing bedtime cannot send');
+ instant=new Date('2026-11-21T22:00:00Z').getTime();intervals.forEach(fn=>fn());timers.forEach(fn=>fn());assert.equal(sent.length,2);
+ props.sleeping=true;render();assert.equal(timers.size,0);
+ for(const slot of slots)slot?.cleanup?.();assert.equal(intervals.size,0);
+});
+
+test('summer flowers keep established border positions without changing spring data',()=>{
+ const {SPRING_SCENERY,springFlowers,summerFlowers}=loader()('src/core/springScenery.ts');
+ for(const area of ['street','square','district','park']){
+  const spring=springFlowers(SPRING_SCENERY[area]),before=JSON.stringify(spring),summer=summerFlowers(SPRING_SCENERY[area]);
+  assert.deepEqual(summer,summerFlowers(SPRING_SCENERY[area]));assert.equal(summer.length,spring.length);
+  summer.forEach((flower,index)=>{assert.equal(flower.x,spring[index].x);assert.equal(flower.y,spring[index].y);assert.ok(flower.size>spring[index].size);assert.notEqual(flower.color,spring[index].color);});
+  assert.equal(JSON.stringify(springFlowers(SPRING_SCENERY[area])),before);
+ }
+});
+
+test('summer flower scenery is exclusive, map-aligned and clears every shared door',()=>{
+ const jsx=(type,props)=>({type,props});let current={weather:{season:'summer'},settings:{mode:'automatic',scenery:true}};
+ const load=loader({react:{useId:()=>':flower-test:'},'react/jsx-runtime':{jsx,jsxs:jsx},'./TownWeather':{useTownWeather:()=>current}});
+ const Flower=load('src/components/FlowerScenery.tsx').default,Autumn=load('src/components/AutumnScenery.tsx').default,Winter=load('src/components/WinterScenery.tsx').default;
+ const w=load('src/core/townWeather.ts');
+ for(const [date,calendar,season] of [['2026-07-15','north','summer'],['2026-01-15','south','summer'],['2026-04-15','north','spring'],['2026-11-20','north','autumn'],['2026-12-25','north','winter']]){
+  current.settings={...w.DEFAULT_TOWN_WEATHER,calendar};current.weather=w.townWeather({date,time:'12:00'},current.settings);
+  const layers=[Flower({area:'park',season:'spring'}),Flower({area:'park',season:'summer'}),Autumn({area:'park'}),Winter({area:'park'})];
+  assert.equal(layers.filter(node=>node.props['data-active']).length,1);
+  assert.equal(layers.find(node=>node.props['data-active']).props.className,season+'-scenery');
+ }
+ current.weather={season:'summer'};current.settings={mode:'automatic',scenery:true};
+ for(const area of ['street','square','district','park']){
+  const result=Flower({area,season:'summer'}),nodes=[];function visit(node){if(Array.isArray(node)){node.forEach(visit);return;}if(!node||typeof node!=='object')return;nodes.push(node);visit(node.props?.children);}visit(result);
+  assert.equal(result.props.viewBox,'0 0 100 100');assert.equal(result.props['data-active'],true);
+  assert.equal(nodes.filter(node=>node.type==='ellipse'&&node.props.transform).length,8);
+  assert.equal(nodes.filter(node=>node.type==='ellipse'&&node.props.fill==='black').length,load('src/core/seasonalScenery.ts').sceneryDoorClearances(area).length);
+  assert.ok(nodes.some(node=>node.type==='g'&&node.props.className==='summer-flower-beds'&&node.props.mask.endsWith('-doors)')));
+ }
+ current.settings.scenery=false;assert.equal(Flower({area:'square',season:'summer'}).props['data-active'],false);
+ current.settings={mode:'snow',scenery:true};assert.equal(Flower({area:'square',season:'summer'}).props['data-active'],false);
+});
+
+
+test('scenery preview overrides the landscape only and is never restored from saved weather',()=>{
+ const load=loader(),w=load('src/core/townWeather.ts'),{scenerySeason}=load('src/core/seasonalScenery.ts');
+ const settings={...w.DEFAULT_TOWN_WEATHER,mode:'snow'},clock={date:'2026-11-20',time:'03:30'},actual=w.townWeather(clock,settings);
+ for(const season of ['spring','summer','autumn','winter']){
+  const preview={...settings,sceneryPreview:season};assert.equal(scenerySeason(actual,preview),season);
+  assert.deepEqual(w.townWeather(clock,preview),actual,'weather, shelter behavior and its calendar season stay unchanged');
+  assert.equal(scenerySeason(actual,{...preview,scenery:false}),'none');
+  assert.equal(w.validateTownWeather(JSON.parse(JSON.stringify(preview))).sceneryPreview,undefined);
+ }
+ assert.equal(scenerySeason(actual,settings),'winter','Automatic restores the existing Snow preview rule');
+});
+
+test('phone scenery preview switches immediately, resets on remount and stays out of saved settings',()=>{
+ let preview,changed;const contexts=[],jsx=(type,props)=>({type,props});
+ const react={createContext:value=>{const context={current:value,Provider:'provider'};contexts.push(context);return context;},useContext:context=>context.current,useMemo:fn=>fn(),useState:()=>[preview,value=>preview=value]};
+ const load=loader({react,'react/jsx-runtime':{jsx,jsxs:jsx},'./useWeatherAmbience':{useWeatherAmbience:()=>({status:'ready',enable:async()=>{}})},'./SceneVoice':{SceneVoice:{current:null}}});
+ const ui=load('src/components/TownWeather.tsx'),w=load('src/core/townWeather.ts'),settings={...w.DEFAULT_TOWN_WEATHER},weather=w.townWeather({date:'2026-11-20',time:'12:00'},settings);
+ function render(){contexts[0].current=ui.TownWeatherProvider({weather,settings,onChange:next=>changed=next,children:null}).props.value;const nodes=[];function visit(node){if(Array.isArray(node)){node.forEach(visit);return;}if(!node||typeof node!=='object')return;nodes.push(node);visit(node.props?.children);}visit(ui.default());return nodes.find(node=>node.props?.['aria-label']==='Scenery preview');}
+ let select=render();assert.equal(select.props.value,'automatic');
+ select.props.onChange({target:{value:'summer'}});select=render();assert.equal(select.props.value,'summer');assert.equal(contexts[0].current.settings.sceneryPreview,'summer');assert.equal(contexts[0].current.weather,weather);assert.ok(!Object.hasOwn(changed,'sceneryPreview'));
+ select.props.onChange({target:{value:'automatic'}});assert.equal(render().props.value,'automatic');
+ select=render();select.props.onChange({target:{value:'winter'}});preview=undefined;assert.equal(render().props.value,'automatic','reopening discards session-only preview');
+});
+
+test('weather reactions share a warmup, global gap and character/topic cooldown across maps',()=>{
+ const {createWeatherReactionGate,WEATHER_REACTION_WARMUP,WEATHER_REACTION_GAP,WEATHER_CHARACTER_GAP,WEATHER_TOPIC_GAP}=loader()('src/core/weatherReactions.ts');
+ const gate=createWeatherReactionGate(0),start=WEATHER_REACTION_WARMUP;
+ assert.equal(gate.claim('mana','weather:rain',start-1),false);assert.equal(gate.claim('mana','weather:rain',start),true);
+ assert.equal(gate.claim('luna','weather:snow',start+WEATHER_REACTION_GAP-1),false);assert.equal(gate.claim('luna','weather:snow',start+WEATHER_REACTION_GAP),true);
+ assert.equal(gate.claim('mana','weather:snow',start+WEATHER_CHARACTER_GAP-1),false);assert.equal(gate.claim('mana','weather:snow',start+WEATHER_CHARACTER_GAP),true);
+ assert.equal(gate.claim('mana','weather:rain',start+WEATHER_TOPIC_GAP-1),false);assert.equal(gate.claim('mana','weather:rain',start+WEATHER_TOPIC_GAP),true);
+ assert.ok(gate.lastFor('lyra')<gate.lastFor('mana'));
+});
+
+test('weather reaction context describes actual shelter, activity and visible scenery without inventing company',()=>{
+ const load=loader(),r=load('src/core/weatherReactions.ts'),w=load('src/core/townWeather.ts'),settings={...w.DEFAULT_TOWN_WEATHER,mode:'rain'},weather=w.townWeather({date:'2026-11-20',time:'12:00'},settings);
+ const indoors=r.weatherReactionPrompt({weather,settings,area:'library',place:'Lyra’s Library',activity:'Lyra is reading.',present:[],topic:'weather:rain'});
+ assert.match(indoors,/indoors and sheltered/);assert.match(indoors,/Lyra is reading/);assert.doesNotMatch(indoors,/"visibleScenery":/);assert.match(indoors,/Do not invent past visits/);assert.match(indoors,/does not prove you are together/);
+ const clear={...weather,kind:'clear'},preview={...settings,mode:'automatic',sceneryPreview:'summer'};
+ assert.equal(r.weatherReactionTopic(clear,preview,'park'),'scenery:summer');assert.equal(r.weatherReactionTopic(clear,preview,'bedroom'),undefined);
+ assert.equal(r.weatherReactionTopic(clear,{...preview,scenery:false},'park'),undefined);
+ const outdoors=r.weatherReactionPrompt({weather:clear,settings:preview,area:'park',place:'Park',activity:'Mana is walking.',present:['Luna'],topic:'scenery:summer'});
+ assert.match(outdoors,/golden and coral daisies/);assert.match(outdoors,/"otherVisibleCharacters":\["Luna"\]/);assert.match(outdoors,/does not establish a change of date/);
+});
+
+test('weather reactions require an awake visible actor and discard stale location, weather or activity',()=>{
+ let instant=Date.parse('2026-11-20T04:00:00Z'),slots=[],cursor=0,pending=[],interval,requests=[],busy=false;
+ class ClockDate extends Date{constructor(...args){super(...(args.length?args:[instant]));}static now(){return instant;}}
+ const jsx=(type,props)=>({type,props}),voice={ready:true},listeners=new Map();
+ const react={useContext:context=>context.current,useRef(initial){const id=cursor++;return slots[id]??(slots[id]={current:initial});},useState(initial){const id=cursor++;if(!Object.hasOwn(slots,id))slots[id]=initial;return [slots[id],value=>slots[id]=typeof value==='function'?value(slots[id]):value];},useEffect(effect,deps){const id=cursor++,previous=slots[id];if(previous&&deps.every((value,index)=>Object.is(value,previous.deps[index])))return;const entry={deps};slots[id]=entry;pending.push(()=>{previous?.cleanup?.();entry.cleanup=effect();});}};
+ const actor={dataset:{},isConnected:true,closest:()=>null,querySelector:selector=>selector.includes('Mana')?{getAttribute:()=>null}:null};
+ const root={current:{querySelectorAll:selector=>selector==='.character-gesture'?[actor]:busy?[{closest:()=>null,classList:{contains:()=>false}}]:[]}};
+ const weather={kind:'rain',season:'autumn',intensity:'gentle',effects:true},state={weather,settings:{mode:'rain',intensity:'gentle',effects:true}},doc={visibilityState:'visible',addEventListener:(name,fn)=>listeners.set(name,fn),removeEventListener:name=>listeners.delete(name)};
+ const load=loader({react,'react/jsx-runtime':{jsx,jsxs:jsx},'react-dom':{createPortal:(node,anchor)=>({node,anchor})},'./TownWeather':{useTownWeather:()=>state},'./SceneVoice':{SceneVoice:{current:voice},useSceneLine:(context,speaker)=>{requests.push({context,speaker});return context?'AI weather line':undefined;}},'./ManaverseMap':{manaversePlaces:{street:'Street',cafe:'Coffee Shop'}}},{Date:ClockDate,document:doc,window:{setInterval:fn=>{interval=fn;return 1;}},clearInterval(){}});
+ const UI=load('src/components/WeatherReactions.tsx').default,props={root,area:'street',characters:{mana:{location:'street',activity:'Mana is walking.'},luna:{location:'luna-home'}},active:true,timeZone:'Asia/Singapore'};
+ function render(){cursor=0;pending=[];const tree=UI(props);pending.forEach(effect=>effect());return tree;}
+ assert.equal(render(),null);instant+=31_000;interval();let tree=render();assert.equal(tree.anchor,actor);assert.equal(requests.at(-1).speaker,'mana');assert.match(requests.at(-1).context,/Mana is walking/);assert.doesNotMatch(requests.at(-1).context,/"otherVisibleCharacters":\["Luna"/);
+ busy=true;assert.equal(render(),null);busy=false;
+ actor.dataset.asleep='true';assert.equal(render(),null);delete actor.dataset.asleep;
+ props.characters.mana.activity='Mana is resting.';assert.equal(render(),null);props.characters.mana.activity='Mana is walking.';
+ state.weather={...weather,kind:'snow'};assert.equal(render(),null);state.weather=weather;
+ props.area='cafe';assert.equal(render(),null);instant+=100_000;interval();assert.equal(render(),null);props.area='street';
+ props.active=false;assert.equal(render(),null);props.active=true;
+ doc.visibilityState='hidden';listeners.get('visibilitychange')();assert.equal(render(),null);doc.visibilityState='visible';
+ instant=Date.parse('2026-11-20T19:30:00Z');interval();assert.equal(render(),null,'no overnight weather chatter');
+ for(const slot of slots)slot?.cleanup?.();assert.equal(listeners.size,0);
 });

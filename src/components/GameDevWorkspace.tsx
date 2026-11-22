@@ -1,16 +1,19 @@
 import {useEffect,useRef,useState} from 'react';
 import {open} from '@tauri-apps/plugin-dialog';
 import CodePlayground from './CodePlayground';
-import {developmentAttempts,developmentDue,GAME_DEV_GENRES,GAME_DEV_LIMIT,GAME_DEV_STEPS,type DailyAttempts,type GameDevState} from '../core/gameDev';
+import {canRecoverStarCollector,developmentAttempts,developmentDue,GAME_DEV_GENRES,GAME_DEV_LIMIT,GAME_DEV_STEPS,type DailyAttempts,type GameDevState} from '../core/gameDev';
 import {inTauri} from '../core/useLlama';
 
-export default function GameDevWorkspace({state,date,busy,ready,modelStatus,onSettings,onWork,onPublish,onStop,onClose,onPlaying}:{
+export interface GameDevEntry {tab:'projects'|'published';projectId?:string}
+
+export default function GameDevWorkspace({state,date,busy,ready,modelStatus,onSettings,onWork,onPublish,onStop,onClose,onPlaying,entry}:{
  state:GameDevState;date:string;busy:boolean;ready:boolean;modelStatus:string;
  onSettings:(settings:Partial<Pick<GameDevState,'developmentEnabled'|'playtestsEnabled'|'developmentPerDay'|'playsPerDay'|'diary'|'developmentModelPath'>>)=>void;
  onWork:(target?:string)=>void;onPublish:(id:string)=>void;onStop:()=>void;onClose:()=>void;onPlaying:(playing:boolean)=>void;
+ entry:GameDevEntry;
 }){
- const [tab,setTab]=useState<'projects'|'published'>('projects');
- const [selected,setSelected]=useState('');
+ const [tab,setTab]=useState(entry.tab);
+ const [selected,setSelected]=useState(entry.projectId??'');
  const details=useRef<HTMLDialogElement>(null);
  const [playing,setPlaying]=useState(false);
  const [modelError,setModelError]=useState('');
@@ -21,6 +24,7 @@ export default function GameDevWorkspace({state,date,busy,ready,modelStatus,onSe
   if(active&&panel&&!panel.open)panel.showModal();
  },[active]);
  const awaitingReview=!!active?.genre&&active.step===2;
+ const canRecover=canRecoverStarCollector(active);
  const isProjects=tab==='projects';
  const enabledKey=isProjects?'developmentEnabled':'playtestsEnabled';
  const attemptsKey=isProjects?'developmentPerDay':'playsPerDay';
@@ -79,12 +83,12 @@ export default function GameDevWorkspace({state,date,busy,ready,modelStatus,onSe
      {active.theme&&<p>{active.theme}</p>}
      <p>{active.genre&&active.genre+' · '}{active.publishedAt?'Published in Mana’s local library':awaitingReview?'Ready for playability review':GAME_DEV_STEPS[active.step]}</p>
      <div className="builder-actions">
-      {isProjects&&!awaitingReview&&<button className="btn" disabled={!ready||busy||playing||!due} onClick={()=>onWork(active.id)}>Continue project</button>}
+      {isProjects&&!awaitingReview&&<button className="btn" disabled={busy||playing||(!canRecover&&(!ready||!due))} onClick={()=>onWork(active.id)}>{canRecover?'Recover playable draft':'Continue project'}</button>}
       {awaitingReview&&<button className="btn" disabled={busy||playing} onClick={()=>onPublish(active.id)}>Confirm playable and publish</button>}
       {busy&&<button className="btn" onClick={onStop}>Stop Game Dev</button>}
      </div>
      {busy&&<p role="status">{modelStatus||'Game Dev is running.'}</p>}
-     {active.code?<CodePlayground key={active.id+active.step} playOnly runLabel="Play test" code={active.code} onCode={()=>{}} generating={busy} onRunning={running=>{setPlaying(running);onPlaying(running);}}/>:<p>A playable draft will appear here after the first successful build.</p>}
+     {active.code?<CodePlayground key={active.id+active.step} playOnly runLabel={isProjects?'Play test':'Play game'} code={active.code} onCode={()=>{}} generating={busy} onRunning={running=>{setPlaying(running);onPlaying(running);}}/>:<p>A playable draft will appear here after the first successful build.</p>}
      <h4>Development and playtest notes</h4>
      {[...state.notes].reverse().filter(note=>note.projectId===active.id).map(note=><p key={note.id}><small>{new Date(note.createdAt).toLocaleString()}{note.model&&' · Model reported by server: '+note.model}</small> · {note.text}</p>)}
     </div>

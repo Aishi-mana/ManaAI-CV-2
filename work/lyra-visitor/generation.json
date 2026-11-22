@@ -1,0 +1,29 @@
+{
+  "prompt": "Draw only Lyra, the woman from the LEFT of the reference, as a single full body chibi game sprite. Use the RIGHT image only for the large headed chibi proportions, clean anime cel shading and slightly elevated three-quarter view facing right. Preserve Lyra identity: very long ash blonde hair, violet eyes, side braid with dark purple ribbon and gold ornament, peach beige cable knit cardigan with lavender embroidery, white collared blouse, black ribbon with amethyst jewel, dark brown plaid pleated skirt. Add dark ankle boots. Hands relaxed at sides, gentle thoughtful smile. No beret. One entire figure centered from hair to boots, white background, no shadow, no text, ample margin.",
+  "negative": "blurry, low quality, watermark",
+  "width": 640,
+  "height": 640,
+  "steps": 4,
+  "cfg": 1,
+  "seed": 17411,
+  "cpu": false,
+  "backend": "qwen",
+  "comfy": "C:\\Users\\Admin\\AppData\\Local\\Comfy-Desktop\\ComfyUI-Installs\\ComfyUI\\ComfyUI",
+  "qwenFiles": {
+    "model": "C:\\Users\\Admin\\AppData\\Local\\Comfy-Desktop\\ComfyUI-Shared\\models\\diffusion_models\\Qwen-Rapid-AIO-SFW-v23.safetensors",
+    "clip": "C:\\Users\\Admin\\AppData\\Local\\Comfy-Desktop\\ComfyUI-Shared\\models\\text_encoders\\qwen_2.5_vl_7b_fp8_scaled.safetensors",
+    "vae": "C:\\Users\\Admin\\AppData\\Local\\Comfy-Desktop\\ComfyUI-Shared\\models\\vae\\qwen_image_vae.safetensors",
+    "lora": "C:\\Users\\Admin\\AppData\\Local\\Comfy-Desktop\\ComfyUI-Shared\\models\\loras\\modern-anime.safetensors"
+  },
+  "sampler": "res_multistep",
+  "scheduler": "simple",
+  "shift": 3.1,
+  "cfg_norm": 1.25,
+  "pre_cfg": true,
+  "lora_strength": 1,
+  "reference_method": "index_timestep_zero",
+  "denoise": 1,
+  "reference_used": true,
+  "reference_source": "avatar",
+  "elapsed_seconds": 100.15
+}

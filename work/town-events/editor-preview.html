@@ -1,0 +1,9 @@
+<!doctype html><html><head><base href="/"><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Decoration editor preview</title></head><body><div id="root"></div><script type="module">
+import React from '/node_modules/.vite/deps/react.js';
+import {createRoot} from '/node_modules/.vite/deps/react-dom_client.js';
+import Editor from '/src/components/TownDecorationEditor.tsx';
+import {DEFAULT_TOWN_DECORATIONS} from '/src/core/townFestivities.ts';
+import '/src/styles.css';
+createRoot(document.getElementById('root')).render(React.createElement(Editor,{schedule:DEFAULT_TOWN_DECORATIONS.schedules[0],onSave:objects=>{document.title='Saved '+objects.length+' objects';},onClose:()=>{document.title='Editor closed';}}));
+</script></body></html>
+

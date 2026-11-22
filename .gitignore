@@ -11,6 +11,7 @@ src-tauri/gen
 *.onnx
 *.onnx_data
 *.log
+*.zip
 
 # Downloaded model caches and local research checkouts.
 /models/**/*.bin
@@ -29,12 +30,15 @@ src-tauri/gen
 /work/**/*.7z
 /work/**/*.exe
 /work/**/*.dll
+/work/**/*.jpg
+/work/**/*.png
 
 # Local portable backup archives.
 /Mana-portable-backup*.zip
 
 # Your artwork. Delete this line if you WANT the avatar PNGs in the (public) repo.
 /assets/
+/public/
 
 # Claude's versions.
 /appsteps/

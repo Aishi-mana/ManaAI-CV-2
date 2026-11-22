@@ -1,0 +1,29 @@
+{
+  "prompt": "Restyle this exact coffee table sprite in a softly shaded anime game style with pale lavender-gray wood and soft lighting. Preserve its existing three-quarter angle, proportions, square top and short legs. One isolated table, pure white background, ample margins. No room or shadow.",
+  "negative": "blurry, low quality, watermark",
+  "width": 1280,
+  "height": 720,
+  "steps": 4,
+  "cfg": 1,
+  "seed": 4311,
+  "cpu": false,
+  "backend": "qwen",
+  "comfy": "C:\\Users\\Admin\\AppData\\Local\\Comfy-Desktop\\ComfyUI-Installs\\ComfyUI\\ComfyUI",
+  "qwenFiles": {
+    "model": "C:\\Users\\Admin\\AppData\\Local\\Comfy-Desktop\\ComfyUI-Shared\\models\\diffusion_models\\Qwen-Rapid-AIO-SFW-v23.safetensors",
+    "clip": "C:\\Users\\Admin\\AppData\\Local\\Comfy-Desktop\\ComfyUI-Shared\\models\\text_encoders\\qwen_2.5_vl_7b_fp8_scaled.safetensors",
+    "vae": "C:\\Users\\Admin\\AppData\\Local\\Comfy-Desktop\\ComfyUI-Shared\\models\\vae\\qwen_image_vae.safetensors",
+    "lora": "C:\\Users\\Admin\\AppData\\Local\\Comfy-Desktop\\ComfyUI-Shared\\models\\loras\\modern-anime.safetensors"
+  },
+  "sampler": "res_multistep",
+  "scheduler": "simple",
+  "shift": 3.1,
+  "cfg_norm": 1.25,
+  "pre_cfg": true,
+  "lora_strength": 1,
+  "reference_method": "index_timestep_zero",
+  "denoise": 1,
+  "reference_used": true,
+  "reference_source": "avatar",
+  "elapsed_seconds": 73.59
+}

@@ -70,6 +70,14 @@ export function validateBackup(raw:string):Backup {
  const data={...value.data};
  if(!Object.prototype.hasOwnProperty.call(data,GAME_DEV_KEY))data[GAME_DEV_KEY]=validateGameDev(null);
  if(!Object.prototype.hasOwnProperty.call(data,ROOM_KEY))data[ROOM_KEY]=validateRoom(null);
+ const room=data[ROOM_KEY];
+ if(isRecord(room)&&room.layout===undefined&&isRecord(room.position)){
+   const {u,v}=room.position;
+   if(typeof u==='number'&&u>=0&&u<=1&&typeof v==='number'&&v>=0&&v<=1){
+     const legacyRoom={position:{u,v},...(typeof room.wateredAt==='string'&&Number.isFinite(Date.parse(room.wateredAt))?{wateredAt:room.wateredAt}:{})};
+     if(JSON.stringify(sorted(room))===JSON.stringify(sorted(legacyRoom)))data[ROOM_KEY]=validateRoom(legacyRoom);
+   }
+ }
  if(!Object.prototype.hasOwnProperty.call(data,MUSIC_DRAFTS_KEY))data[MUSIC_DRAFTS_KEY]=validateMusicDrafts(null);
  if(isRecord(data['mana.initiative.v1'])&&!Object.prototype.hasOwnProperty.call(data['mana.initiative.v1'],'music'))data['mana.initiative.v1']={...data['mana.initiative.v1'],music:validateInitiative(null).music};
  if(isRecord(data['mana.initiative.v1'])&&!Object.prototype.hasOwnProperty.call(data['mana.initiative.v1'],'studio'))data['mana.initiative.v1']={...data['mana.initiative.v1'],studio:validateInitiative(null).studio};

@@ -121,8 +121,8 @@ fn read_backup_file(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-async fn portable_backup(app: tauri::AppHandle, operation: String, path: String, content: Option<String>, model: Option<bool>, avatars: Option<bool>, vision: Option<bool>, runtime: Option<bool>, developer: Option<bool>, whisper: Option<bool>, checksum: Option<String>) -> Result<serde_json::Value, String> {
-    use std::io::Write;
+async fn portable_backup(app: tauri::AppHandle, operation: String, path: String, content: Option<String>, model: Option<bool>, avatars: Option<bool>, vision: Option<bool>, runtime: Option<bool>, developer: Option<bool>, whisper: Option<bool>, checksum: Option<String>, progress: tauri::ipc::Channel<serde_json::Value>) -> Result<serde_json::Value, String> {
+    use std::io::{BufRead, BufReader, Write};
     use std::process::{Command, Stdio};
     if !matches!(operation.as_str(), "export"|"inspect"|"restore")
         || !std::path::Path::new(&path).extension().and_then(|v|v.to_str()).is_some_and(|v|v.eq_ignore_ascii_case("zip"))
@@ -143,14 +143,39 @@ async fn portable_backup(app: tauri::AppHandle, operation: String, path: String,
             .ok().filter(|p|p.is_file()).unwrap_or_else(||workspace.join("scripts/portable_backup.py"));
         let python=workspace.join("data/music-tools/Scripts/python.exe");
         let mut command=Command::new(if python.is_file(){python}else{PathBuf::from("python.exe")});
-        command.arg(script).arg(operation).arg(path).arg(workspace).arg(gallery)
+        command.arg(script).arg(&operation).arg(path).arg(workspace).arg(gallery)
             .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
         #[cfg(windows)] { use std::os::windows::process::CommandExt; command.creation_flags(0x08000000); }
         let mut worker=command.spawn().map_err(|e|format!("Could not start Mana's local backup helper: {e}"))?;
         let request=serde_json::to_vec(&serde_json::json!({"content":content,"model":model.unwrap_or(false),"avatars":avatars.unwrap_or(false),"vision":vision.unwrap_or(false),"runtime":runtime.unwrap_or(false),"developer":developer.unwrap_or(false),"whisper":whisper.unwrap_or(false),"checksum":checksum})).map_err(|e|e.to_string())?;
         worker.stdin.take().ok_or("Cannot open backup helper input.")?.write_all(&request).map_err(|e|e.to_string())?;
+        let reader = if operation == "export" {
+            let stdout = worker.stdout.take().ok_or("Cannot read backup helper output.")?;
+            Some(std::thread::spawn(move || -> Result<serde_json::Value, String> {
+                let mut result = None;
+                for line in BufReader::new(stdout).lines() {
+                    let value: serde_json::Value = serde_json::from_str(&line.map_err(|e| e.to_string())?)
+                        .map_err(|e| format!("Invalid backup helper output: {e}"))?;
+                    if let Some(update) = value.get("progress") {
+                        let _ = progress.send(update.clone());
+                    } else {
+                        result = Some(value);
+                    }
+                }
+                result.ok_or_else(|| "Backup helper exited before reporting a result.".into())
+            }))
+        } else {
+            None
+        };
         let output=worker.wait_with_output().map_err(|e|e.to_string())?;
-        if !output.status.success(){return Err(String::from_utf8_lossy(&output.stderr).trim().to_owned());}
+        let export_result = reader.map(|thread| thread.join().map_err(|_| "Could not read backup progress."));
+        if !output.status.success(){
+            let detail = String::from_utf8_lossy(&output.stderr);
+            return Err(if detail.trim().is_empty() { format!("Backup helper exited with {}.", output.status) } else { detail.trim().to_owned() });
+        }
+        if let Some(result) = export_result {
+            return result?;
+        }
         serde_json::from_slice(&output.stdout).map_err(|e|e.to_string())
     }).await.map_err(|e|e.to_string())?
 }

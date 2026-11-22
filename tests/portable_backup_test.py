@@ -1,5 +1,8 @@
 import importlib.util
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -12,6 +15,23 @@ spec.loader.exec_module(backup)
 
 
 class PortableBackupTest(unittest.TestCase):
+    def test_cli_reads_utf8_and_recovers_old_windows_metadata(self):
+        original = {'data': {'mana.settings.v1': {}, 'mana.chat.v1': [{'content': '日本語 🐱'}]}}
+        raw = json.dumps(original, ensure_ascii=False).encode('utf-8')
+        damaged = json.loads(raw.decode('cp1252', 'surrogateescape'))
+        self.assertNotEqual(damaged, original)
+        self.assertEqual(backup.read_portable_metadata(backup.metadata_json(damaged)), original)
+        with TemporaryDirectory() as folder:
+            base = Path(folder)
+            archive_path = base / 'backup.zip'
+            request = json.dumps({'content': raw.decode('utf-8'), 'model': False}, ensure_ascii=False).encode('utf-8')
+            subprocess.run([sys.executable, str(ROOT / 'scripts/portable_backup.py'), 'export',
+                            str(archive_path), str(base), str(base / 'gallery')],
+                           input=request, capture_output=True, check=True,
+                           env={**os.environ, 'PYTHONIOENCODING': 'cp1252:surrogateescape'})
+            with zipfile.ZipFile(archive_path) as archive:
+                self.assertEqual(backup.read_portable_metadata(archive.read(backup.BACKUP)), original)
+
     def test_moves_avatar_wardrobe_vision_and_runtime_without_overwriting(self):
         with TemporaryDirectory() as folder:
             base = Path(folder)
@@ -47,15 +67,32 @@ class PortableBackupTest(unittest.TestCase):
                 'mana.whisper.v1': {'modelPath': str(source / 'whisper.bin'),
                                     'exePath': str(base / 'whisper/whisper-cli.exe')},
                 'mana.images.v1': [{'diskId': 'abc'}],
+                'mana.chat.v1': [{'text': '日本語 🎵 \udc9d'}],
             }}
             archive_path = base / 'test.zip'
+            updates = []
             result = backup.export(archive_path, json.dumps(metadata), source, gallery,
-                                   model=True, avatars=True, vision=True, runtime=True, developer=True, whisper=True)
+                                   model=True, avatars=True, vision=True, runtime=True, developer=True, whisper=True,
+                                   progress=lambda **update: updates.append(update))
             self.assertEqual(result, {'files': 15, 'missing': 0})
+            writes = [update for update in updates if update['stage'] == 'Writing ZIP']
+            self.assertEqual(writes[0]['bytesWritten'], 0)
+            self.assertEqual(writes[-1]['bytesWritten'], writes[-1]['totalBytes'])
+            self.assertEqual(writes[-1]['completedFiles'], result['files'])
+            self.assertEqual(updates[-1]['stage'], 'Finalizing ZIP')
+            self.assertEqual(list(base.glob('*.partial')), [])
+            with self.assertRaisesRegex(ValueError, 'Choose a new backup name'):
+                backup.export(archive_path, json.dumps(metadata), source, gallery, model=False)
             with zipfile.ZipFile(archive_path) as archive:
                 self.assertFalse(any('secret.txt' in name for name in archive.namelist()))
-                preview = backup.inspect_metadata(backup.metadata_bytes(archive), archive, target, restored_gallery)
+                payload = backup.metadata_bytes(archive)
+                self.assertIn(b'\\udc9d', payload)
+                self.assertIn('日本語 🎵'.encode('utf-8'), payload)
+                preview = backup.inspect_metadata(payload, archive, target, restored_gallery)
+                self.assertIn('\\udc9d', preview)
+                preview.encode('utf-8')
                 restored = json.loads(preview)['data']
+                self.assertEqual(restored['mana.chat.v1'], metadata['data']['mana.chat.v1'])
                 self.assertEqual(backup.restore(archive, target, restored_gallery)['files'], 15)
                 self.assertEqual(backup.restore(archive, target, restored_gallery)['files'], 0)
                 settings = restored['mana.settings.v1']

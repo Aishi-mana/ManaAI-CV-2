@@ -8,7 +8,7 @@ export function imageGenerationRequest(value:ImageGenerationRequest):ImageGenera
 
 }
 
-export interface ChatPictureRequest {prompt:string;backend?:'neta'|'sd'|'animagine'|'photon'|'qwen';referenceAvatar?:boolean;clothingOnly?:boolean;qwenReferenceSource?:'sheet'|'avatar'}
+export interface ChatPictureRequest {prompt:string;backend?:'neta'|'sd'|'animagine'|'photon'|'qwen';referenceAvatar?:boolean;clothingOnly?:boolean;qwenReferenceSource?:'sheet'|'avatar';referenceCast?:readonly string[]}
 
 /** Only explicit leading creation requests; questions and quoted discussion stay chat. */
 
@@ -138,8 +138,11 @@ export function freshPictureSeed(previous:number,value?:number){let next=value;i
 export function isQwenModel(model:string){return model==='Qwen-Rapid-AIO-SFW-v23.safetensors';}
 
 /** Natural-language actions are passed through; no per-pose setup is required. */
-export function qwenArtworkPrompt(prompt:string,reference:boolean,source:'sheet'|'avatar'='sheet'){
+export function qwenArtworkPrompt(prompt:string,reference:boolean,source:'sheet'|'avatar'='sheet',cast?:readonly string[]){
  if(!reference)return prompt;
+ if(source==='avatar'&&cast&&cast.length>1){
+  return `The reference is a labeled cast sheet. Left to right: ${cast.join(', ')}. Draw each of these ${cast.length} distinct characters once in the same finished scene. Preserve each face, hairstyle, colors, outfit and accessories from their own panel. Keep identities and clothing separate. Use new poses suited to the requested action. Omit the reference sheet layout, panels and all labels from the finished image. Requested artwork: ${prompt}`;
+ }
  return 'Draw the same single character from the reference '+(source==='sheet'?'turnaround sheet':'current avatar image')+' in a new pose and scene. Keep the reference face: round cheeks, large eyes, a short chin and small nose. Keep the same apparent age and compact stylized proportions, with a large head relative to the body and short limbs matching the reference. Keep the exact reference hair color, eye color, hairstyle, outfit, footwear and equipped accessories unless the request explicitly changes them. Use the reference for identity and design, not as a pose template. Follow the requested action with natural whole-body movement, hands, expression and perspective; adapt hair and fabric to the motion without recoloring or redesigning them. Respect an explicitly requested posture, camera angle or still pose. Draw exactly one character, even if the reference shows multiple views. Polished anime illustration. Requested artwork: '+prompt.replace(/\byourself\b/gi,'the reference character');
 }
 

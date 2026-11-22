@@ -1,7 +1,18 @@
-import GameDevWorkspace from "./components/GameDevWorkspace";
+import {townGoalPrompt,readTownGoal,townGoalContext} from './core/townPersonalGoals';
+import {activityPreferencePrompt,readActivityPreference} from './core/activityPreferences';
+import {groupJoinPrompt,readGroupJoinReply} from './core/aishiActivities';
+import {memoryInvitationPrompt,readMemoryInvitation} from './core/memoryInvitations';
+import {sharedMemoryContext} from './core/residentRelationships';
+import GameDevWorkspace,{type GameDevEntry} from "./components/GameDevWorkspace";
 import CompanionRoom from "./components/CompanionRoom";
-import { developmentAttempts, developmentDue, developmentRequest, GAME_DEV_LIMIT, genreGameDescription, loadGameDev, newDevProject, playSlot, saveGameDev, type GameDevState } from "./core/gameDev";
-import { STAR_COLLECTOR_MARKER, STAR_COLLECTOR_REQUEST } from "./core/starCollectorCheck";
+import {SceneVoice,type SceneSpeaker} from './components/SceneVoice';
+import {residentProfiles,residentPrompt} from './core/residentProfiles';
+import {phoneMessagePrompt,readPhoneText,ROOM_CONTACTS} from './core/roomPhone';
+import {petBotMessages} from './core/petBot';
+import {readRememberingReply} from './core/sceneMemory';
+import {favoriteRoomActivity,loadRoom,ROOM_ACTIVITY_FURNITURE} from './core/companionRoom';
+import { canRecoverStarCollector, developmentAttempts, developmentDue, developmentRequest, GAME_DEV_LIMIT, genreGameDescription, loadGameDev, newDevProject, playSlot, saveGameDev, type GameDevState } from "./core/gameDev";
+import { STAR_COLLECTOR_MARKER, STAR_COLLECTOR_REQUEST, STAR_COLLECTOR_STARTER } from "./core/starCollectorCheck";
 import { canRouteToWeb, shouldSearchWeb, webSearchCommand } from "./core/webSearch";
 import { invoke } from "@tauri-apps/api/core";
 import {requestsMemoryRecall, semanticReplyMemories} from './core/semanticMemory';
@@ -11,7 +22,7 @@ import {creativeOutfitMessages,readCreativeOutfit,type OutfitIdeaHistory} from '
 import {accessoryIdeaMessages,readAccessoryIdea} from './core/generatedAccessories';
 import type {AtelierAttachment} from './core/wearableReview';
 import GeneratedOutfits from './components/GeneratedOutfits';
-import {diaryArtworkRequest,attachDiaryIllustration,compactDiaryImage} from './core/diaryArtwork';
+import {diaryArtworkRequest,attachDiaryIllustration,compactDiaryImage,prepareDiaryCastReference} from './core/diaryArtwork';
 import {INITIAL_LOOK_COMMENTS,planLookComment} from './core/lookComments';
 import Atelier from './components/Atelier';
 import {migrateGallery,addDiskImage,removeDiskImage,galleryFolder as diskGalleryFolder} from './core/diskGallery';
@@ -43,7 +54,7 @@ import NarrativesDrawer from './components/NarrativesDrawer';
 import {loadNarratives,saveNarratives,narrativePayload,narrativeContext,lessonReplyFocus,editableNarrativeRevision,canSaveNarrative,validateNarratives,NARRATIVE_LIMIT} from './core/narratives';
 import type {Narrative,NarrativeKind} from './core/narratives';
 import EventsDrawer from './components/EventsDrawer';
-import {loadEvents,saveEvents,changedEventSources,appendEvents} from './core/events';
+import {loadEvents,saveEvents,changedEventSources,appendEvents,appendRoomEvent,roomEventSources,roomEventContext} from './core/events';
 import type {EventSource} from './core/events';
 import {loadEpisodes,saveEpisodes,episodeContext} from './core/episodes';
 import ThoughtsDrawer from './components/ThoughtsDrawer';
@@ -125,8 +136,11 @@ export default function App() {
   const [practice,setPractice]=useState(loadPractice);
   const [showSkills,setShowSkills]=useState(false);
   const [showGameDev,setShowGameDev]=useState(false),[gameDev,setGameDev]=useState(loadGameDev);
-  const [showCompanionRoom,setShowCompanionRoom]=useState(false);
-  const [devBusy,setDevBusy]=useState(false),[devPlaying,setDevPlaying]=useState(false);
+  const [gameDevEntry,setGameDevEntry]=useState<GameDevEntry>({tab:'projects'});
+  const [mainLayout,setMainLayout]=useState<1|2|3>(1);
+  const [roomEditorOpen,setRoomEditorOpen]=useState(false);
+  const [devTask,setDevTask]=useState<'development'|'playtest'|null>(null),[devPlaying,setDevPlaying]=useState(false);
+  const devBusy=devTask!==null;
   const gameDevRef=useRef(gameDev);
   const devController=useRef<AbortController|null>(null);
   const [showCode,setShowCode]=useState(false),[playgroundCode,setPlaygroundCode]=useState(SANDBOX_EXAMPLE),[codeGenerating,setCodeGenerating]=useState(false),[codeError,setCodeError]=useState(''),[rejectedCode,setRejectedCode]=useState(''),[codeSmoke,setCodeSmoke]=useState<SmokeCheckResult>();
@@ -195,6 +209,8 @@ export default function App() {
   const [showDiary, setShowDiary] = useState(false);
   const [diary, setDiary] = useState(loadDiary);
   const [diaryArtQueue,setDiaryArtQueue]=useState<string[]>([]),[diaryArtId,setDiaryArtId]=useState<string>(),[diaryArtStatus,setDiaryArtStatus]=useState('');
+  const diaryArtEntry=diaryArtId?diary.find(entry=>entry.id===diaryArtId&&!entry.deletedAt):undefined;
+  const diaryArtRequest=diaryArtEntry?diaryArtworkRequest(diaryArtEntry):undefined;
   const diaryRef = useRef(diary);
   diaryRef.current = diary;
   const [journal, setJournal] = useState(loadJournalState);
@@ -250,6 +266,18 @@ export default function App() {
     ...chatArchives.map(a=>({id:a.id,kind:'archive' as const,title:a.title,outcome:'Conversation archived.'})),
   ],[goals,work,playtests,sharedActivities,diary,thoughts,chatArchives]);
   const previousEventSources=useRef(eventSources);
+  function recordRoomActivity(action:string,title:string,outcome:string){
+    const history=loadEvents();
+    const next=appendRoomEvent(history,action,title,outcome,journalRef.current.timeZone);
+    if(next===history)return;
+    saveEvents(next);
+    setEvents(next);
+  }
+  function dueRoomAwareJournalDate(){
+    const journal=journalRef.current;
+    const roomDates=roomEventSources(loadEvents(),journal.timeZone).map(event=>event.date);
+    return dueJournalDate(journal,diaryRef.current,new Date(),roomDates);
+  }
   useEffect(()=>{
     const changes=changedEventSources(previousEventSources.current,eventSources);
     previousEventSources.current=eventSources;
@@ -311,6 +339,83 @@ export default function App() {
       setEvents(history);
     }
     return true;
+  }
+
+  async function replyAsPetBot(message:string,memory:string[],signal:AbortSignal,roomContext:string){
+    if(llama.status!=='ready')throw Error('Start Mana’s chat model to talk to Pet Bot.');
+    if(abortRef.current||busy||reflecting||storage.error||mediaOccupied()||autoOutfitRunning||diaryArtId)throw Error('Pet Bot is waiting for the shared model. Try again in a moment.');
+    signal.throwIfAborted();
+    const controller=new AbortController();
+    const stop=()=>controller.abort();
+    signal.addEventListener('abort',stop,{once:true});
+    abortRef.current=controller;
+    setReflecting(true);
+    let text='';
+    try{
+      await streamChat({port:llama.port,temperature:.65,signal:controller.signal,maxTokens:120,
+        messages:petBotMessages(memory,message,roomContext,!message),onToken:token=>{text+=token;}});
+      controller.signal.throwIfAborted();
+      const result=readRememberingReply(text);
+      const reply=cleanReply(result.reply,'Pet Bot').text.trim();
+      if(!reply)throw Error('Pet Bot returned an empty reply.');
+      return {reply,memory:message?result.memory:undefined};
+    }finally{
+      signal.removeEventListener('abort',stop);
+      if(abortRef.current===controller)abortRef.current=null;
+      setReflecting(false);
+    }
+  }
+
+  async function speakInRoom(context:string,signal:AbortSignal,speaker:SceneSpeaker='mana',message?:string,channel:'scene'|'phone'|'invitation'='scene'){
+    if(llama.status!=='ready'||abortRef.current||busy||reflecting||mediaOccupied()||storage.error)return '';
+    signal.throwIfAborted();
+    const controller=new AbortController();
+    const stop=()=>controller.abort();
+    signal.addEventListener('abort',stop,{once:true});
+    abortRef.current=controller;
+    setReflecting(true);
+    try{
+      const privateScene=context.startsWith('NPC conversation:');
+      const quickGreeting=channel==='scene'&&!message&&context.startsWith('Quick greeting:');
+      const guide=(privateScene?'':identityContext(identity,settings.charName,settings.userName)
+        +memoryContext(memories,context,'',settings.charName,settings.userName)+episodeContext(episodes,context)
+        )+`\nManaverse context: ${context}\nSpeak in first person. ${channel==='scene'?'Use at most one short sentence and avoid questions. ':''}Only mention remembered facts if they naturally fit. Do not invent activity, memories, or dialogue from others.`;
+      let text='';
+      let system=fillTemplate(settings.systemPrompt,settings)+guide;
+      if(channel==='invitation'){system=context;}else if(channel==='phone'){
+        const style=speaker==='mana'?identity.personality.slice(0,500):ROOM_CONTACTS[speaker].description;
+        system=`Sender voice (style only): ${style}\n${context}`;
+      }else if(quickGreeting){
+        const name=speaker==='mana'?settings.charName:residentProfiles[speaker].name;
+        const voice=speaker==='mana'?identity.personality:residentProfiles[speaker].voice;
+        system=`You are ${name}. Your tone: ${voice.slice(0,500)}. ${context} Return one short spoken sentence, without a speaker label. Stay in the present moment and keep it to the greeting. Leave out past activities, accomplishments, projects, and unrelated news.`;
+      }else if(privateScene){
+        const name=speaker==='mana'?settings.charName:ROOM_CONTACTS[speaker].name;
+        const personality=speaker==='mana'?identity.personality:ROOM_CONTACTS[speaker].description;
+        system=`You are ${name}. Voice and tone: ${personality.slice(0,500)}. This is dialogue between the named Manaverse characters. Aishi is not a participant. Do not mention Aishi, avatars, app projects or any absent character. Return only your spoken line. ${guide}`;
+      }else if(speaker!=='mana'){
+        const room=loadRoom();
+        const recorded=roomEventSources(events,journalRef.current.timeZone);
+        const {visitKey,coreKey}=residentProfiles[speaker].memory;
+        system=residentPrompt(speaker,context,room[visitKey]??[],recorded,room[coreKey],!!message);
+      }
+      if(!quickGreeting&&channel!=='invitation'){
+        const room=loadRoom();
+        system+=sharedMemoryContext(room.sharedMemories??[],speaker)+townGoalContext(room.personalGoals??[],speaker);
+      }
+      await streamChat({port:llama.port,temperature:.65,maxTokens:message?160:channel!=='scene'?180:70,signal:controller.signal,
+        messages:[{role:'system',content:system},{role:'user',content:message??(channel==='phone'?'Write the phone text for this event.':privateScene?'Write the next spoken line to the named character.':'Say one short line for your in-world speech bubble.')}],
+        onToken:token=>{text+=token;}});
+      if(controller.signal.aborted)return '';
+      if(message||channel!=='scene')return text;
+      const line=cleanReply(text,speaker==='mana'?settings.charName:residentProfiles[speaker].name).text.trim().slice(0,200);
+      if(quickGreeting&&/\b(?:new game|game (?:I|we) (?:made|built)|(?:made|built|created|finished|making|building)\b[^.!?]{0,30}\bgame)\b/i.test(line))return '';
+      return privateScene&&/\b(?:Aishi|avatar|new character)\b/i.test(line)?'':line;
+    }finally{
+      signal.removeEventListener('abort',stop);
+      if(abortRef.current===controller)abortRef.current=null;
+      setReflecting(false);
+    }
   }
 
   async function chooseOutfitIdea(signal:AbortSignal,history:OutfitIdeaHistory[],season?:string){
@@ -426,24 +531,28 @@ export default function App() {
 
   async function runGameDev(kind:'development'|'playtest',target?:string,approve=false){
     if(abortRef.current||busy||reflecting||devPlaying||autoOutfitRunning||storage.error||mediaOccupied()||
-       document.visibilityState!=='visible'||(kind==='development'&&!approve&&llama.status!=='ready'))return;
+       document.visibilityState!=='visible')return;
     const current=gameDevRef.current;
     const now=new Date(),zone=journalRef.current.timeZone,date=journalClock(now,zone).date;
     const slot=kind==='playtest'?playSlot(current,now,zone):undefined;
-    if(kind==='development'?!approve&&!developmentDue(current,date):!slot)return;
     const published=current.projects.filter(project=>project.publishedAt);
     const ongoing=current.projects.filter(item=>!item.publishedAt);
     const project=kind==='playtest'?published[Math.floor(Math.random()*published.length)]:
       target==='new'?undefined:target?ongoing.find(item=>item.id===target):
       ongoing.find(item=>!item.genre||item.step<2);
+    const recoverCollector=kind==='development'&&!approve&&canRecoverStarCollector(project);
+    const manualRecovery=recoverCollector&&!!target;
+    if(kind==='playtest'&&!slot)return;
+    if(kind==='development'&&!approve&&!manualRecovery&&
+       (llama.status!=='ready'||!developmentDue(current,date)))return;
     if(approve&&(!project?.genre||project.step!==2))return;
     if(kind==='development'&&!project&&current.projects.length>=GAME_DEV_LIMIT)return;
     if(kind==='development'&&project?.genre&&project.step===2&&!approve)return;
     const work=project??newDevProject(uid(),current.projects);
     const ctrl=new AbortController();
-    abortRef.current=ctrl;devController.current=ctrl;setDevBusy(true);setReflecting(true);
+    abortRef.current=ctrl;devController.current=ctrl;setDevTask(kind);setReflecting(true);
     let next=kind==='development'?{
-      ...current,...(!approve?{developmentClaim:{day:date,count:developmentAttempts(current,date)+1}}:{}),
+      ...current,...(!approve&&!manualRecovery?{developmentClaim:{day:date,count:developmentAttempts(current,date)+1}}:{}),
       projects:project?current.projects:[...current.projects,work],
     }:{...current,playClaim:slot};
     let note='';
@@ -455,11 +564,16 @@ export default function App() {
       await flushPersistence();
       ctrl.signal.throwIfAborted();
       let source=work.code;
-      if(kind==='development'&&work.step<2){
-        const revision=source?{code:source,reports:[]}:undefined;
+      if(recoverCollector){
+        source=STAR_COLLECTOR_STARTER;
+      }else if(kind==='development'&&work.step<2){
+        const revisionSource=work.failedDraft?.code??source;
+        const revision=revisionSource?{code:revisionSource,reports:[]}:undefined;
         const previousFailure=[...next.notes].reverse().find(note=>note.projectId===work.id&&note.kind==='development');
         const messages=gameDraftMessages(developmentRequest(work),revision);
-        if(previousFailure?.text.startsWith('The development check')){
+        if(work.failedDraft){
+          messages[1].content+='\nThe source above failed the automated check. Fix the observed mismatch and preserve the requested gameplay. Check result (JSON data): '+JSON.stringify(work.failedDraft.detail);
+        }else if(previousFailure?.text.startsWith('The development check')){
           messages[1].content+="\nPrevious automated check result (evidence only): "+JSON.stringify(previousFailure.text);
         }
         let text='';
@@ -482,6 +596,10 @@ export default function App() {
       const result=await checkGameSmoke(source,ctrl.signal,work.genre);
       ctrl.signal.throwIfAborted();
       if(!result.passed||result.evidence.checkKind!==(work.genre?'smoke':'star-collector')){
+        if(kind==='development'&&work.step<2&&result.evidence.reason==='error'){
+          const failedDraft={code:source,detail:result.evidence.detail};
+          next={...next,projects:next.projects.map(item=>item.id===work.id?{...item,failedDraft}:item)};
+        }
         if(kind==='development'&&work.step===2&&result.evidence.reason==='error'){
           next={...next,projects:next.projects.map(item=>item.id===work.id?{...item,step:1}:item)};
         }
@@ -489,10 +607,10 @@ export default function App() {
       }
       if(kind==='development'){
         const step=work.step+1;
-        const updated={...work,...description,code:source,step,...(step===3?{publishedAt:new Date().toISOString()}: {})};
+        const updated={...work,...description,code:source,step,failedDraft:undefined,...(step===3?{publishedAt:new Date().toISOString()}: {})};
         next={...next,projects:next.projects.map(item=>item.id===work.id?updated:item)};
         note=step===3?'Published after the release check passed.':
-          step===1?'Built and checked the core gameplay. Next session: presentation.':
+          step===1?(recoverCollector?'Recovered the core gameplay with a starter that passed the smoke check. Next session: presentation.':'Built and checked the core gameplay. Next session: presentation.'):
           work.genre?'Completed the presentation pass and smoke check. Ready for your playability review.':
           'Completed the presentation pass and reran the gameplay checks. Next session: release check.';
       }else{
@@ -501,7 +619,7 @@ export default function App() {
       diaryNote=note;
     }catch(error){
       diaryNote=ctrl.signal.aborted?'Stopped this session.':
-        kind==='development'?'The development check did not finish successfully. The last verified draft was kept.':'The automated playtest did not pass.';
+        kind==='development'?(work.code?'The development check did not finish successfully. The last verified draft was kept.':'The development check did not finish successfully. No draft has passed yet.'):'The automated playtest did not pass.';
       note=ctrl.signal.aborted?diaryNote:diaryNote+' '+(error instanceof Error?error.message:String(error));
     }finally{
       try{
@@ -513,7 +631,7 @@ export default function App() {
       finally{
         devController.current=null;
         if(abortRef.current===ctrl)abortRef.current=null;
-        setDevBusy(false);setReflecting(false);
+        setDevTask(null);setReflecting(false);
       }
     }
   }
@@ -521,7 +639,7 @@ export default function App() {
   const devTick=useRef<()=>void>(()=>{});
   devTick.current=()=>{
     const state=gameDevRef.current;
-    if(showCompanionRoom||showGameDev||showCode||showWardrobe||showBackgrounds||showOutfitPrototype||showImageGeneration||
+    if(roomEditorOpen||showGameDev||showCode||showWardrobe||showBackgrounds||showOutfitPrototype||showImageGeneration||
        showSinging||showVision||showSavedImages||showDiary||showSettings||archiving||
        hasChatDraft.current||Date.now()-lastActivityAt.current<120000||document.visibilityState!=='visible')return;
     const now=new Date(),zone=journalRef.current.timeZone;
@@ -607,14 +725,14 @@ export default function App() {
         setInitiativeStatus("");
         return;
       }
-      if (document.visibilityState !== "visible" || showImageGeneration || showSinging || showSavedImages || showVision || showCode || showGameDev || showCompanionRoom || showSkills || showNarratives || narrativeDraft || showEvents || showSettings || showMemories || showState || showDiary || showBackgrounds || showOutfitPrototype || showWardrobe || showGoals || showFollowups || showActivities || showChatArchives || showThoughts || thoughtDraft || archiving) return;
+      if (document.visibilityState !== "visible" || roomEditorOpen || showImageGeneration || showSinging || showSavedImages || showVision || showCode || showGameDev || showSkills || showNarratives || narrativeDraft || showEvents || showSettings || showMemories || showState || showDiary || showBackgrounds || showOutfitPrototype || showWardrobe || showGoals || showFollowups || showActivities || showChatArchives || showThoughts || thoughtDraft || archiving) return;
       // A due daily journal has priority over initiating a chat.
-      if (dueJournalDate(journalRef.current, diaryRef.current)) return;
+      if (dueRoomAwareJournalDate()) return;
       void startConversation();
     };
     const timer = window.setInterval(check, 30_000);
     return () => window.clearInterval(timer);
-  }, [initiative, busy, reflecting, reflectionDraft, llama.status, storage.error, companion.state, identity, memories, settings, goals, interests, work, followups, showActivities, showFollowups, showSettings, showMemories, showState, showDiary, showBackgrounds, showOutfitPrototype, showWardrobe, showGoals,showChatArchives,showThoughts,showEvents,showCode,showGameDev,showCompanionRoom,showSkills,showNarratives,narrativeDraft,thoughtDraft,archiving,showVision,showSavedImages,showSinging,showImageGeneration]);
+  }, [initiative, busy, reflecting, reflectionDraft, llama.status, storage.error, companion.state, identity, memories, settings, goals, interests, work, followups, showActivities, showFollowups, showSettings, showMemories, showState, showDiary, showBackgrounds, showOutfitPrototype, showWardrobe, showGoals,showChatArchives,showThoughts,showEvents,showCode,showGameDev,showSkills,showNarratives,narrativeDraft,thoughtDraft,archiving,showVision,showSavedImages,showSinging,showImageGeneration,roomEditorOpen]);
 
   async function generateActivityReply(id:string){
     if(abortRef.current||busy||reflecting||storage.error||llama.status!=='ready')return;
@@ -651,6 +769,9 @@ export default function App() {
     const devState=gameDevRef.current;
     const gameActivity=devState.diary?devState.notes.filter(note=>note.diaryText&&journalClock(new Date(note.createdAt),sourceState.timeZone).date===date)
       .map(note=>({title:devState.projects.find(project=>project.id===note.projectId)?.title??'Game project',activity:note.diaryText!})):[];
+    const roomActivity=roomEventSources(loadEvents(),sourceState.timeZone).filter(event=>event.date===date)
+      .map(({title,activity})=>({title,activity}));
+    const favorite=roomActivity.length?favoriteRoomActivity(loadRoom()):undefined;
     const sourceMemories = [...memories].sort((a,b) => Number(b.pinned)-Number(a.pinned) || b.importance-a.importance).slice(0,4).map((m) => ({ ...m,content:m.content.slice(0,1000) }));
     const writingState = companion.state;
     const ctrl = new AbortController();
@@ -659,7 +780,7 @@ export default function App() {
     let content = "";
     try {
       await streamChat({ port:llama.port,temperature:0.4,signal:ctrl.signal,
-        messages:dailyJournalPayload(reflectionPayload(identity,writingState,sourceMessages,sourceMemories,settings.charName,settings.userName,journalRef.current.timeZone,new Date(),[],[],true),date,!sourceMessages.some((m)=>m.role==="user"),goals,journalRef.current.timeZone,gameActivity),
+        messages:dailyJournalPayload(reflectionPayload(identity,writingState,sourceMessages,sourceMemories,settings.charName,settings.userName,journalRef.current.timeZone,new Date(),[],[],true),date,!sourceMessages.some((m)=>m.role==="user"),goals,journalRef.current.timeZone,gameActivity,roomActivity,favorite?ROOM_ACTIVITY_FURNITURE[favorite]:undefined),
         onToken:(token) => { content += token; } });
       const text = cleanReply(content,settings.charName).text;
       if (ctrl.signal.aborted || !text) throw new Error("No complete journal entry was generated");
@@ -680,9 +801,9 @@ export default function App() {
 
   useEffect(() => {
     const check = () => {
-      if (showWardrobe || showOutfitPrototype || showImageGeneration || showSinging || showSavedImages || showVision || busy || reflecting || reflectionDraft || hasChatDraft.current || abortRef.current || llama.status !== "ready" || storage.error || Date.now() < journalRetryAfter.current) return;
+      if (roomEditorOpen || showWardrobe || showOutfitPrototype || showImageGeneration || showSinging || showSavedImages || showVision || busy || reflecting || reflectionDraft || hasChatDraft.current || abortRef.current || llama.status !== "ready" || storage.error || Date.now() < journalRetryAfter.current) return;
       if (Date.now()-journalOpenedAt.current < 120_000) return;
-      const date = dueJournalDate(journalRef.current,diaryRef.current);
+      const date = dueRoomAwareJournalDate();
       if (!date) return;
       const daySources = journalRef.current.sources.filter((s) => s.date === date);
       const lastSource = daySources[daySources.length-1];
@@ -692,7 +813,7 @@ export default function App() {
     check();
     const timer = window.setInterval(check,30_000);
     return () => window.clearInterval(timer);
-  }, [busy,reflecting,reflectionDraft,llama.status,journal,diary,identity,memories,goals,work,companion.state,settings,storage.error,showVision,showSavedImages,showSinging,showImageGeneration,showOutfitPrototype,showWardrobe]);
+  }, [busy,reflecting,reflectionDraft,llama.status,journal,diary,identity,memories,goals,work,companion.state,settings,storage.error,showVision,showSavedImages,showSinging,showImageGeneration,showOutfitPrototype,showWardrobe,roomEditorOpen]);
 
   async function draftThought() {
     if(!thoughts.enabled||thoughts.entries.length>=100||thoughtDraft||busy||reflecting||abortRef.current||storage.error||llama.status!=='ready')return;
@@ -752,12 +873,12 @@ export default function App() {
   const cfg = useMemo(() => (wardrobe ? resolveLoadout(savedCfg, wardrobe) : savedCfg), [wardrobe, savedCfg]);
   function finishDiaryArt(message:string){setDiaryArtStatus(message);setDiaryArtId(undefined);setShowImageGeneration(false);}
   useEffect(()=>{
-    if(autoOutfitRunning||!diaryArtQueue.length||diaryArtId||showImageGeneration||busy||reflecting||abortRef.current||showOutfitPrototype||showSinging||showVision||showWardrobe||showSavedImages||storage.error)return;
+    if(roomEditorOpen||autoOutfitRunning||!diaryArtQueue.length||diaryArtId||showImageGeneration||busy||reflecting||abortRef.current||showOutfitPrototype||showSinging||showVision||showWardrobe||showSavedImages||storage.error)return;
     const id=diaryArtQueue[0];setDiaryArtQueue(q=>q.slice(1));
     if(!diaryRef.current.some(e=>e.id===id&&!e.deletedAt))return;
     if(!avatar.assets){setDiaryArtStatus('Diary text saved. Load an avatar, then use Add illustration in Diary.');return;}
     setChatPicture(undefined);setDiaryArtId(id);setShowImageGeneration(true);setDiaryArtStatus('Drawing a diary illustration…');
-  },[autoOutfitRunning,diaryArtQueue,diaryArtId,showImageGeneration,busy,reflecting,showOutfitPrototype,showSinging,showVision,showWardrobe,showSavedImages,storage.error,avatar.assets]);
+  },[roomEditorOpen,autoOutfitRunning,diaryArtQueue,diaryArtId,showImageGeneration,busy,reflecting,showOutfitPrototype,showSinging,showVision,showWardrobe,showSavedImages,storage.error,avatar.assets]);
   useEffect(()=>{if(diaryArtId&&!diary.some(e=>e.id===diaryArtId&&!e.deletedAt))finishDiaryArt('Illustration cancelled because its diary entry was removed.');},[diary,diaryArtId]);
   async function retainDiaryArtwork(id:string,image:ImageAttachment){
     try{const compact=await compactDiaryImage(image),entry=diaryRef.current.find(e=>e.id===id);if(!entry)throw Error('Diary entry no longer exists.');
@@ -871,7 +992,7 @@ export default function App() {
     void send(text,report);return true;
   }
 
-  async function send(text: string,imageReport?:Msg['imageReport']) {
+  async function send(text: string,imageReport?:Msg['imageReport'],room?:{context:string;onReply:(text:string)=>void}) {
     if (showImageGeneration || abortRef.current || reflecting) return;
     const now = new Date().toISOString();
     lastActivityAt.current = Date.now();
@@ -940,9 +1061,10 @@ export default function App() {
       + clockContext(new Date(now), journalRef.current.timeZone, history, companion.state.lastConversationAt)
       + internalStateContext(stateForReply)
       + memoryContext(memories, text, recentUserText, settings.charName, settings.userName, replyMemories)
-      + (lessonFocus||social?'':episodeContext(episodes,text))
+      + (lessonFocus||social?'':episodeContext(episodes,text)+roomEventContext(events,journalRef.current.timeZone,text,!!room)+sharedMemoryContext(loadRoom().sharedMemories??[],'mana')+townGoalContext(loadRoom().personalGoals??[],'mana'))
       + narrativeGuide
-      + (social?socialReplyContext(social):'');
+      + (social?socialReplyContext(social):'')
+      + (room?`\nThe user is speaking to your mini avatar in Manaverse. Current scene: ${room.context}. Answer in one or two short sentences for a speech bubble. Use your normal shared memories and do not invent what happened in the room.`:'');
     const lookPlan=planLookComment(lookComments.current,cfg,wardrobe,text,Date.now(),Math.random(),!!imageReport||!!lessonFocus||!!pauseMinutes||!!pendingOpening||!!returningFromPause||!!unlocked.length||!!social);
     const practiceContext=imageReport||social?'':skillsContext(practice,text);
 
@@ -951,6 +1073,7 @@ export default function App() {
       saveChat([...history, reply]);
       changeJournal(recordJournalSource(journalRef.current, { ...reply, createdAt: new Date().toISOString() }, settings.charName));
       updateRelationship(pendingOpening ? `initiative:${pendingOpening.messageId}` : `chat:${userMsg.id}`, pendingOpening ? "initiativeReply" : "conversation");
+      room?.onReply(cleanReply(reply.content,settings.charName).text);
     };
 
     try {
@@ -1116,7 +1239,8 @@ export default function App() {
   const freshAssets = avatar.assets;
 
   return (
-    <div className={`app${showSinging||showSavedImages?' studio-open':''}`}>
+    <div className={`app${showSinging||showSavedImages?' studio-open':''}`} data-main-layout={mainLayout} data-room-editor={roomEditorOpen}>
+     <div className="layout-avatar" id="main-avatar-panel" inert={mainLayout===3}>
       <StagePanel
         charName={settings.charName}
         emotion={emotion}
@@ -1130,8 +1254,54 @@ export default function App() {
         onOpenBackgrounds={() => setShowBackgrounds(true)}
         onOpenWardrobe={() => setShowWardrobe(true)}
       />
+     </div>
+     <div className="layout-room" id="main-room-panel" inert={mainLayout===1}>
+      <SceneVoice.Provider value={{ready:mainLayout!==1&&!showSinging&&!showSavedImages&&!showGameDev&&llama.status==='ready'&&!busy&&!reflecting&&!diaryArtId&&!showImageGeneration&&!autoOutfitRunning&&!storage.error,speak:speakInRoom}}>
+      <CompanionRoom onForgetManaMemory={id=>setMemories(previous=>previous.filter(memory=>memory.id!==id))} episodes={episodes} memories={memories} events={events} onActivity={recordRoomActivity} timeZone={journal.timeZone} onEditingChange={setRoomEditorOpen}
+       manaSpeechReady={llama.status==='ready'&&!busy&&!reflecting&&!diaryArtId&&!showImageGeneration&&!autoOutfitRunning&&!storage.error}
+       onChoosePersonalGoal={async(owner,memories,signal)=>{
+        const raw=await speakInRoom(townGoalPrompt(owner,memories),signal,owner,undefined,'invitation');
+        return readTownGoal(raw,owner);
+       }}
+       onChooseActivityPreference={async(owner,memories,signal)=>{
+        const raw=await speakInRoom(activityPreferencePrompt(owner,memories),signal,owner,undefined,'invitation');
+        return readActivityPreference(raw,owner,memories);
+       }}
+       onAskGroupToJoin={async(host,activity,memories,signal)=>{
+        const raw=await speakInRoom(groupJoinPrompt(host,activity,memories),signal,host,undefined,'invitation');
+        return readGroupJoinReply(raw);
+       }}
+       onChooseInvitation={async(owner,choices,signal)=>{
+        const raw=await speakInRoom(memoryInvitationPrompt(owner,choices),signal,owner,undefined,'invitation');
+        return readMemoryInvitation(raw,choices);
+       }}
+       onManaThought={speakInRoom} onManaRoomChat={(message,context,onReply)=>send(message,undefined,{context,onReply})}
+       onResidentRoomChat={async(resident,message,context,signal)=>{
+        const result=readRememberingReply(await speakInRoom(context,signal,resident,message));
+        return {...result,reply:cleanReply(result.reply,residentProfiles[resident].name).text.trim()};
+       }}
+       onPhoneText={async(message,history,signal)=>{
+        const scheduledTime=message.scheduledFor?new Intl.DateTimeFormat(undefined,{timeZone:journal.timeZone,dateStyle:'medium',timeStyle:'short'}).format(new Date(message.scheduledFor)):undefined;
+        const text=await speakInRoom(phoneMessagePrompt(message,history,scheduledTime),signal,message.from==='mana'?'mana':message.contact,undefined,'phone');
+        return readPhoneText(message,text);
+       }}
+       petBotReady={llama.status==='ready'&&!busy&&!reflecting&&!diaryArtId&&!autoOutfitRunning&&!storage.error} onPetBotReply={replyAsPetBot}
+       canGenerateFurniture={!busy&&!reflecting&&!autoOutfitRunning&&!diaryArtId&&!showImageGeneration&&!storage.error}
+       beforeFurnitureGeneration={async cpu=>cpu?async()=>{}:llama.pauseForImage()}
+       projects={gameDev.projects} onOpenGameDev={entry=>{setGameDevEntry(entry);setShowGameDev(true);}}
+       visible={mainLayout!==1&&!showSinging&&!showSavedImages&&!showGameDev}/>
+      </SceneVoice.Provider>
+      {mainLayout!==1&&!roomEditorOpen&&<button className="btn layout-seam layout-avatar-toggle"
+       aria-controls="main-avatar-panel" aria-expanded={mainLayout===2}
+       aria-label={mainLayout===2?'Hide avatar':'Show avatar'} title={mainLayout===2?'Hide avatar':'Show avatar'}
+       onClick={()=>setMainLayout(mainLayout===2?3:2)}>{mainLayout===2?'‹':'›'}</button>}
+     </div>
 
       <main className="main">
+        <button className="btn layout-seam layout-room-toggle"
+         aria-controls="main-room-panel" aria-expanded={mainLayout!==1}
+         aria-label={mainLayout===1?'Show room':'Hide room'} title={mainLayout===1?'Show room':'Hide room'}
+         onClick={()=>setMainLayout(mainLayout===1?2:1)}>{mainLayout===1?'›':'‹'}</button>
         <header className="topbar">
           <span className={`pill ${llama.status}`}>{STATUS_LABEL[llama.status]}</span>
           <div className="spacer" />
@@ -1162,8 +1332,8 @@ export default function App() {
           <button className="btn" onClick={()=>setShowEvents(true)}>Event history</button>
           <button className="btn" onClick={()=>setShowNarratives(true)}>Themes &amp; lessons</button>
           <button className="btn" onClick={()=>setShowSkills(true)}>Skills</button>
-          <button className="btn" onClick={()=>setShowGameDev(true)}>Mana's Game Dev</button>
-          <button className="btn" onClick={()=>setShowCompanionRoom(true)}>Companion Room</button>
+          <button className="btn" onClick={()=>{setGameDevEntry({tab:'projects'});setShowGameDev(true);}}>Mana's Game Dev</button>
+          <button className="btn" onClick={()=>setMainLayout(2)}>Companion Room</button>
           <button className="btn" onClick={()=>setShowCode(true)}>Code playground</button>
           <button className="btn" disabled={busy||reflecting} onClick={()=>setShowVision(true)}>Images</button>
           <button className="btn" disabled={autoOutfitRunning||busy||reflecting} onClick={()=>{setChatPicture(undefined);setShowImageGeneration(true);}}>Create picture</button>
@@ -1172,6 +1342,11 @@ export default function App() {
           <button className="btn" disabled={autoOutfitRunning||busy||reflecting} onClick={()=>setShowSinging(true)}>Songs</button>
           </MoreTools>
         </header>
+        <div className="main-layout-controls" role="group" aria-label="Main screen layout">
+          <button className="btn" aria-pressed={mainLayout===1} onClick={()=>setMainLayout(1)}>Avatar + Chat</button>
+          <button className="btn" aria-pressed={mainLayout===2} onClick={()=>setMainLayout(2)}>All three</button>
+          <button className="btn" aria-pressed={mainLayout===3} onClick={()=>setMainLayout(3)}>Room + Chat</button>
+        </div>
 
         {storage.error && <div className="banner error" role="alert">
           {storage.error}
@@ -1255,8 +1430,7 @@ export default function App() {
         />
       )}
 
-      {showCompanionRoom&&<CompanionRoom onClose={()=>setShowCompanionRoom(false)}/>}
-      {showGameDev&&<GameDevWorkspace state={gameDev} date={journalClock(new Date(),journal.timeZone).date}
+      {showGameDev&&<GameDevWorkspace state={gameDev} entry={gameDevEntry} date={journalClock(new Date(),journal.timeZone).date}
         ready={llama.status==='ready'&&!busy&&!reflecting&&!storage.error&&!autoOutfitRunning} busy={devBusy}
         modelStatus={llama.status==='starting'?llama.detail:''}
         onSettings={next=>{if(!devController.current)commitGameDev({...gameDevRef.current,...next});}}
@@ -1301,7 +1475,7 @@ export default function App() {
         onDelete={(id)=>setGoals((prev)=>prev.filter((g)=>g.id!==id))}
         onClose={()=>{if(goalGenerating||workGenerating)abortRef.current?.abort();setShowGoals(false);}} />}
 
-      {diaryArtId&&diary.some(e=>e.id===diaryArtId)&&<div className="diary-art-job"><strong>Illustrating diary</strong><ImageGenerationDrawer key={diaryArtId} inline initialRequest={diaryArtworkRequest(diary.find(e=>e.id===diaryArtId)!)} available={!busy&&!reflecting&&!storage.error} beforeGenerate={async()=>llama.pauseForImage()} prepareReference={avatar.assets?signal=>prepareAvatarReference(avatar.assets!,cfg,signal,1024):undefined} onStopped={()=>finishDiaryArt('Illustration stopped. Diary text is saved; use Add illustration to retry.')} onFailure={message=>finishDiaryArt('Diary text is safe. Picture failed: '+message)} onGenerated={image=>{void retainDiaryArtwork(diaryArtId,image);}} onClose={()=>finishDiaryArt('Illustration cancelled. Diary text is saved; use Add illustration to retry.')} onSave={()=>{}}/></div>}
+      {diaryArtId&&diaryArtRequest&&<div className="diary-art-job"><strong>Illustrating diary</strong><ImageGenerationDrawer key={diaryArtId} inline initialRequest={diaryArtRequest} available={!busy&&!reflecting&&!storage.error} beforeGenerate={async()=>llama.pauseForImage()} prepareReference={avatar.assets?async signal=>prepareDiaryCastReference(await prepareAvatarReference(avatar.assets!,cfg,signal,1024),diaryArtRequest.referenceCast,signal):undefined} onStopped={()=>finishDiaryArt('Illustration stopped. Diary text is saved; use Add illustration to retry.')} onFailure={message=>finishDiaryArt('Diary text is safe. Picture failed: '+message)} onGenerated={image=>{void retainDiaryArtwork(diaryArtId,image);}} onClose={()=>finishDiaryArt('Illustration cancelled. Diary text is saved; use Add illustration to retry.')} onSave={()=>{}}/></div>}
       {showDiary && <DiaryDrawer name={settings.charName} entries={diary} artworkStatus={diaryArtStatus} artworkBusy={!!diaryArtId||!!diaryArtQueue.length} onIllustrate={id=>setDiaryArtQueue(q=>q.includes(id)?q:[...q,id])} onRemoveIllustration={id=>setDiary(prev=>prev.map(e=>{if(e.id!==id)return e;const {illustration,...rest}=e;return rest;}))} draft={reflectionDraft} generating={reflecting}
         onRestore={(id)=>{const entry=diary.find((e)=>e.id===id);if(entry?.journalDate&&diary.some((e)=>!e.deletedAt&&e.journalDate===entry.journalDate)){setJournalStatus("An entry for that day already exists. Move it to Recently deleted before restoring the earlier one.");return;}setDiary((prev)=>prev.map((e)=>{if(e.id!==id)return e;const {deletedAt,...restored}=e;return restored;}));}}
         onPurge={(id)=>setDiary((prev)=>prev.filter((e)=>e.id!==id))}
@@ -1318,8 +1492,8 @@ export default function App() {
         onClose={() => { if (reflecting && !journalWriting) abortRef.current?.abort(); setShowDiary(false); }} />}
 
       {showBackgrounds&&<BackgroundPicker cfg={cfg} onChange={changeCfg} onClose={()=>setShowBackgrounds(false)}/>}
-      {avatar.assets&&<><GeneratedHair background assets={avatar.assets} cfg={cfg} available={!autoOutfitRunning&&llama.status==='ready'&&!busy&&!reflecting&&!storage.error&&!showImageGeneration&&!showOutfitPrototype&&!showWardrobe&&!showGameDev&&!showCompanionRoom&&!showSinging&&!showVision&&!showDiary&&!showSavedImages} canAutoCreate={()=>Date.now()-lastActivityAt.current>120000&&!hasChatDraft.current&&!abortRef.current&&!mediaOccupied()} onRunningChange={setAutoOutfitRunning} beforeGenerate={()=>llama.pauseForImage()} onCreated={()=>{void avatar.reload();}}/><GeneratedAccessories background chooseIdea={chooseAccessoryIdea} assets={avatar.assets} cfg={cfg} available={!autoOutfitRunning&&llama.status==='ready'&&!busy&&!reflecting&&!storage.error&&!showImageGeneration&&!showOutfitPrototype&&!showWardrobe&&!showGameDev&&!showCompanionRoom&&!showSinging&&!showVision&&!showDiary&&!showSavedImages} canAutoCreate={()=>Date.now()-lastActivityAt.current>120000&&!hasChatDraft.current&&!abortRef.current&&!mediaOccupied()} onRunningChange={setAutoOutfitRunning} beforeGenerate={()=>llama.pauseForImage()} onCreated={()=>{void avatar.reload();}}/></>}
-      {avatar.assets&&<GeneratedOutfits chooseIdea={chooseOutfitIdea} background timeZone={journal.timeZone} assets={avatar.assets} cfg={cfg} available={!autoOutfitRunning&&llama.status==='ready'&&!busy&&!reflecting&&!storage.error&&!showImageGeneration&&!showOutfitPrototype&&!showWardrobe&&!showGameDev&&!showCompanionRoom&&!showSinging&&!showVision&&!showDiary} canAutoCreate={()=>Date.now()-lastActivityAt.current>120000&&!hasChatDraft.current&&!abortRef.current&&!mediaOccupied()} onRunningChange={setAutoOutfitRunning} beforeGenerate={()=>llama.pauseForImage()} onSaved={(id,name)=>{changeCfg({...savedCfgRef.current,outfitNames:{...savedCfgRef.current.outfitNames,[id]:name}});void avatar.reload();}}/>}
+      {avatar.assets&&<><GeneratedHair background assets={avatar.assets} cfg={cfg} available={!roomEditorOpen&&!autoOutfitRunning&&llama.status==='ready'&&!busy&&!reflecting&&!storage.error&&!showImageGeneration&&!showOutfitPrototype&&!showWardrobe&&!showGameDev&&!showSinging&&!showVision&&!showDiary&&!showSavedImages} canAutoCreate={()=>Date.now()-lastActivityAt.current>120000&&!hasChatDraft.current&&!abortRef.current&&!mediaOccupied()} onRunningChange={setAutoOutfitRunning} beforeGenerate={()=>llama.pauseForImage()} onCreated={()=>{void avatar.reload();}}/><GeneratedAccessories background chooseIdea={chooseAccessoryIdea} assets={avatar.assets} cfg={cfg} available={!roomEditorOpen&&!autoOutfitRunning&&llama.status==='ready'&&!busy&&!reflecting&&!storage.error&&!showImageGeneration&&!showOutfitPrototype&&!showWardrobe&&!showGameDev&&!showSinging&&!showVision&&!showDiary&&!showSavedImages} canAutoCreate={()=>Date.now()-lastActivityAt.current>120000&&!hasChatDraft.current&&!abortRef.current&&!mediaOccupied()} onRunningChange={setAutoOutfitRunning} beforeGenerate={()=>llama.pauseForImage()} onCreated={()=>{void avatar.reload();}}/></>}
+      {avatar.assets&&<GeneratedOutfits chooseIdea={chooseOutfitIdea} background timeZone={journal.timeZone} assets={avatar.assets} cfg={cfg} available={!roomEditorOpen&&!autoOutfitRunning&&llama.status==='ready'&&!busy&&!reflecting&&!storage.error&&!showImageGeneration&&!showOutfitPrototype&&!showWardrobe&&!showGameDev&&!showSinging&&!showVision&&!showDiary} canAutoCreate={()=>Date.now()-lastActivityAt.current>120000&&!hasChatDraft.current&&!abortRef.current&&!mediaOccupied()} onRunningChange={setAutoOutfitRunning} beforeGenerate={()=>llama.pauseForImage()} onSaved={(id,name)=>{changeCfg({...savedCfgRef.current,outfitNames:{...savedCfgRef.current.outfitNames,[id]:name}});void avatar.reload();}}/>}
       {showOutfitPrototype&&avatar.assets&&<Atelier initialCategory={atelierCategory} onReviewSaved={()=>{setReturnToReview(true);setShowOutfitPrototype(false);setShowWardrobe(true);}} onWardrobeSaved={()=>avatar.reload()} assets={avatar.assets} cfg={cfg} initial={prototypePicture} available={!busy&&!reflecting&&!storage.error} beforeGenerate={async cpu=>cpu?async()=>{}:llama.pauseForImage()} onSaveImage={savePictureToLibrary} onClose={()=>setShowOutfitPrototype(false)}/>}
       {showWardrobe && wardrobe && (
         <Wardrobe chooseOutfitIdea={chooseOutfitIdea} chooseAccessoryIdea={chooseAccessoryIdea} onCreateItem={category=>{setPrototypePicture(undefined);setAtelierCategory(category);setShowWardrobe(false);setShowOutfitPrototype(true);}} initialReview={returnToReview||!!prototypePicture?.reviewId} creationAvailable={!autoOutfitRunning&&!busy&&!reflecting&&!storage.error&&!showImageGeneration} beforeOutfitGenerate={()=>llama.pauseForImage()} onOutfitSaved={()=>avatar.reload()} onEditOutfit={image=>{setAtelierCategory('outfit');setPrototypePicture(image);setShowWardrobe(false);setShowOutfitPrototype(true);}} assets={avatar.assets??undefined}
