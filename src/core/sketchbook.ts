@@ -205,6 +205,16 @@ export function addSketchbookEntry(state:SketchbookState,entry:SketchbookEntry):
  return {...state,entries:[...state.entries,candidate]};
 }
 
+/** A pending image belongs only to the schedule activation that created it. */
+export function canSaveScheduledSketchbook(
+ state:SketchbookState,slotId:string,enabledAt:string|null,
+):boolean {
+ return state.settings.enabled&&enabledAt!==null&&
+  state.settings.enabledAt===enabledAt&&validSlotId(slotId)&&
+  !state.entries.some(entry=>entry.slotId===slotId)&&
+  !state.removedSlots?.includes(slotId);
+}
+
 /** Unlink from Sketchbook without removing a shared gallery image or reopening its slot. */
 export function removeSketchbookEntry(state:SketchbookState,id:string):SketchbookState {
  const existing=state.entries.find(entry=>entry.id===id);
