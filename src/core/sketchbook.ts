@@ -1,10 +1,11 @@
 import {journalClock,validTimeZone} from './clock';
 import {isRecord,validDate} from './validation';
+import {readStored,writeStored} from './persistence';
 
 /**
  * Mana's scheduled drawings are imagined pictures, not diary illustrations.
- * This file is deliberately pure: no image jobs, timers or storage writes happen
- * until the feature is explicitly wired into the application.
+ * Core scheduling and validation are pure. Only the explicit load/save helpers
+ * touch Mana's existing persistence; there are no image jobs or timers here.
  */
 export const SKETCHBOOK_KEY='mana.sketchbook.v1';
 export const SKETCHBOOK_LIMIT=300;
@@ -193,4 +194,15 @@ export function addSketchbookEntry(state:SketchbookState,entry:SketchbookEntry):
   localWeekStart(journalClock(new Date(existing.createdAt),state.settings.timeZone).date)===week).length;
  if(inWeek>=state.settings.frequencyPerWeek)throw Error('The weekly Sketchbook limit has been reached.');
  return {...state,entries:[...state.entries,candidate]};
+}
+
+/** Load from Mana's existing SQLite-backed store (localStorage in web preview). */
+export function loadSketchbook():SketchbookState {
+ try { return validateSketchbook(JSON.parse(readStored(SKETCHBOOK_KEY)??'null')); }
+ catch { return validateSketchbook(null); }
+}
+
+/** Persist only validated drawing metadata; images remain in the disk gallery. */
+export function saveSketchbook(state:SketchbookState):void {
+ writeStored(SKETCHBOOK_KEY,JSON.stringify(validateSketchbook(state)));
 }
