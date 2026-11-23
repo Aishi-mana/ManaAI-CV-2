@@ -650,7 +650,7 @@ export default function App() {
   const devTick=useRef<()=>void>(()=>{});
   devTick.current=()=>{
     const state=gameDevRef.current;
-    if(roomEditorOpen||showGameDev||showCode||showWardrobe||showBackgrounds||showOutfitPrototype||showImageGeneration||
+    if(sketchbookPlanning.current||sketchbookJob||showSketchbook||roomEditorOpen||showGameDev||showCode||showWardrobe||showBackgrounds||showOutfitPrototype||showImageGeneration||
        showSinging||showVision||showSavedImages||showDiary||showSettings||archiving||
        hasChatDraft.current||Date.now()-lastActivityAt.current<120000||document.visibilityState!=='visible')return;
     const now=new Date(),zone=journalRef.current.timeZone;
@@ -666,7 +666,7 @@ export default function App() {
 
   async function startConversation(manual = false) {
     const current = initiativeRef.current;
-    if (mediaOccupied() || !current.enabled || current.pending || initiativePaused(current) || busy || reflecting || abortRef.current || reflectionDraft || hasChatDraft.current || storage.error || llama.status !== "ready") return;
+    if (sketchbookPlanning.current||sketchbookJob||mediaOccupied() || !current.enabled || current.pending || initiativePaused(current) || busy || reflecting || abortRef.current || reflectionDraft || hasChatDraft.current || storage.error || llama.status !== "ready") return;
     const now = new Date();
     if (!manual && !initiativeDue(current, now, journalRef.current.timeZone, journalOpenedAt.current, lastActivityAt.current, companion.state.energy)) return;
     const ctrl = new AbortController();
@@ -736,14 +736,14 @@ export default function App() {
         setInitiativeStatus("");
         return;
       }
-      if (document.visibilityState !== "visible" || roomEditorOpen || showImageGeneration || showSinging || showSavedImages || showVision || showCode || showGameDev || showSkills || showNarratives || narrativeDraft || showEvents || showSettings || showMemories || showState || showDiary || showBackgrounds || showOutfitPrototype || showWardrobe || showGoals || showFollowups || showActivities || showChatArchives || showThoughts || thoughtDraft || archiving) return;
+      if (document.visibilityState !== "visible" || sketchbookPlanning.current||sketchbookJob||showSketchbook||roomEditorOpen || showImageGeneration || showSinging || showSavedImages || showVision || showCode || showGameDev || showSkills || showNarratives || narrativeDraft || showEvents || showSettings || showMemories || showState || showDiary || showBackgrounds || showOutfitPrototype || showWardrobe || showGoals || showFollowups || showActivities || showChatArchives || showThoughts || thoughtDraft || archiving) return;
       // A due daily journal has priority over initiating a chat.
       if (dueRoomAwareJournalDate()) return;
       void startConversation();
     };
     const timer = window.setInterval(check, 30_000);
     return () => window.clearInterval(timer);
-  }, [initiative, busy, reflecting, reflectionDraft, llama.status, storage.error, companion.state, identity, memories, settings, goals, interests, work, followups, showActivities, showFollowups, showSettings, showMemories, showState, showDiary, showBackgrounds, showOutfitPrototype, showWardrobe, showGoals,showChatArchives,showThoughts,showEvents,showCode,showGameDev,showSkills,showNarratives,narrativeDraft,thoughtDraft,archiving,showVision,showSavedImages,showSinging,showImageGeneration,roomEditorOpen]);
+  }, [initiative, busy, reflecting, reflectionDraft, llama.status, storage.error, companion.state, identity, memories, settings, goals, interests, work, followups, showActivities, showFollowups, showSettings, showMemories, showState, showDiary, showBackgrounds, showOutfitPrototype, showWardrobe, showGoals,showChatArchives,showThoughts,showEvents,showCode,showGameDev,showSkills,showNarratives,narrativeDraft,thoughtDraft,archiving,showVision,showSavedImages,showSinging,showImageGeneration,showSketchbook,sketchbookJob,roomEditorOpen]);
 
   async function generateActivityReply(id:string){
     if(abortRef.current||busy||reflecting||storage.error||llama.status!=='ready')return;
@@ -812,7 +812,7 @@ export default function App() {
 
   useEffect(() => {
     const check = () => {
-      if (roomEditorOpen || showWardrobe || showOutfitPrototype || showImageGeneration || showSinging || showSavedImages || showVision || busy || reflecting || reflectionDraft || hasChatDraft.current || abortRef.current || llama.status !== "ready" || storage.error || Date.now() < journalRetryAfter.current) return;
+      if (sketchbookPlanning.current||sketchbookJob||showSketchbook||roomEditorOpen || showWardrobe || showOutfitPrototype || showImageGeneration || showSinging || showSavedImages || showVision || busy || reflecting || reflectionDraft || hasChatDraft.current || abortRef.current || llama.status !== "ready" || storage.error || Date.now() < journalRetryAfter.current) return;
       if (Date.now()-journalOpenedAt.current < 120_000) return;
       const date = dueRoomAwareJournalDate();
       if (!date) return;
@@ -824,7 +824,7 @@ export default function App() {
     check();
     const timer = window.setInterval(check,30_000);
     return () => window.clearInterval(timer);
-  }, [busy,reflecting,reflectionDraft,llama.status,journal,diary,identity,memories,goals,work,companion.state,settings,storage.error,showVision,showSavedImages,showSinging,showImageGeneration,showOutfitPrototype,showWardrobe,roomEditorOpen]);
+  }, [busy,reflecting,reflectionDraft,llama.status,journal,diary,identity,memories,goals,work,companion.state,settings,storage.error,showVision,showSavedImages,showSinging,showImageGeneration,showSketchbook,sketchbookJob,showOutfitPrototype,showWardrobe,roomEditorOpen]);
 
   async function draftThought() {
     if(!thoughts.enabled||thoughts.entries.length>=100||thoughtDraft||busy||reflecting||abortRef.current||storage.error||llama.status!=='ready')return;
@@ -884,12 +884,12 @@ export default function App() {
   const cfg = useMemo(() => (wardrobe ? resolveLoadout(savedCfg, wardrobe) : savedCfg), [wardrobe, savedCfg]);
   function finishDiaryArt(message:string){setDiaryArtStatus(message);setDiaryArtId(undefined);setShowImageGeneration(false);}
   useEffect(()=>{
-    if(roomEditorOpen||autoOutfitRunning||!diaryArtQueue.length||diaryArtId||showImageGeneration||busy||reflecting||abortRef.current||showOutfitPrototype||showSinging||showVision||showWardrobe||showSavedImages||storage.error)return;
+    if(sketchbookPlanning.current||sketchbookJob||showSketchbook||roomEditorOpen||autoOutfitRunning||!diaryArtQueue.length||diaryArtId||showImageGeneration||busy||reflecting||abortRef.current||showOutfitPrototype||showSinging||showVision||showWardrobe||showSavedImages||storage.error)return;
     const id=diaryArtQueue[0];setDiaryArtQueue(q=>q.slice(1));
     if(!diaryRef.current.some(e=>e.id===id&&!e.deletedAt))return;
     if(!avatar.assets){setDiaryArtStatus('Diary text saved. Load an avatar, then use Add illustration in Diary.');return;}
     setChatPicture(undefined);setDiaryArtId(id);setShowImageGeneration(true);setDiaryArtStatus('Drawing a diary illustration…');
-  },[roomEditorOpen,autoOutfitRunning,diaryArtQueue,diaryArtId,showImageGeneration,busy,reflecting,showOutfitPrototype,showSinging,showVision,showWardrobe,showSavedImages,storage.error,avatar.assets]);
+  },[roomEditorOpen,autoOutfitRunning,diaryArtQueue,diaryArtId,showImageGeneration,busy,reflecting,showOutfitPrototype,showSinging,showVision,showWardrobe,showSavedImages,showSketchbook,sketchbookJob,storage.error,avatar.assets]);
   useEffect(()=>{if(diaryArtId&&!diary.some(e=>e.id===diaryArtId&&!e.deletedAt))finishDiaryArt('Illustration cancelled because its diary entry was removed.');},[diary,diaryArtId]);
   async function retainDiaryArtwork(id:string,image:ImageAttachment){
     try{const compact=await compactDiaryImage(image),entry=diaryRef.current.find(e=>e.id===id);if(!entry)throw Error('Diary entry no longer exists.');
