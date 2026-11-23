@@ -65,7 +65,7 @@ const RETRY_DELAY_MS=30*60_000;
 const MAX_ATTEMPTS_PER_SLOT=2;
 
 function validTimestamp(value:unknown):value is string {
- if(typeof value!=='string'||!Date.parse(value)||!Number.isFinite(Date.parse(value)))return false;
+ if(typeof value!=='string'||!Number.isFinite(Date.parse(value)))return false;
  return new Date(value).toISOString()===value;
 }
 
@@ -86,7 +86,7 @@ function completedThisWeek(entries:readonly SketchbookEntry[],now:Date,timeZone:
 
 /** Normalize saved metadata. Never infer a drawing from a diary entry or an image file. */
 export function validateSketchbook(value:unknown):SketchbookState {
- const rawSettings=isRecord(value)&&isRecord(value.settings)?value.settings:{};
+ const rawSettings:Record<string,unknown>=isRecord(value)&&isRecord(value.settings)?value.settings:{};
  const enabledAt=validTimestamp(rawSettings.enabledAt)?rawSettings.enabledAt:null;
  const settings:SketchbookSettings={
   enabled:rawSettings.enabled===true&&enabledAt!==null,
@@ -185,13 +185,12 @@ export function beginSketchbookAttempt(state:SketchbookState,slotId:string,now=n
 export function addSketchbookEntry(state:SketchbookState,entry:SketchbookEntry):SketchbookState {
  if(state.entries.length>=SKETCHBOOK_LIMIT)throw Error('Mana’s Sketchbook is full.');
  const candidate=validateSketchbook({settings:state.settings,entries:[entry]}).entries[0];
- if(!candidate||JSON.stringify(candidate)!==JSON.stringify(entry))
-  throw Error('Invalid Sketchbook drawing metadata.');
- if(state.entries.some(existing=>existing.id===entry.id||existing.slotId===entry.slotId||existing.imageId===entry.imageId))
+ if(!candidate)throw Error('Invalid Sketchbook drawing metadata.');
+ if(state.entries.some(existing=>existing.id===candidate.id||existing.slotId===candidate.slotId||existing.imageId===candidate.imageId))
   throw Error('This drawing or scheduled slot is already saved.');
  const week=localWeekStart(journalClock(new Date(entry.createdAt),state.settings.timeZone).date);
  const inWeek=state.entries.filter(existing=>
   localWeekStart(journalClock(new Date(existing.createdAt),state.settings.timeZone).date)===week).length;
  if(inWeek>=state.settings.frequencyPerWeek)throw Error('The weekly Sketchbook limit has been reached.');
- return {...state,entries:[...state.entries,entry]};
+ return {...state,entries:[...state.entries,candidate]};
 }
