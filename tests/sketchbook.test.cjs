@@ -32,7 +32,7 @@ function load(file,cache=new Map()){
 
 const sketchbook=load('src/core/sketchbook.ts');
 const {SKETCHBOOK_KEY,SKETCHBOOK_DAYS,validateSketchbook,setSketchbookEnabled,
- dueSketchbookSlot,beginSketchbookAttempt,addSketchbookEntry,removeSketchbookEntry,loadSketchbook,saveSketchbook}=sketchbook;
+ dueSketchbookSlot,beginSketchbookAttempt,addSketchbookEntry,removeSketchbookEntry,canSaveScheduledSketchbook,loadSketchbook,saveSketchbook}=sketchbook;
 const at=iso=>new Date(iso);
 const starting=()=>setSketchbookEnabled(validateSketchbook(null),true,at('2026-11-02T01:00:00.000Z')); // Monday 09:00 Singapore
 function drawing(slotId,createdAt,n=1){
@@ -245,4 +245,20 @@ test('Removed-slot history is validated, bounded, and cannot hide live entries',
  assert.equal(bounded.removedSlots.length,512);
  assert.equal(bounded.removedSlots[0],history[8]);
  assert.equal(bounded.removedSlots[511],history[519]);
+});
+
+
+test('In-flight work cannot save when disabled, re-enabled, completed or removed',()=>{
+ const started=starting(),activation=started.settings.enabledAt,slot='2026-11-03';
+ assert.equal(canSaveScheduledSketchbook(started,slot,activation),true);
+ const disabled=setSketchbookEnabled(started,false,at('2026-11-03T04:11:00.000Z'));
+ assert.equal(canSaveScheduledSketchbook(disabled,slot,activation),false);
+ const reenabled=setSketchbookEnabled(disabled,true,at('2026-11-03T04:13:00.000Z'));
+ assert.equal(canSaveScheduledSketchbook(reenabled,slot,activation),false);
+ const saved=addSketchbookEntry(started,drawing(slot,'2026-11-03T04:15:00.000Z'));
+ assert.equal(canSaveScheduledSketchbook(saved,slot,activation),false);
+ const removed=removeSketchbookEntry(saved,'drawing1');
+ assert.equal(canSaveScheduledSketchbook(removed,slot,activation),false);
+ assert.equal(canSaveScheduledSketchbook(started,'2026-11-04',activation),false);
+ assert.equal(canSaveScheduledSketchbook(started,slot,null),false);
 });
