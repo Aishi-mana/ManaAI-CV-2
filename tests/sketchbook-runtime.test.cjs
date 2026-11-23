@@ -50,7 +50,7 @@ test('Calls the already-running local chat model and prepares an ordinary pictur
  assert.equal(call.temperature,.8);
  assert.equal(call.maxTokens,550);
  assert.equal(call.rejectTruncated,true);
- assert.deepEqual(call.messages.map(m=>m.role),['system','user']);
+ assert.deepEqual(plain(call.messages.map(m=>m.role)),['system','user']);
  assert.equal(result.idea.title,'Moonlit Garden');
  assert.equal(result.pictureRequest.backend,undefined);
  assert.equal(result.pictureRequest.referenceAvatar,undefined);
