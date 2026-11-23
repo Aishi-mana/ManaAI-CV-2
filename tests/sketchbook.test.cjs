@@ -6,6 +6,8 @@ const vm=require('node:vm');
 const ts=require('typescript');
 
 // Run the real TypeScript domain module without launching Tauri, React or a model.
+// The persistence adapter is mocked so we exercise load/save without a desktop DB.
+const stored=new Map();
 function load(file,cache=new Map()){
  const resolved=path.resolve(file);
  if(cache.has(resolved))return cache.get(resolved);
@@ -17,6 +19,10 @@ function load(file,cache=new Map()){
  vm.runInNewContext(js,{
   exports,Date,Intl,Error,Map,Set,Math,
   require:specifier=>{
+   if(specifier==='./persistence')return {
+    readStored:key=>stored.has(key)?stored.get(key):null,
+    writeStored:(key,value)=>{stored.set(key,value);},
+   };
    if(!specifier.startsWith('.'))throw Error('Unexpected dependency: '+specifier);
    return load(path.resolve(path.dirname(resolved),specifier+'.ts'),cache);
   },
@@ -26,7 +32,7 @@ function load(file,cache=new Map()){
 
 const sketchbook=load('src/core/sketchbook.ts');
 const {SKETCHBOOK_KEY,SKETCHBOOK_DAYS,validateSketchbook,setSketchbookEnabled,
- dueSketchbookSlot,beginSketchbookAttempt,addSketchbookEntry}=sketchbook;
+ dueSketchbookSlot,beginSketchbookAttempt,addSketchbookEntry,loadSketchbook,saveSketchbook}=sketchbook;
 const at=iso=>new Date(iso);
 const starting=()=>setSketchbookEnabled(validateSketchbook(null),true,at('2026-11-02T01:00:00.000Z')); // Monday 09:00 Singapore
 function drawing(slotId,createdAt,n=1){
@@ -162,4 +168,32 @@ test('Entry validator rejects false authorship, invalid timestamps, and oversize
  ]){
   assert.throws(()=>addSketchbookEntry(state,rejected),/Invalid Sketchbook/);
  }
+});
+
+test('Sketchbook saves through Mana persistence and loads after a simulated restart',()=>{
+ stored.clear();
+ assert.equal(loadSketchbook().settings.enabled,false);
+ const started=starting();
+ const state=addSketchbookEntry(started,drawing('2026-11-03','2026-11-03T04:10:00.000Z'));
+ saveSketchbook(state);
+ assert.equal(stored.has(SKETCHBOOK_KEY),true);
+ const restored=loadSketchbook();
+ assert.deepEqual(plain(restored),plain(state));
+ assert.equal(restored.settings.enabled,true);
+ assert.equal(restored.entries[0].imageId,'image1');
+ stored.set(SKETCHBOOK_KEY,'{invalid JSON');
+ assert.equal(loadSketchbook().settings.enabled,false);
+ assert.equal(loadSketchbook().entries.length,0);
+});
+
+test('Sketchbook persistence validates metadata before writing',()=>{
+ stored.clear();
+ const state=starting();
+ saveSketchbook({...state,entries:[{
+  ...drawing('2026-11-03','2026-11-03T04:10:00.000Z'),sourceType:'diary-illustration',
+ }]});
+ const saved=JSON.parse(stored.get(SKETCHBOOK_KEY));
+ assert.equal(saved.settings.enabled,true);
+ assert.equal(saved.entries.length,0);
+ assert.equal(loadSketchbook().entries.length,0);
 });
