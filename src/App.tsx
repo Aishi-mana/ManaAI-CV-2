@@ -45,7 +45,7 @@ import VisionDrawer from './components/VisionDrawer';
 import SavedImagesDrawer from './components/SavedImagesDrawer';
 import SketchbookWorkspace from './components/SketchbookWorkspace';
 import { loadSavedImages, saveSavedImages } from './core/savedImages';
-import {loadSketchbook,saveSketchbook,setSketchbookEnabled,dueSketchbookSlot,beginSketchbookAttempt,addSketchbookEntry} from './core/sketchbook';
+import {loadSketchbook,saveSketchbook,setSketchbookEnabled,dueSketchbookSlot,beginSketchbookAttempt,addSketchbookEntry,removeSketchbookEntry} from './core/sketchbook';
 import {prepareSketchbookDrawing,type PreparedSketchbookDrawing} from './core/sketchbookRuntime';
 import { inspectForChat } from './core/visionChat';
 import { loadVisionSettings } from './core/vision';
@@ -130,8 +130,9 @@ export default function App() {
   const savedImagesRef=useRef(savedImages);savedImagesRef.current=savedImages;
   const [sketchbook,setSketchbook]=useState(loadSketchbook);
   const sketchbookRef=useRef(sketchbook);sketchbookRef.current=sketchbook;
-  const [sketchbookJob,setSketchbookJob]=useState<{slotId:string;prepared:PreparedSketchbookDrawing}|null>(null);
+  const [sketchbookJob,setSketchbookJob]=useState<{slotId:string;prepared:PreparedSketchbookDrawing;enabledAt:string|null}|null>(null);
   const sketchbookPlanning=useRef(false);
+  const sketchbookIdeaController=useRef<AbortController|null>(null);
   const [sketchbookStatus,setSketchbookStatus]=useState('');
   const [galleryReady,setGalleryReady]=useState(false),[galleryWorking,setGalleryWorking]=useState(false),[galleryError,setGalleryError]=useState(''),[galleryPath,setGalleryPath]=useState('');
   const galleryReadyRef=useRef(false),galleryQueue=useRef<Promise<unknown>>(Promise.resolve()),galleryStarted=useRef(false);
@@ -971,7 +972,7 @@ export default function App() {
     catch{return;}
     sketchbookPlanning.current=true;
     sketchbookRef.current=reserved;setSketchbook(reserved);saveSketchbook(reserved);
-    const ctrl=new AbortController();abortRef.current=ctrl;setReflecting(true);
+    const ctrl=new AbortController();sketchbookIdeaController.current=ctrl;abortRef.current=ctrl;setReflecting(true);
     setSketchbookStatus('Mana is imagining a drawing…');
     try{
       await flushPersistence(); // Retry counters survive restart before any model work.
@@ -984,22 +985,28 @@ export default function App() {
         approvedMemories:[],
       },signal:ctrl.signal});
       if(ctrl.signal.aborted||!sketchbookRef.current.settings.enabled)throw Error('Sketchbook disabled.');
-      setSketchbookJob({slotId,prepared});
+      setSketchbookJob({slotId,prepared,enabledAt:reserved.settings.enabledAt});
       setShowImageGeneration(true);
       setSketchbookStatus('Mana is drawing…');
     }catch(error){
       setSketchbookStatus('Sketchbook idea postponed: '+String(error));
     }finally{
       if(abortRef.current===ctrl)abortRef.current=null;
+      if(sketchbookIdeaController.current===ctrl)sketchbookIdeaController.current=null;
       sketchbookPlanning.current=false;setReflecting(false);
     }
   }
-  async function saveScheduledSketchbookImage(job:{slotId:string;prepared:PreparedSketchbookDrawing},image:ImageAttachment){
+  async function saveScheduledSketchbookImage(job:{slotId:string;prepared:PreparedSketchbookDrawing;enabledAt:string|null},image:ImageAttachment){
     try{
       // A drawing finished after the feature was disabled must not be saved.
-      if(!sketchbookRef.current.settings.enabled)throw Error('Scheduled drawings were disabled.');
+      if(!sketchbookRef.current.settings.enabled||sketchbookRef.current.settings.enabledAt!==job.enabledAt)
+        throw Error('Scheduled drawings were disabled or restarted.');
       // Reuse the existing disk gallery, then persist the independent Sketchbook index.
       const imageId=await saveInspectedImage(image);
+      // Saving the JPEG is asynchronous. Switching off during that write must
+      // never re-add a Sketchbook entry, even if drawing is enabled again later.
+      if(!sketchbookRef.current.settings.enabled||sketchbookRef.current.settings.enabledAt!==job.enabledAt)
+        throw Error('The drawing was saved in Image Gallery, but scheduled drawings were disabled.');
       const next=addSketchbookEntry(sketchbookRef.current,{
         id:uid(),imageId,slotId:job.slotId,createdAt:new Date().toISOString(),
         title:job.prepared.idea.title,concept:job.prepared.idea.concept,
@@ -1048,7 +1055,18 @@ export default function App() {
 
 
   function labelGallery(id:string,confirmed:boolean){void queueGallery(async()=>{const next=savedImagesRef.current.map(image=>{if(image.id!==id)return image;const {depictsAvatar,...rest}=image;return confirmed?{...rest,depictsAvatar:true as const}:rest;});await commitGallery(next);}).catch(e=>setGalleryError(String(e)));}
-  function deleteGallery(id:string){if(sketchbookRef.current.entries.some(entry=>entry.imageId===id)){setGalleryError('This picture is still in Mana’s Sketchbook. Remove it from Sketchbook before deleting the gallery copy.');return;}void queueGallery(async()=>{const image=savedImagesRef.current.find(i=>i.id===id);if(!image)return;await commitGallery(savedImagesRef.current.filter(i=>i.id!==id));await removeDiskImage(image);}).catch(e=>setGalleryError('Could not finish gallery deletion: '+String(e)));}
+  function deleteGallery(id:string){void queueGallery(async()=>{
+    // Re-check *inside* the serialized gallery queue: a scheduled save may have
+    // completed while this delete was waiting for the file lock.
+    if(sketchbookRef.current.entries.some(entry=>entry.imageId===id)){
+      setGalleryError('This picture is still in Mana’s Sketchbook. Remove it from Sketchbook before deleting the gallery copy.');
+      return;
+    }
+    const image=savedImagesRef.current.find(i=>i.id===id);
+    if(!image)return;
+    await commitGallery(savedImagesRef.current.filter(i=>i.id!==id));
+    await removeDiskImage(image);
+  }).catch(e=>setGalleryError('Could not finish gallery deletion: '+String(e)));}
   function completeChatPicture(image:ImageAttachment){
     if(messagesRef.current.reduce((size,m)=>size+(m.generatedPicture?.dataUrl.length??0),0)+image.dataUrl.length>8_000_000)throw Error('Chat picture storage is full. Save this picture to the library, then archive and clear this chat before generating more.');
     const next:Msg[]=[...messagesRef.current,{id:uid(),role:'assistant',content:'Here’s your picture. [happy]',generatedPicture:image,createdAt:new Date().toISOString()}];
@@ -1511,10 +1529,10 @@ export default function App() {
       {showImageGeneration&&!chatPicture&&!diaryArtId&&!sketchbookJob&&<ImageGenerationDrawer onPrototype={image=>{setAtelierCategory('outfit');setPrototypePicture(image);setShowImageGeneration(false);setChatPicture(undefined);setShowOutfitPrototype(true);}} beforeGenerate={async cpu=>cpu?async()=>{}:llama.pauseForImage()} prepareClothingMask={avatar.assets?(signal,keepAccessories=true)=>prepareAvatarClothingMask(avatar.assets!,{...cfg,accessories:keepAccessories?cfg.accessories:[]},signal):undefined} prepareReference={avatar.assets?(signal,clothingEdit,keepAccessories=true,garmentPrompt)=>prepareAvatarReference(avatar.assets!,{...cfg,accessories:keepAccessories?cfg.accessories:[]},signal,1024,clothingEdit,garmentPrompt):undefined} autoGenerate={false} available={!busy&&!reflecting&&!storage.error} onClose={()=>setShowImageGeneration(false)} onSave={savePictureToLibrary}/>}
       {showSavedImages&&<SavedImagesDrawer folder={galleryPath} images={savedImages} working={galleryWorking} error={galleryError} onRetry={()=>void initializeGallery()} editable={galleryReady&&!galleryWorking&&!busy&&!reflecting&&!storage.error} onClose={()=>setShowSavedImages(false)} onLabel={labelGallery} onDelete={deleteGallery}/>}
       {showSketchbook&&<SketchbookWorkspace name={settings.charName} state={sketchbook} images={savedImages} status={sketchbookStatus} galleryReady={galleryReady} galleryWorking={galleryWorking} galleryError={galleryError}
-        onEnable={enabled=>{const current=sketchbookRef.current;const prepared=enabled?{...current,settings:{...current.settings,timeZone:journalRef.current.timeZone}}:current;const next=setSketchbookEnabled(prepared,enabled);sketchbookRef.current=next;saveSketchbook(next);setSketchbook(next);if(!enabled){if(sketchbookPlanning.current)abortRef.current?.abort();if(sketchbookJob){setSketchbookJob(null);setShowImageGeneration(false);}setSketchbookStatus('Automatic Sketchbook drawings are off.');}else setSketchbookStatus('Sketchbook schedule enabled. Mana will draw when the next slot is due and the app is idle.');}}
-        onCatchUp={catchUp=>{const next={...sketchbookRef.current,settings:{...sketchbookRef.current.settings,catchUp}};sketchbookRef.current=next;saveSketchbook(next);setSketchbook(next);}}
-        onRemove={id=>{const next={...sketchbookRef.current,entries:sketchbookRef.current.entries.filter(entry=>entry.id!==id)};sketchbookRef.current=next;saveSketchbook(next);setSketchbook(next);setSketchbookStatus('Removed from Sketchbook. The picture is still in Image Gallery.');}}
-        onClose={()=>setShowSketchbook(false)}/>}
+        onEnable={enabled=>{lastActivityAt.current=Date.now();const current=sketchbookRef.current;const prepared=enabled?{...current,settings:{...current.settings,timeZone:journalRef.current.timeZone}}:current;const next=setSketchbookEnabled(prepared,enabled);sketchbookRef.current=next;saveSketchbook(next);setSketchbook(next);if(!enabled){sketchbookIdeaController.current?.abort();if(sketchbookJob){setSketchbookJob(null);setShowImageGeneration(false);}setSketchbookStatus('Automatic Sketchbook drawings are off.');}else setSketchbookStatus('Sketchbook schedule enabled. Mana will draw when the next slot is due and the app is idle.');}}
+        onCatchUp={catchUp=>{lastActivityAt.current=Date.now();const next={...sketchbookRef.current,settings:{...sketchbookRef.current.settings,catchUp}};sketchbookRef.current=next;saveSketchbook(next);setSketchbook(next);}}
+        onRemove={id=>{lastActivityAt.current=Date.now();const next=removeSketchbookEntry(sketchbookRef.current,id);sketchbookRef.current=next;saveSketchbook(next);setSketchbook(next);setSketchbookStatus('Removed from Sketchbook. The picture is still in Image Gallery.');}}
+        onClose={()=>{lastActivityAt.current=Date.now();setShowSketchbook(false);}}/>}
       {showVision&&<VisionDrawer exePath={settings.exePath} chatPort={llama.port} canDiscuss={llama.status==='ready'&&!busy&&!reflecting&&!storage.error} onBusy={setReflecting} onClose={()=>setShowVision(false)} onDiscuss={text=>{setShowVision(false);void send(text);}}/>}
       {showSettings && (
         <SettingsDrawer
