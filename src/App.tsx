@@ -994,6 +994,8 @@ export default function App() {
   }
   async function saveScheduledSketchbookImage(job:{slotId:string;prepared:PreparedSketchbookDrawing},image:ImageAttachment){
     try{
+      // A drawing finished after the feature was disabled must not be saved.
+      if(!sketchbookRef.current.settings.enabled)throw Error('Scheduled drawings were disabled.');
       // Reuse the existing disk gallery, then persist the independent Sketchbook index.
       const imageId=await saveInspectedImage(image);
       const next=addSketchbookEntry(sketchbookRef.current,{
