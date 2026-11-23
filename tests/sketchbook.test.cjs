@@ -32,7 +32,7 @@ function load(file,cache=new Map()){
 
 const sketchbook=load('src/core/sketchbook.ts');
 const {SKETCHBOOK_KEY,SKETCHBOOK_DAYS,validateSketchbook,setSketchbookEnabled,
- dueSketchbookSlot,beginSketchbookAttempt,addSketchbookEntry,loadSketchbook,saveSketchbook}=sketchbook;
+ dueSketchbookSlot,beginSketchbookAttempt,addSketchbookEntry,removeSketchbookEntry,loadSketchbook,saveSketchbook}=sketchbook;
 const at=iso=>new Date(iso);
 const starting=()=>setSketchbookEnabled(validateSketchbook(null),true,at('2026-11-02T01:00:00.000Z')); // Monday 09:00 Singapore
 function drawing(slotId,createdAt,n=1){
@@ -196,4 +196,53 @@ test('Sketchbook persistence validates metadata before writing',()=>{
  assert.equal(saved.settings.enabled,true);
  assert.equal(saved.entries.length,0);
  assert.equal(loadSketchbook().entries.length,0);
+});
+
+
+test('Removing a drawing never reopens its scheduled slot or deletes gallery artwork',()=>{
+ const original=starting(),entry=drawing('2026-11-03','2026-11-03T04:10:00.000Z');
+ const saved=addSketchbookEntry(original,entry);
+ const removed=removeSketchbookEntry(saved,entry.id);
+ assert.equal(saved.entries.length,1);
+ assert.equal(removed.entries.length,0);
+ assert.deepEqual(plain(removed.removedSlots),['2026-11-03']);
+ assert.equal(dueSketchbookSlot(removed,at('2026-11-03T05:00:00.000Z')),null);
+ assert.equal(dueSketchbookSlot(removed,at('2026-11-04T11:00:00.000Z')),null);
+ assert.equal(dueSketchbookSlot(removed,at('2026-11-05T04:00:00.000Z')),'2026-11-05');
+ assert.throws(()=>addSketchbookEntry(removed,entry),/already removed/);
+ assert.equal(removeSketchbookEntry(removed,'nonexistent'),removed);
+ assert.equal(saved.entries[0].imageId,entry.imageId);
+});
+
+test('Removed slots survive restart and toggling automatic drawing off and back on',()=>{
+ let state=starting();
+ state=removeSketchbookEntry(addSketchbookEntry(state,drawing('2026-11-03','2026-11-03T04:10:00.000Z')),'drawing1');
+ saveSketchbook(state);
+ const reloaded=loadSketchbook();
+ assert.deepEqual(plain(reloaded.removedSlots),['2026-11-03']);
+ const off=setSketchbookEnabled(reloaded,false,at('2026-11-03T04:30:00.000Z'));
+ const on=setSketchbookEnabled(off,true,at('2026-11-03T04:45:00.000Z'));
+ assert.equal(dueSketchbookSlot(on,at('2026-11-03T05:00:00.000Z')),null);
+ assert.equal(dueSketchbookSlot(on,at('2026-11-05T04:00:00.000Z')),'2026-11-05');
+ assert.deepEqual(plain(validateSketchbook(JSON.parse(JSON.stringify(on)))),plain(on));
+});
+
+test('Removed-slot history is validated, bounded, and cannot hide live entries',()=>{
+ const current=starting();
+ const saved=addSketchbookEntry(current,drawing('2026-11-03','2026-11-03T04:10:00.000Z'));
+ const state=validateSketchbook({
+  ...saved,removedSlots:['2026-11-03','2026-11-05','2026-11-05','2026-11-04','../../../etc'],
+ });
+ assert.deepEqual(plain(state.removedSlots),['2026-11-05']);
+ assert.equal(state.entries.length,1);
+ assert.equal(dueSketchbookSlot(state,at('2026-11-05T04:00:00.000Z')),null);
+ const history=Array.from({length:520},(_,i)=>{
+  const date=new Date('2020-01-07T12:00:00.000Z');
+  date.setUTCDate(date.getUTCDate()+i*7);
+  return date.toISOString().slice(0,10);
+ });
+ const bounded=validateSketchbook({...current,removedSlots:history});
+ assert.equal(bounded.removedSlots.length,512);
+ assert.equal(bounded.removedSlots[0],history[8]);
+ assert.equal(bounded.removedSlots[511],history[519]);
 });
