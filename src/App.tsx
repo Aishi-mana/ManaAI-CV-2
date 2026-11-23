@@ -45,7 +45,7 @@ import VisionDrawer from './components/VisionDrawer';
 import SavedImagesDrawer from './components/SavedImagesDrawer';
 import SketchbookWorkspace from './components/SketchbookWorkspace';
 import { loadSavedImages, saveSavedImages } from './core/savedImages';
-import {loadSketchbook,saveSketchbook,setSketchbookEnabled,dueSketchbookSlot,beginSketchbookAttempt,addSketchbookEntry,removeSketchbookEntry} from './core/sketchbook';
+import {loadSketchbook,saveSketchbook,setSketchbookEnabled,dueSketchbookSlot,beginSketchbookAttempt,addSketchbookEntry,removeSketchbookEntry,canSaveScheduledSketchbook} from './core/sketchbook';
 import {prepareSketchbookDrawing,type PreparedSketchbookDrawing} from './core/sketchbookRuntime';
 import { inspectForChat } from './core/visionChat';
 import { loadVisionSettings } from './core/vision';
@@ -999,14 +999,14 @@ export default function App() {
   async function saveScheduledSketchbookImage(job:{slotId:string;prepared:PreparedSketchbookDrawing;enabledAt:string|null},image:ImageAttachment){
     try{
       // A drawing finished after the feature was disabled must not be saved.
-      if(!sketchbookRef.current.settings.enabled||sketchbookRef.current.settings.enabledAt!==job.enabledAt)
-        throw Error('Scheduled drawings were disabled or restarted.');
+      if(!canSaveScheduledSketchbook(sketchbookRef.current,job.slotId,job.enabledAt))
+        throw Error('Scheduled drawings were disabled, restarted or this slot was removed.');
       // Reuse the existing disk gallery, then persist the independent Sketchbook index.
       const imageId=await saveInspectedImage(image);
       // Saving the JPEG is asynchronous. Switching off during that write must
       // never re-add a Sketchbook entry, even if drawing is enabled again later.
-      if(!sketchbookRef.current.settings.enabled||sketchbookRef.current.settings.enabledAt!==job.enabledAt)
-        throw Error('The drawing was saved in Image Gallery, but scheduled drawings were disabled.');
+      if(!canSaveScheduledSketchbook(sketchbookRef.current,job.slotId,job.enabledAt))
+        throw Error('The drawing is saved in Image Gallery, but the scheduled slot was disabled, restarted or removed.');
       const next=addSketchbookEntry(sketchbookRef.current,{
         id:uid(),imageId,slotId:job.slotId,createdAt:new Date().toISOString(),
         title:job.prepared.idea.title,concept:job.prepared.idea.concept,
