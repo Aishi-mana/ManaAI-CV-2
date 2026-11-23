@@ -43,8 +43,9 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "reac
 import ChatPanel from "./components/ChatPanel";
 import VisionDrawer from './components/VisionDrawer';
 import SavedImagesDrawer from './components/SavedImagesDrawer';
+import SketchbookWorkspace from './components/SketchbookWorkspace';
 import { loadSavedImages, saveSavedImages } from './core/savedImages';
-import {loadSketchbook,saveSketchbook,dueSketchbookSlot,beginSketchbookAttempt,addSketchbookEntry} from './core/sketchbook';
+import {loadSketchbook,saveSketchbook,setSketchbookEnabled,dueSketchbookSlot,beginSketchbookAttempt,addSketchbookEntry} from './core/sketchbook';
 import {prepareSketchbookDrawing,type PreparedSketchbookDrawing} from './core/sketchbookRuntime';
 import { inspectForChat } from './core/visionChat';
 import { loadVisionSettings } from './core/vision';
@@ -137,6 +138,7 @@ export default function App() {
   useEffect(()=>{if(!galleryStarted.current){galleryStarted.current=true;void initializeGallery();}},[]);
 
   const [showSavedImages,setShowSavedImages]=useState(false);
+  const [showSketchbook,setShowSketchbook]=useState(false);
   const [imageStatus,setImageStatus]=useState('');
   const [imageError,setImageError]=useState('');
   const [settings, setSettings] = useState<Settings>(loadSettings);
@@ -1026,7 +1028,7 @@ export default function App() {
         diaryArtQueue.length||journalWriting||initiativeGenerating||reflectionDraft||
         hasChatDraft.current||mediaOccupied()||Date.now()-lastActivityAt.current<300_000||
         document.visibilityState!=='visible'||roomEditorOpen||showImageGeneration||
-        showOutfitPrototype||showWardrobe||showSinging||showSavedImages||showVision||
+        showOutfitPrototype||showWardrobe||showSinging||showSavedImages||showSketchbook||showVision||
         showCode||showGameDev||showDiary||showSettings||showBackgrounds||showMemories||
         showState||showGoals||showThoughts||showActivities||showFollowups||
         showEvents||showNarratives||showSkills||showChatArchives||archiving)return;
@@ -1039,14 +1041,14 @@ export default function App() {
   },[sketchbook,sketchbookJob,galleryReady,galleryWorking,llama.status,llama.imageBusy,
       storage.error,busy,reflecting,autoOutfitRunning,diaryArtId,diaryArtQueue,
       journalWriting,initiativeGenerating,reflectionDraft,roomEditorOpen,
-      showImageGeneration,showOutfitPrototype,showWardrobe,showSinging,showSavedImages,
+      showImageGeneration,showOutfitPrototype,showWardrobe,showSinging,showSavedImages,showSketchbook,
       showVision,showCode,showGameDev,showDiary,showSettings,showBackgrounds,
       showMemories,showState,showGoals,showThoughts,showActivities,showFollowups,
       showEvents,showNarratives,showSkills,showChatArchives,archiving]);
 
 
   function labelGallery(id:string,confirmed:boolean){void queueGallery(async()=>{const next=savedImagesRef.current.map(image=>{if(image.id!==id)return image;const {depictsAvatar,...rest}=image;return confirmed?{...rest,depictsAvatar:true as const}:rest;});await commitGallery(next);}).catch(e=>setGalleryError(String(e)));}
-  function deleteGallery(id:string){void queueGallery(async()=>{const image=savedImagesRef.current.find(i=>i.id===id);if(!image)return;await commitGallery(savedImagesRef.current.filter(i=>i.id!==id));await removeDiskImage(image);}).catch(e=>setGalleryError('Could not finish gallery deletion: '+String(e)));}
+  function deleteGallery(id:string){if(sketchbookRef.current.entries.some(entry=>entry.imageId===id)){setGalleryError('This picture is still in Mana’s Sketchbook. Remove it from Sketchbook before deleting the gallery copy.');return;}void queueGallery(async()=>{const image=savedImagesRef.current.find(i=>i.id===id);if(!image)return;await commitGallery(savedImagesRef.current.filter(i=>i.id!==id));await removeDiskImage(image);}).catch(e=>setGalleryError('Could not finish gallery deletion: '+String(e)));}
   function completeChatPicture(image:ImageAttachment){
     if(messagesRef.current.reduce((size,m)=>size+(m.generatedPicture?.dataUrl.length??0),0)+image.dataUrl.length>8_000_000)throw Error('Chat picture storage is full. Save this picture to the library, then archive and clear this chat before generating more.');
     const next:Msg[]=[...messagesRef.current,{id:uid(),role:'assistant',content:'Here’s your picture. [happy]',generatedPicture:image,createdAt:new Date().toISOString()}];
@@ -1332,7 +1334,7 @@ export default function App() {
   const freshAssets = avatar.assets;
 
   return (
-    <div className={`app${showSinging||showSavedImages?' studio-open':''}`} data-main-layout={mainLayout} data-room-editor={roomEditorOpen}>
+    <div className={`app${showSinging||showSavedImages||showSketchbook?' studio-open':''}`} data-main-layout={mainLayout} data-room-editor={roomEditorOpen}>
      <div className="layout-avatar" id="main-avatar-panel" inert={mainLayout===3}>
       <StagePanel
         charName={settings.charName}
@@ -1432,6 +1434,7 @@ export default function App() {
           <button className="btn" disabled={autoOutfitRunning||busy||reflecting} onClick={()=>{setChatPicture(undefined);setShowImageGeneration(true);}}>Create picture</button>
           <button className="btn" disabled={autoOutfitRunning||busy||reflecting||!avatar.assets||showImageGeneration} onClick={()=>{setAtelierCategory('outfit');setPrototypePicture(undefined);setShowOutfitPrototype(true);}}>Atelier</button>
           <button className="btn" onClick={()=>setShowSavedImages(true)}>Image gallery</button>
+          <button className="btn" onClick={()=>setShowSketchbook(true)}>Sketchbook ({sketchbook.entries.length})</button>
           <button className="btn" disabled={autoOutfitRunning||busy||reflecting} onClick={()=>setShowSinging(true)}>Songs</button>
           </MoreTools>
         </header>
@@ -1507,6 +1510,11 @@ export default function App() {
       <SingingDrawer active={showSinging&&!showSavedImages} initiative={initiative} onInitiative={changeInitiative} onBusy={setReflecting} onClose={()=>setShowSinging(false)}/>
       {showImageGeneration&&!chatPicture&&!diaryArtId&&!sketchbookJob&&<ImageGenerationDrawer onPrototype={image=>{setAtelierCategory('outfit');setPrototypePicture(image);setShowImageGeneration(false);setChatPicture(undefined);setShowOutfitPrototype(true);}} beforeGenerate={async cpu=>cpu?async()=>{}:llama.pauseForImage()} prepareClothingMask={avatar.assets?(signal,keepAccessories=true)=>prepareAvatarClothingMask(avatar.assets!,{...cfg,accessories:keepAccessories?cfg.accessories:[]},signal):undefined} prepareReference={avatar.assets?(signal,clothingEdit,keepAccessories=true,garmentPrompt)=>prepareAvatarReference(avatar.assets!,{...cfg,accessories:keepAccessories?cfg.accessories:[]},signal,1024,clothingEdit,garmentPrompt):undefined} autoGenerate={false} available={!busy&&!reflecting&&!storage.error} onClose={()=>setShowImageGeneration(false)} onSave={savePictureToLibrary}/>}
       {showSavedImages&&<SavedImagesDrawer folder={galleryPath} images={savedImages} working={galleryWorking} error={galleryError} onRetry={()=>void initializeGallery()} editable={galleryReady&&!galleryWorking&&!busy&&!reflecting&&!storage.error} onClose={()=>setShowSavedImages(false)} onLabel={labelGallery} onDelete={deleteGallery}/>}
+      {showSketchbook&&<SketchbookWorkspace name={settings.charName} state={sketchbook} images={savedImages} status={sketchbookStatus} galleryReady={galleryReady} galleryWorking={galleryWorking} galleryError={galleryError}
+        onEnable={enabled=>{const current=sketchbookRef.current;const prepared=enabled?{...current,settings:{...current.settings,timeZone:journalRef.current.timeZone}}:current;const next=setSketchbookEnabled(prepared,enabled);sketchbookRef.current=next;saveSketchbook(next);setSketchbook(next);if(!enabled){if(sketchbookPlanning.current)abortRef.current?.abort();if(sketchbookJob){setSketchbookJob(null);setShowImageGeneration(false);}setSketchbookStatus('Automatic Sketchbook drawings are off.');}else setSketchbookStatus('Sketchbook schedule enabled. Mana will draw when the next slot is due and the app is idle.');}}
+        onCatchUp={catchUp=>{const next={...sketchbookRef.current,settings:{...sketchbookRef.current.settings,catchUp}};sketchbookRef.current=next;saveSketchbook(next);setSketchbook(next);}}
+        onRemove={id=>{const next={...sketchbookRef.current,entries:sketchbookRef.current.entries.filter(entry=>entry.id!==id)};sketchbookRef.current=next;saveSketchbook(next);setSketchbook(next);setSketchbookStatus('Removed from Sketchbook. The picture is still in Image Gallery.');}}
+        onClose={()=>setShowSketchbook(false)}/>}
       {showVision&&<VisionDrawer exePath={settings.exePath} chatPort={llama.port} canDiscuss={llama.status==='ready'&&!busy&&!reflecting&&!storage.error} onBusy={setReflecting} onClose={()=>setShowVision(false)} onDiscuss={text=>{setShowVision(false);void send(text);}}/>}
       {showSettings && (
         <SettingsDrawer
