@@ -44,6 +44,8 @@ import ChatPanel from "./components/ChatPanel";
 import VisionDrawer from './components/VisionDrawer';
 import SavedImagesDrawer from './components/SavedImagesDrawer';
 import { loadSavedImages, saveSavedImages } from './core/savedImages';
+import {loadSketchbook,saveSketchbook,dueSketchbookSlot,beginSketchbookAttempt,addSketchbookEntry} from './core/sketchbook';
+import {prepareSketchbookDrawing,type PreparedSketchbookDrawing} from './core/sketchbookRuntime';
 import { inspectForChat } from './core/visionChat';
 import { loadVisionSettings } from './core/vision';
 import type { ImageAttachment } from './core/vision';
@@ -125,6 +127,11 @@ export default function App() {
   const [showVision,setShowVision]=useState(false);
   const [savedImages,setSavedImages]=useState(loadSavedImages);
   const savedImagesRef=useRef(savedImages);savedImagesRef.current=savedImages;
+  const [sketchbook,setSketchbook]=useState(loadSketchbook);
+  const sketchbookRef=useRef(sketchbook);sketchbookRef.current=sketchbook;
+  const [sketchbookJob,setSketchbookJob]=useState<{slotId:string;prepared:PreparedSketchbookDrawing}|null>(null);
+  const sketchbookPlanning=useRef(false);
+  const [sketchbookStatus,setSketchbookStatus]=useState('');
   const [galleryReady,setGalleryReady]=useState(false),[galleryWorking,setGalleryWorking]=useState(false),[galleryError,setGalleryError]=useState(''),[galleryPath,setGalleryPath]=useState('');
   const galleryReadyRef=useRef(false),galleryQueue=useRef<Promise<unknown>>(Promise.resolve()),galleryStarted=useRef(false);
   useEffect(()=>{if(!galleryStarted.current){galleryStarted.current=true;void initializeGallery();}},[]);
@@ -250,6 +257,7 @@ export default function App() {
   useEffect(() => { saveIdentity(identity); }, [identity]);
   useEffect(() => { saveMemories(memories); }, [memories]);
   useEffect(() => { saveDiary(diary); }, [diary]);
+  useEffect(() => { saveSketchbook(sketchbook); }, [sketchbook]);
   useEffect(() => { saveGoals(goals); }, [goals]);
   useEffect(() => { saveInterests(interests); }, [interests]);
   useEffect(() => { saveWork(work); }, [work]);
@@ -952,6 +960,89 @@ export default function App() {
     if(!galleryReadyRef.current)throw Error('The gallery is not ready. Open Image gallery to finish migration.');
     return queueGallery(async()=>{const saved=await addDiskImage(savedImagesRef.current,image);await commitGallery(saved.images);return saved.imageId;});
   }
+  // The scheduler only reserves a slot and asks the EXISTING chat model for an idea.
+  // The resulting picture is handed to the normal ImageGenerationDrawer below.
+  async function startSketchbookSlot(slotId:string){
+    if(sketchbookPlanning.current||sketchbookJob||abortRef.current||!galleryReadyRef.current)return;
+    let reserved;
+    try{reserved=beginSketchbookAttempt(sketchbookRef.current,slotId,new Date());}
+    catch{return;}
+    sketchbookPlanning.current=true;
+    sketchbookRef.current=reserved;setSketchbook(reserved);saveSketchbook(reserved);
+    const ctrl=new AbortController();abortRef.current=ctrl;setReflecting(true);
+    setSketchbookStatus('Mana is imagining a drawing…');
+    try{
+      await flushPersistence(); // Retry counters survive restart before any model work.
+      if(ctrl.signal.aborted||!sketchbookRef.current.settings.enabled)throw Error('Sketchbook disabled.');
+      const prepared=await prepareSketchbookDrawing({port:llama.port,context:{
+        name:settings.charName,personality:identity.personality,mood:companion.state.mood,
+        energy:companion.state.energy,curiosity:companion.state.curiosity,
+        interests:identity.interests,recentDrawings:sketchbookRef.current.entries.slice(-8),
+        // No unreviewed memories are passed to the autonomous idea planner.
+        approvedMemories:[],
+      },signal:ctrl.signal});
+      if(ctrl.signal.aborted||!sketchbookRef.current.settings.enabled)throw Error('Sketchbook disabled.');
+      setSketchbookJob({slotId,prepared});
+      setShowImageGeneration(true);
+      setSketchbookStatus('Mana is drawing…');
+    }catch(error){
+      setSketchbookStatus('Sketchbook idea postponed: '+String(error));
+    }finally{
+      if(abortRef.current===ctrl)abortRef.current=null;
+      sketchbookPlanning.current=false;setReflecting(false);
+    }
+  }
+  async function saveScheduledSketchbookImage(job:{slotId:string;prepared:PreparedSketchbookDrawing},image:ImageAttachment){
+    try{
+      // Reuse the existing disk gallery, then persist the independent Sketchbook index.
+      const imageId=await saveInspectedImage(image);
+      const next=addSketchbookEntry(sketchbookRef.current,{
+        id:uid(),imageId,slotId:job.slotId,createdAt:new Date().toISOString(),
+        title:job.prepared.idea.title,concept:job.prepared.idea.concept,
+        prompt:job.prepared.pictureRequest.prompt,sourceType:'scheduled-drawing',imagined:true,
+        inspiration:job.prepared.idea.inspiration,
+        ...(job.prepared.idea.relatedMemoryIds?.length?{relatedMemoryIds:job.prepared.idea.relatedMemoryIds}:{}),
+        ...(image.origin?.model?{model:image.origin.model}:{}),
+        ...(image.origin?.seed!==undefined?{seed:image.origin.seed}:{}),
+      });
+      sketchbookRef.current=next;setSketchbook(next);saveSketchbook(next);
+      await flushPersistence();
+      setSketchbookStatus('Mana saved a new drawing in her Sketchbook.');
+    }catch(error){
+      setSketchbookStatus('Drawing generated, but could not finish saving to Sketchbook: '+String(error));
+    }finally{
+      setSketchbookJob(null);setShowImageGeneration(false);
+    }
+  }
+
+  // A scheduled drawing never preempts chat, diary, outfit, audio, or user image jobs.
+  useEffect(()=>{
+    const check=()=>{
+      if(!sketchbook.settings.enabled||sketchbookPlanning.current||sketchbookJob||
+        !galleryReadyRef.current||galleryWorking||llama.status!=='ready'||llama.imageBusy||
+        storage.error||busy||reflecting||abortRef.current||autoOutfitRunning||diaryArtId||
+        diaryArtQueue.length||journalWriting||initiativeGenerating||reflectionDraft||
+        hasChatDraft.current||mediaOccupied()||Date.now()-lastActivityAt.current<300_000||
+        document.visibilityState!=='visible'||roomEditorOpen||showImageGeneration||
+        showOutfitPrototype||showWardrobe||showSinging||showSavedImages||showVision||
+        showCode||showGameDev||showDiary||showSettings||showBackgrounds||showMemories||
+        showState||showGoals||showThoughts||showActivities||showFollowups||
+        showEvents||showNarratives||showSkills||showChatArchives||archiving)return;
+      const slot=dueSketchbookSlot(sketchbookRef.current,new Date());
+      if(slot)void startSketchbookSlot(slot);
+    };
+    check();
+    const timer=window.setInterval(check,60_000);
+    return()=>window.clearInterval(timer);
+  },[sketchbook,sketchbookJob,galleryReady,galleryWorking,llama.status,llama.imageBusy,
+      storage.error,busy,reflecting,autoOutfitRunning,diaryArtId,diaryArtQueue,
+      journalWriting,initiativeGenerating,reflectionDraft,roomEditorOpen,
+      showImageGeneration,showOutfitPrototype,showWardrobe,showSinging,showSavedImages,
+      showVision,showCode,showGameDev,showDiary,showSettings,showBackgrounds,
+      showMemories,showState,showGoals,showThoughts,showActivities,showFollowups,
+      showEvents,showNarratives,showSkills,showChatArchives,archiving]);
+
+
   function labelGallery(id:string,confirmed:boolean){void queueGallery(async()=>{const next=savedImagesRef.current.map(image=>{if(image.id!==id)return image;const {depictsAvatar,...rest}=image;return confirmed?{...rest,depictsAvatar:true as const}:rest;});await commitGallery(next);}).catch(e=>setGalleryError(String(e)));}
   function deleteGallery(id:string){void queueGallery(async()=>{const image=savedImagesRef.current.find(i=>i.id===id);if(!image)return;await commitGallery(savedImagesRef.current.filter(i=>i.id!==id));await removeDiskImage(image);}).catch(e=>setGalleryError('Could not finish gallery deletion: '+String(e)));}
   function completeChatPicture(image:ImageAttachment){
@@ -1412,7 +1503,7 @@ export default function App() {
       </main>
 
       <SingingDrawer active={showSinging&&!showSavedImages} initiative={initiative} onInitiative={changeInitiative} onBusy={setReflecting} onClose={()=>setShowSinging(false)}/>
-      {showImageGeneration&&!chatPicture&&!diaryArtId&&<ImageGenerationDrawer onPrototype={image=>{setAtelierCategory('outfit');setPrototypePicture(image);setShowImageGeneration(false);setChatPicture(undefined);setShowOutfitPrototype(true);}} beforeGenerate={async cpu=>cpu?async()=>{}:llama.pauseForImage()} prepareClothingMask={avatar.assets?(signal,keepAccessories=true)=>prepareAvatarClothingMask(avatar.assets!,{...cfg,accessories:keepAccessories?cfg.accessories:[]},signal):undefined} prepareReference={avatar.assets?(signal,clothingEdit,keepAccessories=true,garmentPrompt)=>prepareAvatarReference(avatar.assets!,{...cfg,accessories:keepAccessories?cfg.accessories:[]},signal,1024,clothingEdit,garmentPrompt):undefined} autoGenerate={false} available={!busy&&!reflecting&&!storage.error} onClose={()=>setShowImageGeneration(false)} onSave={savePictureToLibrary}/>}
+      {showImageGeneration&&!chatPicture&&!diaryArtId&&!sketchbookJob&&<ImageGenerationDrawer onPrototype={image=>{setAtelierCategory('outfit');setPrototypePicture(image);setShowImageGeneration(false);setChatPicture(undefined);setShowOutfitPrototype(true);}} beforeGenerate={async cpu=>cpu?async()=>{}:llama.pauseForImage()} prepareClothingMask={avatar.assets?(signal,keepAccessories=true)=>prepareAvatarClothingMask(avatar.assets!,{...cfg,accessories:keepAccessories?cfg.accessories:[]},signal):undefined} prepareReference={avatar.assets?(signal,clothingEdit,keepAccessories=true,garmentPrompt)=>prepareAvatarReference(avatar.assets!,{...cfg,accessories:keepAccessories?cfg.accessories:[]},signal,1024,clothingEdit,garmentPrompt):undefined} autoGenerate={false} available={!busy&&!reflecting&&!storage.error} onClose={()=>setShowImageGeneration(false)} onSave={savePictureToLibrary}/>}
       {showSavedImages&&<SavedImagesDrawer folder={galleryPath} images={savedImages} working={galleryWorking} error={galleryError} onRetry={()=>void initializeGallery()} editable={galleryReady&&!galleryWorking&&!busy&&!reflecting&&!storage.error} onClose={()=>setShowSavedImages(false)} onLabel={labelGallery} onDelete={deleteGallery}/>}
       {showVision&&<VisionDrawer exePath={settings.exePath} chatPort={llama.port} canDiscuss={llama.status==='ready'&&!busy&&!reflecting&&!storage.error} onBusy={setReflecting} onClose={()=>setShowVision(false)} onDiscuss={text=>{setShowVision(false);void send(text);}}/>}
       {showSettings && (
@@ -1475,6 +1566,7 @@ export default function App() {
         onDelete={(id)=>setGoals((prev)=>prev.filter((g)=>g.id!==id))}
         onClose={()=>{if(goalGenerating||workGenerating)abortRef.current?.abort();setShowGoals(false);}} />}
 
+      {sketchbookJob&&<div className="diary-art-job"><strong>Mana’s Sketchbook</strong><p role="status">{sketchbookStatus}</p><ImageGenerationDrawer key={sketchbookJob.slotId} inline showSave={false} initialRequest={sketchbookJob.prepared.pictureRequest} available={!busy&&!reflecting&&!storage.error} beforeGenerate={async cpu=>cpu?async()=>{}:llama.pauseForImage()} onGenerated={image=>{void saveScheduledSketchbookImage(sketchbookJob,image);}} onFailure={error=>{setSketchbookStatus('Sketchbook drawing failed: '+error);setSketchbookJob(null);setShowImageGeneration(false);}} onStopped={()=>{setSketchbookStatus('Sketchbook drawing stopped.');setSketchbookJob(null);setShowImageGeneration(false);}} onClose={()=>{setSketchbookJob(null);setShowImageGeneration(false);}} onSave={()=>{}}/></div>}
       {diaryArtId&&diaryArtRequest&&<div className="diary-art-job"><strong>Illustrating diary</strong><ImageGenerationDrawer key={diaryArtId} inline initialRequest={diaryArtRequest} available={!busy&&!reflecting&&!storage.error} beforeGenerate={async()=>llama.pauseForImage()} prepareReference={avatar.assets?async signal=>prepareDiaryCastReference(await prepareAvatarReference(avatar.assets!,cfg,signal,1024),diaryArtRequest.referenceCast,signal):undefined} onStopped={()=>finishDiaryArt('Illustration stopped. Diary text is saved; use Add illustration to retry.')} onFailure={message=>finishDiaryArt('Diary text is safe. Picture failed: '+message)} onGenerated={image=>{void retainDiaryArtwork(diaryArtId,image);}} onClose={()=>finishDiaryArt('Illustration cancelled. Diary text is saved; use Add illustration to retry.')} onSave={()=>{}}/></div>}
       {showDiary && <DiaryDrawer name={settings.charName} entries={diary} artworkStatus={diaryArtStatus} artworkBusy={!!diaryArtId||!!diaryArtQueue.length} onIllustrate={id=>setDiaryArtQueue(q=>q.includes(id)?q:[...q,id])} onRemoveIllustration={id=>setDiary(prev=>prev.map(e=>{if(e.id!==id)return e;const {illustration,...rest}=e;return rest;}))} draft={reflectionDraft} generating={reflecting}
         onRestore={(id)=>{const entry=diary.find((e)=>e.id===id);if(entry?.journalDate&&diary.some((e)=>!e.deletedAt&&e.journalDate===entry.journalDate)){setJournalStatus("An entry for that day already exists. Move it to Recently deleted before restoring the earlier one.");return;}setDiary((prev)=>prev.map((e)=>{if(e.id!==id)return e;const {deletedAt,...restored}=e;return restored;}));}}
