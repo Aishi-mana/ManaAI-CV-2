@@ -9,6 +9,7 @@ import {readStored,writeStored} from './persistence';
  */
 export const SKETCHBOOK_KEY='mana.sketchbook.v1';
 export const SKETCHBOOK_LIMIT=300;
+export const SKETCHBOOK_REMOVED_SLOT_LIMIT=512;
 export const SKETCHBOOK_DRAW_TIME='12:00';
 export const SKETCHBOOK_DAYS=[2,4,6] as const; // Tuesday, Thursday, Saturday
 
@@ -48,6 +49,8 @@ export interface SketchbookAttempt {
 export interface SketchbookState {
  settings:SketchbookSettings;
  entries:SketchbookEntry[];
+ /** Retain removed drawing slots so deleting an image cannot trigger a redraw. */
+ removedSlots?:string[];
  lastAttempt?:SketchbookAttempt;
 }
 
@@ -126,6 +129,11 @@ export function validateSketchbook(value:unknown):SketchbookState {
   }
  }
  const state:SketchbookState={settings,entries};
+ const removed=isRecord(value)?value.removedSlots:undefined;
+ if(Array.isArray(removed)){
+  const history=[...new Set(removed.filter((slot:unknown):slot is string=>validSlotId(slot)&&!slots.has(slot)))];
+  if(history.length)state.removedSlots=history.slice(-SKETCHBOOK_REMOVED_SLOT_LIMIT);
+ }
  const attempt=isRecord(value)?value.lastAttempt:undefined;
  if(isRecord(attempt)&&validSlotId(attempt.slotId)&&validTimestamp(attempt.at)&&
     typeof attempt.count==='number'&&Number.isInteger(attempt.count)&&
@@ -165,7 +173,7 @@ export function dueSketchbookSlot(state:SketchbookState,now=new Date()):string|n
  if(!slotId||(!settings.catchUp&&slotId!==clock.date))return null;
  const enabledClock=journalClock(new Date(settings.enabledAt),settings.timeZone);
  if(enabledClock.date+'T'+enabledClock.time>slotId+'T'+SKETCHBOOK_DRAW_TIME)return null;
- if(entries.some(entry=>entry.slotId===slotId))return null;
+ if(entries.some(entry=>entry.slotId===slotId)||state.removedSlots?.includes(slotId))return null;
  if(completedThisWeek(entries,now,settings.timeZone)>=settings.frequencyPerWeek)return null;
  if(lastAttempt?.slotId===slotId&&
     (lastAttempt.count>=MAX_ATTEMPTS_PER_SLOT||
@@ -187,6 +195,7 @@ export function addSketchbookEntry(state:SketchbookState,entry:SketchbookEntry):
  if(state.entries.length>=SKETCHBOOK_LIMIT)throw Error('Mana’s Sketchbook is full.');
  const candidate=validateSketchbook({settings:state.settings,entries:[entry]}).entries[0];
  if(!candidate)throw Error('Invalid Sketchbook drawing metadata.');
+ if(state.removedSlots?.includes(candidate.slotId))throw Error('This scheduled drawing was already removed.');
  if(state.entries.some(existing=>existing.id===candidate.id||existing.slotId===candidate.slotId||existing.imageId===candidate.imageId))
   throw Error('This drawing or scheduled slot is already saved.');
  const week=localWeekStart(journalClock(new Date(entry.createdAt),state.settings.timeZone).date);
@@ -194,6 +203,15 @@ export function addSketchbookEntry(state:SketchbookState,entry:SketchbookEntry):
   localWeekStart(journalClock(new Date(existing.createdAt),state.settings.timeZone).date)===week).length;
  if(inWeek>=state.settings.frequencyPerWeek)throw Error('The weekly Sketchbook limit has been reached.');
  return {...state,entries:[...state.entries,candidate]};
+}
+
+/** Unlink from Sketchbook without removing a shared gallery image or reopening its slot. */
+export function removeSketchbookEntry(state:SketchbookState,id:string):SketchbookState {
+ const existing=state.entries.find(entry=>entry.id===id);
+ if(!existing)return state;
+ const removedSlots=[...(state.removedSlots??[]).filter(slot=>slot!==existing.slotId),existing.slotId]
+  .slice(-SKETCHBOOK_REMOVED_SLOT_LIMIT);
+ return {...state,entries:state.entries.filter(entry=>entry.id!==id),removedSlots};
 }
 
 /** Load from Mana's existing SQLite-backed store (localStorage in web preview). */
