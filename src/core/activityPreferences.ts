@@ -1,5 +1,5 @@
 import {isRecord} from './validation';
-import {residentProfiles,type ResidentId} from './residentProfiles';
+import {residentProfiles,type ResidentActivity,type ResidentId} from './residentProfiles';
 import type {TownCharacter} from './residentRelationships';
 import type {Memory} from './character';
 
@@ -20,8 +20,9 @@ export function validateActivityPreferences(value:unknown):ActivityPreferences{
   const item=value[owner];if(!isRecord(item)||typeof item.updatedAt!=='string'||!Number.isFinite(Date.parse(item.updatedAt))||typeof item.reason!=='string'||!item.reason.trim()||item.reason.length>180)continue;
   const options=preferenceOptions(owner).map(option=>option.id);
   const valid=(v:unknown,max:number):v is string[]=>Array.isArray(v)&&v.length<=max&&new Set(v).size===v.length&&v.every(id=>typeof id==='string'&&options.includes(id));
-  if(!valid(item.likes,2)||!valid(item.avoid,1)||!item.likes.length||item.avoid.some(id=>item.likes.includes(id))||!Array.isArray(item.basedOn)||!item.basedOn.length||item.basedOn.length>3||item.basedOn.some(text=>typeof text!=='string'||!text.trim()||text.length>400))continue;
-  result[owner]={likes:[...item.likes],avoid:[...item.avoid],reason:item.reason.trim(),basedOn:[...new Set(item.basedOn)] as string[],updatedAt:item.updatedAt};
+  const likes=item.likes,avoid=item.avoid,basedOn=item.basedOn;
+  if(!valid(likes,2)||!valid(avoid,1)||!likes.length||avoid.some(id=>likes.includes(id))||!Array.isArray(basedOn)||!basedOn.length||basedOn.length>3||basedOn.some(text=>typeof text!=='string'||!text.trim()||text.length>400))continue;
+  result[owner]={likes:[...likes],avoid:[...avoid],reason:item.reason.trim(),basedOn:[...new Set(basedOn)] as string[],updatedAt:item.updatedAt};
  }
  return result;
 }
@@ -34,7 +35,7 @@ export function activityPreferenceWeight(owner:TownCharacter,activity:string,pre
  return likes.includes(activity)?1.8:saved?.avoid.includes(activity)? .65:1;
 }
 export function chooseResidentFreeActivity(owner:ResidentId,preferences:ActivityPreferences,memories:readonly string[],previous?:string,goal?:string,roll=Math.random()){
- const choices=residentProfiles[owner].activities;
+ const choices:readonly ResidentActivity[]=residentProfiles[owner].activities;
  const weights=choices.map(choice=>activityPreferenceWeight(owner,choice.pose,preferences,memories)*(choice.pose===previous? .2:1)*(choice.pose===goal?1.8:1)*(choice.shortPause? .65:1));
  let remaining=Math.max(0,Math.min(.999999,roll))*weights.reduce((a,b)=>a+b,0);
  return choices.find((_,i)=>(remaining-=weights[i])<0)??choices[0];
