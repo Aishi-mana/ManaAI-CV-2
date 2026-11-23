@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Mutex;
 
-pub const KEYS: [&str; 33] = [
+pub const KEYS: [&str; 34] = [
     "mana.settings.v1",
     "mana.chat.v1",
     "mana.avatar.v1",
@@ -34,6 +34,7 @@ pub const KEYS: [&str; 33] = [
     "mana.speech.v1",
     "mana.vision.v1",
     "mana.images.v1",
+    "mana.sketchbook.v1",
     "mana.whisper.v1",
     "mana.custom_voice.v1",
     "mana.music_drafts.v1",
