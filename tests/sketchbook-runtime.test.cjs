@@ -55,7 +55,9 @@ test('Calls the already-running local chat model and prepares an ordinary pictur
  assert.equal(result.pictureRequest.backend,undefined);
  assert.equal(result.pictureRequest.referenceAvatar,undefined);
  assert.match(result.pictureRequest.prompt,/moonlit cloud garden/);
- assert.match(result.pictureRequest.prompt,/sketchbook doodle/);
+ assert.match(result.pictureRequest.prompt,/one clear focal|clear focal subject/);
+ assert.match(result.pictureRequest.negative,/notebook, open sketchbook/);
+ assert.match(result.pictureRequest.negative,/collage, moodboard/);
  assert.ok(result.pictureRequest.prompt.length<=1500);
 });
 

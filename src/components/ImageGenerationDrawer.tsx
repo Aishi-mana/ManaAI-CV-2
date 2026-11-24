@@ -16,7 +16,7 @@ interface Props{objectDimensions?:{width:number;height:number};prepareObjectRefe
 
 export default function ImageGenerationDrawer({objectDimensions,prepareObjectReference,showSave=true,onStopped,onFailure,available,onClose,onSave,initialRequest,onGenerated,inline=false,embedded=false,prepareReference,prepareClothingMask,beforeGenerate,onPrototype,autoGenerate=true}:Props){
 
- const [discovery,setDiscovery]=useState<Discovery>(),[request,setRequest]=useState<ImageGenerationRequest>({model:'',prompt:initialRequest?.prompt??'',negative:'blurry, low quality, watermark',width:512,height:512,steps:20,cfg:7,seed:42,cpu:false,referenceStrength:isClothingChange(initialRequest?.prompt??'')?.8:.45}),[running,setRunning]=useState(false),[status,setStatus]=useState('Finding local checkpoints…'),[error,setError]=useState(''),[result,setResult]=useState<ImageAttachment>(),[path,setPath]=useState(''),[saved,setSaved]=useState(false);
+ const [discovery,setDiscovery]=useState<Discovery>(),[request,setRequest]=useState<ImageGenerationRequest>({model:'',prompt:initialRequest?.prompt??'',negative:initialRequest?.negative??'blurry, low quality, watermark',width:512,height:512,steps:20,cfg:7,seed:42,cpu:false,referenceStrength:isClothingChange(initialRequest?.prompt??'')?.8:.45}),[running,setRunning]=useState(false),[status,setStatus]=useState('Finding local checkpoints…'),[error,setError]=useState(''),[result,setResult]=useState<ImageAttachment>(),[path,setPath]=useState(''),[saved,setSaved]=useState(false);
 
  const [qwenReferenceSource,setQwenReferenceSource]=useState<'sheet'|'avatar'>(initialRequest?.qwenReferenceSource??(prepareReference?'avatar':'sheet'));
  const [keepSeed,setKeepSeed]=useState(false);
