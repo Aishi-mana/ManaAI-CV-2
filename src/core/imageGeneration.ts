@@ -8,7 +8,7 @@ export function imageGenerationRequest(value:ImageGenerationRequest):ImageGenera
 
 }
 
-export interface ChatPictureRequest {prompt:string;backend?:'neta'|'sd'|'animagine'|'photon'|'qwen';referenceAvatar?:boolean;clothingOnly?:boolean;qwenReferenceSource?:'sheet'|'avatar';referenceCast?:readonly string[]}
+export interface ChatPictureRequest {prompt:string;negative?:string;backend?:'neta'|'sd'|'animagine'|'photon'|'qwen';referenceAvatar?:boolean;clothingOnly?:boolean;qwenReferenceSource?:'sheet'|'avatar';referenceCast?:readonly string[]}
 
 /** Only explicit leading creation requests; questions and quoted discussion stay chat. */
 
