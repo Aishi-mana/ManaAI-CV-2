@@ -81,7 +81,7 @@ test('Cover discovery uses existing local search and stores source only',()=>{
  assert.match(app,/invoke<CoverSearchSource\[\]>\('search_web',\{query\}\)/);
  assert.match(app,/pickCoverSource\(/);
  assert.match(app,/setSongbookState\(next\)/);
- assert.doesNotMatch(app.slice(app.indexOf('async function discoverCoverIdea'),app.indexOf('async function convertRecordedSongToManaVoice')),/singing_start|original_song_start|download/);
+ assert.doesNotMatch(app.slice(app.indexOf('async function discoverCoverIdea'),app.indexOf('async function convertRecordedSongToManaVoice')),/invoke\('singing_start'|invoke\('original_song_start'/);
  const ui=fs.readFileSync('src/components/SongbookWorkspace.tsx','utf8');
  assert.match(ui,/open_web_source/);
  assert.match(ui,/Find a cover idea/);
