@@ -45,8 +45,9 @@ import VisionDrawer from './components/VisionDrawer';
 import SavedImagesDrawer from './components/SavedImagesDrawer';
 import SketchbookWorkspace from './components/SketchbookWorkspace';
 import { loadSavedImages, saveSavedImages } from './core/savedImages';
-import {loadSketchbook,saveSketchbook,setSketchbookEnabled,dueSketchbookSlot,beginSketchbookAttempt,addSketchbookEntry,removeSketchbookEntry,canSaveScheduledSketchbook,recordSketchbookOutcome,SKETCHBOOK_LIMIT,sketchbookCreativePatterns,sketchbookRevisitCandidate} from './core/sketchbook';
+import {loadSketchbook,saveSketchbook,setSketchbookEnabled,dueSketchbookSlot,beginSketchbookAttempt,addSketchbookEntry,removeSketchbookEntry,canSaveScheduledSketchbook,recordSketchbookOutcome,SKETCHBOOK_LIMIT,sketchbookCreativePatterns,sketchbookRevisitCandidate,addSketchbookReflection} from './core/sketchbook';
 import {prepareSketchbookDrawing,type PreparedSketchbookDrawing} from './core/sketchbookRuntime';
+import {prepareSketchbookReflection} from './core/sketchbookReflection';
 import {lastSuccessfulSketchbookModel} from './core/imageReliability';
 import { inspectForChat } from './core/visionChat';
 import { loadVisionSettings } from './core/vision';
@@ -136,6 +137,8 @@ export default function App() {
   const sketchbookPlanningMode=useRef<'scheduled'|'manual'|null>(null);
   const manualSketchbookId=useRef<string|null>(null);
   const sketchbookIdeaController=useRef<AbortController|null>(null);
+  const sketchbookReviewController=useRef<AbortController|null>(null);
+  const [sketchbookReviewingId,setSketchbookReviewingId]=useState<string|null>(null);
   const [sketchbookStatus,setSketchbookStatus]=useState('');
   const [galleryReady,setGalleryReady]=useState(false),[galleryWorking,setGalleryWorking]=useState(false),[galleryError,setGalleryError]=useState(''),[galleryPath,setGalleryPath]=useState('');
   const galleryReadyRef=useRef(false),galleryQueue=useRef<Promise<unknown>>(Promise.resolve()),galleryStarted=useRef(false);
@@ -1065,6 +1068,40 @@ export default function App() {
     }
   }
 
+  /** This is an on-demand reflection on SAVED IDEA METADATA only.
+   * Never claim to inspect pixels or launch an additional image job.
+   */
+  async function reflectOnSketchbookDrawing(id:string){
+    if(!showSketchbook||sketchbookReviewController.current||sketchbookPlanning.current||sketchbookJob||
+      !galleryReadyRef.current||galleryWorking||storage.error||llama.status!=='ready'||llama.imageBusy||
+      busy||reflecting||abortRef.current||hasChatDraft.current||mediaOccupied()||autoOutfitRunning||
+      diaryArtId||diaryArtQueue.length||journalWriting||initiativeGenerating||showImageGeneration)return;
+    const entry=sketchbookRef.current.entries.find(drawing=>drawing.id===id);
+    if(!entry||entry.reflection)return;
+    const ctrl=new AbortController();sketchbookReviewController.current=ctrl;abortRef.current=ctrl;
+    setReflecting(true);setSketchbookReviewingId(id);
+    setSketchbookStatus('Mana is reflecting on this drawing’s idea…');
+    try{
+      const reflection=await prepareSketchbookReflection({
+        port:llama.port,name:settings.charName,entry,signal:ctrl.signal,
+      });
+      if(ctrl.signal.aborted)throw Error('Reflection cancelled.');
+      const next=addSketchbookReflection(sketchbookRef.current,id,reflection);
+      if(ctrl.signal.aborted)throw Error('Reflection cancelled.');
+      sketchbookRef.current=next;setSketchbook(next);saveSketchbook(next);
+      await flushPersistence();
+      setSketchbookStatus('Mana saved a text-only creative reflection. No image was regenerated.');
+    }catch(error){
+      setSketchbookStatus(ctrl.signal.aborted?
+        'Sketchbook reflection cancelled. No notes were saved.':
+        'Sketchbook reflection not saved: '+String(error));
+    }finally{
+      if(abortRef.current===ctrl)abortRef.current=null;
+      if(sketchbookReviewController.current===ctrl)sketchbookReviewController.current=null;
+      setSketchbookReviewingId(null);setReflecting(false);
+    }
+  }
+
   // A scheduled drawing never preempts chat, diary, outfit, audio, or user image jobs.
   useEffect(()=>{
     const check=()=>{
@@ -1392,6 +1429,15 @@ export default function App() {
   const freshAssets = avatar.assets;
 
   // Draw Now bypasses the calendar, not the local model/resource safety gates.
+  const reviewUnavailableReason=!galleryReady||galleryWorking?'Image gallery is loading or saving.':
+    storage.error?'Storage is unavailable.':
+    sketchbookReviewController.current?'Mana is already reflecting.':
+    llama.status!=='ready'?'Start Mana’s local chat model first.':
+    llama.imageBusy||autoOutfitRunning||sketchbookJob||sketchbookPlanning.current?'A picture or model job is in progress.':
+    busy||reflecting||abortRef.current||hasChatDraft.current||mediaOccupied()||
+    journalWriting||diaryArtId||diaryArtQueue.length||initiativeGenerating||showImageGeneration?
+      'Mana is busy with another activity.':'';
+
   const drawNowReason=!galleryReady||galleryWorking?'Image gallery is loading or saving.':
     storage.error?'Storage is unavailable.':
     llama.status!=='ready'?'Start Mana’s local chat model first.':
@@ -1584,11 +1630,13 @@ export default function App() {
       {showImageGeneration&&!chatPicture&&!diaryArtId&&!sketchbookJob&&<ImageGenerationDrawer onPrototype={image=>{setAtelierCategory('outfit');setPrototypePicture(image);setShowImageGeneration(false);setChatPicture(undefined);setShowOutfitPrototype(true);}} beforeGenerate={async(cpu,signal)=>cpu?async()=>{}:llama.pauseForImage(signal)} prepareClothingMask={avatar.assets?(signal,keepAccessories=true)=>prepareAvatarClothingMask(avatar.assets!,{...cfg,accessories:keepAccessories?cfg.accessories:[]},signal):undefined} prepareReference={avatar.assets?(signal,clothingEdit,keepAccessories=true,garmentPrompt)=>prepareAvatarReference(avatar.assets!,{...cfg,accessories:keepAccessories?cfg.accessories:[]},signal,1024,clothingEdit,garmentPrompt):undefined} autoGenerate={false} available={!busy&&!reflecting&&!storage.error} onClose={()=>setShowImageGeneration(false)} onSave={savePictureToLibrary}/>}
       {showSavedImages&&<SavedImagesDrawer folder={galleryPath} images={savedImages} working={galleryWorking} error={galleryError} onRetry={()=>void initializeGallery()} editable={galleryReady&&!galleryWorking&&!busy&&!reflecting&&!sketchbookJob&&!sketchbookPlanning.current&&!storage.error} onClose={()=>setShowSavedImages(false)} onLabel={labelGallery} onDelete={deleteGallery}/>}
       {showSketchbook&&<SketchbookWorkspace name={settings.charName} state={sketchbook} images={savedImages} status={sketchbookStatus} galleryReady={galleryReady} galleryWorking={galleryWorking} galleryError={galleryError}
-        drawNowReason={drawNowReason} waitingReason={!sketchbook.settings.enabled?'Automatic drawings are disabled.':drawNowReason||'Return to chat and leave Mana idle for five minutes before the next due slot.'} onDrawNow={()=>{if(!drawNowReason){lastActivityAt.current=Date.now();void startSketchbookSlot('manual-'+uid(),'manual');}}}
+        drawNowReason={drawNowReason} reviewBusyId={sketchbookReviewingId} reviewUnavailableReason={reviewUnavailableReason}
+        onReview={id=>{lastActivityAt.current=Date.now();if(!reviewUnavailableReason)void reflectOnSketchbookDrawing(id);}}
+        waitingReason={!sketchbook.settings.enabled?'Automatic drawings are disabled.':drawNowReason||'Return to chat and leave Mana idle for five minutes before the next due slot.'} onDrawNow={()=>{if(!drawNowReason){lastActivityAt.current=Date.now();void startSketchbookSlot('manual-'+uid(),'manual');}}}
         onEnable={enabled=>{lastActivityAt.current=Date.now();const current=sketchbookRef.current;const prepared=enabled?{...current,settings:{...current.settings,timeZone:journalRef.current.timeZone}}:current;const next=setSketchbookEnabled(prepared,enabled);sketchbookRef.current=next;saveSketchbook(next);setSketchbook(next);if(!enabled){if(sketchbookPlanningMode.current==='scheduled')sketchbookIdeaController.current?.abort();if(sketchbookJob?.mode==='scheduled'){setSketchbookJob(null);setShowImageGeneration(false);}setSketchbookStatus('Automatic Sketchbook drawings are off.');}else setSketchbookStatus('Sketchbook schedule enabled. Mana will draw when the next slot is due and the app is idle.');}}
         onCatchUp={catchUp=>{lastActivityAt.current=Date.now();const next={...sketchbookRef.current,settings:{...sketchbookRef.current.settings,catchUp}};sketchbookRef.current=next;saveSketchbook(next);setSketchbook(next);}}
-        onRemove={id=>{lastActivityAt.current=Date.now();const next=removeSketchbookEntry(sketchbookRef.current,id);sketchbookRef.current=next;saveSketchbook(next);setSketchbook(next);setSketchbookStatus('Removed from Sketchbook. The picture is still in Image Gallery.');}}
-        onClose={()=>{lastActivityAt.current=Date.now();setShowSketchbook(false);}}/>}
+        onRemove={id=>{lastActivityAt.current=Date.now();if(sketchbookReviewingId===id)sketchbookReviewController.current?.abort();const next=removeSketchbookEntry(sketchbookRef.current,id);sketchbookRef.current=next;saveSketchbook(next);setSketchbook(next);setSketchbookStatus('Removed from Sketchbook. The picture is still in Image Gallery.');}}
+        onClose={()=>{lastActivityAt.current=Date.now();sketchbookReviewController.current?.abort();setShowSketchbook(false);}}/>}
       {showVision&&<VisionDrawer exePath={settings.exePath} chatPort={llama.port} canDiscuss={llama.status==='ready'&&!busy&&!reflecting&&!storage.error} onBusy={setReflecting} onClose={()=>setShowVision(false)} onDiscuss={text=>{setShowVision(false);void send(text);}}/>}
       {showSettings && (
         <SettingsDrawer
