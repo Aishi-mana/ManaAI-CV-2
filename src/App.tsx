@@ -38,6 +38,10 @@ import {SANDBOX_EXAMPLE,checkedSandboxDraft} from './core/codeSandbox';
 import {mediaOccupied} from './core/mediaActivity';
 import {PORTRAIT_MILESTONES, PORTRAIT_REACTIONS, type PortraitInteraction} from './core/portraitInteractions';
 import SingingDrawer from './components/SingingDrawer';
+import SongbookWorkspace from './components/SongbookWorkspace';
+import {loadSongbook,saveSongbook,setSongbookEnabled,dueWeeklySong,reserveWeeklySong,addSongDraft,completeSongAudio,markSongAudioError,recordSongbookOutcome,SONGBOOK_LIMIT,type SongbookEntry} from './core/songbook';
+import {prepareWeeklySongIdea} from './core/songbookIdeas';
+import {STUDIO_PROJECT_LIMIT,type StudioProject} from './core/musicStudio';
 import { prepareAvatarReference,prepareAvatarClothingMask } from './core/avatarReference';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import ChatPanel from "./components/ChatPanel";
@@ -124,6 +128,14 @@ const STATUS_LABEL = {
 
 export default function App() {
   const [showSinging,setShowSinging]=useState(false);
+  const [showSongbook,setShowSongbook]=useState(false);
+  const [songbook,setSongbook]=useState(loadSongbook);
+  const songbookRef=useRef(songbook);songbookRef.current=songbook;
+  const songbookController=useRef<AbortController|null>(null);
+  const songbookRunningMode=useRef<'weekly'|'manual'|null>(null);
+  const songbookRunning=useRef(false);
+  const [songbookBusy,setSongbookBusy]=useState(false);
+  const [songbookStatus,setSongbookStatus]=useState('');
   const [showImageGeneration,setShowImageGeneration]=useState(false);
   const [chatPicture,setChatPicture]=useState<ChatPictureRequest>();
 
@@ -267,6 +279,7 @@ export default function App() {
   useEffect(() => { saveMemories(memories); }, [memories]);
   useEffect(() => { saveDiary(diary); }, [diary]);
   useEffect(() => { saveSketchbook(sketchbook); }, [sketchbook]);
+  useEffect(() => { saveSongbook(songbook); }, [songbook]);
   useEffect(() => { saveGoals(goals); }, [goals]);
   useEffect(() => { saveInterests(interests); }, [interests]);
   useEffect(() => { saveWork(work); }, [work]);
@@ -1103,16 +1116,169 @@ export default function App() {
     }
   }
 
+  function setSongbookState(next:typeof songbook){
+    songbookRef.current=next;setSongbook(next);saveSongbook(next);
+  }
+  function reportSongbook(message:string){
+    setSongbookState(recordSongbookOutcome(songbookRef.current,message));
+    setSongbookStatus(message);
+  }
+
+  // Original weekly songs use only the installed ACE-Step backend and existing
+  // llama.cpp GPU lease. A planned song survives audio failures as an honest draft.
+  async function composeOriginalSong(slotId:string,mode:'weekly'|'manual'){
+    if(songbookRunning.current||abortRef.current||llama.status!=='ready'||
+      busy||reflecting||mediaOccupied()||showSinging||sketchbookPlanning.current||sketchbookJob||
+      songbookRef.current.entries.length>=SONGBOOK_LIMIT)return;
+    let reserved=songbookRef.current;
+    if(mode==='weekly'){
+      try{reserved=reserveWeeklySong(reserved,slotId,new Date());}
+      catch{return;}
+      setSongbookState(reserved);
+    }
+    const ctrl=new AbortController();
+    songbookController.current=ctrl;
+    songbookRunningMode.current=mode;
+    songbookRunning.current=true;
+    abortRef.current=ctrl;
+    setSongbookBusy(true);setReflecting(true);
+    setSongbookStatus('Mana is writing an original song…');
+    let nativeStarted=false,releaseGPU:(()=>Promise<void>)|undefined;
+    let draftId:string|null=null;
+    try{
+      if(mode==='weekly')await flushPersistence(); // No duplicate weekly jobs after restart.
+      if(ctrl.signal.aborted)throw Error('Composition cancelled.');
+      const idea=await prepareWeeklySongIdea({
+        port:llama.port,signal:ctrl.signal,
+        context:{
+          name:settings.charName,mood:companion.state.mood,
+          interests:identity.interests,
+          recentSongTitles:songbookRef.current.entries.slice(0,5).map(song=>song.title),
+        },
+      });
+      if(ctrl.signal.aborted)throw Error('Composition cancelled.');
+      // Preserve this original plan even when native ACE-Step is unavailable.
+      const entry:SongbookEntry={
+        id:'song-'+uid(),slotId,source:mode,createdAt:new Date().toISOString(),
+        title:idea.title,concept:idea.concept,creativeReason:idea.creativeReason,
+        brief:idea.brief,status:'draft',
+      };
+      draftId=entry.id;
+      setSongbookState(addSongDraft(songbookRef.current,entry));
+      await flushPersistence();
+      if(ctrl.signal.aborted)throw Error('Composition cancelled.');
+      if(!inTauri)throw Error('The original song is saved as a draft. Audio requires the Mana desktop app.');
+      setSongbookStatus('Lyrics saved. Preparing the installed local ACE-Step audio generator…');
+      // Keep the chat model available for composing; pause it only for music rendering.
+      releaseGPU=await llama.pauseForImage(ctrl.signal);
+      if(ctrl.signal.aborted)throw Error('Composition cancelled before music rendering.');
+      await invoke('original_song_start',{
+        title:entry.title,prompt:entry.brief.prompt,lyrics:entry.brief.lyrics,
+        style:entry.brief.style,instrumental:false,seed:entry.brief.seed,
+        duration:entry.brief.duration,previewOnly:true,
+      });
+      nativeStarted=true;
+      setSongbookStatus('Rendering one original song with local ACE-Step…');
+      const deadline=Date.now()+30*60_000;
+      let result:{mix?:string;seconds?:number;generatedLyrics?:string;error?:string}|undefined;
+      while(!ctrl.signal.aborted&&Date.now()<deadline){
+        await new Promise<void>(resolve=>setTimeout(resolve,1500));
+        if(ctrl.signal.aborted)break;
+        const poll=await invoke<{done:boolean;log:string;result?:{
+          mix?:string;seconds?:number;generatedLyrics?:string;error?:string;
+        }}>('singing_poll');
+        if(poll.done){
+          if(poll.result?.error)throw Error(poll.result.error);
+          result=poll.result;
+          break;
+        }
+      }
+      if(ctrl.signal.aborted)throw Error('Composition cancelled.');
+      if(!result)throw Error('The local music generator timed out. Your original lyrics were saved.');
+      if(!result.mix||!result.seconds)throw Error('The music generator produced no completed WAV. Draft lyrics were kept.');
+      // Never label a song as recorded until a validated finished WAV is returned.
+      const studio=initiativeRef.current.studio;
+      const canAdd=!!studio&&studio.projects.length<STUDIO_PROJECT_LIMIT;
+      const projectId=canAdd?'studio-'+uid():undefined;
+      const next=completeSongAudio(songbookRef.current,entry.id,{
+        mix:result.mix,seconds:result.seconds,generatedLyrics:result.generatedLyrics,
+        ...(projectId?{projectId}:{}),
+      });
+      if(canAdd&&projectId){
+        const project:StudioProject={
+          id:projectId,kind:'original',original:entry.brief,
+          title:entry.title,createdAt:new Date().toISOString(),
+          status:'ready',source:'',vocal:'',mix:result.mix,
+          instrumental:'',seconds:result.seconds,artwork:'',error:'',
+          generatedLyrics:result.generatedLyrics??'',
+          settings:{wholeSong:true,start:0,seconds:Math.min(60,entry.brief.duration),
+            separate:false,backingGain:1,vocalGain:0,reference:''},
+        };
+        changeInitiative({...initiativeRef.current,studio:{
+          projects:[project,...studio!.projects],selectedId:project.id,
+        }});
+      }
+      setSongbookState(recordSongbookOutcome(next,
+        canAdd?'Original song recorded and saved to Songbook and Music Studio.':
+        'Original WAV saved to Songbook. Music Studio library is full.'));
+      await flushPersistence();
+      setSongbookStatus('Mana saved her original song. The recording uses the local guide singer.');
+    }catch(error){
+      const reason=ctrl.signal.aborted?'Song composition stopped.':
+        'Song generation postponed: '+String(error);
+      if(draftId)setSongbookState(markSongAudioError(songbookRef.current,draftId,reason));
+      reportSongbook(reason+(draftId?' Original lyrics remain saved.':' No song was saved.'));
+    }finally{
+      if(nativeStarted)await invoke('singing_stop').catch(()=>{});
+      if(releaseGPU)await releaseGPU().catch(error=>{
+        reportSongbook('Song job finished, but restoring the chat model failed: '+String(error));
+      });
+      if(songbookController.current===ctrl)songbookController.current=null;
+      if(abortRef.current===ctrl)abortRef.current=null;
+      songbookRunning.current=false;songbookRunningMode.current=null;setSongbookBusy(false);setReflecting(false);
+    }
+  }
+
+  // One opt-in Sunday composition. Like Sketchbook, never preempt user work,
+  // never run while another creative tool is open, and reserve the weekly slot.
+  useEffect(()=>{
+    const check=()=>{
+      if(!songbook.settings.enabled||songbookRunning.current||sketchbookPlanning.current||
+        sketchbookJob||llama.status!=='ready'||llama.imageBusy||storage.error||busy||
+        reflecting||abortRef.current||hasChatDraft.current||mediaOccupied()||
+        autoOutfitRunning||diaryArtId||diaryArtQueue.length||journalWriting||
+        initiativeGenerating||reflectionDraft||showImageGeneration||showSketchbook||
+        showSongbook||showSinging||showSavedImages||showVision||roomEditorOpen||
+        showGameDev||showCode||showDiary||showSettings||showBackgrounds||showWardrobe||
+        showOutfitPrototype||showMemories||showGoals||showState||showThoughts||
+        showFollowups||showActivities||showEvents||showNarratives||showSkills||
+        showChatArchives||archiving||document.visibilityState!=='visible'||
+        Date.now()-lastActivityAt.current<300_000)return;
+      const due=dueWeeklySong(songbookRef.current,new Date());
+      if(due)void composeOriginalSong(due,'weekly');
+    };
+    check();
+    const timer=window.setInterval(check,60_000);
+    return()=>window.clearInterval(timer);
+  },[songbook,songbookBusy,sketchbook,sketchbookJob,llama.status,llama.imageBusy,
+      storage.error,busy,reflecting,autoOutfitRunning,diaryArtId,diaryArtQueue,
+      journalWriting,initiativeGenerating,reflectionDraft,roomEditorOpen,
+      showImageGeneration,showOutfitPrototype,showWardrobe,showSinging,showSongbook,
+      showSavedImages,showSketchbook,showVision,showCode,showGameDev,showDiary,
+      showSettings,showBackgrounds,showMemories,showState,showGoals,showThoughts,
+      showActivities,showFollowups,showEvents,showNarratives,showSkills,
+      showChatArchives,archiving]);
+
   // A scheduled drawing never preempts chat, diary, outfit, audio, or user image jobs.
   useEffect(()=>{
     const check=()=>{
-      if(!sketchbook.settings.enabled||sketchbookPlanning.current||sketchbookJob||
+      if(!sketchbook.settings.enabled||songbookRunning.current||sketchbookPlanning.current||sketchbookJob||
         !galleryReadyRef.current||galleryWorking||llama.status!=='ready'||llama.imageBusy||
         storage.error||busy||reflecting||abortRef.current||autoOutfitRunning||diaryArtId||
         diaryArtQueue.length||journalWriting||initiativeGenerating||reflectionDraft||
         hasChatDraft.current||mediaOccupied()||Date.now()-lastActivityAt.current<300_000||
         document.visibilityState!=='visible'||roomEditorOpen||showImageGeneration||
-        showOutfitPrototype||showWardrobe||showSinging||showSavedImages||showSketchbook||showVision||
+        showOutfitPrototype||showWardrobe||showSinging||showSongbook||showSavedImages||showSketchbook||showVision||
         showCode||showGameDev||showDiary||showSettings||showBackgrounds||showMemories||
         showState||showGoals||showThoughts||showActivities||showFollowups||
         showEvents||showNarratives||showSkills||showChatArchives||archiving)return;
@@ -1122,10 +1288,10 @@ export default function App() {
     check();
     const timer=window.setInterval(check,60_000);
     return()=>window.clearInterval(timer);
-  },[sketchbook,sketchbookJob,galleryReady,galleryWorking,llama.status,llama.imageBusy,
+  },[sketchbook,sketchbookJob,songbookBusy,galleryReady,galleryWorking,llama.status,llama.imageBusy,
       storage.error,busy,reflecting,autoOutfitRunning,diaryArtId,diaryArtQueue,
       journalWriting,initiativeGenerating,reflectionDraft,roomEditorOpen,
-      showImageGeneration,showOutfitPrototype,showWardrobe,showSinging,showSavedImages,showSketchbook,
+      showImageGeneration,showOutfitPrototype,showWardrobe,showSinging,showSongbook,showSavedImages,showSketchbook,
       showVision,showCode,showGameDev,showDiary,showSettings,showBackgrounds,
       showMemories,showState,showGoals,showThoughts,showActivities,showFollowups,
       showEvents,showNarratives,showSkills,showChatArchives,archiving]);
@@ -1439,6 +1605,16 @@ export default function App() {
     journalWriting||diaryArtId||diaryArtQueue.length||initiativeGenerating||showImageGeneration?
       'Mana is busy with another activity.':'';
 
+  const songbookUnavailable=!inTauri?'Song rendering requires the Mana desktop application.':
+    songbookBusy||songbookRunning.current?'Mana is already composing.':
+    storage.error?'Storage is unavailable.':
+    llama.status!=='ready'?'Start Mana’s local chat model.':
+    busy||reflecting||abortRef.current||hasChatDraft.current||mediaOccupied()||
+    autoOutfitRunning||diaryArtId||diaryArtQueue.length||journalWriting||
+    sketchbookPlanning.current||sketchbookJob||initiativeGenerating||
+    showImageGeneration||showSinging||showSketchbook?'Wait until Mana finishes her other activity.':
+    songbook.entries.length>=SONGBOOK_LIMIT?'Her Songbook library is full.':'';
+
   const drawNowReason=!galleryReady||galleryWorking?'Image gallery is loading or saving.':
     storage.error?'Storage is unavailable.':
     llama.status!=='ready'?'Start Mana’s local chat model first.':
@@ -1454,7 +1630,7 @@ export default function App() {
     archiving?'Close the other tool before drawing.':'';
 
   return (
-    <div className={`app${showSinging||showSavedImages||showSketchbook?' studio-open':''}`} data-main-layout={mainLayout} data-room-editor={roomEditorOpen}>
+    <div className={`app${showSinging||showSongbook||showSavedImages||showSketchbook?' studio-open':''}`} data-main-layout={mainLayout} data-room-editor={roomEditorOpen}>
      <div className="layout-avatar" id="main-avatar-panel" inert={mainLayout===3}>
       <StagePanel
         charName={settings.charName}
@@ -1471,7 +1647,7 @@ export default function App() {
       />
      </div>
      <div className="layout-room" id="main-room-panel" inert={mainLayout===1}>
-      <SceneVoice.Provider value={{ready:mainLayout!==1&&!showSinging&&!showSavedImages&&!showSketchbook&&!showGameDev&&llama.status==='ready'&&!busy&&!reflecting&&!diaryArtId&&!showImageGeneration&&!autoOutfitRunning&&!storage.error,speak:speakInRoom}}>
+      <SceneVoice.Provider value={{ready:mainLayout!==1&&!showSinging&&!showSongbook&&!showSavedImages&&!showSketchbook&&!showGameDev&&llama.status==='ready'&&!busy&&!reflecting&&!diaryArtId&&!showImageGeneration&&!autoOutfitRunning&&!storage.error,speak:speakInRoom}}>
       <CompanionRoom onForgetManaMemory={id=>setMemories(previous=>previous.filter(memory=>memory.id!==id))} episodes={episodes} memories={memories} events={events} onActivity={recordRoomActivity} timeZone={journal.timeZone} onEditingChange={setRoomEditorOpen}
        manaSpeechReady={llama.status==='ready'&&!busy&&!reflecting&&!diaryArtId&&!showImageGeneration&&!autoOutfitRunning&&!storage.error}
        onChoosePersonalGoal={async(owner,memories,signal)=>{
@@ -1504,7 +1680,7 @@ export default function App() {
        canGenerateFurniture={!busy&&!reflecting&&!autoOutfitRunning&&!diaryArtId&&!showImageGeneration&&!storage.error}
        beforeFurnitureGeneration={async cpu=>cpu?async()=>{}:llama.pauseForImage()}
        projects={gameDev.projects} onOpenGameDev={entry=>{setGameDevEntry(entry);setShowGameDev(true);}}
-       visible={mainLayout!==1&&!showSinging&&!showSavedImages&&!showSketchbook&&!showGameDev}/>
+       visible={mainLayout!==1&&!showSinging&&!showSongbook&&!showSavedImages&&!showSketchbook&&!showGameDev}/>
       </SceneVoice.Provider>
       {mainLayout!==1&&!roomEditorOpen&&<button className="btn layout-seam layout-avatar-toggle"
        aria-controls="main-avatar-panel" aria-expanded={mainLayout===2}
@@ -1556,6 +1732,7 @@ export default function App() {
           <button className="btn" onClick={()=>setShowSavedImages(true)}>Image gallery</button>
           <button className="btn" onClick={()=>setShowSketchbook(true)}>Sketchbook ({sketchbook.entries.length})</button>
           <button className="btn" disabled={autoOutfitRunning||busy||reflecting} onClick={()=>setShowSinging(true)}>Songs</button>
+          <button className="btn" disabled={(autoOutfitRunning||busy||reflecting)&&!songbookBusy} onClick={()=>{lastActivityAt.current=Date.now();setShowSongbook(true);}}>Songbook ({songbook.entries.length})</button>
           </MoreTools>
         </header>
         <div className="main-layout-controls" role="group" aria-label="Main screen layout">
@@ -1627,7 +1804,25 @@ export default function App() {
         />
       </main>
 
-      <SingingDrawer active={showSinging&&!showSavedImages} initiative={initiative} onInitiative={changeInitiative} onBusy={setReflecting} onClose={()=>setShowSinging(false)}/>
+      <SingingDrawer active={showSinging&&!showSavedImages&&!showSongbook} initiative={initiative} onInitiative={changeInitiative} onBusy={setReflecting} onClose={()=>setShowSinging(false)}/>
+      {showSongbook&&<SongbookWorkspace name={settings.charName} state={songbook} status={songbookStatus}
+        busy={songbookBusy} unavailableReason={songbookUnavailable}
+        onCompose={()=>{if(!songbookUnavailable){lastActivityAt.current=Date.now();void composeOriginalSong('manual-'+uid(),'manual');}}}
+        onStop={()=>songbookController.current?.abort()}
+        onEnable={enabled=>{
+          lastActivityAt.current=Date.now();
+          const current=songbookRef.current;
+          const prepared=enabled?{...current,settings:{...current.settings,timeZone:journalRef.current.timeZone}}:current;
+          setSongbookState(setSongbookEnabled(prepared,enabled));
+          if(!enabled&&songbookRunningMode.current==='weekly')songbookController.current?.abort();
+          setSongbookStatus(enabled?'Weekly original songs enabled. Next: Sunday at local noon.':'Automatic songwriting is off. Saved songs remain.');
+        }}
+        onCatchUp={catchUp=>{
+          lastActivityAt.current=Date.now();
+          setSongbookState({...songbookRef.current,settings:{...songbookRef.current.settings,catchUp}});
+        }}
+        onOpenStudio={()=>{lastActivityAt.current=Date.now();setShowSongbook(false);setShowSinging(true);}}
+        onClose={()=>{lastActivityAt.current=Date.now();setShowSongbook(false);}}/>}
       {showImageGeneration&&!chatPicture&&!diaryArtId&&!sketchbookJob&&<ImageGenerationDrawer onPrototype={image=>{setAtelierCategory('outfit');setPrototypePicture(image);setShowImageGeneration(false);setChatPicture(undefined);setShowOutfitPrototype(true);}} beforeGenerate={async(cpu,signal)=>cpu?async()=>{}:llama.pauseForImage(signal)} prepareClothingMask={avatar.assets?(signal,keepAccessories=true)=>prepareAvatarClothingMask(avatar.assets!,{...cfg,accessories:keepAccessories?cfg.accessories:[]},signal):undefined} prepareReference={avatar.assets?(signal,clothingEdit,keepAccessories=true,garmentPrompt)=>prepareAvatarReference(avatar.assets!,{...cfg,accessories:keepAccessories?cfg.accessories:[]},signal,1024,clothingEdit,garmentPrompt):undefined} autoGenerate={false} available={!busy&&!reflecting&&!storage.error} onClose={()=>setShowImageGeneration(false)} onSave={savePictureToLibrary}/>}
       {showSavedImages&&<SavedImagesDrawer folder={galleryPath} images={savedImages} working={galleryWorking} error={galleryError} onRetry={()=>void initializeGallery()} editable={galleryReady&&!galleryWorking&&!busy&&!reflecting&&!sketchbookJob&&!sketchbookPlanning.current&&!storage.error} onClose={()=>setShowSavedImages(false)} onLabel={labelGallery} onDelete={deleteGallery}/>}
       {showSketchbook&&<SketchbookWorkspace name={settings.charName} state={sketchbook} images={savedImages} status={sketchbookStatus} galleryReady={galleryReady} galleryWorking={galleryWorking} galleryError={galleryError}
@@ -1717,8 +1912,8 @@ export default function App() {
         onClose={() => { if (reflecting && !journalWriting) abortRef.current?.abort(); setShowDiary(false); }} />}
 
       {showBackgrounds&&<BackgroundPicker cfg={cfg} onChange={changeCfg} onClose={()=>setShowBackgrounds(false)}/>}
-      {avatar.assets&&<><GeneratedHair background assets={avatar.assets} cfg={cfg} available={!roomEditorOpen&&!autoOutfitRunning&&llama.status==='ready'&&!busy&&!reflecting&&!storage.error&&!showImageGeneration&&!showOutfitPrototype&&!showWardrobe&&!showGameDev&&!showSinging&&!showVision&&!showDiary&&!showSavedImages&&!showSketchbook} canAutoCreate={()=>!sketchbookPlanning.current&&!sketchbookJob&&!showSketchbook&&Date.now()-lastActivityAt.current>120000&&!hasChatDraft.current&&!abortRef.current&&!mediaOccupied()} onRunningChange={setAutoOutfitRunning} beforeGenerate={()=>llama.pauseForImage()} onCreated={()=>{void avatar.reload();}}/><GeneratedAccessories background chooseIdea={chooseAccessoryIdea} assets={avatar.assets} cfg={cfg} available={!roomEditorOpen&&!autoOutfitRunning&&llama.status==='ready'&&!busy&&!reflecting&&!storage.error&&!showImageGeneration&&!showOutfitPrototype&&!showWardrobe&&!showGameDev&&!showSinging&&!showVision&&!showDiary&&!showSavedImages&&!showSketchbook} canAutoCreate={()=>!sketchbookPlanning.current&&!sketchbookJob&&!showSketchbook&&Date.now()-lastActivityAt.current>120000&&!hasChatDraft.current&&!abortRef.current&&!mediaOccupied()} onRunningChange={setAutoOutfitRunning} beforeGenerate={()=>llama.pauseForImage()} onCreated={()=>{void avatar.reload();}}/></>}
-      {avatar.assets&&<GeneratedOutfits chooseIdea={chooseOutfitIdea} background timeZone={journal.timeZone} assets={avatar.assets} cfg={cfg} available={!roomEditorOpen&&!autoOutfitRunning&&llama.status==='ready'&&!busy&&!reflecting&&!storage.error&&!showImageGeneration&&!showOutfitPrototype&&!showWardrobe&&!showGameDev&&!showSinging&&!showVision&&!showDiary} canAutoCreate={()=>!sketchbookPlanning.current&&!sketchbookJob&&!showSketchbook&&Date.now()-lastActivityAt.current>120000&&!hasChatDraft.current&&!abortRef.current&&!mediaOccupied()} onRunningChange={setAutoOutfitRunning} beforeGenerate={()=>llama.pauseForImage()} onSaved={(id,name)=>{changeCfg({...savedCfgRef.current,outfitNames:{...savedCfgRef.current.outfitNames,[id]:name}});void avatar.reload();}}/>}
+      {avatar.assets&&<><GeneratedHair background assets={avatar.assets} cfg={cfg} available={!roomEditorOpen&&!autoOutfitRunning&&llama.status==='ready'&&!busy&&!reflecting&&!storage.error&&!showImageGeneration&&!showOutfitPrototype&&!showWardrobe&&!showGameDev&&!showSinging&&!showSongbook&&!showVision&&!showDiary&&!showSavedImages&&!showSketchbook} canAutoCreate={()=>!sketchbookPlanning.current&&!sketchbookJob&&!showSketchbook&&!showSongbook&&!songbookRunning.current&&Date.now()-lastActivityAt.current>120000&&!hasChatDraft.current&&!abortRef.current&&!mediaOccupied()} onRunningChange={setAutoOutfitRunning} beforeGenerate={()=>llama.pauseForImage()} onCreated={()=>{void avatar.reload();}}/><GeneratedAccessories background chooseIdea={chooseAccessoryIdea} assets={avatar.assets} cfg={cfg} available={!roomEditorOpen&&!autoOutfitRunning&&llama.status==='ready'&&!busy&&!reflecting&&!storage.error&&!showImageGeneration&&!showOutfitPrototype&&!showWardrobe&&!showGameDev&&!showSinging&&!showSongbook&&!showVision&&!showDiary&&!showSavedImages&&!showSketchbook} canAutoCreate={()=>!sketchbookPlanning.current&&!sketchbookJob&&!showSketchbook&&!showSongbook&&!songbookRunning.current&&Date.now()-lastActivityAt.current>120000&&!hasChatDraft.current&&!abortRef.current&&!mediaOccupied()} onRunningChange={setAutoOutfitRunning} beforeGenerate={()=>llama.pauseForImage()} onCreated={()=>{void avatar.reload();}}/></>}
+      {avatar.assets&&<GeneratedOutfits chooseIdea={chooseOutfitIdea} background timeZone={journal.timeZone} assets={avatar.assets} cfg={cfg} available={!roomEditorOpen&&!autoOutfitRunning&&llama.status==='ready'&&!busy&&!reflecting&&!storage.error&&!showImageGeneration&&!showOutfitPrototype&&!showWardrobe&&!showGameDev&&!showSinging&&!showSongbook&&!showVision&&!showDiary} canAutoCreate={()=>!sketchbookPlanning.current&&!sketchbookJob&&!showSketchbook&&!showSongbook&&!songbookRunning.current&&Date.now()-lastActivityAt.current>120000&&!hasChatDraft.current&&!abortRef.current&&!mediaOccupied()} onRunningChange={setAutoOutfitRunning} beforeGenerate={()=>llama.pauseForImage()} onSaved={(id,name)=>{changeCfg({...savedCfgRef.current,outfitNames:{...savedCfgRef.current.outfitNames,[id]:name}});void avatar.reload();}}/>}
       {showOutfitPrototype&&avatar.assets&&<Atelier initialCategory={atelierCategory} onReviewSaved={()=>{setReturnToReview(true);setShowOutfitPrototype(false);setShowWardrobe(true);}} onWardrobeSaved={()=>avatar.reload()} assets={avatar.assets} cfg={cfg} initial={prototypePicture} available={!busy&&!reflecting&&!storage.error} beforeGenerate={async cpu=>cpu?async()=>{}:llama.pauseForImage()} onSaveImage={savePictureToLibrary} onClose={()=>setShowOutfitPrototype(false)}/>}
       {showWardrobe && wardrobe && (
         <Wardrobe chooseOutfitIdea={chooseOutfitIdea} chooseAccessoryIdea={chooseAccessoryIdea} onCreateItem={category=>{setPrototypePicture(undefined);setAtelierCategory(category);setShowWardrobe(false);setShowOutfitPrototype(true);}} initialReview={returnToReview||!!prototypePicture?.reviewId} creationAvailable={!autoOutfitRunning&&!busy&&!reflecting&&!storage.error&&!showImageGeneration} beforeOutfitGenerate={()=>llama.pauseForImage()} onOutfitSaved={()=>avatar.reload()} onEditOutfit={image=>{setAtelierCategory('outfit');setPrototypePicture(image);setShowWardrobe(false);setShowOutfitPrototype(true);}} assets={avatar.assets??undefined}
