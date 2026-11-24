@@ -60,7 +60,7 @@ test('Calls the already-running local chat model and prepares an ordinary pictur
 });
 
 test('Invalid model output fails without constructing a picture',async()=>{
- for(const invalid of ['No idea today',JSON.stringify({...valid,sourceType:'diary',title:''})]){
+ for(const invalid of ['No idea today',JSON.stringify({...valid,sourceType:'diary',title:'',prompt:''})]){
   const {prepareSketchbookDrawing}=runtime(async opts=>{opts.onToken(invalid);});
   await assert.rejects(prepareSketchbookDrawing(session()),/No image was generated/);
  }
@@ -99,4 +99,43 @@ test('Unapproved memories are rejected even if the local model invents a referen
  const withMemory={...valid,inspiration:'memory',relatedMemoryIds:['forged']};
  const {prepareSketchbookDrawing}=runtime(async opts=>{opts.onToken(JSON.stringify(withMemory));});
  await assert.rejects(prepareSketchbookDrawing(session()),/unapproved or inconsistent memory/);
+});
+
+
+test('Retries one incomplete local-model JSON response without invoking image generation',async()=>{
+ const calls=[];
+ const {prepareSketchbookDrawing}=runtime(async opts=>{
+  calls.push(opts);
+  opts.onToken(JSON.stringify(calls.length===1?
+   {title:'Cloud garden',concept:'An imaginary garden with stars',inspiration:'imagination'}:
+   valid));
+ });
+ const result=plain(await prepareSketchbookDrawing(session()));
+ assert.equal(calls.length,2);
+ assert.equal(calls[0].temperature,.8);
+ assert.equal(calls[1].temperature,.35);
+ assert.equal(calls[1].maxTokens,650);
+ assert.match(calls[1].messages.at(-1).content,/complete JSON object/);
+ assert.equal(result.idea.title,valid.title);
+ assert.match(result.pictureRequest.prompt,/moonlit cloud garden/);
+});
+
+test('A malformed second attempt is rejected rather than saving a made-up picture',async()=>{
+ let attempts=0;
+ const {prepareSketchbookDrawing}=runtime(async opts=>{
+  attempts++;
+  opts.onToken(JSON.stringify({title:'Cloud garden',concept:'A dream of clouds'}));
+ });
+ await assert.rejects(prepareSketchbookDrawing(session()),/No image was generated/);
+ assert.equal(attempts,2);
+});
+
+test('Do not retry transport failures or cancellation as a second local-model call',async()=>{
+ let count=0;
+ const {prepareSketchbookDrawing}=runtime(async()=>{
+  count++;
+  throw Error('Local chat model disconnected');
+ });
+ await assert.rejects(prepareSketchbookDrawing(session()),/disconnected/);
+ assert.equal(count,1);
 });
