@@ -118,7 +118,7 @@ export function validateSketchbook(value:unknown):SketchbookState {
    const inspiration=inspirations.find(kind=>kind===raw.inspiration);
    if(typeof id!=='string'||!imageIdPattern.test(id)||ids.has(id)||
       typeof imageId!=='string'||!imageIdPattern.test(imageId)||
-      !(raw.sourceType==='scheduled-drawing'?validSlotId(slotId):raw.sourceType==='manual-drawing'&&typeof slotId==='string'&&manualSlotPattern.test(slotId))||slots.has(slotId)||!validTimestamp(createdAt)||
+      typeof slotId!=='string'||!(raw.sourceType==='scheduled-drawing'?validSlotId(slotId):raw.sourceType==='manual-drawing'&&manualSlotPattern.test(slotId))||slots.has(slotId)||!validTimestamp(createdAt)||
       typeof title!=='string'||!title.trim()||title.length>120||
       typeof concept!=='string'||!concept.trim()||concept.length>500||
       typeof prompt!=='string'||!prompt.trim()||prompt.length>1500||
