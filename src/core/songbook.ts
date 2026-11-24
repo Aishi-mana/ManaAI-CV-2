@@ -27,6 +27,12 @@ export interface SongbookEntry {
  generatedLyrics?:string;
  seconds?:number;
  projectId?:string;
+ /** The original guide WAV is always retained, even after conversion. */
+ voiceMixPath?:string;
+ voiceVocalPath?:string;
+ voiceSeconds?:number;
+ voiceProjectId?:string;
+ voiceError?:string;
  error?:string;
 }
 export interface SongbookState {
@@ -58,6 +64,11 @@ function normalizedEntry(raw:unknown):SongbookEntry|undefined{
  if(status!=='draft'&&status!=='ready'&&status!=='error')return;
  const path=generatedAudioPath(raw.audioPath);
  if(status==='ready'&&!path)return;
+ const voiceMix=generatedAudioPath(raw.voiceMixPath);
+ const voiceVocal=generatedAudioPath(raw.voiceVocalPath);
+ const voiceSeconds=raw.voiceSeconds;
+ const hasVoice=status==='ready'&&!!voiceMix&&!!voiceVocal&&
+  typeof voiceSeconds==='number'&&Number.isFinite(voiceSeconds)&&voiceSeconds>0&&voiceSeconds<=180;
  return {
   id:raw.id,slotId:raw.slotId,source,createdAt:raw.createdAt,
   title:raw.title.trim(),concept:raw.concept.trim(),
@@ -66,6 +77,9 @@ function normalizedEntry(raw:unknown):SongbookEntry|undefined{
   ...(typeof raw.generatedLyrics==='string'&&raw.generatedLyrics.length<=6000?{generatedLyrics:raw.generatedLyrics}:{}),
   ...(typeof raw.seconds==='number'&&Number.isFinite(raw.seconds)&&raw.seconds>0&&raw.seconds<=180?{seconds:raw.seconds}:{}),
   ...(typeof raw.projectId==='string'&&projectId.test(raw.projectId)?{projectId:raw.projectId}:{}),
+  ...(hasVoice?{voiceMixPath:voiceMix,voiceVocalPath:voiceVocal,voiceSeconds}:{}),
+  ...(hasVoice&&typeof raw.voiceProjectId==='string'&&projectId.test(raw.voiceProjectId)?{voiceProjectId:raw.voiceProjectId}:{}),
+  ...(typeof raw.voiceError==='string'&&raw.voiceError.trim()?{voiceError:raw.voiceError.slice(0,400)}:{}),
   ...(typeof raw.error==='string'&&raw.error.trim()?{error:raw.error.slice(0,400)}:{}),
  };
 }
@@ -153,6 +167,28 @@ export function completeSongAudio(
   ...entry,status:'ready' as const,audioPath:path,seconds:result.seconds,error:undefined,
   ...(typeof result.generatedLyrics==='string'&&result.generatedLyrics.length<=6000?{generatedLyrics:result.generatedLyrics}:{}),
   ...(typeof result.projectId==='string'&&projectId.test(result.projectId)?{projectId:result.projectId}:{}),
+ }:entry)};
+}
+/** Convert a finished original without replacing or relabelling its guide recording. */
+export function completeSongVoice(
+ state:SongbookState,id:string,result:{mix:string;vocal:string;seconds:number;projectId?:string},
+):SongbookState {
+ const mix=generatedAudioPath(result.mix),vocal=generatedAudioPath(result.vocal);
+ if(!mix||!vocal||!Number.isFinite(result.seconds)||result.seconds<=0||result.seconds>180)
+  throw Error('Voice conversion returned no valid completed Mana vocal and mix WAVs.');
+ const original=state.entries.find(entry=>entry.id===id);
+ if(!original||original.status!=='ready'||!original.audioPath)
+  throw Error('Voice conversion requires a saved original recording.');
+ return {...state,entries:state.entries.map(entry=>entry.id===id?{
+  ...entry,voiceMixPath:mix,voiceVocalPath:vocal,voiceSeconds:result.seconds,voiceError:undefined,
+  ...(typeof result.projectId==='string'&&projectId.test(result.projectId)?{voiceProjectId:result.projectId}:{}),
+ }:entry)};
+}
+/** An unavailable converter never turns a playable guide recording into an error. */
+export function markSongVoiceError(state:SongbookState,id:string,error:string):SongbookState {
+ if(!state.entries.some(entry=>entry.id===id&&entry.status==='ready'))return state;
+ return {...state,entries:state.entries.map(entry=>entry.id===id?{
+  ...entry,voiceError:error.slice(0,400),
  }:entry)};
 }
 export function markSongAudioError(state:SongbookState,id:string,error:string):SongbookState{
