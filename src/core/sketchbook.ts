@@ -15,6 +15,14 @@ export const SKETCHBOOK_DAYS=[2,4,6] as const; // Tuesday, Thursday, Saturday
 
 export type SketchbookInspiration='imagination'|'mood'|'interest'|'memory'|'season';
 
+/** An optional text-only reflection on the saved concept, not an image inspection. */
+export interface SketchbookReflection {
+ at:string;
+ enjoyed:string;
+ nextTime:string;
+ basis:'idea-only';
+}
+
 export interface SketchbookEntry {
  id:string;
  imageId:string;
@@ -33,6 +41,8 @@ export interface SketchbookEntry {
  motifs?:string[];
  /** A previously saved drawing that influenced this one, not an external memory. */
  revisitedDrawingId?:string;
+ /** Created only on request after the artwork is in the gallery. */
+ reflection?:SketchbookReflection;
  model?:string;
  seed?:number;
 }
@@ -88,6 +98,18 @@ function safeCreativeReason(value:unknown):string|undefined {
  const note=value.trim();
  if(!note||note.length>220||/\bI\s+(?:saw|visited|went|met|photographed|remembered|witnessed|traveled|travelled)\b/i.test(note))return undefined;
  return note;
+}
+
+export function validateSketchbookReflection(value:unknown):SketchbookReflection|undefined {
+ if(!isRecord(value)||value.basis!=='idea-only'||!validTimestamp(value.at))return undefined;
+ const text=(item:unknown,max:number):string|undefined=>{
+  if(typeof item!=='string')return undefined;
+  const line=item.trim();
+  if(!line||line.length>max||/\bI\s+(?:saw|viewed|inspected|photographed|watched|examined)\s+(?:the|this|my|our|your)\s+(?:(?:final|finished)\s+)?(?:image|picture|artwork|drawing)\b/i.test(line))return undefined;
+  return line;
+ };
+ const enjoyed=text(value.enjoyed,250),nextTime=text(value.nextTime,220);
+ return enjoyed&&nextTime?{at:value.at,basis:'idea-only',enjoyed,nextTime}:undefined;
 }
 
 function safeSketchbookMotifs(value:unknown):string[] {
@@ -157,6 +179,7 @@ export function validateSketchbook(value:unknown):SketchbookState {
     ...(safeSketchbookMotifs(raw.motifs).length?{motifs:safeSketchbookMotifs(raw.motifs)}:{}),
     ...(typeof raw.revisitedDrawingId==='string'&&imageIdPattern.test(raw.revisitedDrawingId)&&raw.revisitedDrawingId!==id
       ?{revisitedDrawingId:raw.revisitedDrawingId}:{}),
+    ...(validateSketchbookReflection(raw.reflection)?{reflection:validateSketchbookReflection(raw.reflection)}:{}),
     ...(typeof raw.model==='string'&&raw.model.trim()&&raw.model.length<=200?{model:raw.model}:{}),
     ...(typeof raw.seed==='number'&&Number.isInteger(raw.seed)&&raw.seed>=0&&raw.seed<=0xffffffff?{seed:raw.seed}:{}),
    });
@@ -280,6 +303,18 @@ export function sketchbookRevisitCandidate(
  const source=[...(unused.length?unused:eligible)]
   .sort((a,b)=>a.createdAt.localeCompare(b.createdAt)||a.id.localeCompare(b.id))[0];
  return {id:source.id,title:source.title.slice(0,120),concept:source.concept.slice(0,500)};
+}
+
+/** Store only a review of an existing finished drawing; never create or alter pictures. */
+export function addSketchbookReflection(
+ state:SketchbookState,id:string,value:SketchbookReflection,
+):SketchbookState {
+ const reflection=validateSketchbookReflection(value);
+ if(!reflection)throw Error('Invalid text-only Sketchbook reflection.');
+ const target=state.entries.find(entry=>entry.id===id);
+ if(!target)throw Error('This drawing is no longer in Sketchbook.');
+ if(target.reflection)throw Error('This drawing already has a reflection.');
+ return {...state,entries:state.entries.map(entry=>entry.id===id?{...entry,reflection}:entry)};
 }
 
 /** A pending image belongs only to the schedule activation that created it. */

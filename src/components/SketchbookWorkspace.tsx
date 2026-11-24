@@ -14,6 +14,9 @@ interface Props {
  galleryError:string;
  drawNowReason:string;
  waitingReason:string;
+ reviewBusyId:string|null;
+ reviewUnavailableReason:string;
+ onReview:(id:string)=>void;
  onDrawNow:()=>void;
  onEnable:(enabled:boolean)=>void;
  onCatchUp:(enabled:boolean)=>void;
@@ -25,6 +28,7 @@ const dateLabel=(date:string)=>new Date(date).toLocaleString(undefined,{dateStyl
 
 export default function SketchbookWorkspace({
  name,state,images,status,galleryReady,galleryWorking,galleryError,drawNowReason,waitingReason,onDrawNow,
+ reviewBusyId,reviewUnavailableReason,onReview,
  onEnable,onCatchUp,onRemove,onClose,
 }:Props){
  const [selected,setSelected]=useState<string>();
@@ -110,6 +114,27 @@ export default function SketchbookWorkspace({
        'An older drawing that is no longer in Sketchbook'}
      </p>}
      {imageFor(active)?<DiskGalleryPicture image={imageFor(active)!}/>:<p role="status" className="msg-error">This drawing's gallery image is missing. The Sketchbook record is still here.</p>}
+     <section aria-label="Mana's creative self-review" style={{marginTop:14,marginBottom:14,padding:'12px 16px',border:'1px solid var(--border, #e2d9ef)',borderRadius:12}}>
+      <h3 style={{margin:'0 0 6px'}}>Her creative self-review</h3>
+      <p className="hint-soft" style={{margin:'4px 0 10px'}}>Based on the saved drawing's concept and generation prompt, not a visual inspection of the final image. No extra images are generated.</p>
+      {active.reflection?
+       <>
+        <p><strong>What I enjoyed:</strong> {active.reflection.enjoyed}</p>
+        <p><strong>Next time I'd try:</strong> {active.reflection.nextTime}</p>
+        <small className="hint-soft">Written {dateLabel(active.reflection.at)} using Mana's local chat model</small>
+       </>:
+       <>
+        <button className="btn" type="button"
+         disabled={!!reviewUnavailableReason||!!reviewBusyId||!imageFor(active)}
+         onClick={()=>onReview(active.id)}>
+         {reviewBusyId===active.id?'Mana is reflecting…':'Reflect on this idea'}
+        </button>
+        {(reviewUnavailableReason||reviewBusyId||!imageFor(active))&&
+         <p className="hint-soft" role="status">
+          {!imageFor(active)?'The saved image is missing from Gallery.':reviewBusyId?'A reflection is already in progress.':reviewUnavailableReason}
+         </p>}
+       </>}
+     </section>
      <p className="hint-soft">{active.sourceType==='manual-drawing'?'Manual test drawing':'Scheduled imagined artwork'} · {dateLabel(active.createdAt)} · Inspired by {active.inspiration}</p>
      {active.model&&<p className="hint-soft">Local model: {active.model}{active.seed!==undefined?' · Seed: '+active.seed:''}</p>}
      {imageFor(active)?.origin&&<p className="hint-soft">{imageOriginLabel(imageFor(active)!.origin!)}</p>}
