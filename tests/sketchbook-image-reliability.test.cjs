@@ -46,6 +46,8 @@ test('First-time autonomous drawing prefers only an available smaller installed 
  assert.equal(chooseReadyImageModel(ready,{preferEfficientModel:true}).name,photon.name);
  assert.equal(chooseReadyImageModel({...ready,models:[animagine,neta]},{preferEfficientModel:true}).name,neta.name);
  assert.equal(chooseReadyImageModel({...ready,models:[animagine]},{preferEfficientModel:true}).name,animagine.name);
+ assert.equal(chooseReadyImageModel({...ready,models:[qwen]},{preferEfficientModel:true}),undefined);
+ assert.equal(chooseReadyImageModel({...ready,models:[qwen]},{backend:'qwen'}).name,qwen.name);
  assert.equal(chooseReadyImageModel({...ready,engineReady:false},{preferEfficientModel:true}).name,neta.name);
  assert.equal(chooseReadyImageModel({...ready,engineReady:false,netaReady:false,qwenReady:false},{preferEfficientModel:true}),undefined);
 });
