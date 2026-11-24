@@ -10,7 +10,7 @@ function load(file,mocks={}){
   compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022},
  }).outputText;
  vm.runInNewContext(js,{
-  exports,JSON,Date,Intl,Math,Map,Set,Array,Object,Number,String,Error,
+  exports,JSON,Date,Intl,Math,Map,Set,Array,Object,Number,String,Error,URL,
   require:name=>{
    if(name in mocks)return mocks[name];
    throw Error('Unexpected import '+name);
@@ -28,8 +28,9 @@ const persistence={
  readStored:key=>store.get(key)??null,
  writeStored:(key,value)=>store.set(key,value),
 };
+const cover=load('src/core/coverDiscovery.ts',{'./llm':{streamChat:async()=>{}}});
 const book=load('src/core/songbook.ts',{
- './clock':clock,'./musicStudio':music,
+ './clock':clock,'./musicStudio':music,'./coverDiscovery':cover,
  './originalSong':original,'./persistence':persistence,
  './validation':{isRecord:x=>!!x&&typeof x==='object'&&!Array.isArray(x),
  validDate:s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&
@@ -239,4 +240,26 @@ test('Scheduling and status are timezone-aware and do not invent a recording',()
  assert.equal(state.lastOutcome.message,'Lyrics saved; audio unavailable');
  assert.equal(state.entries.length,0);
  assert.equal(state.settings.enabled,false);
+});
+
+test('Cover-source inspirations persist without altering weekly songwriting or WAV states',()=>{
+ const saved=book.addSongDraft(book.validateSongbook(null),entry('manual-old-song','manual'));
+ const converted=book.completeSongAudio(saved,'song-1',{
+  mix:'C:/AI/ManaAI-CV-2/exports/singing/original-001/mix.wav',seconds:83,
+ });
+ const inspiration={
+  id:'cover-idea-1',createdAt:'2026-11-25T00:00:00.000Z',query:'traditional piano',
+  title:'Traditional song catalog',url:'https://example.org/music/catalog',
+  excerpt:'Source page about traditional songs',reason:'I love the gentle piano mood.',
+ };
+ const changed=cover.addCoverIdea(converted,inspiration);
+ assert.equal(changed.coverIdeas.length,1);
+ assert.equal(changed.entries[0].status,'ready');
+ assert.equal(changed.entries[0].audioPath,converted.entries[0].audioPath);
+ book.saveSongbook(changed);
+ const loaded=book.loadSongbook();
+ assert.deepEqual(plain(loaded.coverIdeas),plain(changed.coverIdeas));
+ assert.deepEqual(plain(loaded.entries),plain(changed.entries));
+ assert.equal(loaded.settings.enabled,false);
+ assert.equal(cover.removeCoverIdea(loaded,'cover-idea-1').coverIdeas.length,0);
 });
