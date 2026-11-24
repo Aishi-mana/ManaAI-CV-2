@@ -1,8 +1,8 @@
 import {choosePictureModel,pictureModelReady,type ChatPictureRequest} from './imageGeneration';
 
 export interface LocalImageModel {name:string;kind:string}
-export interface LocalImageDiscovery {
- models:LocalImageModel[];
+export interface LocalImageDiscovery<T extends LocalImageModel=LocalImageModel> {
+ models:T[];
  engineReady:boolean;
  netaReady:boolean;
  qwenReady?:boolean;
@@ -32,7 +32,7 @@ export function lastSuccessfulSketchbookModel(
  * No model files are created, selected by path or downloaded.
  */
 export function chooseReadyImageModel<T extends LocalImageModel>(
- discovery:LocalImageDiscovery&{models:T[]},
+ discovery:LocalImageDiscovery<T>,
  options:Pick<ChatPictureRequest,'backend'|'preferredModel'|'preferEfficientModel'>={},
 ):T|undefined {
  const ready=(model:T)=>pictureModelReady(model.kind,discovery);
