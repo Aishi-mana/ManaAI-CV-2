@@ -77,7 +77,7 @@ function normalizedEntry(raw:unknown):SongbookEntry|undefined{
   ...(typeof raw.generatedLyrics==='string'&&raw.generatedLyrics.length<=6000?{generatedLyrics:raw.generatedLyrics}:{}),
   ...(typeof raw.seconds==='number'&&Number.isFinite(raw.seconds)&&raw.seconds>0&&raw.seconds<=180?{seconds:raw.seconds}:{}),
   ...(typeof raw.projectId==='string'&&projectId.test(raw.projectId)?{projectId:raw.projectId}:{}),
-  ...(hasVoice?{voiceMixPath:voiceMix,voiceVocalPath:voiceVocal,voiceSeconds}:{}),
+  ...(hasVoice?{voiceMixPath:voiceMix,voiceVocalPath:voiceVocal,voiceSeconds:voiceSeconds as number}:{}),
   ...(hasVoice&&typeof raw.voiceProjectId==='string'&&projectId.test(raw.voiceProjectId)?{voiceProjectId:raw.voiceProjectId}:{}),
   ...(typeof raw.voiceError==='string'&&raw.voiceError.trim()?{voiceError:raw.voiceError.slice(0,400)}:{}),
   ...(typeof raw.error==='string'&&raw.error.trim()?{error:raw.error.slice(0,400)}:{}),
