@@ -119,3 +119,36 @@ test('Non-memory inspiration types remain imagined drawings, not diary events',(
  }
  assert.throws(()=>sketchbookImagePrompt({...example,prompt:' '}),/too long/);
 });
+
+
+test('Small local model can omit inspiration and use a common prompt field name',()=>{
+ const cases=[
+  {title:'Moonlit kites',concept:'An imaginary night sky with floating kites',image_prompt:'Three glowing kites drifting above a quiet lake'},
+  {name:'Teacup stars',description:'A tiny teacup filled with stars',visualPrompt:'A starry teacup in a cozy watercolor style',inspiration:' Imagination '},
+  {title:'Paper moon',prompt:'A paper moon hung over lavender clouds',inspiration:null},
+ ];
+ for(const candidate of cases){
+  const result=plain(readSketchbookIdea(JSON.stringify(candidate)));
+  assert.equal(result.inspiration,'imagination');
+  assert.ok(result.title.length>0&&result.title.length<=120);
+  assert.ok(result.concept.length>0&&result.concept.length<=500);
+  assert.ok(result.prompt.length>0&&result.prompt.length<=1100);
+  assert.ok(sketchbookImagePrompt(result).length<=1500);
+ }
+});
+
+test('Missing labels use only Mana model text; missing visual detail still fails',()=>{
+ const derived=plain(readSketchbookIdea(JSON.stringify({
+  imagePrompt:'A small orange fox sitting on a mossy stone, pastel sky, soft blue hills'
+ })));
+ assert.match(derived.title,/orange fox/);
+ assert.match(derived.concept,/orange fox/);
+ assert.match(derived.prompt,/orange fox/);
+ for(const invalid of [
+  {title:'Lanterns',concept:'A cozy imagined idea',inspiration:'imagination'},
+  {title:'Lanterns',concept:'A cozy imagined idea',prompt:'A lake with lanterns',inspiration:'diary'},
+  {title:'Lanterns',concept:'A cozy imagined idea',prompt:'A lake with lanterns',inspiration:'memory',relatedMemoryIds:[]},
+ ]){
+  assert.throws(()=>readSketchbookIdea(JSON.stringify(invalid)),/No image was generated/);
+ }
+});
