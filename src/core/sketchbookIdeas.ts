@@ -45,7 +45,7 @@ export const SKETCHBOOK_NEGATIVE_PROMPT='blurry, low quality, watermark, caption
 export function sketchbookIdeaMessages(context:SketchbookIdeaContext):ChatMessage[] {
  const name=context.name.trim().slice(0,80)||'Mana';
  const mood=context.mood.trim().slice(0,40)||'neutral';
- const personality=context.personality.trim().slice(0,1200);
+ const personality=context.personality.trim().slice(0,750);
  const energy=Number.isFinite(context.energy)?Math.min(100,Math.max(0,Math.round(context.energy))):50;
  const curiosity=Number.isFinite(context.curiosity)?Math.min(100,Math.max(0,Math.round(context.curiosity))):50;
  const interests=context.interests.slice(0,8).filter(x=>typeof x==='string').map(x=>x.trim().slice(0,90)).filter(Boolean);
