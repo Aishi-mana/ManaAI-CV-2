@@ -14,7 +14,7 @@ function load(path,dependencies={}){
    if(!(name in dependencies))throw Error('Unexpected import '+name);
    return dependencies[name];
   },
-  Date,Math,JSON,String,Number,Set,Error,RegExp,Uint32Array,Array,Object,
+  Date,Math,JSON,String,Number,Set,Error,RegExp,Uint32Array,Array,Object,AbortController,
  },{filename:path});
  return exports;
 }
@@ -108,4 +108,81 @@ test('ImageSession continues to release exactly one lease on failed native start
  assert.equal(acquired,1);
  assert.equal(released,1);
  assert.equal(stopped,0);
+});
+
+
+test('ImageSession sends cancellation to a queued GPU acquisition and never starts a cancelled job',async()=>{
+ const {imageSession}=load('src/core/imageSession.ts');
+ let pendingSignal,started=0,stopped=0,released=0;
+ const session=imageSession(
+  async()=>{started++;return 'never-started';},
+  async()=>{stopped++;},
+  signal=>new Promise((resolve,reject)=>{
+   pendingSignal=signal;
+   signal.addEventListener('abort',()=>reject(Error('Waiting GPU handoff cancelled')),{once:true});
+  }),
+ );
+ const start=session.start();
+ await Promise.resolve();
+ assert.ok(pendingSignal);
+ await session.stop();
+ await assert.rejects(start,/cancelled/);
+ assert.equal(pendingSignal.aborted,true);
+ assert.equal(started,0);
+ assert.equal(stopped,0);
+ assert.equal(released,0);
+});
+
+test('Cancelling a queued GPU lease does not release another image job lease',async()=>{
+ // Exercise useLlama's real GPU queue with a simulated local native pause.
+ // The hook does not mount any timers or actually launch a chat model here.
+ const source=fs.readFileSync('src/core/useLlama.ts','utf8');
+ const compiled=ts.transpileModule(source,{
+  compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true},
+ }).outputText;
+ const exports={};
+ let index=0,pausedCalls=0;
+ const slots=[];
+ const useState=init=>{
+  const at=index++;
+  if(!(at in slots))slots[at]=typeof init==='function'?init():init;
+  return [slots[at],value=>{slots[at]=typeof value==='function'?value(slots[at]):value;}];
+ };
+ const useRef=init=>{
+  const at=index++;
+  if(!(at in slots))slots[at]={current:init};
+  return slots[at];
+ };
+ const react={useState,useRef,useCallback:fn=>{index++;return fn;},useEffect:()=>{index++;}};
+ const invoke=async command=>{
+  if(command==='pause_llama_for_image'){pausedCalls++;return false;}
+  return false;
+ };
+ vm.runInNewContext(compiled,{
+  exports,require:name=>{
+   if(name==='react')return react;
+   if(name==='@tauri-apps/api/core')return {invoke};
+   if(name==='./llm')return {checkHealth:async()=> 'offline'};
+   throw Error('Unexpected model import '+name);
+  },
+  window:{__TAURI_INTERNALS__:{},clearTimeout(){},setTimeout(){}},
+  Date,Math,JSON,String,Number,Set,Error,AbortController,Promise,
+ },{filename:'useLlama.ts'});
+ const llama=exports.useLlama({port:8034,autoStart:false});
+ const firstRelease=await llama.pauseForImage();
+ assert.equal(pausedCalls,1);
+ const ctrl=new AbortController();
+ const queued=llama.pauseForImage(ctrl.signal);
+ ctrl.abort();
+ await assert.rejects(queued,/cancelled before GPU handoff/);
+ assert.equal(pausedCalls,1);
+ // A third lease remains queued behind the FIRST active job, even though the
+ // second lease cancelled. This is the safety-critical GPU ownership rule.
+ const third=llama.pauseForImage();
+ await Promise.resolve();
+ assert.equal(pausedCalls,1);
+ await firstRelease();
+ const thirdRelease=await third;
+ assert.equal(pausedCalls,2);
+ await thirdRelease();
 });
