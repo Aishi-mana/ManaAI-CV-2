@@ -45,7 +45,7 @@ export const SKETCHBOOK_NEGATIVE_PROMPT='blurry, low quality, watermark, caption
 export function sketchbookIdeaMessages(context:SketchbookIdeaContext):ChatMessage[] {
  const name=context.name.trim().slice(0,80)||'Mana';
  const mood=context.mood.trim().slice(0,40)||'neutral';
- const personality=context.personality.trim().slice(0,750);
+ const personality=context.personality.trim().slice(0,600);
  const energy=Number.isFinite(context.energy)?Math.min(100,Math.max(0,Math.round(context.energy))):50;
  const curiosity=Number.isFinite(context.curiosity)?Math.min(100,Math.max(0,Math.round(context.curiosity))):50;
  const interests=context.interests.slice(0,8).filter(x=>typeof x==='string').map(x=>x.trim().slice(0,90)).filter(Boolean);
@@ -76,9 +76,9 @@ export function sketchbookIdeaMessages(context:SketchbookIdeaContext):ChatMessag
    'Draw that subject directly, never a collage of drawings, a notebook, sketchbook pages, paper layouts, art supplies, diagrams or writing about the idea. '+
    'Avoid collections of many tiny disconnected objects, page grids, lists, or concepts that require written labels. '+
    'Keep it an original, cozy illustrated scene, not diary art or a poster. '+
-   'Optional creativeReason: why the idea appeals, not a lived event. Optional motifs: up to three visual theme labels. '+
+   'Include creativeReason (why this imagined scene appeals, not a lived event) and motifs (up to three visual-theme labels) whenever possible. '+
    'Recurring themes describe saved art, not fixed traits. For revisitCandidate, vary the composition; only use its exact id as revisitedDrawingId if genuinely revisiting it. '+
-   'Return one JSON object ONLY, without prose or markdown. Example: {"title":"Lantern lake","concept":"An imagined pond lit by tiny floating lanterns","prompt":"A little pond with golden lantern reflections, deep blue night, soft watercolors","inspiration":"imagination","relatedMemoryIds":[]}. '+
+   'Return one JSON object ONLY, without prose or markdown. Example: {"title":"Lantern lake","concept":"An imagined pond lit by tiny floating lanterns","prompt":"A little pond with golden lantern reflections, deep blue night, soft watercolors","inspiration":"imagination","relatedMemoryIds":[],"creativeReason":"I like the quiet lantern reflections","motifs":["lantern light","night sky"]}. '+
    'Required fields are title, concept, prompt, inspiration and relatedMemoryIds; use imagination when not using an approved memory. '+
    'Title is a short drawing title up to 120 characters, concept is one sentence up to 500, prompt is a concrete visual description up to 1100. '+
    'Inspiration must be imagination, mood, interest, memory or season. Use memory ONLY if an approved memory was supplied and actually inspired the idea; '+
