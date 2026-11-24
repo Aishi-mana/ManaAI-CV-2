@@ -5,6 +5,21 @@ const path = require("node:path");
 const vm = require("node:vm");
 const ts = require("typescript");
 
+/** Manaverse PNGs are deliberately local until WebP conversion.
+ * Validate present assets; CI must not fail solely because artwork is untracked.
+ * Run MANA_REQUIRE_LOCAL_ART=1 npm test on the laptop to require every file.
+ */
+function verifyOptionalLocalArt(relativePath) {
+  assert.match(relativePath,/^(?:\.\/)?companion-room\/[A-Za-z0-9_./-]+\.(?:png|webp)$/i);
+  const file=path.join(__dirname,'..','public',relativePath.replace(/^\.\//,''));
+  if(!fs.existsSync(file)){
+    if(process.env.MANA_REQUIRE_LOCAL_ART==='1')assert.fail('Local artwork required for this test: '+relativePath);
+    return;
+  }
+  const stats=fs.statSync(file);
+  assert.ok(stats.isFile()&&stats.size>0,'Local artwork is empty or unreadable: '+relativePath);
+}
+
 test('Second Street links the square and all three door approaches on walkable ground',()=>{
  const {districtBuildings,districtEntry,districtPoint,isDistrictFloor,isSquareFloor,squareDistrictExit,streetPositionAt,streetTravelMs}=loader()('src/core/manaverseStreet.ts');
  assert.ok(isSquareFloor(squareDistrictExit));
@@ -148,7 +163,7 @@ test('town decorations and New Year fireworks follow the saved event hours in la
  active=calendar.townEventCalendar(new Date('2027-12-25T04:00:00Z'),'Asia/Singapore',custom).active;
  assert.equal(festivities.townFestivities(active).christmas,true);
  assert.equal(festivities.townFestivities(active).newYear,false);
- assert.ok(fs.existsSync(path.join(__dirname,'..','public','companion-room','town-christmas-tree.png')));
+ verifyOptionalLocalArt('companion-room/town-christmas-tree.png');
  assert.equal(load('src/core/manaverseStreet.ts').isSquareFloor({x:11,y:43}),false);
  assert.equal(festivities.townFestivities([{title:'Town Market',active:true}]).active,true);
  assert.equal(festivities.townFestivities([{title:'New Year Festival',active:false}]).newYear,false);
@@ -616,7 +631,7 @@ function loader(mocks = {}, globals = {}) {
       return require(id);
     };
     vm.runInNewContext(code, { module, exports: module.exports, require: requireModule,
-      console, TextDecoder, TextEncoder, AbortSignal, DOMException, ...globals }, { filename: file });
+      console, TextDecoder, TextEncoder, AbortSignal, AbortController, DOMException, ...globals }, { filename: file });
     return module.exports;
   }
   return load;
@@ -1367,7 +1382,8 @@ test("backup roundtrip validates every section and rejects damaged files before 
  assert.throws(()=>b.validateBackup(JSON.stringify(oldRoomBackup)),/Invalid data in mana.companion_room/);
  assert.equal(valid.data["mana.diary.v1"][0].deletedAt,"2026-10-09T02:00:00Z");
  assert.match(b.backupCounts(valid),/1 memories/);
- assert.equal(Object.keys(valid.data).length,35);
+ assert.equal(Object.keys(valid.data).length,Object.keys(backup.data).length);
+  assert.ok(valid.data['mana.sketchbook.v1'],'new Sketchbook metadata remains part of the backup');
  assert.ok(valid.data["mana.companion_room.v1"].position);
  assert.equal(valid.data["mana.game_dev.v1"].developmentEnabled,false);
  assert.equal(valid.data["mana.game_dev.v1"].playtestsEnabled,false);
@@ -3853,7 +3869,7 @@ test('resident profiles use distinct memory fields, existing sprites, and shared
   const profile=residentProfiles[id];
   assert.ok(manaversePassage('street',profile.home)?.entry);
   for(const art of [profile.avatar,profile.blink,profile.step,profile.drag]){
-   assert.ok(fs.existsSync(path.join(__dirname,'..','public',art)),art);
+   verifyOptionalLocalArt(art);
   }
   for(const key of [profile.memory.coreKey,profile.memory.visitKey]){
    assert.ok(!keys.has(key),key);
@@ -4441,7 +4457,7 @@ test('closing image generation during startup cancels only its owned job and nev
  const slots=[],deps=[],effects=[],cleanup=[],calls=[];let index=0,startResolve;const load=loader(),jsx=(type,props)=>({type,props}),module={exports:{}};
  const react={useState:init=>{const i=index++;if(!(i in slots))slots[i]=typeof init==='function'?init():init;return [slots[i],value=>slots[i]=typeof value==='function'?value(slots[i]):value];},useRef:init=>{const i=index++;return slots[i]??(slots[i]={current:init});},useEffect:(fn,d)=>{const i=index++;if(!deps[i]){deps[i]=d;effects.push(fn);}}};
  const invoke=(name,args)=>{calls.push({name,args});if(name==='image_generation_discover')return Promise.resolve({models:[{name:'photon_v1.safetensors',kind:'sd1'}],engineReady:true,netaReady:true,folder:'local'});if(name==='image_generation_start')return new Promise(resolve=>startResolve=resolve);return Promise.resolve();};
- vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/components/ImageGenerationDrawer.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,{module,exports:module.exports,require:id=>id==='react'?react:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:id==='@tauri-apps/api/core'?{invoke}:id.includes('imageSession')?load('src/core/imageSession.ts'):id.includes('imageGeneration')?load('src/core/imageGeneration.ts'):{prepareImage(){}},setTimeout:()=>1,clearTimeout(){}});
+ vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/components/ImageGenerationDrawer.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,{module,exports:module.exports,require:id=>id==='react'?react:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:id==='@tauri-apps/api/core'?{invoke}:id.includes('imageSession')?load('src/core/imageSession.ts'):id.includes('imageReliability')?load('src/core/imageReliability.ts'):id.includes('imageGeneration')?load('src/core/imageGeneration.ts'):{prepareImage(){}},setTimeout:()=>1,clearTimeout(){}});
  const props={available:true,onClose(){},onSave(){assert.fail('No image should be saved');}};function render(){index=0;const tree=module.exports.default(props);while(effects.length)cleanup.push(effects.shift()());return tree;}function find(node,predicate){if(!node||typeof node!=='object')return;if(predicate(node))return node;for(const c of [node.props?.children].flat(Infinity)){const hit=find(c,predicate);if(hit)return hit;}}
  render();await Promise.resolve();let tree=render();find(tree,n=>n.type==='textarea').props.onChange({target:{value:'a red apple'}});tree=render();find(tree,n=>n.type==='button'&&n.props.children==='Generate picture').props.onClick();await new Promise(setImmediate);assert.ok(startResolve);cleanup.forEach(fn=>{if(typeof fn==='function')fn();});startResolve('owned-image-job');await new Promise(setImmediate);assert.equal(calls.filter(c=>c.name==='image_generation_poll').length,0);assert.equal(calls.find(c=>c.name==='image_generation_stop').args.jobId,'owned-image-job');
 });
@@ -4458,7 +4474,7 @@ test('chat picture launch selects NetaYume starts once and reports only the comp
  const slots=[],deps=[],effects=[],calls=[];let index=0,completed=0;const load=loader(),jsx=(type,props)=>({type,props}),module={exports:{}};
  const react={useState:init=>{const i=index++;if(!(i in slots))slots[i]=typeof init==='function'?init():init;return [slots[i],v=>slots[i]=typeof v==='function'?v(slots[i]):v];},useRef:init=>{const i=index++;return slots[i]??(slots[i]={current:init});},useEffect:(fn,d)=>{const i=index++;if(!deps[i]||d.some((v,j)=>!Object.is(v,deps[i][j]))){deps[i]=d;effects.push(fn);}}};
  const invoke=async(name,args)=>{calls.push({name,args});if(name==='image_generation_discover')return {models:[{name:'photon_v1.safetensors',kind:'sd1'},{name:'NetaYume.safetensors',kind:'neta'}],engineReady:true,netaReady:true};if(name==='image_generation_start')return 'chat-owned-job';if(name==='image_generation_poll')return {stage:'ready',path:'local.jpg'};if(name==='image_generation_result')return new ArrayBuffer(4);};
- vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/components/ImageGenerationDrawer.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,{module,exports:module.exports,require:id=>id==='react'?react:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:id==='@tauri-apps/api/core'?{invoke}:id.includes('imageSession')?load('src/core/imageSession.ts'):id.includes('imageGeneration')?load('src/core/imageGeneration.ts'):{prepareImage:async()=> 'prepared-jpeg'},setTimeout:()=>1,clearTimeout(){},File:class{constructor(parts,name){this.name=name;}},Uint8Array,AbortController});
+ vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/components/ImageGenerationDrawer.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,{module,exports:module.exports,require:id=>id==='react'?react:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:id==='@tauri-apps/api/core'?{invoke}:id.includes('imageSession')?load('src/core/imageSession.ts'):id.includes('imageReliability')?load('src/core/imageReliability.ts'):id.includes('imageGeneration')?load('src/core/imageGeneration.ts'):{prepareImage:async()=> 'prepared-jpeg'},setTimeout:()=>1,clearTimeout(){},File:class{constructor(parts,name){this.name=name;}},Uint8Array,AbortController});
  const props={inline:true,available:true,initialRequest:{prompt:'a moonlit garden',backend:'neta',referenceAvatar:true},prepareReference:async()=> 'data:image/jpeg;base64,/9j/AA==',onClose(){},onSave(){assert.fail('Save must remain explicit');},onGenerated:image=>{completed++;assert.equal(image.dataUrl,'prepared-jpeg');}};
  function render(){index=0;const tree=module.exports.default(props);assert.equal(tree.type,'section');assert.equal(tree.props.className,'chat-picture-job');assert.equal(tree.props.role,undefined);while(effects.length)effects.shift()();}
  render();await new Promise(setImmediate);assert.equal(completed,0);render();await new Promise(setImmediate);render();await new Promise(setImmediate);
@@ -4736,7 +4752,7 @@ test('Qwen chat launch uses character conditioning without avatar masks',async()
  const slots=[],deps=[],effects=[],calls=[];let index=0,completed=0;const load=loader(),jsx=(type,props)=>({type,props}),module={exports:{}};
  const react={useState:init=>{const i=index++;if(!(i in slots))slots[i]=typeof init==='function'?init():init;return [slots[i],v=>slots[i]=typeof v==='function'?v(slots[i]):v];},useRef:init=>{const i=index++;return slots[i]??(slots[i]={current:init});},useEffect:(fn,d)=>{const i=index++;if(!deps[i]||d.some((v,j)=>!Object.is(v,deps[i][j]))){deps[i]=d;effects.push(fn);}}};
  const invoke=async(name,args)=>{calls.push({name,args});if(name==='image_generation_discover')return {models:[{name:'Qwen-Rapid-AIO-SFW-v23.safetensors',kind:'qwen'}],engineReady:false,netaReady:false,qwenReady:true,qwenReferenceReady:true};if(name==='image_generation_start')return 'chat-owned-job';if(name==='image_generation_poll')return {stage:'ready',path:'local.jpg'};if(name==='image_generation_result')return new ArrayBuffer(4);};
- vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/components/ImageGenerationDrawer.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,{module,exports:module.exports,require:id=>id==='react'?react:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:id==='@tauri-apps/api/core'?{invoke}:id.includes('imageSession')?load('src/core/imageSession.ts'):id.includes('imageGeneration')?load('src/core/imageGeneration.ts'):{prepareImage:async()=> 'prepared-jpeg'},setTimeout:()=>1,clearTimeout(){},File:class{constructor(parts,name){this.name=name;}},Uint8Array,AbortController});
+ vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/components/ImageGenerationDrawer.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,{module,exports:module.exports,require:id=>id==='react'?react:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:id==='@tauri-apps/api/core'?{invoke}:id.includes('imageSession')?load('src/core/imageSession.ts'):id.includes('imageReliability')?load('src/core/imageReliability.ts'):id.includes('imageGeneration')?load('src/core/imageGeneration.ts'):{prepareImage:async()=> 'prepared-jpeg'},setTimeout:()=>1,clearTimeout(){},File:class{constructor(parts,name){this.name=name;}},Uint8Array,AbortController});
  const props={inline:true,available:true,initialRequest:{prompt:'yourself in a blue summer dress',backend:'qwen',referenceAvatar:true,qwenReferenceSource:'sheet'},prepareReference:async()=>assert.fail('Qwen must not prepare an avatar'),prepareClothingMask:async()=>assert.fail('Qwen must not prepare a clothing mask'),onClose(){},onSave(){assert.fail('Save must remain explicit');},onGenerated:image=>{completed++;assert.equal(image.dataUrl,'prepared-jpeg');}};
  function render(){index=0;const tree=module.exports.default(props);assert.equal(tree.type,'section');assert.equal(tree.props.className,'chat-picture-job');assert.equal(tree.props.role,undefined);while(effects.length)effects.shift()();}
  render();await new Promise(setImmediate);assert.equal(completed,0);render();await new Promise(setImmediate);render();await new Promise(setImmediate);
@@ -4747,7 +4763,7 @@ test('Qwen current-avatar chat reference snapshots dressed layers without requir
  const slots=[],deps=[],effects=[],calls=[];let index=0,completed=0;const load=loader(),jsx=(type,props)=>({type,props}),module={exports:{}};
  const react={useState:init=>{const i=index++;if(!(i in slots))slots[i]=typeof init==='function'?init():init;return [slots[i],v=>slots[i]=typeof v==='function'?v(slots[i]):v];},useRef:init=>{const i=index++;return slots[i]??(slots[i]={current:init});},useEffect:(fn,d)=>{const i=index++;if(!deps[i]||d.some((v,j)=>!Object.is(v,deps[i][j]))){deps[i]=d;effects.push(fn);}}};
  const invoke=async(name,args)=>{calls.push({name,args});if(name==='image_generation_discover')return {models:[{name:'Qwen-Rapid-AIO-SFW-v23.safetensors',kind:'qwen'}],engineReady:false,netaReady:false,qwenReady:true,qwenReferenceReady:false};if(name==='image_generation_start')return 'chat-owned-job';if(name==='image_generation_poll')return {stage:'ready',path:'local.jpg'};if(name==='image_generation_result')return new ArrayBuffer(4);};
- vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/components/ImageGenerationDrawer.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,{module,exports:module.exports,require:id=>id==='react'?react:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:id==='@tauri-apps/api/core'?{invoke}:id.includes('imageSession')?load('src/core/imageSession.ts'):id.includes('imageGeneration')?load('src/core/imageGeneration.ts'):{prepareImage:async()=> 'prepared-jpeg'},setTimeout:()=>1,clearTimeout(){},File:class{constructor(parts,name){this.name=name;}},Uint8Array,AbortController});
+ vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/components/ImageGenerationDrawer.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,{module,exports:module.exports,require:id=>id==='react'?react:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:id==='@tauri-apps/api/core'?{invoke}:id.includes('imageSession')?load('src/core/imageSession.ts'):id.includes('imageReliability')?load('src/core/imageReliability.ts'):id.includes('imageGeneration')?load('src/core/imageGeneration.ts'):{prepareImage:async()=> 'prepared-jpeg'},setTimeout:()=>1,clearTimeout(){},File:class{constructor(parts,name){this.name=name;}},Uint8Array,AbortController});
  const props={inline:true,available:true,initialRequest:{prompt:'yourself in a blue summer dress',backend:'qwen',referenceAvatar:true},prepareReference:async(signal,clothing,accessories)=>{assert.equal(clothing,false);assert.equal(accessories,true);return 'data:image/jpeg;base64,/9j/AA==';},prepareClothingMask:async()=>assert.fail('Qwen must not prepare a clothing mask'),onClose(){},onSave(){assert.fail('Save must remain explicit');},onGenerated:image=>{completed++;assert.equal(image.dataUrl,'prepared-jpeg');}};
  function render(){index=0;const tree=module.exports.default(props);assert.equal(tree.type,'section');assert.equal(tree.props.className,'chat-picture-job');assert.equal(tree.props.role,undefined);while(effects.length)effects.shift()();}
  render();await new Promise(setImmediate);assert.equal(completed,0);render();await new Promise(setImmediate);render();await new Promise(setImmediate);
@@ -4764,7 +4780,7 @@ test('Qwen outfit design generates separated clothing without attaching the char
  const slots=[],deps=[],effects=[],calls=[];let index=0,completed=0;const load=loader(),jsx=(type,props)=>({type,props}),module={exports:{}};
  const react={useState:init=>{const i=index++;if(!(i in slots))slots[i]=typeof init==='function'?init():init;return [slots[i],v=>slots[i]=typeof v==='function'?v(slots[i]):v];},useRef:init=>{const i=index++;return slots[i]??(slots[i]={current:init});},useEffect:(fn,d)=>{const i=index++;if(!deps[i]||d.some((v,j)=>!Object.is(v,deps[i][j]))){deps[i]=d;effects.push(fn);}}};
  const invoke=async(name,args)=>{calls.push({name,args});if(name==='image_generation_discover')return {models:[{name:'Qwen-Rapid-AIO-SFW-v23.safetensors',kind:'qwen'}],engineReady:false,netaReady:false,qwenReady:true,qwenReferenceReady:true};if(name==='image_generation_start')return 'chat-owned-job';if(name==='image_generation_poll')return {stage:'ready',path:'local.jpg'};if(name==='image_generation_result')return new ArrayBuffer(4);};
- vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/components/ImageGenerationDrawer.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,{module,exports:module.exports,require:id=>id==='react'?react:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:id==='@tauri-apps/api/core'?{invoke}:id.includes('imageSession')?load('src/core/imageSession.ts'):id.includes('imageGeneration')?load('src/core/imageGeneration.ts'):{prepareImage:async()=> 'prepared-jpeg'},setTimeout:()=>1,clearTimeout(){},File:class{constructor(parts,name){this.name=name;}},Uint8Array,AbortController});
+ vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/components/ImageGenerationDrawer.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,{module,exports:module.exports,require:id=>id==='react'?react:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:id==='@tauri-apps/api/core'?{invoke}:id.includes('imageSession')?load('src/core/imageSession.ts'):id.includes('imageReliability')?load('src/core/imageReliability.ts'):id.includes('imageGeneration')?load('src/core/imageGeneration.ts'):{prepareImage:async()=> 'prepared-jpeg'},setTimeout:()=>1,clearTimeout(){},File:class{constructor(parts,name){this.name=name;}},Uint8Array,AbortController});
  const props={inline:true,available:true,initialRequest:{prompt:'a lavender cardigan, white skirt and pair of white shoes',backend:'qwen',referenceAvatar:true,clothingOnly:true},prepareReference:async()=>assert.fail('Qwen must not prepare an avatar'),prepareClothingMask:async()=>assert.fail('Qwen must not prepare a clothing mask'),onClose(){},onSave(){assert.fail('Save must remain explicit');},onGenerated:image=>{completed++;assert.equal(image.dataUrl,'prepared-jpeg');}};
  function render(){index=0;const tree=module.exports.default(props);assert.equal(tree.type,'section');assert.equal(tree.props.className,'chat-picture-job');assert.equal(tree.props.role,undefined);while(effects.length)effects.shift()();}
  render();await new Promise(setImmediate);assert.equal(completed,0);render();await new Promise(setImmediate);render();await new Promise(setImmediate);
@@ -5015,7 +5031,7 @@ test('diary artwork failure releases GPU lease and reports error without attachi
  const slots=[],deps=[],effects=[],calls=[];let index=0,completed=0,released=0,failure='';const load=loader(),jsx=(type,props)=>({type,props}),module={exports:{}};
  const react={useState:init=>{const i=index++;if(!(i in slots))slots[i]=typeof init==='function'?init():init;return [slots[i],v=>slots[i]=typeof v==='function'?v(slots[i]):v];},useRef:init=>{const i=index++;return slots[i]??(slots[i]={current:init});},useEffect:(fn,d)=>{const i=index++;if(!deps[i]||d.some((v,j)=>!Object.is(v,deps[i][j]))){deps[i]=d;effects.push(fn);}}};
  const invoke=async(name,args)=>{calls.push({name,args});if(name==='image_generation_discover')return {models:[{name:'Qwen-Rapid-AIO-SFW-v23.safetensors',kind:'qwen'}],engineReady:false,netaReady:false,qwenReady:true,qwenReferenceReady:false};if(name==='image_generation_start')throw Error('test failure');if(name==='image_generation_poll')return {stage:'ready',path:'local.jpg'};if(name==='image_generation_result')return new ArrayBuffer(4);};
- vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/components/ImageGenerationDrawer.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,{module,exports:module.exports,require:id=>id==='react'?react:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:id==='@tauri-apps/api/core'?{invoke}:id.includes('imageSession')?load('src/core/imageSession.ts'):id.includes('imageGeneration')?load('src/core/imageGeneration.ts'):{prepareImage:async()=> 'prepared-jpeg'},setTimeout:()=>1,clearTimeout(){},File:class{constructor(parts,name){this.name=name;}},Uint8Array,AbortController});
+ vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/components/ImageGenerationDrawer.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2021,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,{module,exports:module.exports,require:id=>id==='react'?react:id==='react/jsx-runtime'?{jsx,jsxs:jsx}:id==='@tauri-apps/api/core'?{invoke}:id.includes('imageSession')?load('src/core/imageSession.ts'):id.includes('imageReliability')?load('src/core/imageReliability.ts'):id.includes('imageGeneration')?load('src/core/imageGeneration.ts'):{prepareImage:async()=> 'prepared-jpeg'},setTimeout:()=>1,clearTimeout(){},File:class{constructor(parts,name){this.name=name;}},Uint8Array,AbortController});
  const props={beforeGenerate:async()=>async()=>{released++;},onFailure:message=>{failure=message;},inline:true,available:true,initialRequest:{prompt:'yourself in a blue summer dress',backend:'qwen',referenceAvatar:true},prepareReference:async(signal,clothing,accessories)=>{assert.equal(clothing,false);assert.equal(accessories,true);return 'data:image/jpeg;base64,/9j/AA==';},prepareClothingMask:async()=>assert.fail('Qwen must not prepare a clothing mask'),onClose(){},onSave(){assert.fail('Save must remain explicit');},onGenerated:image=>{completed++;assert.equal(image.dataUrl,'prepared-jpeg');}};
  function render(){index=0;const tree=module.exports.default(props);assert.equal(tree.type,'section');assert.equal(tree.props.className,'chat-picture-job');assert.equal(tree.props.role,undefined);while(effects.length)effects.shift()();}
  render();await new Promise(setImmediate);assert.equal(completed,0);render();await new Promise(setImmediate);render();await new Promise(setImmediate);
@@ -5781,7 +5797,7 @@ test('autumn leaves remain stable and inside each map, with shared doorway masks
   const scene=AUTUMN_SCENERY[area],leaves=autumnLeaves(scene);
   assert.deepEqual(leaves,autumnLeaves(scene));assert.ok(leaves.length>50);
   assert.ok(leaves.every(leaf=>leaf.x>=0&&leaf.x<=100&&leaf.y>=0&&leaf.y<=100&&Number.isFinite(leaf.rotation)));
-  assert.ok(fs.existsSync(path.resolve('public/companion-room',shared.SCENERY_ART[area])));
+  verifyOptionalLocalArt('companion-room/'+shared.SCENERY_ART[area]);
   for(const [from,exit,to,entry] of manaverseDoorways){const point=from===area?exit:to===area?entry:null;if(point)assert.ok(shared.sceneryDoorClearances(area).some(mask=>mask.x===point.x&&mask.y===point.y&&mask.rx>=3&&mask.ry>=4));}
  }
 });
