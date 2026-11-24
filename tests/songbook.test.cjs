@@ -121,6 +121,87 @@ test('A completed WAV is only recorded when native result supplies a valid local
  assert.throws(()=>book.completeSongAudio(draft,'song-1',{mix,seconds:0}),/valid completed WAV/);
 });
 
+test('Automatic Mana-voice completion retains the original guide and saves only valid converted WAVs',()=>{
+ const draft=book.addSongDraft(book.validateSongbook(null),entry('manual-voice','manual'));
+ const guide='C:/AI/ManaAI-CV-2/exports/singing/original-001/mix.wav';
+ const original=book.completeSongAudio(draft,'song-1',{mix:guide,seconds:84,projectId:'studio-guide'});
+ const mix='C:/AI/ManaAI-CV-2/exports/singing/9001/mix.wav';
+ const vocal='C:/AI/ManaAI-CV-2/exports/singing/9001/vocal.wav';
+ const converted=book.completeSongVoice(original,'song-1',{
+  mix,vocal,seconds:83,projectId:'studio-mana',
+ });
+ assert.equal(converted.entries[0].status,'ready');
+ assert.equal(converted.entries[0].audioPath,guide);
+ assert.equal(converted.entries[0].voiceMixPath,mix);
+ assert.equal(converted.entries[0].voiceVocalPath,vocal);
+ assert.equal(converted.entries[0].voiceSeconds,83);
+ assert.equal(converted.entries[0].projectId,'studio-guide');
+ assert.equal(converted.entries[0].voiceProjectId,'studio-mana');
+ assert.equal(converted.entries[0].brief.lyrics,brief.lyrics);
+ book.saveSongbook(converted);
+ assert.deepEqual(plain(book.loadSongbook()),plain(converted));
+ for(const bad of ['C:/AI/secrets.wav','../fake.wav',
+  'C:/AI/ManaAI-CV-2/exports/singing/../../secrets.wav']){
+  assert.throws(()=>book.completeSongVoice(original,'song-1',{
+   mix:bad,vocal,seconds:83,
+  }),/valid completed Mana vocal and mix WAVs/);
+  assert.throws(()=>book.completeSongVoice(original,'song-1',{
+   mix,vocal:bad,seconds:83,
+  }),/valid completed Mana vocal and mix WAVs/);
+ }
+ assert.throws(()=>book.completeSongVoice(original,'song-1',{mix,vocal,seconds:0}),/valid completed/);
+ assert.throws(()=>book.completeSongVoice(draft,'song-1',{mix,vocal,seconds:83}),/saved original/);
+});
+
+test('Failed or interrupted voice conversion never downgrades a playable original',()=>{
+ const draft=book.addSongDraft(book.validateSongbook(null),entry('manual-voice-error','manual'));
+ const original=book.completeSongAudio(draft,'song-1',{
+  mix:'C:/AI/ManaAI-CV-2/exports/singing/original-002/mix.wav',seconds:90,
+ });
+ const failed=book.markSongVoiceError(original,'song-1','Missing trained voice model');
+ assert.equal(failed.entries[0].status,'ready');
+ assert.equal(failed.entries[0].voiceMixPath,undefined);
+ assert.equal(failed.entries[0].voiceError,'Missing trained voice model');
+ assert.equal(failed.entries[0].audioPath,original.entries[0].audioPath);
+ book.saveSongbook(failed);
+ assert.deepEqual(plain(book.loadSongbook()),plain(failed));
+ const restored=book.completeSongVoice(failed,'song-1',{
+  mix:'C:/AI/ManaAI-CV-2/exports/singing/9002/mix.wav',
+  vocal:'C:/AI/ManaAI-CV-2/exports/singing/9002/vocal.wav',seconds:89,
+ });
+ assert.equal(restored.entries[0].voiceError,undefined);
+ assert.equal(restored.entries[0].audioPath,original.entries[0].audioPath);
+ assert.equal(book.markSongVoiceError(draft,'song-1','not recorded'),draft);
+});
+
+test('Old guide-only songs stay readable and forged converted paths are discarded',()=>{
+ const guide='C:/AI/ManaAI-CV-2/exports/singing/original-003/mix.wav';
+ const original=book.completeSongAudio(
+  book.addSongDraft(book.validateSongbook(null),entry('manual-old','manual')),
+  'song-1',{mix:guide,seconds:85});
+ const old=book.validateSongbook({entries:original.entries});
+ assert.equal(old.entries[0].audioPath,guide);
+ assert.equal(old.entries[0].voiceMixPath,undefined);
+ const forged=book.validateSongbook({entries:[{
+  ...original.entries[0],voiceMixPath:'C:/AI/other/secret.wav',
+  voiceVocalPath:'C:/AI/ManaAI-CV-2/exports/singing/fake/vocal.wav',
+  voiceSeconds:84,voiceProjectId:'studio-forged',
+ }]});
+ assert.equal(forged.entries.length,1);
+ assert.equal(forged.entries[0].audioPath,guide);
+ assert.equal(forged.entries[0].voiceMixPath,undefined);
+ assert.equal(forged.entries[0].voiceProjectId,undefined);
+});
+
+test('Songbook source wires one automatic voice stage after saving the guide WAV',()=>{
+ const app=fs.readFileSync('src/App.tsx','utf8');
+ assert.match(app,/await flushPersistence\(\); \/\/ Keep the original even if conversion/);
+ assert.match(app,/await convertRecordedSongToManaVoice\(entry\.id,ctrl\)/);
+ assert.match(app,/await invoke\('singing_start',[\s\S]*?voiceProfile/);
+ assert.match(app,/await convertRecordedSongToManaVoice\(id,ctrl\)/);
+ assert.match(app,/markSongVoiceError\(songbookRef\.current,draftId,reason\)/);
+});
+
 test('When local ACE-Step is absent, original lyrics survive an explicit audio error',()=>{
  const draft=book.addSongDraft(book.validateSongbook(null),entry('manual-one','manual'));
  const failed=book.markSongAudioError(draft,'song-1','Missing local ACE-Step binaries');
