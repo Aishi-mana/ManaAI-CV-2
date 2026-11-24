@@ -132,6 +132,7 @@ export default function App() {
   const [songbook,setSongbook]=useState(loadSongbook);
   const songbookRef=useRef(songbook);songbookRef.current=songbook;
   const songbookController=useRef<AbortController|null>(null);
+  const songbookRunningMode=useRef<'weekly'|'manual'|null>(null);
   const songbookRunning=useRef(false);
   const [songbookBusy,setSongbookBusy]=useState(false);
   const [songbookStatus,setSongbookStatus]=useState('');
@@ -1137,6 +1138,7 @@ export default function App() {
     }
     const ctrl=new AbortController();
     songbookController.current=ctrl;
+    songbookRunningMode.current=mode;
     songbookRunning.current=true;
     abortRef.current=ctrl;
     setSongbookBusy(true);setReflecting(true);
@@ -1233,20 +1235,50 @@ export default function App() {
       });
       if(songbookController.current===ctrl)songbookController.current=null;
       if(abortRef.current===ctrl)abortRef.current=null;
-      songbookRunning.current=false;setSongbookBusy(false);setReflecting(false);
+      songbookRunning.current=false;songbookRunningMode.current=null;setSongbookBusy(false);setReflecting(false);
     }
   }
+
+  // One opt-in Sunday composition. Like Sketchbook, never preempt user work,
+  // never run while another creative tool is open, and reserve the weekly slot.
+  useEffect(()=>{
+    const check=()=>{
+      if(!songbook.settings.enabled||songbookRunning.current||sketchbookPlanning.current||
+        sketchbookJob||llama.status!=='ready'||llama.imageBusy||storage.error||busy||
+        reflecting||abortRef.current||hasChatDraft.current||mediaOccupied()||
+        autoOutfitRunning||diaryArtId||diaryArtQueue.length||journalWriting||
+        initiativeGenerating||reflectionDraft||showImageGeneration||showSketchbook||
+        showSongbook||showSinging||showSavedImages||showVision||roomEditorOpen||
+        showGameDev||showCode||showDiary||showSettings||showBackgrounds||showWardrobe||
+        showOutfitPrototype||showMemories||showGoals||showState||showThoughts||
+        showFollowups||showActivities||showEvents||showNarratives||showSkills||
+        showChatArchives||archiving||document.visibilityState!=='visible'||
+        Date.now()-lastActivityAt.current<300_000)return;
+      const due=dueWeeklySong(songbookRef.current,new Date());
+      if(due)void composeOriginalSong(due,'weekly');
+    };
+    check();
+    const timer=window.setInterval(check,60_000);
+    return()=>window.clearInterval(timer);
+  },[songbook,songbookBusy,sketchbook,sketchbookJob,llama.status,llama.imageBusy,
+      storage.error,busy,reflecting,autoOutfitRunning,diaryArtId,diaryArtQueue,
+      journalWriting,initiativeGenerating,reflectionDraft,roomEditorOpen,
+      showImageGeneration,showOutfitPrototype,showWardrobe,showSinging,showSongbook,
+      showSavedImages,showSketchbook,showVision,showCode,showGameDev,showDiary,
+      showSettings,showBackgrounds,showMemories,showState,showGoals,showThoughts,
+      showActivities,showFollowups,showEvents,showNarratives,showSkills,
+      showChatArchives,archiving]);
 
   // A scheduled drawing never preempts chat, diary, outfit, audio, or user image jobs.
   useEffect(()=>{
     const check=()=>{
-      if(!sketchbook.settings.enabled||sketchbookPlanning.current||sketchbookJob||
+      if(!sketchbook.settings.enabled||songbookRunning.current||sketchbookPlanning.current||sketchbookJob||
         !galleryReadyRef.current||galleryWorking||llama.status!=='ready'||llama.imageBusy||
         storage.error||busy||reflecting||abortRef.current||autoOutfitRunning||diaryArtId||
         diaryArtQueue.length||journalWriting||initiativeGenerating||reflectionDraft||
         hasChatDraft.current||mediaOccupied()||Date.now()-lastActivityAt.current<300_000||
         document.visibilityState!=='visible'||roomEditorOpen||showImageGeneration||
-        showOutfitPrototype||showWardrobe||showSinging||showSavedImages||showSketchbook||showVision||
+        showOutfitPrototype||showWardrobe||showSinging||showSongbook||showSavedImages||showSketchbook||showVision||
         showCode||showGameDev||showDiary||showSettings||showBackgrounds||showMemories||
         showState||showGoals||showThoughts||showActivities||showFollowups||
         showEvents||showNarratives||showSkills||showChatArchives||archiving)return;
@@ -1256,10 +1288,10 @@ export default function App() {
     check();
     const timer=window.setInterval(check,60_000);
     return()=>window.clearInterval(timer);
-  },[sketchbook,sketchbookJob,galleryReady,galleryWorking,llama.status,llama.imageBusy,
+  },[sketchbook,sketchbookJob,songbookBusy,galleryReady,galleryWorking,llama.status,llama.imageBusy,
       storage.error,busy,reflecting,autoOutfitRunning,diaryArtId,diaryArtQueue,
       journalWriting,initiativeGenerating,reflectionDraft,roomEditorOpen,
-      showImageGeneration,showOutfitPrototype,showWardrobe,showSinging,showSavedImages,showSketchbook,
+      showImageGeneration,showOutfitPrototype,showWardrobe,showSinging,showSongbook,showSavedImages,showSketchbook,
       showVision,showCode,showGameDev,showDiary,showSettings,showBackgrounds,
       showMemories,showState,showGoals,showThoughts,showActivities,showFollowups,
       showEvents,showNarratives,showSkills,showChatArchives,archiving]);
@@ -1573,6 +1605,16 @@ export default function App() {
     journalWriting||diaryArtId||diaryArtQueue.length||initiativeGenerating||showImageGeneration?
       'Mana is busy with another activity.':'';
 
+  const songbookUnavailable=!inTauri?'Song rendering requires the Mana desktop application.':
+    songbookBusy||songbookRunning.current?'Mana is already composing.':
+    storage.error?'Storage is unavailable.':
+    llama.status!=='ready'?'Start Mana’s local chat model.':
+    busy||reflecting||abortRef.current||hasChatDraft.current||mediaOccupied()||
+    autoOutfitRunning||diaryArtId||diaryArtQueue.length||journalWriting||
+    sketchbookPlanning.current||sketchbookJob||initiativeGenerating||
+    showImageGeneration||showSinging||showSketchbook?'Wait until Mana finishes her other activity.':
+    songbook.entries.length>=SONGBOOK_LIMIT?'Her Songbook library is full.':'';
+
   const drawNowReason=!galleryReady||galleryWorking?'Image gallery is loading or saving.':
     storage.error?'Storage is unavailable.':
     llama.status!=='ready'?'Start Mana’s local chat model first.':
@@ -1588,7 +1630,7 @@ export default function App() {
     archiving?'Close the other tool before drawing.':'';
 
   return (
-    <div className={`app${showSinging||showSavedImages||showSketchbook?' studio-open':''}`} data-main-layout={mainLayout} data-room-editor={roomEditorOpen}>
+    <div className={`app${showSinging||showSongbook||showSavedImages||showSketchbook?' studio-open':''}`} data-main-layout={mainLayout} data-room-editor={roomEditorOpen}>
      <div className="layout-avatar" id="main-avatar-panel" inert={mainLayout===3}>
       <StagePanel
         charName={settings.charName}
@@ -1690,6 +1732,7 @@ export default function App() {
           <button className="btn" onClick={()=>setShowSavedImages(true)}>Image gallery</button>
           <button className="btn" onClick={()=>setShowSketchbook(true)}>Sketchbook ({sketchbook.entries.length})</button>
           <button className="btn" disabled={autoOutfitRunning||busy||reflecting} onClick={()=>setShowSinging(true)}>Songs</button>
+          <button className="btn" disabled={autoOutfitRunning||busy||reflecting} onClick={()=>{lastActivityAt.current=Date.now();setShowSongbook(true);}}>Songbook ({songbook.entries.length})</button>
           </MoreTools>
         </header>
         <div className="main-layout-controls" role="group" aria-label="Main screen layout">
@@ -1761,7 +1804,25 @@ export default function App() {
         />
       </main>
 
-      <SingingDrawer active={showSinging&&!showSavedImages} initiative={initiative} onInitiative={changeInitiative} onBusy={setReflecting} onClose={()=>setShowSinging(false)}/>
+      <SingingDrawer active={showSinging&&!showSavedImages&&!showSongbook} initiative={initiative} onInitiative={changeInitiative} onBusy={setReflecting} onClose={()=>setShowSinging(false)}/>
+      {showSongbook&&<SongbookWorkspace name={settings.charName} state={songbook} status={songbookStatus}
+        busy={songbookBusy} unavailableReason={songbookUnavailable}
+        onCompose={()=>{if(!songbookUnavailable){lastActivityAt.current=Date.now();void composeOriginalSong('manual-'+uid(),'manual');}}}
+        onStop={()=>songbookController.current?.abort()}
+        onEnable={enabled=>{
+          lastActivityAt.current=Date.now();
+          const current=songbookRef.current;
+          const prepared=enabled?{...current,settings:{...current.settings,timeZone:journalRef.current.timeZone}}:current;
+          setSongbookState(setSongbookEnabled(prepared,enabled));
+          if(!enabled&&songbookRunningMode.current==='weekly')songbookController.current?.abort();
+          setSongbookStatus(enabled?'Weekly original songs enabled. Next: Sunday at local noon.':'Automatic songwriting is off. Saved songs remain.');
+        }}
+        onCatchUp={catchUp=>{
+          lastActivityAt.current=Date.now();
+          setSongbookState({...songbookRef.current,settings:{...songbookRef.current.settings,catchUp}});
+        }}
+        onOpenStudio={()=>{lastActivityAt.current=Date.now();setShowSongbook(false);setShowSinging(true);}}
+        onClose={()=>{lastActivityAt.current=Date.now();setShowSongbook(false);}}/>}
       {showImageGeneration&&!chatPicture&&!diaryArtId&&!sketchbookJob&&<ImageGenerationDrawer onPrototype={image=>{setAtelierCategory('outfit');setPrototypePicture(image);setShowImageGeneration(false);setChatPicture(undefined);setShowOutfitPrototype(true);}} beforeGenerate={async(cpu,signal)=>cpu?async()=>{}:llama.pauseForImage(signal)} prepareClothingMask={avatar.assets?(signal,keepAccessories=true)=>prepareAvatarClothingMask(avatar.assets!,{...cfg,accessories:keepAccessories?cfg.accessories:[]},signal):undefined} prepareReference={avatar.assets?(signal,clothingEdit,keepAccessories=true,garmentPrompt)=>prepareAvatarReference(avatar.assets!,{...cfg,accessories:keepAccessories?cfg.accessories:[]},signal,1024,clothingEdit,garmentPrompt):undefined} autoGenerate={false} available={!busy&&!reflecting&&!storage.error} onClose={()=>setShowImageGeneration(false)} onSave={savePictureToLibrary}/>}
       {showSavedImages&&<SavedImagesDrawer folder={galleryPath} images={savedImages} working={galleryWorking} error={galleryError} onRetry={()=>void initializeGallery()} editable={galleryReady&&!galleryWorking&&!busy&&!reflecting&&!sketchbookJob&&!sketchbookPlanning.current&&!storage.error} onClose={()=>setShowSavedImages(false)} onLabel={labelGallery} onDelete={deleteGallery}/>}
       {showSketchbook&&<SketchbookWorkspace name={settings.charName} state={sketchbook} images={savedImages} status={sketchbookStatus} galleryReady={galleryReady} galleryWorking={galleryWorking} galleryError={galleryError}
