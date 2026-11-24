@@ -36,6 +36,6 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Run creative-book test suites
-        run: node --test tests/sketchbook*.test.cjs tests/songbook*.test.cjs tests/cover-discovery.test.cjs
+        run: node --test tests/sketchbook*.test.cjs tests/songbook*.test.cjs tests/cover-discovery.test.cjs tests/cover-handoff.test.cjs
       - name: Compile TypeScript and frontend
         run: npm run build
