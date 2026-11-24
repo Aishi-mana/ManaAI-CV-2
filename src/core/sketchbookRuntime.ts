@@ -52,7 +52,7 @@ export async function prepareSketchbookDrawing({
    });
    await streamChat({
     port,
-    temperature:attempt===0?.8:.35,
+    temperature:attempt===0 ? 0.8 : 0.35,
     maxTokens:attempt===0?550:650,
     rejectTruncated:true,
     signal:controller.signal,
