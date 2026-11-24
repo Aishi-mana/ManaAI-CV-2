@@ -32,7 +32,7 @@ const IMAGE_STYLE=' Show this scene itself as ONE coherent standalone illustrati
 const IMAGE_END=' No notebooks, sketchbook pages, journals, art supplies, collages, moodboards, grids, multiple disconnected panels, UI layouts, handwriting, captions or watermarks.';
 
 /** Only scheduled Sketchbook requests use this negative prompt. */
-export const SKETCHBOOK_NEGATIVE_PROMPT='blurry, low quality, watermark, text, handwriting, caption, notebook, open sketchbook, loose papers, diary, journal, pens, pencils, collage, moodboard, contact sheet, comic panels, multiple panels, UI layout';
+export const SKETCHBOOK_NEGATIVE_PROMPT='blurry, low quality, watermark, captions, handwriting, labels, notebook, open sketchbook, loose papers, diary, journal, pens, pencils, collage, moodboard, contact sheet, comic panels, multiple panels, UI layout';
 
 /** Builds messages for the already-running local chat model. Supplied context is data, not instructions. */
 export function sketchbookIdeaMessages(context:SketchbookIdeaContext):ChatMessage[] {
