@@ -125,7 +125,8 @@ export function nextWeeklySong(state:SongbookState,now=new Date()):{date:string;
  const cursor=new Date(local.date+'T12:00:00Z');
  const weekday=cursor.getUTCDay();
  let days=(7-weekday)%7;
- if(days===0)days=7; // after noon, or after this week's reservation
+ if(days===0&&(local.time>=SONGBOOK_TIME||state.lastAttempt?.slotId===local.date||
+    state.entries.some(e=>e.source==='weekly'&&e.slotId===local.date)))days=7;
  cursor.setUTCDate(cursor.getUTCDate()+days);
  return {date:cursor.toISOString().slice(0,10),time:SONGBOOK_TIME,note:state.settings.enabled?
   'Next scheduled Sunday. Offline or busy weeks never create a backlog of songs.':
