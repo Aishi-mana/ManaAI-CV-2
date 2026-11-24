@@ -22,3 +22,5 @@ jobs:
       - run: npm ci
       - name: Run Sketchbook test suite
         run: node --test tests/sketchbook*.test.cjs
+      - name: Compile TypeScript and frontend
+        run: npm run build
