@@ -1,10 +1,11 @@
 import {imageSession} from '../core/imageSession';
+import {chooseReadyImageModel,explainImageFailure,imageProgressStalled} from '../core/imageReliability';
 
 import {useEffect,useRef,useState} from 'react';
 
 import {invoke} from '@tauri-apps/api/core';
 
-import {imageGenerationRequest,isQwenModel,qwenArtworkPrompt,pictureModelDimensions,pictureModelReady,freshPictureSeed,clothingOnlyPrompt,clothingOnlyNegative,outfitQualityDefaults,clothingNegative,isClothingChange,avatarPicturePrompt,choosePictureModel,pictureDetails,type ImageGenerationRequest,type ChatPictureRequest} from '../core/imageGeneration';
+import {imageGenerationRequest,isQwenModel,qwenArtworkPrompt,pictureModelDimensions,pictureModelReady,freshPictureSeed,clothingOnlyPrompt,clothingOnlyNegative,outfitQualityDefaults,clothingNegative,isClothingChange,avatarPicturePrompt,pictureDetails,type ImageGenerationRequest,type ChatPictureRequest} from '../core/imageGeneration';
 
 import {prepareImage,type ImageAttachment} from '../core/vision';
 
@@ -37,9 +38,9 @@ export default function ImageGenerationDrawer({objectDimensions,prepareObjectRef
 
  const alive=useRef(true),job=useRef(''),token=useRef(0),timer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
 
- useEffect(()=>{alive.current=true;void invoke<Discovery>('image_generation_discover').then(d=>{if(!alive.current)return;setDiscovery(d);const chosen=choosePictureModel(d.models,initialRequest?.backend);setRequest(r=>({...r,model:chosen?.name??'',...(objectDimensions??pictureModelDimensions(chosen?.kind??'',referenceEnabled)),...outfitQualityDefaults(chosen?.name??'',referenceEnabled&&clothingEdit,request.prompt)}));if((initialRequest?.backend||autoGenerate&&initialRequest)&&(!chosen||!pictureModelReady(chosen.kind,d)))setError('The requested image model is not available. Use More → Create picture to choose an installed supported model.');setStatus('Ready. Models load only when you generate.');}).catch(e=>{if(alive.current)setError(String(e));});return ()=>{alive.current=false;token.current++;referenceController.current?.abort();clearTimeout(timer.current);void session.current?.stop().catch(()=>{});};},[]);
+ useEffect(()=>{alive.current=true;void invoke<Discovery>('image_generation_discover').then(d=>{if(!alive.current)return;setDiscovery(d);const chosen=chooseReadyImageModel(d,initialRequest);setRequest(r=>({...r,model:chosen?.name??'',...(objectDimensions??pictureModelDimensions(chosen?.kind??'',referenceEnabled)),...outfitQualityDefaults(chosen?.name??'',referenceEnabled&&clothingEdit,request.prompt)}));if((initialRequest?.backend||autoGenerate&&initialRequest)&&(!chosen||!pictureModelReady(chosen.kind,d)))setError('The requested image model is not available. Use More → Create picture to choose an installed supported model.');setStatus('Ready. Models load only when you generate.');}).catch(e=>{if(alive.current)setError(explainImageFailure(e,false));});return ()=>{alive.current=false;token.current++;referenceController.current?.abort();clearTimeout(timer.current);void session.current?.stop().catch(()=>{});};},[]);
 
- async function stop(){token.current++;referenceController.current?.abort();clearTimeout(timer.current);try{await session.current?.stop();if(alive.current)setStatus('Stopped. Chat model is being restored if it was paused.');}catch(e){if(alive.current)setError(String(e));}finally{if(alive.current){setRunning(false);onStopped?.();}}}
+ async function stop(){token.current++;referenceController.current?.abort();clearTimeout(timer.current);try{await session.current?.stop();if(alive.current)setStatus('Stopped. Chat model is being restored if it was paused.');}catch(e){if(alive.current)setError(explainImageFailure(e,request.cpu));}finally{if(alive.current){setRunning(false);onStopped?.();}}}
 
  async function generate(){let clean:ImageGenerationRequest;try{clean=imageGenerationRequest({...request,seed:keepSeed?request.seed:freshPictureSeed(request.seed)});setRequest(r=>({...r,seed:clean.seed}));}catch(e){setError(String(e));return;}const run=++token.current;setError('');setResult(undefined);setSaved(false);setPath('');setRunning(true);setStatus('Starting local image job…');
 
@@ -69,9 +70,20 @@ export default function ImageGenerationDrawer({objectDimensions,prepareObjectRef
 
     const owned=imageSession(()=>invoke<string>('image_generation_start',{request:clean}),id=>invoke('image_generation_stop',{jobId:id}),async()=>{setStatus(clean.cpu?'Starting CPU image job…':'Making room on the GPU for your picture…');return beforeGenerate?beforeGenerate(clean.cpu):async()=>{};});session.current=owned;const id=await owned.start();if(!id||!alive.current||run!==token.current){await owned.stop();return;}job.current=id;
 
-   const poll=async()=>{try{const p=await invoke<{stage:string;step?:number;total?:number;error?:string;path?:string}>('image_generation_poll',{jobId:id});if(!alive.current||run!==token.current)return;if(p.stage==='error')throw Error(p.error||'Image generation failed.');if(p.stage==='ready'){const bytes=await invoke<ArrayBuffer>('image_generation_result',{jobId:id});const file=new File([new Uint8Array(bytes)],'Mana-'+clean.model.replace('.safetensors','').slice(0,120)+'-'+clean.seed+'.jpg',{type:'image/jpeg'}),dataUrl=await prepareImage(file);if(!alive.current||run!==token.current)return;const image:ImageAttachment={filename:file.name,dataUrl,origin:{jobId:id,model:clean.model,seed:clean.seed,reference:clean.reference?'avatar':clean.characterReference?'turnaround':'none'}};setResult(image);await owned.complete();if(!alive.current||run!==token.current)return;onGenerated?.(image);setPath(p.path??'');setRunning(false);setStatus(showSave?'Image ready. Save it to your image library if you like it.':'Image ready. Preparing room artwork...');return;}setStatus((p.stage==='encoding'||p.stage==='encoding_reference')?'Reading description and reference...':p.stage==='sampling'?`Drawing · ${p.step}/${p.total} steps`:(p.stage==='decoding'||p.stage==='finishing')?'Finishing image…':'Loading model / drawing…');timer.current=setTimeout(()=>void poll(),1000);}catch(e){await owned.stop().catch(()=>{});if(alive.current&&run===token.current){setError(String(e));setRunning(false);}}};void poll();
+   let lastProgressAt=Date.now(),lastPollAt=lastProgressAt,progressKey='';
+   const poll=async()=>{try{const p=await invoke<{stage:string;step?:number;total?:number;error?:string;path?:string}>('image_generation_poll',{jobId:id});if(!alive.current||run!==token.current)return;
+   const now=Date.now(),key=p.stage+':'+(p.step??'');
+   // Sleeping or backgrounded laptops suspend browser timers; don't mistake
+   // that gap for a stalled GPU. Measure only continuous active polling.
+   if(key!==progressKey||now-lastPollAt>60_000){progressKey=key;lastProgressAt=now;}
+   lastPollAt=now;
+   if(p.stage==='stopped')throw Error('Image generation was stopped.');
+   if(p.stage==='error')throw Error(p.error||'Image generation failed.');
+   if(imageProgressStalled(lastProgressAt,now,clean.cpu))
+     throw Error('The local image job has made no progress for too long and was stopped to free its resources.');
+   if(p.stage==='ready'){const bytes=await invoke<ArrayBuffer>('image_generation_result',{jobId:id});const file=new File([new Uint8Array(bytes)],'Mana-'+clean.model.replace('.safetensors','').slice(0,120)+'-'+clean.seed+'.jpg',{type:'image/jpeg'}),dataUrl=await prepareImage(file);if(!alive.current||run!==token.current)return;const image:ImageAttachment={filename:file.name,dataUrl,origin:{jobId:id,model:clean.model,seed:clean.seed,reference:clean.reference?'avatar':clean.characterReference?'turnaround':'none'}};setResult(image);await owned.complete();if(!alive.current||run!==token.current)return;onGenerated?.(image);setPath(p.path??'');setRunning(false);setStatus(showSave?'Image ready. Save it to your image library if you like it.':'Image ready. Preparing room artwork...');return;}setStatus((p.stage==='encoding'||p.stage==='encoding_reference')?'Reading description and reference...':p.stage==='sampling'?`Drawing · ${p.step}/${p.total} steps`:(p.stage==='decoding'||p.stage==='finishing')?'Finishing image…':'Loading model / drawing…');timer.current=setTimeout(()=>void poll(),1000);}catch(e){await owned.stop().catch(()=>{});if(alive.current&&run===token.current){setError(explainImageFailure(e,clean.cpu));setRunning(false);}}};void poll();
 
-  }catch(e){await session.current?.stop().catch(()=>{});if(alive.current&&run===token.current){setError(String(e));setRunning(false);}}
+  }catch(e){await session.current?.stop().catch(()=>{});if(alive.current&&run===token.current){setError(explainImageFailure(e,clean.cpu));setRunning(false);}}
 
  }
 
