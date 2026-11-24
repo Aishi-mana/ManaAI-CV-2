@@ -1,7 +1,7 @@
 import {streamChat} from './llm';
 import type {ChatPictureRequest} from './imageGeneration';
 import {
- readSketchbookIdea,sketchbookIdeaMessages,sketchbookImagePrompt,
+ readSketchbookIdea,sketchbookIdeaMessages,sketchbookImagePrompt,SKETCHBOOK_NEGATIVE_PROMPT,
  type SketchbookIdea,type SketchbookIdeaContext,
 } from './sketchbookIdeas';
 
@@ -71,7 +71,7 @@ export async function prepareSketchbookDrawing({
    try{
     const idea=readSketchbookIdea(text,approvedIds);
     // Same installed image models and native job system as user-created pictures.
-    return {idea,pictureRequest:{prompt:sketchbookImagePrompt(idea)}};
+    return {idea,pictureRequest:{prompt:sketchbookImagePrompt(idea),negative:SKETCHBOOK_NEGATIVE_PROMPT}};
    }catch(error){
     if(attempt===1)throw error;
     // The initial response was syntactically complete but did not meet the
