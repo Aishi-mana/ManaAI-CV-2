@@ -33,6 +33,7 @@ import {validateSpeechPreferences} from './speechPreferences';
 import {validateVisionSettings} from './vision';
 import {MUSIC_DRAFTS_KEY,validateMusicDrafts} from './musicDrafts';
 import {validateSavedImages} from './savedImages';
+import {SKETCHBOOK_KEY,validateSketchbook} from './sketchbook';
 
 const validators:Record<string,(value:unknown)=>unknown>={
  [MUSIC_DRAFTS_KEY]:validateMusicDrafts,
@@ -56,6 +57,7 @@ const validators:Record<string,(value:unknown)=>unknown>={
  'mana.speech.v1':validateSpeechPreferences,
  'mana.vision.v1':validateVisionSettings,
  'mana.images.v1':validateSavedImages,
+ [SKETCHBOOK_KEY]:validateSketchbook,
  'mana.code_games.v1':validateCodeGames,
  'mana.whisper.v1':validateWhisper,
  'mana.custom_voice.v1':validateCustomVoice,
@@ -114,6 +116,8 @@ export function validateBackup(raw:string):Backup {
  if(!Object.prototype.hasOwnProperty.call(data,'mana.speech.v1'))data['mana.speech.v1']=validateSpeechPreferences(null);
  if(!Object.prototype.hasOwnProperty.call(data,'mana.vision.v1'))data['mana.vision.v1']=validateVisionSettings(null);
  if(!Object.prototype.hasOwnProperty.call(data,'mana.images.v1'))data['mana.images.v1']=[];
+ // Backups created before Sketchbook must remain restorable with drawing disabled.
+ if(!Object.prototype.hasOwnProperty.call(data,SKETCHBOOK_KEY))data[SKETCHBOOK_KEY]=validateSketchbook(null);
  if(!Object.prototype.hasOwnProperty.call(data,'mana.code_games.v1'))data['mana.code_games.v1']=validateCodeGames(null);
  // Speech preferences before speed/volume retain their old voice and automatic choice.
  if(isRecord(data['mana.speech.v1'])){

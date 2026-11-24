@@ -1,0 +1,24 @@
+name: Sketchbook focused tests
+on:
+  pull_request:
+    paths:
+      - 'src/core/sketchbook*.ts'
+      - 'src/components/SketchbookWorkspace.tsx'
+      - 'src/App.tsx'
+      - 'tests/sketchbook*.test.cjs'
+      - 'src/core/backup.ts'
+      - 'src-tauri/src/store.rs'
+      - '.github/workflows/sketchbook-tests.yml'
+  workflow_dispatch:
+jobs:
+  focused-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Run Sketchbook test suite
+        run: node --test tests/sketchbook*.test.cjs

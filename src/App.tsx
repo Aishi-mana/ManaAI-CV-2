@@ -43,7 +43,10 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "reac
 import ChatPanel from "./components/ChatPanel";
 import VisionDrawer from './components/VisionDrawer';
 import SavedImagesDrawer from './components/SavedImagesDrawer';
+import SketchbookWorkspace from './components/SketchbookWorkspace';
 import { loadSavedImages, saveSavedImages } from './core/savedImages';
+import {loadSketchbook,saveSketchbook,setSketchbookEnabled,dueSketchbookSlot,beginSketchbookAttempt,addSketchbookEntry,removeSketchbookEntry,canSaveScheduledSketchbook} from './core/sketchbook';
+import {prepareSketchbookDrawing,type PreparedSketchbookDrawing} from './core/sketchbookRuntime';
 import { inspectForChat } from './core/visionChat';
 import { loadVisionSettings } from './core/vision';
 import type { ImageAttachment } from './core/vision';
@@ -125,11 +128,18 @@ export default function App() {
   const [showVision,setShowVision]=useState(false);
   const [savedImages,setSavedImages]=useState(loadSavedImages);
   const savedImagesRef=useRef(savedImages);savedImagesRef.current=savedImages;
+  const [sketchbook,setSketchbook]=useState(loadSketchbook);
+  const sketchbookRef=useRef(sketchbook);sketchbookRef.current=sketchbook;
+  const [sketchbookJob,setSketchbookJob]=useState<{slotId:string;prepared:PreparedSketchbookDrawing;enabledAt:string|null}|null>(null);
+  const sketchbookPlanning=useRef(false);
+  const sketchbookIdeaController=useRef<AbortController|null>(null);
+  const [sketchbookStatus,setSketchbookStatus]=useState('');
   const [galleryReady,setGalleryReady]=useState(false),[galleryWorking,setGalleryWorking]=useState(false),[galleryError,setGalleryError]=useState(''),[galleryPath,setGalleryPath]=useState('');
   const galleryReadyRef=useRef(false),galleryQueue=useRef<Promise<unknown>>(Promise.resolve()),galleryStarted=useRef(false);
   useEffect(()=>{if(!galleryStarted.current){galleryStarted.current=true;void initializeGallery();}},[]);
 
   const [showSavedImages,setShowSavedImages]=useState(false);
+  const [showSketchbook,setShowSketchbook]=useState(false);
   const [imageStatus,setImageStatus]=useState('');
   const [imageError,setImageError]=useState('');
   const [settings, setSettings] = useState<Settings>(loadSettings);
@@ -250,6 +260,7 @@ export default function App() {
   useEffect(() => { saveIdentity(identity); }, [identity]);
   useEffect(() => { saveMemories(memories); }, [memories]);
   useEffect(() => { saveDiary(diary); }, [diary]);
+  useEffect(() => { saveSketchbook(sketchbook); }, [sketchbook]);
   useEffect(() => { saveGoals(goals); }, [goals]);
   useEffect(() => { saveInterests(interests); }, [interests]);
   useEffect(() => { saveWork(work); }, [work]);
@@ -639,7 +650,7 @@ export default function App() {
   const devTick=useRef<()=>void>(()=>{});
   devTick.current=()=>{
     const state=gameDevRef.current;
-    if(roomEditorOpen||showGameDev||showCode||showWardrobe||showBackgrounds||showOutfitPrototype||showImageGeneration||
+    if(sketchbookPlanning.current||sketchbookJob||showSketchbook||roomEditorOpen||showGameDev||showCode||showWardrobe||showBackgrounds||showOutfitPrototype||showImageGeneration||
        showSinging||showVision||showSavedImages||showDiary||showSettings||archiving||
        hasChatDraft.current||Date.now()-lastActivityAt.current<120000||document.visibilityState!=='visible')return;
     const now=new Date(),zone=journalRef.current.timeZone;
@@ -655,7 +666,7 @@ export default function App() {
 
   async function startConversation(manual = false) {
     const current = initiativeRef.current;
-    if (mediaOccupied() || !current.enabled || current.pending || initiativePaused(current) || busy || reflecting || abortRef.current || reflectionDraft || hasChatDraft.current || storage.error || llama.status !== "ready") return;
+    if (sketchbookPlanning.current||sketchbookJob||mediaOccupied() || !current.enabled || current.pending || initiativePaused(current) || busy || reflecting || abortRef.current || reflectionDraft || hasChatDraft.current || storage.error || llama.status !== "ready") return;
     const now = new Date();
     if (!manual && !initiativeDue(current, now, journalRef.current.timeZone, journalOpenedAt.current, lastActivityAt.current, companion.state.energy)) return;
     const ctrl = new AbortController();
@@ -725,14 +736,14 @@ export default function App() {
         setInitiativeStatus("");
         return;
       }
-      if (document.visibilityState !== "visible" || roomEditorOpen || showImageGeneration || showSinging || showSavedImages || showVision || showCode || showGameDev || showSkills || showNarratives || narrativeDraft || showEvents || showSettings || showMemories || showState || showDiary || showBackgrounds || showOutfitPrototype || showWardrobe || showGoals || showFollowups || showActivities || showChatArchives || showThoughts || thoughtDraft || archiving) return;
+      if (document.visibilityState !== "visible" || sketchbookPlanning.current||sketchbookJob||showSketchbook||roomEditorOpen || showImageGeneration || showSinging || showSavedImages || showVision || showCode || showGameDev || showSkills || showNarratives || narrativeDraft || showEvents || showSettings || showMemories || showState || showDiary || showBackgrounds || showOutfitPrototype || showWardrobe || showGoals || showFollowups || showActivities || showChatArchives || showThoughts || thoughtDraft || archiving) return;
       // A due daily journal has priority over initiating a chat.
       if (dueRoomAwareJournalDate()) return;
       void startConversation();
     };
     const timer = window.setInterval(check, 30_000);
     return () => window.clearInterval(timer);
-  }, [initiative, busy, reflecting, reflectionDraft, llama.status, storage.error, companion.state, identity, memories, settings, goals, interests, work, followups, showActivities, showFollowups, showSettings, showMemories, showState, showDiary, showBackgrounds, showOutfitPrototype, showWardrobe, showGoals,showChatArchives,showThoughts,showEvents,showCode,showGameDev,showSkills,showNarratives,narrativeDraft,thoughtDraft,archiving,showVision,showSavedImages,showSinging,showImageGeneration,roomEditorOpen]);
+  }, [initiative, busy, reflecting, reflectionDraft, llama.status, storage.error, companion.state, identity, memories, settings, goals, interests, work, followups, showActivities, showFollowups, showSettings, showMemories, showState, showDiary, showBackgrounds, showOutfitPrototype, showWardrobe, showGoals,showChatArchives,showThoughts,showEvents,showCode,showGameDev,showSkills,showNarratives,narrativeDraft,thoughtDraft,archiving,showVision,showSavedImages,showSinging,showImageGeneration,showSketchbook,sketchbookJob,roomEditorOpen]);
 
   async function generateActivityReply(id:string){
     if(abortRef.current||busy||reflecting||storage.error||llama.status!=='ready')return;
@@ -801,7 +812,7 @@ export default function App() {
 
   useEffect(() => {
     const check = () => {
-      if (roomEditorOpen || showWardrobe || showOutfitPrototype || showImageGeneration || showSinging || showSavedImages || showVision || busy || reflecting || reflectionDraft || hasChatDraft.current || abortRef.current || llama.status !== "ready" || storage.error || Date.now() < journalRetryAfter.current) return;
+      if (sketchbookPlanning.current||sketchbookJob||showSketchbook||roomEditorOpen || showWardrobe || showOutfitPrototype || showImageGeneration || showSinging || showSavedImages || showVision || busy || reflecting || reflectionDraft || hasChatDraft.current || abortRef.current || llama.status !== "ready" || storage.error || Date.now() < journalRetryAfter.current) return;
       if (Date.now()-journalOpenedAt.current < 120_000) return;
       const date = dueRoomAwareJournalDate();
       if (!date) return;
@@ -813,7 +824,7 @@ export default function App() {
     check();
     const timer = window.setInterval(check,30_000);
     return () => window.clearInterval(timer);
-  }, [busy,reflecting,reflectionDraft,llama.status,journal,diary,identity,memories,goals,work,companion.state,settings,storage.error,showVision,showSavedImages,showSinging,showImageGeneration,showOutfitPrototype,showWardrobe,roomEditorOpen]);
+  }, [busy,reflecting,reflectionDraft,llama.status,journal,diary,identity,memories,goals,work,companion.state,settings,storage.error,showVision,showSavedImages,showSinging,showImageGeneration,showSketchbook,sketchbookJob,showOutfitPrototype,showWardrobe,roomEditorOpen]);
 
   async function draftThought() {
     if(!thoughts.enabled||thoughts.entries.length>=100||thoughtDraft||busy||reflecting||abortRef.current||storage.error||llama.status!=='ready')return;
@@ -873,12 +884,12 @@ export default function App() {
   const cfg = useMemo(() => (wardrobe ? resolveLoadout(savedCfg, wardrobe) : savedCfg), [wardrobe, savedCfg]);
   function finishDiaryArt(message:string){setDiaryArtStatus(message);setDiaryArtId(undefined);setShowImageGeneration(false);}
   useEffect(()=>{
-    if(roomEditorOpen||autoOutfitRunning||!diaryArtQueue.length||diaryArtId||showImageGeneration||busy||reflecting||abortRef.current||showOutfitPrototype||showSinging||showVision||showWardrobe||showSavedImages||storage.error)return;
+    if(sketchbookPlanning.current||sketchbookJob||showSketchbook||roomEditorOpen||autoOutfitRunning||!diaryArtQueue.length||diaryArtId||showImageGeneration||busy||reflecting||abortRef.current||showOutfitPrototype||showSinging||showVision||showWardrobe||showSavedImages||storage.error)return;
     const id=diaryArtQueue[0];setDiaryArtQueue(q=>q.slice(1));
     if(!diaryRef.current.some(e=>e.id===id&&!e.deletedAt))return;
     if(!avatar.assets){setDiaryArtStatus('Diary text saved. Load an avatar, then use Add illustration in Diary.');return;}
     setChatPicture(undefined);setDiaryArtId(id);setShowImageGeneration(true);setDiaryArtStatus('Drawing a diary illustration…');
-  },[roomEditorOpen,autoOutfitRunning,diaryArtQueue,diaryArtId,showImageGeneration,busy,reflecting,showOutfitPrototype,showSinging,showVision,showWardrobe,showSavedImages,storage.error,avatar.assets]);
+  },[roomEditorOpen,autoOutfitRunning,diaryArtQueue,diaryArtId,showImageGeneration,busy,reflecting,showOutfitPrototype,showSinging,showVision,showWardrobe,showSavedImages,showSketchbook,sketchbookJob,storage.error,avatar.assets]);
   useEffect(()=>{if(diaryArtId&&!diary.some(e=>e.id===diaryArtId&&!e.deletedAt))finishDiaryArt('Illustration cancelled because its diary entry was removed.');},[diary,diaryArtId]);
   async function retainDiaryArtwork(id:string,image:ImageAttachment){
     try{const compact=await compactDiaryImage(image),entry=diaryRef.current.find(e=>e.id===id);if(!entry)throw Error('Diary entry no longer exists.');
@@ -952,8 +963,111 @@ export default function App() {
     if(!galleryReadyRef.current)throw Error('The gallery is not ready. Open Image gallery to finish migration.');
     return queueGallery(async()=>{const saved=await addDiskImage(savedImagesRef.current,image);await commitGallery(saved.images);return saved.imageId;});
   }
+  // The scheduler only reserves a slot and asks the EXISTING chat model for an idea.
+  // The resulting picture is handed to the normal ImageGenerationDrawer below.
+  async function startSketchbookSlot(slotId:string){
+    if(sketchbookPlanning.current||sketchbookJob||abortRef.current||!galleryReadyRef.current)return;
+    let reserved;
+    try{reserved=beginSketchbookAttempt(sketchbookRef.current,slotId,new Date());}
+    catch{return;}
+    sketchbookPlanning.current=true;
+    sketchbookRef.current=reserved;setSketchbook(reserved);saveSketchbook(reserved);
+    const ctrl=new AbortController();sketchbookIdeaController.current=ctrl;abortRef.current=ctrl;setReflecting(true);
+    setSketchbookStatus('Mana is imagining a drawing…');
+    try{
+      await flushPersistence(); // Retry counters survive restart before any model work.
+      if(ctrl.signal.aborted||!sketchbookRef.current.settings.enabled)throw Error('Sketchbook disabled.');
+      const prepared=await prepareSketchbookDrawing({port:llama.port,context:{
+        name:settings.charName,personality:identity.personality,mood:companion.state.mood,
+        energy:companion.state.energy,curiosity:companion.state.curiosity,
+        interests:identity.interests,recentDrawings:sketchbookRef.current.entries.slice(-8),
+        // No unreviewed memories are passed to the autonomous idea planner.
+        approvedMemories:[],
+      },signal:ctrl.signal});
+      if(ctrl.signal.aborted||!sketchbookRef.current.settings.enabled)throw Error('Sketchbook disabled.');
+      setSketchbookJob({slotId,prepared,enabledAt:reserved.settings.enabledAt});
+      setShowImageGeneration(true);
+      setSketchbookStatus('Mana is drawing…');
+    }catch(error){
+      setSketchbookStatus('Sketchbook idea postponed: '+String(error));
+    }finally{
+      if(abortRef.current===ctrl)abortRef.current=null;
+      if(sketchbookIdeaController.current===ctrl)sketchbookIdeaController.current=null;
+      sketchbookPlanning.current=false;setReflecting(false);
+    }
+  }
+  async function saveScheduledSketchbookImage(job:{slotId:string;prepared:PreparedSketchbookDrawing;enabledAt:string|null},image:ImageAttachment){
+    try{
+      // A drawing finished after the feature was disabled must not be saved.
+      if(!canSaveScheduledSketchbook(sketchbookRef.current,job.slotId,job.enabledAt))
+        throw Error('Scheduled drawings were disabled, restarted or this slot was removed.');
+      // Reuse the existing disk gallery, then persist the independent Sketchbook index.
+      const imageId=await saveInspectedImage(image);
+      // Saving the JPEG is asynchronous. Switching off during that write must
+      // never re-add a Sketchbook entry, even if drawing is enabled again later.
+      if(!canSaveScheduledSketchbook(sketchbookRef.current,job.slotId,job.enabledAt))
+        throw Error('The drawing is saved in Image Gallery, but the scheduled slot was disabled, restarted or removed.');
+      const next=addSketchbookEntry(sketchbookRef.current,{
+        id:uid(),imageId,slotId:job.slotId,createdAt:new Date().toISOString(),
+        title:job.prepared.idea.title,concept:job.prepared.idea.concept,
+        prompt:job.prepared.pictureRequest.prompt,sourceType:'scheduled-drawing',imagined:true,
+        inspiration:job.prepared.idea.inspiration,
+        ...(job.prepared.idea.relatedMemoryIds?.length?{relatedMemoryIds:job.prepared.idea.relatedMemoryIds}:{}),
+        ...(image.origin?.model?{model:image.origin.model}:{}),
+        ...(image.origin?.seed!==undefined?{seed:image.origin.seed}:{}),
+      });
+      sketchbookRef.current=next;setSketchbook(next);saveSketchbook(next);
+      await flushPersistence();
+      setSketchbookStatus('Mana saved a new drawing in her Sketchbook.');
+    }catch(error){
+      setSketchbookStatus('Drawing generated, but could not finish saving to Sketchbook: '+String(error));
+    }finally{
+      setSketchbookJob(null);setShowImageGeneration(false);
+    }
+  }
+
+  // A scheduled drawing never preempts chat, diary, outfit, audio, or user image jobs.
+  useEffect(()=>{
+    const check=()=>{
+      if(!sketchbook.settings.enabled||sketchbookPlanning.current||sketchbookJob||
+        !galleryReadyRef.current||galleryWorking||llama.status!=='ready'||llama.imageBusy||
+        storage.error||busy||reflecting||abortRef.current||autoOutfitRunning||diaryArtId||
+        diaryArtQueue.length||journalWriting||initiativeGenerating||reflectionDraft||
+        hasChatDraft.current||mediaOccupied()||Date.now()-lastActivityAt.current<300_000||
+        document.visibilityState!=='visible'||roomEditorOpen||showImageGeneration||
+        showOutfitPrototype||showWardrobe||showSinging||showSavedImages||showSketchbook||showVision||
+        showCode||showGameDev||showDiary||showSettings||showBackgrounds||showMemories||
+        showState||showGoals||showThoughts||showActivities||showFollowups||
+        showEvents||showNarratives||showSkills||showChatArchives||archiving)return;
+      const slot=dueSketchbookSlot(sketchbookRef.current,new Date());
+      if(slot)void startSketchbookSlot(slot);
+    };
+    check();
+    const timer=window.setInterval(check,60_000);
+    return()=>window.clearInterval(timer);
+  },[sketchbook,sketchbookJob,galleryReady,galleryWorking,llama.status,llama.imageBusy,
+      storage.error,busy,reflecting,autoOutfitRunning,diaryArtId,diaryArtQueue,
+      journalWriting,initiativeGenerating,reflectionDraft,roomEditorOpen,
+      showImageGeneration,showOutfitPrototype,showWardrobe,showSinging,showSavedImages,showSketchbook,
+      showVision,showCode,showGameDev,showDiary,showSettings,showBackgrounds,
+      showMemories,showState,showGoals,showThoughts,showActivities,showFollowups,
+      showEvents,showNarratives,showSkills,showChatArchives,archiving]);
+
+
   function labelGallery(id:string,confirmed:boolean){void queueGallery(async()=>{const next=savedImagesRef.current.map(image=>{if(image.id!==id)return image;const {depictsAvatar,...rest}=image;return confirmed?{...rest,depictsAvatar:true as const}:rest;});await commitGallery(next);}).catch(e=>setGalleryError(String(e)));}
-  function deleteGallery(id:string){void queueGallery(async()=>{const image=savedImagesRef.current.find(i=>i.id===id);if(!image)return;await commitGallery(savedImagesRef.current.filter(i=>i.id!==id));await removeDiskImage(image);}).catch(e=>setGalleryError('Could not finish gallery deletion: '+String(e)));}
+  function deleteGallery(id:string){void queueGallery(async()=>{
+    if(sketchbookJob||sketchbookPlanning.current){setGalleryError('Wait until Mana’s scheduled drawing is finished before deleting gallery pictures.');return;}
+    // Re-check *inside* the serialized gallery queue: a scheduled save may have
+    // completed while this delete was waiting for the file lock.
+    if(sketchbookRef.current.entries.some(entry=>entry.imageId===id)){
+      setGalleryError('This picture is still in Mana’s Sketchbook. Remove it from Sketchbook before deleting the gallery copy.');
+      return;
+    }
+    const image=savedImagesRef.current.find(i=>i.id===id);
+    if(!image)return;
+    await commitGallery(savedImagesRef.current.filter(i=>i.id!==id));
+    await removeDiskImage(image);
+  }).catch(e=>setGalleryError('Could not finish gallery deletion: '+String(e)));}
   function completeChatPicture(image:ImageAttachment){
     if(messagesRef.current.reduce((size,m)=>size+(m.generatedPicture?.dataUrl.length??0),0)+image.dataUrl.length>8_000_000)throw Error('Chat picture storage is full. Save this picture to the library, then archive and clear this chat before generating more.');
     const next:Msg[]=[...messagesRef.current,{id:uid(),role:'assistant',content:'Here’s your picture. [happy]',generatedPicture:image,createdAt:new Date().toISOString()}];
@@ -1239,7 +1353,7 @@ export default function App() {
   const freshAssets = avatar.assets;
 
   return (
-    <div className={`app${showSinging||showSavedImages?' studio-open':''}`} data-main-layout={mainLayout} data-room-editor={roomEditorOpen}>
+    <div className={`app${showSinging||showSavedImages||showSketchbook?' studio-open':''}`} data-main-layout={mainLayout} data-room-editor={roomEditorOpen}>
      <div className="layout-avatar" id="main-avatar-panel" inert={mainLayout===3}>
       <StagePanel
         charName={settings.charName}
@@ -1256,7 +1370,7 @@ export default function App() {
       />
      </div>
      <div className="layout-room" id="main-room-panel" inert={mainLayout===1}>
-      <SceneVoice.Provider value={{ready:mainLayout!==1&&!showSinging&&!showSavedImages&&!showGameDev&&llama.status==='ready'&&!busy&&!reflecting&&!diaryArtId&&!showImageGeneration&&!autoOutfitRunning&&!storage.error,speak:speakInRoom}}>
+      <SceneVoice.Provider value={{ready:mainLayout!==1&&!showSinging&&!showSavedImages&&!showSketchbook&&!showGameDev&&llama.status==='ready'&&!busy&&!reflecting&&!diaryArtId&&!showImageGeneration&&!autoOutfitRunning&&!storage.error,speak:speakInRoom}}>
       <CompanionRoom onForgetManaMemory={id=>setMemories(previous=>previous.filter(memory=>memory.id!==id))} episodes={episodes} memories={memories} events={events} onActivity={recordRoomActivity} timeZone={journal.timeZone} onEditingChange={setRoomEditorOpen}
        manaSpeechReady={llama.status==='ready'&&!busy&&!reflecting&&!diaryArtId&&!showImageGeneration&&!autoOutfitRunning&&!storage.error}
        onChoosePersonalGoal={async(owner,memories,signal)=>{
@@ -1289,7 +1403,7 @@ export default function App() {
        canGenerateFurniture={!busy&&!reflecting&&!autoOutfitRunning&&!diaryArtId&&!showImageGeneration&&!storage.error}
        beforeFurnitureGeneration={async cpu=>cpu?async()=>{}:llama.pauseForImage()}
        projects={gameDev.projects} onOpenGameDev={entry=>{setGameDevEntry(entry);setShowGameDev(true);}}
-       visible={mainLayout!==1&&!showSinging&&!showSavedImages&&!showGameDev}/>
+       visible={mainLayout!==1&&!showSinging&&!showSavedImages&&!showSketchbook&&!showGameDev}/>
       </SceneVoice.Provider>
       {mainLayout!==1&&!roomEditorOpen&&<button className="btn layout-seam layout-avatar-toggle"
        aria-controls="main-avatar-panel" aria-expanded={mainLayout===2}
@@ -1339,6 +1453,7 @@ export default function App() {
           <button className="btn" disabled={autoOutfitRunning||busy||reflecting} onClick={()=>{setChatPicture(undefined);setShowImageGeneration(true);}}>Create picture</button>
           <button className="btn" disabled={autoOutfitRunning||busy||reflecting||!avatar.assets||showImageGeneration} onClick={()=>{setAtelierCategory('outfit');setPrototypePicture(undefined);setShowOutfitPrototype(true);}}>Atelier</button>
           <button className="btn" onClick={()=>setShowSavedImages(true)}>Image gallery</button>
+          <button className="btn" onClick={()=>setShowSketchbook(true)}>Sketchbook ({sketchbook.entries.length})</button>
           <button className="btn" disabled={autoOutfitRunning||busy||reflecting} onClick={()=>setShowSinging(true)}>Songs</button>
           </MoreTools>
         </header>
@@ -1401,7 +1516,7 @@ export default function App() {
           onVoiceMouth={setVoiceMouth}
           messages={messages}
           busy={busy}
-          ready={!autoOutfitRunning && llama.status === "ready" && !reflecting && !showSinging && !showImageGeneration && !showOutfitPrototype && !showWardrobe && !showSavedImages}
+          ready={!autoOutfitRunning && llama.status === "ready" && !reflecting && !showSinging && !showImageGeneration && !showOutfitPrototype && !showWardrobe && !showSavedImages && !showSketchbook}
           charName={settings.charName}
           onSend={sendAttachment}
           userName={settings.userName}
@@ -1412,8 +1527,13 @@ export default function App() {
       </main>
 
       <SingingDrawer active={showSinging&&!showSavedImages} initiative={initiative} onInitiative={changeInitiative} onBusy={setReflecting} onClose={()=>setShowSinging(false)}/>
-      {showImageGeneration&&!chatPicture&&!diaryArtId&&<ImageGenerationDrawer onPrototype={image=>{setAtelierCategory('outfit');setPrototypePicture(image);setShowImageGeneration(false);setChatPicture(undefined);setShowOutfitPrototype(true);}} beforeGenerate={async cpu=>cpu?async()=>{}:llama.pauseForImage()} prepareClothingMask={avatar.assets?(signal,keepAccessories=true)=>prepareAvatarClothingMask(avatar.assets!,{...cfg,accessories:keepAccessories?cfg.accessories:[]},signal):undefined} prepareReference={avatar.assets?(signal,clothingEdit,keepAccessories=true,garmentPrompt)=>prepareAvatarReference(avatar.assets!,{...cfg,accessories:keepAccessories?cfg.accessories:[]},signal,1024,clothingEdit,garmentPrompt):undefined} autoGenerate={false} available={!busy&&!reflecting&&!storage.error} onClose={()=>setShowImageGeneration(false)} onSave={savePictureToLibrary}/>}
-      {showSavedImages&&<SavedImagesDrawer folder={galleryPath} images={savedImages} working={galleryWorking} error={galleryError} onRetry={()=>void initializeGallery()} editable={galleryReady&&!galleryWorking&&!busy&&!reflecting&&!storage.error} onClose={()=>setShowSavedImages(false)} onLabel={labelGallery} onDelete={deleteGallery}/>}
+      {showImageGeneration&&!chatPicture&&!diaryArtId&&!sketchbookJob&&<ImageGenerationDrawer onPrototype={image=>{setAtelierCategory('outfit');setPrototypePicture(image);setShowImageGeneration(false);setChatPicture(undefined);setShowOutfitPrototype(true);}} beforeGenerate={async cpu=>cpu?async()=>{}:llama.pauseForImage()} prepareClothingMask={avatar.assets?(signal,keepAccessories=true)=>prepareAvatarClothingMask(avatar.assets!,{...cfg,accessories:keepAccessories?cfg.accessories:[]},signal):undefined} prepareReference={avatar.assets?(signal,clothingEdit,keepAccessories=true,garmentPrompt)=>prepareAvatarReference(avatar.assets!,{...cfg,accessories:keepAccessories?cfg.accessories:[]},signal,1024,clothingEdit,garmentPrompt):undefined} autoGenerate={false} available={!busy&&!reflecting&&!storage.error} onClose={()=>setShowImageGeneration(false)} onSave={savePictureToLibrary}/>}
+      {showSavedImages&&<SavedImagesDrawer folder={galleryPath} images={savedImages} working={galleryWorking} error={galleryError} onRetry={()=>void initializeGallery()} editable={galleryReady&&!galleryWorking&&!busy&&!reflecting&&!sketchbookJob&&!sketchbookPlanning.current&&!storage.error} onClose={()=>setShowSavedImages(false)} onLabel={labelGallery} onDelete={deleteGallery}/>}
+      {showSketchbook&&<SketchbookWorkspace name={settings.charName} state={sketchbook} images={savedImages} status={sketchbookStatus} galleryReady={galleryReady} galleryWorking={galleryWorking} galleryError={galleryError}
+        onEnable={enabled=>{lastActivityAt.current=Date.now();const current=sketchbookRef.current;const prepared=enabled?{...current,settings:{...current.settings,timeZone:journalRef.current.timeZone}}:current;const next=setSketchbookEnabled(prepared,enabled);sketchbookRef.current=next;saveSketchbook(next);setSketchbook(next);if(!enabled){sketchbookIdeaController.current?.abort();if(sketchbookJob){setSketchbookJob(null);setShowImageGeneration(false);}setSketchbookStatus('Automatic Sketchbook drawings are off.');}else setSketchbookStatus('Sketchbook schedule enabled. Mana will draw when the next slot is due and the app is idle.');}}
+        onCatchUp={catchUp=>{lastActivityAt.current=Date.now();const next={...sketchbookRef.current,settings:{...sketchbookRef.current.settings,catchUp}};sketchbookRef.current=next;saveSketchbook(next);setSketchbook(next);}}
+        onRemove={id=>{lastActivityAt.current=Date.now();const next=removeSketchbookEntry(sketchbookRef.current,id);sketchbookRef.current=next;saveSketchbook(next);setSketchbook(next);setSketchbookStatus('Removed from Sketchbook. The picture is still in Image Gallery.');}}
+        onClose={()=>{lastActivityAt.current=Date.now();setShowSketchbook(false);}}/>}
       {showVision&&<VisionDrawer exePath={settings.exePath} chatPort={llama.port} canDiscuss={llama.status==='ready'&&!busy&&!reflecting&&!storage.error} onBusy={setReflecting} onClose={()=>setShowVision(false)} onDiscuss={text=>{setShowVision(false);void send(text);}}/>}
       {showSettings && (
         <SettingsDrawer
@@ -1475,6 +1595,7 @@ export default function App() {
         onDelete={(id)=>setGoals((prev)=>prev.filter((g)=>g.id!==id))}
         onClose={()=>{if(goalGenerating||workGenerating)abortRef.current?.abort();setShowGoals(false);}} />}
 
+      {sketchbookJob&&<div className="diary-art-job"><strong>Mana’s Sketchbook</strong><p role="status">{sketchbookStatus}</p><ImageGenerationDrawer key={sketchbookJob.slotId} inline showSave={false} initialRequest={sketchbookJob.prepared.pictureRequest} available={!busy&&!reflecting&&!storage.error} beforeGenerate={async cpu=>cpu?async()=>{}:llama.pauseForImage()} onGenerated={image=>{void saveScheduledSketchbookImage(sketchbookJob,image);}} onFailure={error=>{setSketchbookStatus('Sketchbook drawing failed: '+error);setSketchbookJob(null);setShowImageGeneration(false);}} onStopped={()=>{setSketchbookStatus('Sketchbook drawing stopped.');setSketchbookJob(null);setShowImageGeneration(false);}} onClose={()=>{setSketchbookJob(null);setShowImageGeneration(false);}} onSave={()=>{}}/></div>}
       {diaryArtId&&diaryArtRequest&&<div className="diary-art-job"><strong>Illustrating diary</strong><ImageGenerationDrawer key={diaryArtId} inline initialRequest={diaryArtRequest} available={!busy&&!reflecting&&!storage.error} beforeGenerate={async()=>llama.pauseForImage()} prepareReference={avatar.assets?async signal=>prepareDiaryCastReference(await prepareAvatarReference(avatar.assets!,cfg,signal,1024),diaryArtRequest.referenceCast,signal):undefined} onStopped={()=>finishDiaryArt('Illustration stopped. Diary text is saved; use Add illustration to retry.')} onFailure={message=>finishDiaryArt('Diary text is safe. Picture failed: '+message)} onGenerated={image=>{void retainDiaryArtwork(diaryArtId,image);}} onClose={()=>finishDiaryArt('Illustration cancelled. Diary text is saved; use Add illustration to retry.')} onSave={()=>{}}/></div>}
       {showDiary && <DiaryDrawer name={settings.charName} entries={diary} artworkStatus={diaryArtStatus} artworkBusy={!!diaryArtId||!!diaryArtQueue.length} onIllustrate={id=>setDiaryArtQueue(q=>q.includes(id)?q:[...q,id])} onRemoveIllustration={id=>setDiary(prev=>prev.map(e=>{if(e.id!==id)return e;const {illustration,...rest}=e;return rest;}))} draft={reflectionDraft} generating={reflecting}
         onRestore={(id)=>{const entry=diary.find((e)=>e.id===id);if(entry?.journalDate&&diary.some((e)=>!e.deletedAt&&e.journalDate===entry.journalDate)){setJournalStatus("An entry for that day already exists. Move it to Recently deleted before restoring the earlier one.");return;}setDiary((prev)=>prev.map((e)=>{if(e.id!==id)return e;const {deletedAt,...restored}=e;return restored;}));}}
@@ -1492,8 +1613,8 @@ export default function App() {
         onClose={() => { if (reflecting && !journalWriting) abortRef.current?.abort(); setShowDiary(false); }} />}
 
       {showBackgrounds&&<BackgroundPicker cfg={cfg} onChange={changeCfg} onClose={()=>setShowBackgrounds(false)}/>}
-      {avatar.assets&&<><GeneratedHair background assets={avatar.assets} cfg={cfg} available={!roomEditorOpen&&!autoOutfitRunning&&llama.status==='ready'&&!busy&&!reflecting&&!storage.error&&!showImageGeneration&&!showOutfitPrototype&&!showWardrobe&&!showGameDev&&!showSinging&&!showVision&&!showDiary&&!showSavedImages} canAutoCreate={()=>Date.now()-lastActivityAt.current>120000&&!hasChatDraft.current&&!abortRef.current&&!mediaOccupied()} onRunningChange={setAutoOutfitRunning} beforeGenerate={()=>llama.pauseForImage()} onCreated={()=>{void avatar.reload();}}/><GeneratedAccessories background chooseIdea={chooseAccessoryIdea} assets={avatar.assets} cfg={cfg} available={!roomEditorOpen&&!autoOutfitRunning&&llama.status==='ready'&&!busy&&!reflecting&&!storage.error&&!showImageGeneration&&!showOutfitPrototype&&!showWardrobe&&!showGameDev&&!showSinging&&!showVision&&!showDiary&&!showSavedImages} canAutoCreate={()=>Date.now()-lastActivityAt.current>120000&&!hasChatDraft.current&&!abortRef.current&&!mediaOccupied()} onRunningChange={setAutoOutfitRunning} beforeGenerate={()=>llama.pauseForImage()} onCreated={()=>{void avatar.reload();}}/></>}
-      {avatar.assets&&<GeneratedOutfits chooseIdea={chooseOutfitIdea} background timeZone={journal.timeZone} assets={avatar.assets} cfg={cfg} available={!roomEditorOpen&&!autoOutfitRunning&&llama.status==='ready'&&!busy&&!reflecting&&!storage.error&&!showImageGeneration&&!showOutfitPrototype&&!showWardrobe&&!showGameDev&&!showSinging&&!showVision&&!showDiary} canAutoCreate={()=>Date.now()-lastActivityAt.current>120000&&!hasChatDraft.current&&!abortRef.current&&!mediaOccupied()} onRunningChange={setAutoOutfitRunning} beforeGenerate={()=>llama.pauseForImage()} onSaved={(id,name)=>{changeCfg({...savedCfgRef.current,outfitNames:{...savedCfgRef.current.outfitNames,[id]:name}});void avatar.reload();}}/>}
+      {avatar.assets&&<><GeneratedHair background assets={avatar.assets} cfg={cfg} available={!roomEditorOpen&&!autoOutfitRunning&&llama.status==='ready'&&!busy&&!reflecting&&!storage.error&&!showImageGeneration&&!showOutfitPrototype&&!showWardrobe&&!showGameDev&&!showSinging&&!showVision&&!showDiary&&!showSavedImages&&!showSketchbook} canAutoCreate={()=>!sketchbookPlanning.current&&!sketchbookJob&&!showSketchbook&&Date.now()-lastActivityAt.current>120000&&!hasChatDraft.current&&!abortRef.current&&!mediaOccupied()} onRunningChange={setAutoOutfitRunning} beforeGenerate={()=>llama.pauseForImage()} onCreated={()=>{void avatar.reload();}}/><GeneratedAccessories background chooseIdea={chooseAccessoryIdea} assets={avatar.assets} cfg={cfg} available={!roomEditorOpen&&!autoOutfitRunning&&llama.status==='ready'&&!busy&&!reflecting&&!storage.error&&!showImageGeneration&&!showOutfitPrototype&&!showWardrobe&&!showGameDev&&!showSinging&&!showVision&&!showDiary&&!showSavedImages&&!showSketchbook} canAutoCreate={()=>!sketchbookPlanning.current&&!sketchbookJob&&!showSketchbook&&Date.now()-lastActivityAt.current>120000&&!hasChatDraft.current&&!abortRef.current&&!mediaOccupied()} onRunningChange={setAutoOutfitRunning} beforeGenerate={()=>llama.pauseForImage()} onCreated={()=>{void avatar.reload();}}/></>}
+      {avatar.assets&&<GeneratedOutfits chooseIdea={chooseOutfitIdea} background timeZone={journal.timeZone} assets={avatar.assets} cfg={cfg} available={!roomEditorOpen&&!autoOutfitRunning&&llama.status==='ready'&&!busy&&!reflecting&&!storage.error&&!showImageGeneration&&!showOutfitPrototype&&!showWardrobe&&!showGameDev&&!showSinging&&!showVision&&!showDiary} canAutoCreate={()=>!sketchbookPlanning.current&&!sketchbookJob&&!showSketchbook&&Date.now()-lastActivityAt.current>120000&&!hasChatDraft.current&&!abortRef.current&&!mediaOccupied()} onRunningChange={setAutoOutfitRunning} beforeGenerate={()=>llama.pauseForImage()} onSaved={(id,name)=>{changeCfg({...savedCfgRef.current,outfitNames:{...savedCfgRef.current.outfitNames,[id]:name}});void avatar.reload();}}/>}
       {showOutfitPrototype&&avatar.assets&&<Atelier initialCategory={atelierCategory} onReviewSaved={()=>{setReturnToReview(true);setShowOutfitPrototype(false);setShowWardrobe(true);}} onWardrobeSaved={()=>avatar.reload()} assets={avatar.assets} cfg={cfg} initial={prototypePicture} available={!busy&&!reflecting&&!storage.error} beforeGenerate={async cpu=>cpu?async()=>{}:llama.pauseForImage()} onSaveImage={savePictureToLibrary} onClose={()=>setShowOutfitPrototype(false)}/>}
       {showWardrobe && wardrobe && (
         <Wardrobe chooseOutfitIdea={chooseOutfitIdea} chooseAccessoryIdea={chooseAccessoryIdea} onCreateItem={category=>{setPrototypePicture(undefined);setAtelierCategory(category);setShowWardrobe(false);setShowOutfitPrototype(true);}} initialReview={returnToReview||!!prototypePicture?.reviewId} creationAvailable={!autoOutfitRunning&&!busy&&!reflecting&&!storage.error&&!showImageGeneration} beforeOutfitGenerate={()=>llama.pauseForImage()} onOutfitSaved={()=>avatar.reload()} onEditOutfit={image=>{setAtelierCategory('outfit');setPrototypePicture(image);setShowWardrobe(false);setShowOutfitPrototype(true);}} assets={avatar.assets??undefined}

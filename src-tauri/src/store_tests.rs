@@ -495,3 +495,24 @@ fn code_game_versions_and_run_reports_survive_reopen() {
  {let mut db=open(&file).unwrap();assert_eq!(initialize(&mut db,&BTreeMap::new()).unwrap()["mana.code_games.v1"],r#"{"games":[],"reports":[]}"#);}
  std::fs::remove_file(file).unwrap();
 }
+
+
+#[test]
+fn sketchbook_state_persists_independently_of_diary() {
+    let mut db = open(Path::new(":memory:")).unwrap();
+    let raw = r#"{"settings":{"enabled":false,"frequencyPerWeek":3,"announceInChat":false,"catchUp":true,"timeZone":"Asia/Singapore","enabledAt":null},"entries":[]}"#;
+    save(
+        &mut db,
+        &values(&[("mana.sketchbook.v1", raw), ("mana.diary.v1", "[]")]),
+    )
+    .unwrap();
+
+    let loaded = initialize(&mut db, &BTreeMap::new()).unwrap();
+    assert_eq!(loaded["mana.sketchbook.v1"], raw);
+    assert_eq!(loaded["mana.diary.v1"], "[]");
+
+    save(&mut db, &values(&[("mana.sketchbook.v1", r#"{"settings":{"enabled":true},"entries":[]}"#)])).unwrap();
+    let updated = initialize(&mut db, &BTreeMap::new()).unwrap();
+    assert!(updated["mana.sketchbook.v1"].contains(r#""enabled":true"#));
+    assert_eq!(updated["mana.diary.v1"], "[]");
+}
