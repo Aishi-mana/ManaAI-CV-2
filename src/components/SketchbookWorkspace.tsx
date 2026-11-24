@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react';
-import {sketchbookScheduleSummary,type SketchbookEntry,type SketchbookState} from '../core/sketchbook';
+import {sketchbookScheduleSummary,sketchbookCreativePatterns,type SketchbookEntry,type SketchbookState} from '../core/sketchbook';
 import type {SavedImage} from '../core/savedImages';
 import DiskGalleryPicture from './DiskGalleryPicture';
 import {imageOriginLabel} from '../core/imageOrigin';
@@ -33,9 +33,11 @@ export default function SketchbookWorkspace({
  useEffect(()=>{const timer=window.setInterval(()=>setNow(new Date()),60_000);return()=>window.clearInterval(timer);},[]);
  const nextDrawing=sketchbookScheduleSummary(state,now);
  const entries=[...state.entries].sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+ const patterns=sketchbookCreativePatterns(entries);
  const imagesById=new Map(images.map(image=>[image.id,image]));
  const matches=entries.filter(entry=>(entry.title+' '+entry.concept).toLowerCase().includes(query.trim().toLowerCase()));
  const active=entries.find(entry=>entry.id===selected);
+ const revisited=active?.revisitedDrawingId?entries.find(entry=>entry.id===active.revisitedDrawingId):undefined;
  const imageFor=(entry:SketchbookEntry)=>imagesById.get(entry.imageId);
  const disabledReason=!galleryReady
   ?'Waiting for the image gallery to finish loading; scheduled drawings will not begin until it is ready.'
@@ -75,6 +77,17 @@ export default function SketchbookWorkspace({
     {galleryWorking&&<p role="status">Image gallery is saving or loading…</p>}
     {galleryError&&<p role="alert" className="msg-error">{galleryError}</p>}
    </div>}
+   <section aria-label="Recurring creative themes" style={{marginBottom:22}}>
+    <h2>Creative patterns</h2>
+    {patterns.length?
+     <><p className="hint-soft">Themes that appear in at least two of Mana's saved drawing ideas. These describe her art, not real-world memories or permanent personality traits.</p>
+      <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+       {patterns.map(pattern=><span key={pattern.motif} className="badge" style={{border:'1px solid currentColor',borderRadius:99,padding:'4px 10px'}}>
+        {pattern.motif} · {pattern.count} drawings
+       </span>)}
+      </div></>:
+     <p className="hint-soft">As Mana saves more drawings, recurring visual themes can appear here. Older drawings stay unchanged.</p>}
+   </section>
    <section aria-label="Imagined drawings">
     <div style={{display:'flex',alignItems:'end',gap:16,flexWrap:'wrap'}}>
      <div style={{flex:1}}><h2>Drawings · {entries.length}</h2><p className="hint-soft">Imagined artwork, never a diary record or evidence of a real event.</p></div>
@@ -86,6 +99,16 @@ export default function SketchbookWorkspace({
      <button className="btn" onClick={()=>setSelected(undefined)}>Back to drawings</button>
      <h2 style={{overflowWrap:'anywhere'}}>{active.title}</h2>
      <p>{active.concept}</p>
+     {active.creativeReason&&<blockquote style={{margin:'10px 0',padding:'10px 14px',borderLeft:'3px solid currentColor'}}>
+      <strong>Why Mana chose this idea</strong><p style={{margin:'5px 0 0'}}>{active.creativeReason}</p>
+      <small className="hint-soft">A note from her local creative model, not a diary event</small>
+     </blockquote>}
+     {!!active.motifs?.length&&<p className="hint-soft"><strong>Visual themes:</strong> {active.motifs.join(' · ')}</p>}
+     {active.revisitedDrawingId&&<p className="hint-soft">
+      <strong>Inspired by earlier artwork: </strong>
+      {revisited?<button type="button" className="btn" onClick={()=>setSelected(revisited.id)}>{revisited.title}</button>:
+       'An older drawing that is no longer in Sketchbook'}
+     </p>}
      {imageFor(active)?<DiskGalleryPicture image={imageFor(active)!}/>:<p role="status" className="msg-error">This drawing's gallery image is missing. The Sketchbook record is still here.</p>}
      <p className="hint-soft">{active.sourceType==='manual-drawing'?'Manual test drawing':'Scheduled imagined artwork'} · {dateLabel(active.createdAt)} · Inspired by {active.inspiration}</p>
      {active.model&&<p className="hint-soft">Local model: {active.model}{active.seed!==undefined?' · Seed: '+active.seed:''}</p>}

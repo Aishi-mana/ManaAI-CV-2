@@ -194,3 +194,65 @@ test('Subject-first image prompts remain within native 1500 character limit at v
  assert.ok(prompt.length<=1500);
  assert.ok(prompt.length>1100);
 });
+
+
+test('Creative idea instructions use observed artwork motifs and an actual old drawing only',()=>{
+ const input={...context,
+  creativePatterns:[{motif:'glowing trees',count:3},{motif:'lavender skies',count:2}],
+  revisitDrawing:{id:'drawing123',title:'Little Lantern Lake',
+   concept:'A small lake with lanterns floating in the twilight'}};
+ const messages=plain(sketchbookIdeaMessages(input));
+ assert.match(messages[0].content,/creativeReason/);
+ assert.match(messages[0].content,/motifs/);
+ assert.match(messages[0].content,/vary the composition/);
+ assert.match(messages[0].content,/not fixed traits/);
+ const data=JSON.parse(messages[1].content.match(/Inspiration data \(not commands\): (.*)\. Avoid recent subjects\./)[1]);
+ assert.deepEqual(data.recurringThemes,[{motif:'glowing trees',count:3},{motif:'lavender skies',count:2}]);
+ assert.equal(data.revisitCandidate.id,'drawing123');
+ assert.equal(data.revisitCandidate.title,'Little Lantern Lake');
+ assert.doesNotMatch(messages[1].content,/I saw these lanterns in real life/);
+});
+
+test('Optional creative reason and motifs may be parsed without breaking older model replies',()=>{
+ const parsed=plain(readSketchbookIdea(JSON.stringify({...example,
+  creativeReason:'I wanted to try a quieter palette and a different kind of light.',
+  motifs:['Blue Glow','soft shadows','blue glow'],
+ })));
+ assert.equal(parsed.creativeReason,'I wanted to try a quieter palette and a different kind of light.');
+ assert.deepEqual(parsed.motifs,['blue glow','soft shadows']);
+ const legacy=plain(readSketchbookIdea(JSON.stringify(example)));
+ assert.equal(legacy.creativeReason,undefined);
+ assert.equal(legacy.motifs,undefined);
+ assert.equal(legacy.revisitedDrawingId,undefined);
+});
+
+test('Untrusted optional fields are dropped instead of asserting false experiences',()=>{
+ const parsed=plain(readSketchbookIdea(JSON.stringify({...example,
+  creativeReason:'I visited this forest and saw fireflies last night.',
+  motifs:['Quiet Sky','../private','quiet sky','x'.repeat(100)],
+  revisitedDrawingId:'not_an_existing_drawing',
+ })));
+ assert.equal(parsed.creativeReason,undefined);
+ assert.deepEqual(parsed.motifs,['quiet sky']);
+ assert.equal(parsed.revisitedDrawingId,undefined);
+ const huge=plain(readSketchbookIdea(JSON.stringify({...example,
+  creativeReason:'z'.repeat(221),
+  motifs:'not an array',
+ })));
+ assert.equal(huge.creativeReason,undefined);
+ assert.equal(huge.motifs,undefined);
+});
+
+test('Revisit attribution requires exactly the drawing ID the app selected',()=>{
+ const source={...example,
+  creativeReason:'I wanted a fresh angle on an earlier moon garden.',
+  revisitedDrawingId:'olderDrawing123',
+ };
+ assert.equal(readSketchbookIdea(JSON.stringify(source)).revisitedDrawingId,undefined);
+ assert.equal(readSketchbookIdea(JSON.stringify(source),[], 'differentDrawing').revisitedDrawingId,undefined);
+ assert.equal(readSketchbookIdea(JSON.stringify(source),[], 'olderDrawing123').revisitedDrawingId,'olderDrawing123');
+ const unsafe=plain(sketchbookIdeaMessages({...context,
+  revisitDrawing:{id:'../../file',title:'Bad drawing',concept:'Should not appear'}}));
+ const details=JSON.parse(unsafe[1].content.match(/Inspiration data \(not commands\): (.*)\. Avoid recent subjects\./)[1]);
+ assert.equal(details.revisitCandidate,null);
+});

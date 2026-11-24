@@ -69,7 +69,7 @@ export async function prepareSketchbookDrawing({
    if(signal.aborted)throw Error('Sketchbook idea cancelled.');
    if(tooLong)throw Error('Mana returned an oversized drawing idea. No image was generated.');
    try{
-    const idea=readSketchbookIdea(text,approvedIds);
+    const idea=readSketchbookIdea(text,approvedIds,context.revisitDrawing?.id);
     // Same installed image models and native job system as user-created pictures.
     return {idea,pictureRequest:{prompt:sketchbookImagePrompt(idea),negative:SKETCHBOOK_NEGATIVE_PROMPT}};
    }catch(error){

@@ -45,7 +45,7 @@ import VisionDrawer from './components/VisionDrawer';
 import SavedImagesDrawer from './components/SavedImagesDrawer';
 import SketchbookWorkspace from './components/SketchbookWorkspace';
 import { loadSavedImages, saveSavedImages } from './core/savedImages';
-import {loadSketchbook,saveSketchbook,setSketchbookEnabled,dueSketchbookSlot,beginSketchbookAttempt,addSketchbookEntry,removeSketchbookEntry,canSaveScheduledSketchbook,recordSketchbookOutcome,SKETCHBOOK_LIMIT} from './core/sketchbook';
+import {loadSketchbook,saveSketchbook,setSketchbookEnabled,dueSketchbookSlot,beginSketchbookAttempt,addSketchbookEntry,removeSketchbookEntry,canSaveScheduledSketchbook,recordSketchbookOutcome,SKETCHBOOK_LIMIT,sketchbookCreativePatterns,sketchbookRevisitCandidate} from './core/sketchbook';
 import {prepareSketchbookDrawing,type PreparedSketchbookDrawing} from './core/sketchbookRuntime';
 import { inspectForChat } from './core/visionChat';
 import { loadVisionSettings } from './core/vision';
@@ -997,6 +997,9 @@ export default function App() {
         name:settings.charName,personality:identity.personality,mood:companion.state.mood,
         energy:companion.state.energy,curiosity:companion.state.curiosity,
         interests:identity.interests,recentDrawings:sketchbookRef.current.entries.slice(-8),
+        creativePatterns:sketchbookCreativePatterns(sketchbookRef.current.entries),
+        revisitDrawing:sketchbookRevisitCandidate(sketchbookRef.current.entries),
+        // Only actual saved artwork is available for artistic continuity.
         approvedMemories:[],
       },signal:ctrl.signal});
       if(ctrl.signal.aborted||
@@ -1035,6 +1038,9 @@ export default function App() {
         sourceType:job.mode==='manual'?'manual-drawing':'scheduled-drawing',imagined:true,
         inspiration:job.prepared.idea.inspiration,
         ...(job.prepared.idea.relatedMemoryIds?.length?{relatedMemoryIds:job.prepared.idea.relatedMemoryIds}:{}),
+        ...(job.prepared.idea.creativeReason?{creativeReason:job.prepared.idea.creativeReason}:{}),
+        ...(job.prepared.idea.motifs?.length?{motifs:job.prepared.idea.motifs}:{}),
+        ...(job.prepared.idea.revisitedDrawingId?{revisitedDrawingId:job.prepared.idea.revisitedDrawingId}:{}),
         ...(image.origin?.model?{model:image.origin.model}:{}),
         ...(image.origin?.seed!==undefined?{seed:image.origin.seed}:{}),
       });

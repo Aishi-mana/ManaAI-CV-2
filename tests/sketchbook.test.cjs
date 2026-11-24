@@ -32,7 +32,7 @@ function load(file,cache=new Map()){
 
 const sketchbook=load('src/core/sketchbook.ts');
 const {SKETCHBOOK_KEY,SKETCHBOOK_DAYS,validateSketchbook,setSketchbookEnabled,
- dueSketchbookSlot,beginSketchbookAttempt,addSketchbookEntry,removeSketchbookEntry,canSaveScheduledSketchbook,recordSketchbookOutcome,sketchbookScheduleSummary,loadSketchbook,saveSketchbook}=sketchbook;
+ dueSketchbookSlot,beginSketchbookAttempt,addSketchbookEntry,removeSketchbookEntry,canSaveScheduledSketchbook,recordSketchbookOutcome,sketchbookScheduleSummary,sketchbookCreativePatterns,sketchbookRevisitCandidate,loadSketchbook,saveSketchbook}=sketchbook;
 const at=iso=>new Date(iso);
 const starting=()=>setSketchbookEnabled(validateSketchbook(null),true,at('2026-11-02T01:00:00.000Z')); // Monday 09:00 Singapore
 function drawing(slotId,createdAt,n=1){
@@ -346,4 +346,87 @@ test('Last drawing outcome is persisted, bounded and safe to restore',()=>{
  assert.equal(tooLong.lastOutcome.message.length,360);
  const bad=validateSketchbook({...state,lastOutcome:{kind:'failed',at:'invalid',message:'x'}});
  assert.equal(bad.lastOutcome,undefined);
+});
+
+
+test('Creative notes and visual motifs survive save, reload and validation without changing legacy drawings',()=>{
+ let state=starting();
+ const idea={
+  ...drawing('2026-11-03','2026-11-03T04:10:00.000Z'),
+  creativeReason:'I liked the contrast of lantern light and night sky.',
+  motifs:['Glowing Lanterns',' moon garden ','glowing lanterns'],
+ };
+ state=addSketchbookEntry(state,idea);
+ assert.equal(state.entries[0].creativeReason,idea.creativeReason);
+ assert.deepEqual(plain(state.entries[0].motifs),['glowing lanterns','moon garden']);
+ saveSketchbook(state);
+ const restored=loadSketchbook();
+ assert.deepEqual(plain(restored),plain(state));
+ assert.equal(restored.entries[0].revisitedDrawingId,undefined);
+ const old=addSketchbookEntry(starting(),drawing('2026-11-03','2026-11-03T04:10:00.000Z'));
+ assert.equal(old.entries[0].motifs,undefined);
+ assert.equal(old.entries[0].creativeReason,undefined);
+});
+
+test('Unsafe creative claims and oversized optional metadata are ignored, not turned into memories',()=>{
+ const base=drawing('2026-11-03','2026-11-03T04:10:00.000Z');
+ const entry={...base,creativeReason:'I visited the forest yesterday',
+  motifs:['MOON GARDEN','moon garden','../secrets','x'.repeat(40),'night sky'],
+  revisitedDrawingId:'../invented'};
+ const state=addSketchbookEntry(starting(),entry);
+ const saved=state.entries[0];
+ assert.equal(saved.creativeReason,undefined);
+ assert.equal(saved.revisitedDrawingId,undefined);
+ assert.deepEqual(plain(saved.motifs),['moon garden','night sky']);
+ const long=addSketchbookEntry(starting(),{...base,creativeReason:'z'.repeat(221)});
+ assert.equal(long.entries[0].creativeReason,undefined);
+});
+
+test('Recurring patterns count each motif once per completed drawing, not made-up preferences',()=>{
+ const rows=[
+  {motifs:['moon garden','moon garden','cozy lights']},
+  {motifs:['moon garden','quiet sky']},
+  {motifs:['quiet sky','blue fireflies']},
+  {motifs:['blue fireflies']},
+ ];
+ const themes=plain(sketchbookCreativePatterns(rows));
+ assert.deepEqual(themes,[
+  {motif:'blue fireflies',count:2},
+  {motif:'moon garden',count:2},
+  {motif:'quiet sky',count:2},
+ ]);
+ assert.deepEqual(plain(sketchbookCreativePatterns([{motifs:['one-off']}])),[]);
+});
+
+test('Only every fifth artwork may revisit an actual older drawing, without copying or invented IDs',()=>{
+ const oldDates=['2026-10-20','2026-10-22','2026-10-24','2026-10-27'];
+ let state=starting();
+ for(const [i,slot] of oldDates.entries()){
+  state=addSketchbookEntry(state,drawing(slot,slot+'T04:15:00.000Z',i+1));
+ }
+ const revisit=sketchbookRevisitCandidate(state.entries,at('2026-11-02T04:00:00.000Z'));
+ assert.equal(revisit.id,'drawing1');
+ assert.equal(revisit.title,'A moon garden');
+ assert.equal(revisit.concept,'An imaginary garden with glowing flowers');
+ assert.equal(sketchbookRevisitCandidate(state.entries,at('2026-10-26T05:00:00.000Z')),null);
+ assert.equal(sketchbookRevisitCandidate(state.entries.slice(0,3),at('2026-11-02T04:00:00.000Z')),null);
+ const next={...drawing('2026-11-03','2026-11-03T04:15:00.000Z',5),
+  revisitedDrawingId:revisit.id,motifs:['moon garden'],creativeReason:'I wanted a different view of that earlier garden.'};
+ state=addSketchbookEntry(state,next);
+ assert.equal(state.entries[4].revisitedDrawingId,'drawing1');
+ assert.equal(sketchbookRevisitCandidate(state.entries,at('2026-11-03T05:00:00.000Z')),null);
+ const restored=validateSketchbook(JSON.parse(JSON.stringify(state)));
+ assert.deepEqual(plain(restored),plain(state));
+});
+
+test('A revisit link remains historical artwork provenance after original entry removal',()=>{
+ let state=starting();
+ const older=drawing('2026-11-03','2026-11-03T04:15:00.000Z',1);
+ const newer={...drawing('2026-11-05','2026-11-05T04:15:00.000Z',2),
+  revisitedDrawingId:older.id};
+ state=addSketchbookEntry(addSketchbookEntry(state,older),newer);
+ state=removeSketchbookEntry(state,older.id);
+ assert.equal(state.entries.length,1);
+ assert.equal(state.entries[0].revisitedDrawingId,'drawing1');
+ assert.ok(state.removedSlots.includes('2026-11-03'));
 });
