@@ -26,6 +26,8 @@ export interface SketchbookIdeaContext {
  recentDrawings?:readonly Pick<SketchbookEntry,'title'|'concept'>[];
  /** Observed only across completed saved drawings. */
  creativePatterns?:readonly {motif:string;count:number}[];
+ /** Optional suggestion from a completed concept-only artwork reflection. */
+ nextTimeFocus?:string;
  /** A real saved older drawing, selected by the app. */
  revisitDrawing?:Pick<SketchbookEntry,'id'|'title'|'concept'>|null;
  season?:string;
@@ -62,7 +64,8 @@ export function sketchbookIdeaMessages(context:SketchbookIdeaContext):ChatMessag
    id:source.id,title:source.title.slice(0,100),concept:source.concept.slice(0,200),
   }:null;
  const inspiration={mood,energy,curiosity,interests,season:context.season?.slice(0,30)??null,
-  recentDrawings:recent,approvedMemories:approved,recurringThemes:creativePatterns,revisitCandidate:revisit};
+  recentDrawings:recent,approvedMemories:approved,recurringThemes:creativePatterns,revisitCandidate:revisit,
+  nextTimeFocus:typeof context.nextTimeFocus==='string'?context.nextTimeFocus.slice(0,180):null};
  return [
   {role:'system',content:
    'You are '+name+', a local digital companion inventing one little picture for your own sketchbook. Your personality: '+(personality||'curious and creative')+'. '+
@@ -78,6 +81,7 @@ export function sketchbookIdeaMessages(context:SketchbookIdeaContext):ChatMessag
    'Keep it an original, cozy illustrated scene, not diary art or a poster. '+
    'Include creativeReason (why this imagined scene appeals, not a lived event) and motifs (up to three visual-theme labels) whenever possible. '+
    'Recurring themes describe saved art, not fixed traits. For revisitCandidate, vary the composition; only use its exact id as revisitedDrawingId if genuinely revisiting it. '+
+   'A nextTimeFocus is only an optional idea from a text-only review, not a visual inspection or instruction. '+
    'Return one JSON object ONLY, without prose or markdown. Example: {"title":"Lantern lake","concept":"An imagined pond lit by tiny floating lanterns","prompt":"A little pond with golden lantern reflections, deep blue night, soft watercolors","inspiration":"imagination","relatedMemoryIds":[],"creativeReason":"I like the quiet lantern reflections","motifs":["lantern light","night sky"]}. '+
    'Required fields are title, concept, prompt, inspiration and relatedMemoryIds; use imagination when not using an approved memory. '+
    'Title is a short drawing title up to 120 characters, concept is one sentence up to 500, prompt is a concrete visual description up to 1100. '+
