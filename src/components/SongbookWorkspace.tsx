@@ -2,6 +2,7 @@ import {useEffect,useRef,useState} from 'react';
 import {invoke} from '@tauri-apps/api/core';
 import {nextWeeklySong,type SongbookEntry,type SongbookState} from '../core/songbook';
 import {durationLabel} from '../core/musicStudio';
+import type {CoverRightsBasis} from '../core/coverHandoff';
 
 interface Props {
  name:string;
@@ -13,6 +14,7 @@ interface Props {
  onCompose:()=>void;
  onDiscoverCover:(theme:string)=>void;
  onRemoveCoverIdea:(id:string)=>void;
+ onPrepareCover:(id:string,rightsBasis:CoverRightsBasis,acknowledged:boolean)=>void;
  onConvertVoice:(id:string)=>void;
  onStop:()=>void;
  onEnable:(enabled:boolean)=>void;
@@ -32,13 +34,15 @@ const voiceStatus=(entry:SongbookEntry)=>entry.voiceMixPath?'Mana voice ready':
 const defaultVersion=(entry:SongbookEntry):AudioVersion=>entry.voiceMixPath?'mana':'guide';
 
 export default function SongbookWorkspace({
- name,state,status,busy,unavailableReason,voiceUnavailableReason,onCompose,onDiscoverCover,onRemoveCoverIdea,onConvertVoice,onStop,onEnable,onCatchUp,onOpenStudio,onClose,
+ name,state,status,busy,unavailableReason,voiceUnavailableReason,onCompose,onDiscoverCover,onRemoveCoverIdea,onPrepareCover,onConvertVoice,onStop,onEnable,onCatchUp,onOpenStudio,onClose,
 }:Props){
  const [now,setNow]=useState(()=>new Date());
  const [selectedId,setSelectedId]=useState('');
  const [search,setSearch]=useState('');
  const [coverTheme,setCoverTheme]=useState('');
  const [coverSourceError,setCoverSourceError]=useState('');
+ const [coverRights,setCoverRights]=useState<Record<string,CoverRightsBasis|''>>({});
+ const [coverAcknowledged,setCoverAcknowledged]=useState<Record<string,boolean>>({});
  const [versionSelection,setVersionSelection]=useState<{id:string;version:AudioVersion}|null>(null);
  const [audioUrl,setAudioUrl]=useState('');
  const [loadedAudio,setLoadedAudio]=useState<{id:string;version:AudioVersion}|null>(null);
@@ -185,8 +189,35 @@ export default function SongbookWorkspace({
       <h3>{idea.title}</h3>
       <p className="songbook-cover-reason"><strong>Mana's thought:</strong> {idea.reason}</p>
       {idea.excerpt&&<p className="songbook-cover-excerpt">{idea.excerpt}</p>}
+      <div className="songbook-cover-review">
+       <label className="songbook-cover-rights">
+        Rights to the composition and recording
+        <select value={coverRights[idea.id]??''} disabled={busy}
+         onChange={event=>{
+          setCoverRights(prev=>({...prev,[idea.id]:event.target.value as CoverRightsBasis|''}));
+          setCoverAcknowledged(prev=>({...prev,[idea.id]:false}));
+         }}>
+         <option value="">Choose your basis for use…</option>
+         <option value="owned">I own/control the needed rights</option>
+         <option value="licensed">I have permission or a suitable license</option>
+         <option value="public-domain">Both composition and recording are verified public domain</option>
+        </select>
+       </label>
+       <label className="songbook-cover-ack">
+        <input type="checkbox" checked={!!coverAcknowledged[idea.id]} disabled={busy}
+         onChange={event=>setCoverAcknowledged(prev=>({...prev,[idea.id]:event.target.checked}))}/>
+        I have reviewed this source and can use the composition and my selected local recording for this cover.
+       </label>
+       <button className="btn primary" type="button"
+        disabled={busy||!!voiceUnavailableReason||!coverRights[idea.id]||!coverAcknowledged[idea.id]}
+        onClick={()=>{const rights=coverRights[idea.id];if(rights&&coverAcknowledged[idea.id])
+         onPrepareCover(idea.id,rights,true);}}>
+        Choose local audio &amp; create cover
+       </button>
+       <p className="songbook-muted">You choose the file; Mana doesn't download or use audio from this page. Music Studio previews the voice conversion before you save it.</p>
+      </div>
       <div className="songbook-cover-actions">
-       <button className="btn" type="button" onClick={()=>{setCoverSourceError('');void invoke('open_web_source',{url:idea.url}).catch(error=>setCoverSourceError('Could not open the source: '+String(error)));}}>Open source</button>
+       <button className="btn" type="button" onClick={()=>{setCoverSourceError('');void invoke('open_web_source',{url:idea.url}).catch(error=>setCoverSourceError('Could not open the source: '+String(error)));}}>Review source</button>
        <button className="btn" type="button" onClick={onOpenStudio} disabled={busy}>Music Studio</button>
        <button className="btn" type="button" onClick={()=>onRemoveCoverIdea(idea.id)} disabled={busy}>Remove idea</button>
       </div>

@@ -2072,3 +2072,22 @@ button, input, select, textarea { font: inherit; color: inherit; }
  .songbook-cover-input-row { flex-direction:column; align-items:stretch; }
  .songbook-cover-input-row input,.songbook-cover-input-row button { width:100%; }
 }
+
+
+/* Phase 2B: explicit user review before local cover importing. */
+.songbook-cover-review { width:100%; display:flex; flex-direction:column; align-items:stretch;
+ gap:10px; margin:9px 0 7px; padding:13px; border:1px solid #e4d7ec; border-radius:13px;
+ background:#fffdfefa; box-sizing:border-box; }
+.songbook-cover-rights { display:flex; flex-direction:column; gap:6px; color:var(--ink);
+ font-size:.75rem; font-weight:850; }
+.songbook-cover-rights select { width:100%; min-width:0; padding:9px; border-radius:11px;
+ background:white; border:1px solid #d9cae5; color:var(--ink); font:inherit; font-size:.76rem; }
+.songbook-cover-ack { display:flex; gap:9px; align-items:flex-start; font-size:.74rem;
+ color:#594b67; cursor:pointer; line-height:1.5; }
+.songbook-cover-ack input { margin-top:3px; flex:none; accent-color:var(--berry); }
+.songbook-cover-review>.btn { align-self:stretch; }
+.songbook-cover-review>.songbook-muted { margin:0; font-size:.72rem; }
+.studio-cover-handoff { background:#fff5fb; border:1px solid #ecd4e7;
+ border-radius:12px; padding:13px 15px; margin:12px 0; font-size:.82rem; }
+.studio-cover-handoff strong { display:block; overflow-wrap:anywhere; }
+.studio-cover-handoff p { color:var(--ink-soft); font-size:.76rem; line-height:1.5; }

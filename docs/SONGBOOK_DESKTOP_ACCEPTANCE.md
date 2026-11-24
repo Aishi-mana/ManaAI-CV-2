@@ -12,8 +12,8 @@ or listen to a rendered song. Do not mark those tests passed based on CI alone.
 - [ ] Confirm the original-song generator works manually inside **Songs →
       Original Song** before enabling automatic weekly songs. If it cannot
       run, Songbook must still preserve the written draft.
-- [ ] No web searches or internet music are needed. Covers are out of scope
-      for the first version.
+- [ ] Original Songbook compositions do not need web searches or internet music.
+      The separate Cover Inspirations flow uses Mana's existing local SearXNG.
 
 ## Compose Now smoke test
 
@@ -64,13 +64,41 @@ or listen to a rendered song. Do not mark those tests passed based on CI alone.
 - [ ] Reboot Mana after a reservation or failed audio job. It must not retry
       the same Sunday every minute or generate duplicate songs.
 
+## Phase 2B — reviewed local cover handoff
+
+- [ ] Start local SearXNG and Mana's chat model. In **Songbook → Cover Inspirations**,
+      save an inspiration, then open its **Review source** link. Confirm search
+      results are only source pages, never imported audio or verified licenses.
+- [ ] Without choosing a rights basis and explicitly confirming permission for
+      **both the musical composition and recording**, **Choose local audio & create cover**
+      must remain disabled.
+- [ ] Select a rights basis and acknowledge permission. Press **Choose local audio & create cover**,
+      cancel the Windows picker, and confirm the cover idea remains saved with no
+      Studio conversion started.
+- [ ] Repeat, choosing a local WAV/MP3/FLAC/OGG/M4A file that you're permitted
+      to use. Confirm the native importer creates a WAV in `exports/singing/import-*`
+      and opens **Music Studio → Create Cover** with the imported WAV selected.
+- [ ] Confirm **Mana · trained** is selected, original instruments and whole song
+      are chosen, and the source review appears as **owner-declared**. The app must
+      not claim that it checked a license itself. No cover is generated yet.
+- [ ] Click **Generate full cover preview**. Listen to the generated version before
+      saving. Save it, reopen Studio, and confirm its source title/URL, review date,
+      rights basis and local audio source survive persistence.
+- [ ] Select a different source audio file in Studio and confirm the previous
+      inspiration's provenance is cleared rather than attached to unrelated audio.
+- [ ] Attempt a second handoff while a Studio cover preview is unsaved; declining
+      replacement must preserve that preview.
+- [ ] Confirm regular chat and GPU access recover after conversion. If FFmpeg,
+      extraction or the trained voice model is missing, the original cover idea
+      and the user's local file must remain unaffected.
+
 ## Local-only assets and future covers
 
 - [ ] Manaverse files remain local until the owner and Codex choose to
       convert them to WebP. Do not upload them to get Songbook working.
-- [ ] Only original compositions should appear in this collection. A later
-      web-search-and-cover feature will need a separate review of media
-      sources, permitted rights, and the existing voice-conversion pipeline.
+- [ ] Original Songbook entries remain separate from Cover Inspirations and
+      saved Studio covers. Search results never download third-party audio.
+      The owner picks only files they are permitted to use.
 
 Record the app commit, ACE-Step and trained Mana voice setup, both WAV
 paths and durations, guide-to-conversion handoff, chat recovery after GPU use

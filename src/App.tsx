@@ -15,6 +15,7 @@ import { canRecoverStarCollector, developmentAttempts, developmentDue, developme
 import { STAR_COLLECTOR_MARKER, STAR_COLLECTOR_REQUEST, STAR_COLLECTOR_STARTER } from "./core/starCollectorCheck";
 import { canRouteToWeb, shouldSearchWeb, webSearchCommand } from "./core/webSearch";
 import { invoke } from "@tauri-apps/api/core";
+import {open} from "@tauri-apps/plugin-dialog";
 import {requestsMemoryRecall, semanticReplyMemories} from './core/semanticMemory';
 import GeneratedHair from './components/GeneratedHair';
 import GeneratedAccessories from './components/GeneratedAccessories';
@@ -42,6 +43,7 @@ import SongbookWorkspace from './components/SongbookWorkspace';
 import {loadSongbook,saveSongbook,setSongbookEnabled,dueWeeklySong,reserveWeeklySong,addSongDraft,completeSongAudio,completeSongVoice,markSongAudioError,markSongVoiceError,recordSongbookOutcome,SONGBOOK_LIMIT,type SongbookEntry} from './core/songbook';
 import {prepareWeeklySongIdea} from './core/songbookIdeas';
 import {addCoverIdea,removeCoverIdea,coverSearchQuery,pickCoverSource,type CoverSearchSource} from './core/coverDiscovery';
+import {prepareCoverHandoff,type CoverHandoff,type CoverRightsBasis} from './core/coverHandoff';
 import {loadCustomVoice,singingVoiceReference} from './core/customVoice';
 import {STUDIO_PROJECT_LIMIT,type StudioProject} from './core/musicStudio';
 import { prepareAvatarReference,prepareAvatarClothingMask } from './core/avatarReference';
@@ -130,6 +132,7 @@ const STATUS_LABEL = {
 
 export default function App() {
   const [showSinging,setShowSinging]=useState(false);
+  const [coverHandoff,setCoverHandoff]=useState<CoverHandoff|null>(null);
   const [showSongbook,setShowSongbook]=useState(false);
   const [songbook,setSongbook]=useState(loadSongbook);
   const songbookRef=useRef(songbook);songbookRef.current=songbook;
@@ -1127,6 +1130,52 @@ export default function App() {
   }
 
 
+
+  /** An owner's explicit local file selection is required for every external cover.
+   * Public search snippets never become audio, and they never grant rights. */
+  async function prepareReviewedCover(ideaId:string,rightsBasis:CoverRightsBasis,acknowledged:boolean){
+    if(!inTauri||!showSongbook||songbookRunning.current||songbookBusy||abortRef.current||
+      busy||reflecting||mediaOccupied()||showSinging||storage.error)return;
+    const idea=songbookRef.current.coverIdeas.find(entry=>entry.id===ideaId);
+    if(!idea)return;
+    if(!acknowledged||!['owned','licensed','public-domain'].includes(rightsBasis)){
+      setSongbookStatus('Review rights for both the composition and the recording first.');
+      return;
+    }
+    const ctrl=new AbortController();
+    songbookController.current=ctrl;songbookRunning.current=true;
+    songbookRunningMode.current='manual';abortRef.current=ctrl;
+    setSongbookBusy(true);
+    try{
+      setSongbookStatus('Select a local recording you have permission to use. No audio is downloaded from the web.');
+      const source=await open({multiple:false,filters:[{name:'Audio',extensions:['wav','mp3','flac','ogg','m4a']}]});
+      if(ctrl.signal.aborted)throw Error('Cover preparation cancelled.');
+      if(typeof source!=='string'){
+        setSongbookStatus('No audio selected. Your cover idea is still saved.');
+        return;
+      }
+      setSongbookStatus('Importing your selected local recording into Music Studio…');
+      const imported=await invoke<{path:string;seconds:number;name:string}>('singing_import_track',{source});
+      if(ctrl.signal.aborted)throw Error('Cover preparation cancelled.');
+      if(!songbookRef.current.coverIdeas.some(entry=>entry.id===idea.id&&entry.url===idea.url))
+        throw Error('The cover inspiration was removed before import completed.');
+      const handoff=prepareCoverHandoff({
+        idea,rightsBasis,acknowledged,imported,token:'coverjob-'+uid(),
+      });
+      setCoverHandoff(handoff);
+      setSongbookStatus('Local recording imported. Music Studio is ready to create a Mana voice preview.');
+      setShowSongbook(false);setShowSinging(true);
+    }catch(error){
+      setSongbookStatus(ctrl.signal.aborted?'Cover preparation cancelled. The inspiration remains saved.':
+        'Could not prepare local cover audio: '+String(error));
+    }finally{
+      if(songbookController.current===ctrl)songbookController.current=null;
+      if(abortRef.current===ctrl)abortRef.current=null;
+      songbookRunning.current=false;songbookRunningMode.current=null;
+      setSongbookBusy(false);
+    }
+  }
+
   // Cover exploration stops at a public source suggestion; it never downloads
   // recordings, imports third-party media, or starts a conversion job.
   async function discoverCoverIdea(theme:string){
@@ -1963,7 +2012,7 @@ export default function App() {
         />
       </main>
 
-      <SingingDrawer active={showSinging&&!showSavedImages&&!showSongbook} initiative={initiative} onInitiative={changeInitiative} onBusy={setReflecting} onClose={()=>setShowSinging(false)}/>
+      <SingingDrawer active={showSinging&&!showSavedImages&&!showSongbook} initiative={initiative} onInitiative={changeInitiative} onBusy={setReflecting} coverHandoff={coverHandoff} onCoverHandoffConsumed={()=>setCoverHandoff(null)} onClose={()=>setShowSinging(false)}/>
       {showSongbook&&<SongbookWorkspace name={settings.charName} state={songbook} status={songbookStatus}
         busy={songbookBusy} unavailableReason={songbookUnavailable}
         voiceUnavailableReason={songbookVoiceUnavailable}
@@ -1971,6 +2020,7 @@ export default function App() {
         onStop={()=>songbookController.current?.abort()}
         onDiscoverCover={theme=>{lastActivityAt.current=Date.now();void discoverCoverIdea(theme);}}
         onRemoveCoverIdea={id=>{lastActivityAt.current=Date.now();setSongbookState(removeCoverIdea(songbookRef.current,id));}}
+        onPrepareCover={(id,rights,acknowledged)=>{lastActivityAt.current=Date.now();void prepareReviewedCover(id,rights,acknowledged);}}
         onConvertVoice={id=>{if(!songbookVoiceUnavailable){lastActivityAt.current=Date.now();void convertSongbookVoiceOnDemand(id);}}}
         onEnable={enabled=>{
           lastActivityAt.current=Date.now();
