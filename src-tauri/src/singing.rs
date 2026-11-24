@@ -561,7 +561,7 @@ mod library_tests{
 
     fn arrangement_preflight_checks_shorter_stem_before_launch(){
 
-        let dir=Path::new(r"C:\AI\ManaAI-CV-2\exports\singing").join(format!("preflight-test-{}",std::process::id()));fs::create_dir(&dir).unwrap();
+        let dir=std::env::temp_dir().join(format!("mana-singing-preflight-test-{}-{}",std::process::id(),std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));fs::create_dir_all(&dir).unwrap();
 
         let write=|name:&str,frames:u32|{let mut bytes=vec![];bytes.extend_from_slice(b"RIFF");bytes.extend_from_slice(&(36+frames*2).to_le_bytes());bytes.extend_from_slice(b"WAVEfmt ");bytes.extend_from_slice(&16u32.to_le_bytes());bytes.extend_from_slice(&1u16.to_le_bytes());bytes.extend_from_slice(&1u16.to_le_bytes());bytes.extend_from_slice(&8000u32.to_le_bytes());bytes.extend_from_slice(&16000u32.to_le_bytes());bytes.extend_from_slice(&2u16.to_le_bytes());bytes.extend_from_slice(&16u16.to_le_bytes());bytes.extend_from_slice(b"data");bytes.extend_from_slice(&(frames*2).to_le_bytes());bytes.resize(44+frames as usize*2,0);let file=dir.join(name);fs::write(&file,bytes).unwrap();file.to_string_lossy().to_string()};
 
