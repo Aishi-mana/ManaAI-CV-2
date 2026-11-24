@@ -155,11 +155,21 @@ mod tests {
             .join("assets/avatar");
         let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../assets/avatar");
         let source_files = scan(&source).unwrap();
-        assert_eq!(scan(&resources).unwrap(), source_files);
+        // Cargo unit tests don't bundle Tauri resources into target/debug/build.
+        // Exercise relocation with tracked source assets in that environment.
+        // When a bundle is present, require it to match the source exactly.
+        let input = if resources.is_dir() {
+            assert_eq!(scan(&resources).unwrap(), source_files);
+            resources.as_path()
+        } else {
+            assert!(std::env::var_os("MANA_REQUIRE_BUNDLED_AVATAR").is_none(),
+                "Packaged avatar resources are required by MANA_REQUIRE_BUNDLED_AVATAR");
+            source.as_path()
+        };
         let f = Fixture::new();
         let relocated = f.root.join("moved-app/assets/avatar");
         for rel in &source_files {
-            let data = read(&resources, rel).unwrap();
+            let data = read(input, rel).unwrap();
             assert_eq!(data, read(&source, rel).unwrap());
             let target = relocated.join(rel);
             fs::create_dir_all(target.parent().unwrap()).unwrap();
@@ -169,7 +179,7 @@ mod tests {
         for rel in source_files {
             assert_eq!(
                 read(&relocated, &rel).unwrap(),
-                read(&resources, &rel).unwrap()
+                read(input, &rel).unwrap()
             );
         }
     }
