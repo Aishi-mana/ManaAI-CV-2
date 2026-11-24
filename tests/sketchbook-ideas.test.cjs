@@ -63,9 +63,9 @@ test('Valid imagined JSON is parsed without starting image generation',()=>{
   title:example.title,concept:example.concept,prompt:example.prompt,inspiration:'imagination',
  });
  const prompt=sketchbookImagePrompt(result);
- assert.match(prompt,/sketchbook doodle/);
+ assert.match(prompt,/^Main subject: An imaginary garden on a tiny cloud\./);
  assert.match(prompt,/crescent moon/);
- assert.match(prompt,/No letters/);
+ assert.match(prompt,/No notebooks, sketchbook pages/);
  assert.ok(prompt.length<=1500);
 });
 
@@ -113,7 +113,7 @@ test('Non-memory inspiration types remain imagined drawings, not diary events',(
  for(const inspiration of ['imagination','mood','interest','season']){
   const idea=readSketchbookIdea(asText({...example,inspiration}));
   assert.equal(idea.inspiration,inspiration);
-  assert.match(sketchbookImagePrompt(idea),/No letters, captions, signatures, watermarks, diary pages/);
+  assert.match(sketchbookImagePrompt(idea),/No notebooks, sketchbook pages, journals/);
  }
  assert.throws(()=>sketchbookImagePrompt({...example,prompt:' '}),/too long/);
 });
@@ -153,4 +153,43 @@ test('Missing labels use only Mana model text; missing visual detail still fails
  ]){
   assert.throws(()=>readSketchbookIdea(JSON.stringify(invalid)),/No image was generated/);
  }
+});
+
+
+test('Glowing-code forest stays the main scene, not a collage of sketchbooks',()=>{
+ const forest={
+  title:'Glowing Code Forest',
+  concept:'An imagined forest made entirely of glowing code',
+  prompt:'Tall tree trunks formed from luminous blue and green program-like glyphs, roots of light spreading into moss, fireflies and a dreamy midnight sky',
+  inspiration:'imagination',
+ };
+ const imagePrompt=sketchbookImagePrompt(forest);
+ assert.ok(imagePrompt.startsWith('Main subject: An imagined forest made entirely of glowing code.'));
+ assert.match(imagePrompt,/Visual details: Tall tree trunks formed from luminous/);
+ assert.match(imagePrompt,/ONE coherent standalone illustration/);
+ assert.match(imagePrompt,/No notebooks, sketchbook pages, journals, art supplies, collages/);
+ assert.doesNotMatch(imagePrompt,/A small original sketchbook doodle/);
+ assert.ok(imagePrompt.length<=1500);
+});
+
+test('Sketchbook negative prompt excludes page and collage artifacts without changing model choice',()=>{
+ const {SKETCHBOOK_NEGATIVE_PROMPT}=exported;
+ assert.match(SKETCHBOOK_NEGATIVE_PROMPT,/notebook, open sketchbook/);
+ assert.match(SKETCHBOOK_NEGATIVE_PROMPT,/collage, moodboard/);
+ assert.match(SKETCHBOOK_NEGATIVE_PROMPT,/text, handwriting/);
+ assert.ok(SKETCHBOOK_NEGATIVE_PROMPT.length<1500);
+});
+
+test('Subject-first image prompts remain within native 1500 character limit at validator maxima',()=>{
+ const idea={
+  ...example,
+  concept:'An imagined forest of glowing code and crystalline trees. '.repeat(12).slice(0,500),
+  prompt:'Blue and green luminous trees with fireflies and gentle hand-drawn foliage. '.repeat(20).slice(0,1100),
+ };
+ const prompt=sketchbookImagePrompt(idea);
+ assert.ok(prompt.startsWith('Main subject: An imagined forest of glowing code'));
+ assert.ok(prompt.includes('Visual details: Blue and green luminous trees'));
+ assert.ok(prompt.includes('No notebooks, sketchbook pages'));
+ assert.ok(prompt.length<=1500);
+ assert.ok(prompt.length>1100);
 });
