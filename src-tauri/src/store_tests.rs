@@ -516,3 +516,14 @@ fn sketchbook_state_persists_independently_of_diary() {
     assert!(updated["mana.sketchbook.v1"].contains(r#""enabled":true"#));
     assert_eq!(updated["mana.diary.v1"], "[]");
 }
+
+
+#[test]
+fn songbook_drafts_can_be_saved_and_restored_without_touching_music_files() {
+    let mut db = open(Path::new(":memory:")).unwrap();
+    let metadata = r#"{"settings":{"enabled":false,"timeZone":"Asia/Singapore","catchUp":true,"enabledAt":null},"entries":[{"id":"song-test","slotId":"manual-test","source":"manual","createdAt":"2026-11-24T04:00:00.000Z","title":"Lantern Sky","status":"draft"}]}"#;
+    save(&mut db, &values(&[("mana.songbook.v1", metadata)])).unwrap();
+    let restored = initialize(&mut db, &BTreeMap::new()).unwrap();
+    assert_eq!(restored["mana.songbook.v1"], metadata);
+    assert!(!restored.contains_key("mana.unknown.v1"));
+}
