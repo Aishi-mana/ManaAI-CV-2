@@ -408,7 +408,7 @@ test('Only every fifth artwork may revisit an actual older drawing, without copy
  assert.equal(revisit.id,'drawing1');
  assert.equal(revisit.title,'A moon garden');
  assert.equal(revisit.concept,'An imaginary garden with glowing flowers');
- assert.equal(sketchbookRevisitCandidate(state.entries,at('2026-10-27T05:00:00.000Z')),null);
+ assert.equal(sketchbookRevisitCandidate(state.entries,at('2026-10-26T05:00:00.000Z')),null);
  assert.equal(sketchbookRevisitCandidate(state.entries.slice(0,3),at('2026-11-02T04:00:00.000Z')),null);
  const next={...drawing('2026-11-03','2026-11-03T04:15:00.000Z',5),
   revisitedDrawingId:revisit.id,motifs:['moon garden'],creativeReason:'I wanted a different view of that earlier garden.'};
