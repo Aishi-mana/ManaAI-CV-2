@@ -56,12 +56,12 @@ export function verifiedCoverSources(sources:CoverSearchSource[]):CoverSearchSou
  });
 }
 export function readCoverPick(text:string,sourceCount:number):{index:number;reason:string}{
- const raw=text.trim().replace(/^\\x60{3}(?:json)?\\s*/i,'').replace(/\\s*\\x60{3}$/,'');
+ const raw=text.trim();
  let value:unknown;
  try{value=JSON.parse(raw);}catch{throw Error('Mana could not choose a cover idea from the search results.');}
  if(!value||typeof value!=='object'||Array.isArray(value))throw Error('Invalid cover choice.');
  const v=value as Record<string,unknown>;
- if(!Number.isInteger(v.index)||Number(v.index)<0||Number(v.index)>sourceCount||
+ if(typeof v.index!=='number'||!Number.isInteger(v.index)||v.index<0||v.index>sourceCount||
     typeof v.reason!=='string'||v.reason.length>300||!v.reason.trim())
   throw Error('Mana returned an invalid cover source choice.');
  return {index:Number(v.index),reason:v.reason.trim()};
