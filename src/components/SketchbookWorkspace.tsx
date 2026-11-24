@@ -1,5 +1,5 @@
-import {useState} from 'react';
-import type {SketchbookEntry,SketchbookState} from '../core/sketchbook';
+import {useEffect,useState} from 'react';
+import {sketchbookScheduleSummary,type SketchbookEntry,type SketchbookState} from '../core/sketchbook';
 import type {SavedImage} from '../core/savedImages';
 import DiskGalleryPicture from './DiskGalleryPicture';
 import {imageOriginLabel} from '../core/imageOrigin';
@@ -12,6 +12,8 @@ interface Props {
  galleryReady:boolean;
  galleryWorking:boolean;
  galleryError:string;
+ drawNowReason:string;
+ onDrawNow:()=>void;
  onEnable:(enabled:boolean)=>void;
  onCatchUp:(enabled:boolean)=>void;
  onRemove:(id:string)=>void;
@@ -21,11 +23,14 @@ interface Props {
 const dateLabel=(date:string)=>new Date(date).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});
 
 export default function SketchbookWorkspace({
- name,state,images,status,galleryReady,galleryWorking,galleryError,
+ name,state,images,status,galleryReady,galleryWorking,galleryError,drawNowReason,onDrawNow,
  onEnable,onCatchUp,onRemove,onClose,
 }:Props){
  const [selected,setSelected]=useState<string>();
  const [query,setQuery]=useState('');
+ const [now,setNow]=useState(()=>new Date());
+ useEffect(()=>{const timer=window.setInterval(()=>setNow(new Date()),60_000);return()=>window.clearInterval(timer);},[]);
+ const nextDrawing=sketchbookScheduleSummary(state,now);
  const entries=[...state.entries].sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
  const imagesById=new Map(images.map(image=>[image.id,image]));
  const matches=entries.filter(entry=>(entry.title+' '+entry.concept).toLowerCase().includes(query.trim().toLowerCase()));
@@ -48,10 +53,23 @@ export default function SketchbookWorkspace({
     <label className="check"><input type="checkbox" checked={state.settings.catchUp} onChange={e=>onCatchUp(e.target.checked)}/>Allow one missed drawing to catch up while Mana is open</label>
     <p className="hint-soft">Off by default. Ideas come from {name}'s existing local chat model; pictures use her existing installed image generator. No web downloads. Busy jobs, user activity and offline time are skipped. A missed slot never causes a backlog of pictures.</p>
     <p className="hint-soft">{disabledReason}</p>
-    {!state.settings.enabled&&<p role="status">Automatic drawing is off. Existing drawings remain saved.</p>}
+    <div style={{marginTop:14,padding:'12px 16px',border:'1px solid var(--border, #e2d9ef)',borderRadius:12}}>
+     <h3 style={{margin:'0 0 6px'}}>Next scheduled drawing</h3>
+     <p style={{margin:0}}><strong>{nextDrawing.date} at {nextDrawing.time}</strong> ({state.settings.timeZone})</p>
+     <p className="hint-soft" style={{margin:'5px 0 0'}}>{nextDrawing.note}</p>
+     {nextDrawing.status==='due'&&<p className="hint-soft">Return to chat to let the automatic schedule run. Mana must be idle.</p>}
+    </div>
+    <div style={{marginTop:14,display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+     <button className="btn primary" type="button" disabled={!!drawNowReason} onClick={onDrawNow}>Draw Now · Test</button>
+     <small className="hint-soft">{drawNowReason||'Makes one manual test drawing now. It will be saved here without using a scheduled slot.'}</small>
+    </div>
+    {!state.settings.enabled&&<p role="status">Automatic drawing is off. Manual test drawings remain available when local models are ready.</p>}
    </section>
-   {(status||galleryError||galleryWorking)&&<div className="diary-status" aria-live="polite">
+   {(status||state.lastOutcome||galleryError||galleryWorking)&&<div className="diary-status" aria-live="polite">
     {status&&<p role="status">{status}</p>}
+    {state.lastOutcome&&<p role={state.lastOutcome.kind==='failed'||state.lastOutcome.kind==='postponed'?'alert':'status'}>
+      <strong>Last drawing {state.lastOutcome.kind}:</strong> {state.lastOutcome.message} <small>({dateLabel(state.lastOutcome.at)})</small>
+    </p>}
     {galleryWorking&&<p role="status">Image gallery is saving or loading…</p>}
     {galleryError&&<p role="alert" className="msg-error">{galleryError}</p>}
    </div>}
@@ -67,7 +85,7 @@ export default function SketchbookWorkspace({
      <h2 style={{overflowWrap:'anywhere'}}>{active.title}</h2>
      <p>{active.concept}</p>
      {imageFor(active)?<DiskGalleryPicture image={imageFor(active)!}/>:<p role="status" className="msg-error">This drawing's gallery image is missing. The Sketchbook record is still here.</p>}
-     <p className="hint-soft">Imagined artwork · {dateLabel(active.createdAt)} · Inspired by {active.inspiration}</p>
+     <p className="hint-soft">{active.sourceType==='manual-drawing'?'Manual test drawing':'Scheduled imagined artwork'} · {dateLabel(active.createdAt)} · Inspired by {active.inspiration}</p>
      {active.model&&<p className="hint-soft">Local model: {active.model}{active.seed!==undefined?' · Seed: '+active.seed:''}</p>}
      {imageFor(active)?.origin&&<p className="hint-soft">{imageOriginLabel(imageFor(active)!.origin!)}</p>}
      <details><summary>Image prompt</summary><p style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{active.prompt}</p></details>
@@ -87,7 +105,7 @@ export default function SketchbookWorkspace({
        {image?<img loading="lazy" src={image.dataUrl} alt="" style={{display:'block',width:'100%',height:170,objectFit:'cover',borderRadius:12}}/>:
         <div style={{height:170,display:'grid',placeItems:'center',border:'1px dashed currentColor',borderRadius:12}}>Gallery picture missing</div>}
        <p style={{overflowWrap:'anywhere',marginBottom:4}}><strong>{entry.title}</strong></p>
-       <small>{new Date(entry.createdAt).toLocaleDateString()} · Imagined</small>
+       <small>{new Date(entry.createdAt).toLocaleDateString()} · {entry.sourceType==='manual-drawing'?'Manual test':'Scheduled'}</small>
       </button>;
      })}
     </div>
