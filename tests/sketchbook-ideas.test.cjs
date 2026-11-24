@@ -98,8 +98,6 @@ test('Only explicitly approved memory IDs may influence provenance',()=>{
 
 test('Missing, invalid and oversized fields fail before any image job',()=>{
  const invalid=[
-  {...example,title:''},
-  {...example,concept:' '},
   {...example,prompt:''},
   {...example,title:'x'.repeat(121)},
   {...example,concept:'x'.repeat(501)},
@@ -138,6 +136,10 @@ test('Small local model can omit inspiration and use a common prompt field name'
 });
 
 test('Missing labels use only Mana model text; missing visual detail still fails',()=>{
+ const withoutTitle=readSketchbookIdea(JSON.stringify({...example,title:'',concept:'A cozy lantern pond'}));
+ assert.equal(withoutTitle.title,'A cozy lantern pond');
+ const withoutConcept=readSketchbookIdea(JSON.stringify({...example,concept:' '}));
+ assert.equal(withoutConcept.concept,example.prompt);
  const derived=plain(readSketchbookIdea(JSON.stringify({
   imagePrompt:'A small orange fox sitting on a mossy stone, pastel sky, soft blue hills'
  })));
