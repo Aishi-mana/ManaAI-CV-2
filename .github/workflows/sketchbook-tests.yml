@@ -3,6 +3,11 @@ on:
   pull_request:
     paths:
       - 'src/core/sketchbook*.ts'
+      - 'src/core/imageReliability.ts'
+      - 'src/core/imageSession.ts'
+      - 'src/core/imageGeneration.ts'
+      - 'src/core/useLlama.ts'
+      - 'src/components/ImageGenerationDrawer.tsx'
       - 'src/components/SketchbookWorkspace.tsx'
       - 'src/App.tsx'
       - 'tests/sketchbook*.test.cjs'
