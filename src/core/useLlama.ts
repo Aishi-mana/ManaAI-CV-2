@@ -218,20 +218,50 @@ export function useLlama(settings: Settings) {
     return () => { invalidate(); };
   }, [invalidate, monitor, start]);
 
-  const pauseForImage=useCallback(async()=>{
-    const previous=imageLeases.current;let unlock!:()=>void;imageLeases.current=new Promise<void>(resolve=>{unlock=resolve;});await previous;
-    const before=generation.current;
+  const pauseForImage=useCallback(async(signal?:AbortSignal)=>{
+    // FIFO leases are retained even when a queued caller cancels. An aborted
+    // waiter must not unlock a lease belonging to an active image job.
+    const previous=imageLeases.current;let unlock!:()=>void;
+    imageLeases.current=new Promise<void>(resolve=>{unlock=resolve;});
+    let ownsTurn=false;
     try{
+      if(signal?.aborted)throw Error('Image generation cancelled before GPU handoff.');
+      if(signal){
+        await new Promise<void>((resolve,reject)=>{
+          let settled=false;
+          const abort=()=>{if(settled)return;settled=true;signal.removeEventListener('abort',abort);reject(Error('Image generation cancelled before GPU handoff.'));};
+          signal.addEventListener('abort',abort,{once:true});
+          void previous.then(()=>{
+            if(settled)return;
+            settled=true;signal.removeEventListener('abort',abort);resolve();
+          },error=>{
+            if(settled)return;
+            settled=true;signal.removeEventListener('abort',abort);reject(error);
+          });
+          if(signal.aborted)abort();
+        });
+      }else await previous;
+      ownsTurn=true;
+      if(signal?.aborted)throw Error('Image generation cancelled before GPU handoff.');
+      const before=generation.current;
       if(drafting.current)throw Error('The game development model is busy.');
       imageActive.current=true;
       const paused=inTauri?await command('pause_llama_for_image') as boolean:false;
-      if(!paused&&await checkHealth(settingsRef.current.port)==='ok')throw Error('The chat model was started outside Mana. Stop it in its own app before GPU image generation, or choose Use CPU.');
+      if(!paused&&await checkHealth(settingsRef.current.port)==='ok')
+        throw Error('The chat model was started outside Mana. Stop it in its own app before GPU image generation, or choose Use CPU.');
       const current=generation.current===before,token=current?invalidate():generation.current;
       setImageBusy(true);
       if(paused&&current){setRunning(false);setStatus('stopped');setDetail('Chat model paused while creating a picture.');}
       let released=false;
-      return async()=>{if(released)return;released=true;imageActive.current=false;setImageBusy(false);try{if(paused&&current&&generation.current===token)await start();}finally{unlock();}};
-    }catch(e){imageActive.current=false;unlock();throw e;}
+      return async()=>{if(released)return;released=true;imageActive.current=false;setImageBusy(false);
+        try{if(paused&&current&&generation.current===token)await start();}
+        finally{unlock();}
+      };
+    }catch(e){
+      if(ownsTurn){imageActive.current=false;unlock();}
+      else void previous.then(unlock,unlock);
+      throw e;
+    }
   },[command,invalidate,start]);
   return { status, detail, port, running, start, stop,imageBusy,pauseForImage,withGameModel };
 }
