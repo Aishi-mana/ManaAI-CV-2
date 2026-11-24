@@ -38,6 +38,10 @@ import {SANDBOX_EXAMPLE,checkedSandboxDraft} from './core/codeSandbox';
 import {mediaOccupied} from './core/mediaActivity';
 import {PORTRAIT_MILESTONES, PORTRAIT_REACTIONS, type PortraitInteraction} from './core/portraitInteractions';
 import SingingDrawer from './components/SingingDrawer';
+import SongbookWorkspace from './components/SongbookWorkspace';
+import {loadSongbook,saveSongbook,setSongbookEnabled,dueWeeklySong,reserveWeeklySong,addSongDraft,completeSongAudio,markSongAudioError,recordSongbookOutcome,SONGBOOK_LIMIT,type SongbookEntry} from './core/songbook';
+import {prepareWeeklySongIdea} from './core/songbookIdeas';
+import {STUDIO_PROJECT_LIMIT,type StudioProject} from './core/musicStudio';
 import { prepareAvatarReference,prepareAvatarClothingMask } from './core/avatarReference';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import ChatPanel from "./components/ChatPanel";
@@ -124,6 +128,13 @@ const STATUS_LABEL = {
 
 export default function App() {
   const [showSinging,setShowSinging]=useState(false);
+  const [showSongbook,setShowSongbook]=useState(false);
+  const [songbook,setSongbook]=useState(loadSongbook);
+  const songbookRef=useRef(songbook);songbookRef.current=songbook;
+  const songbookController=useRef<AbortController|null>(null);
+  const songbookRunning=useRef(false);
+  const [songbookBusy,setSongbookBusy]=useState(false);
+  const [songbookStatus,setSongbookStatus]=useState('');
   const [showImageGeneration,setShowImageGeneration]=useState(false);
   const [chatPicture,setChatPicture]=useState<ChatPictureRequest>();
 
@@ -267,6 +278,7 @@ export default function App() {
   useEffect(() => { saveMemories(memories); }, [memories]);
   useEffect(() => { saveDiary(diary); }, [diary]);
   useEffect(() => { saveSketchbook(sketchbook); }, [sketchbook]);
+  useEffect(() => { saveSongbook(songbook); }, [songbook]);
   useEffect(() => { saveGoals(goals); }, [goals]);
   useEffect(() => { saveInterests(interests); }, [interests]);
   useEffect(() => { saveWork(work); }, [work]);
@@ -1100,6 +1112,128 @@ export default function App() {
       if(abortRef.current===ctrl)abortRef.current=null;
       if(sketchbookReviewController.current===ctrl)sketchbookReviewController.current=null;
       setSketchbookReviewingId(null);setReflecting(false);
+    }
+  }
+
+  function setSongbookState(next:typeof songbook){
+    songbookRef.current=next;setSongbook(next);saveSongbook(next);
+  }
+  function reportSongbook(message:string){
+    setSongbookState(recordSongbookOutcome(songbookRef.current,message));
+    setSongbookStatus(message);
+  }
+
+  // Original weekly songs use only the installed ACE-Step backend and existing
+  // llama.cpp GPU lease. A planned song survives audio failures as an honest draft.
+  async function composeOriginalSong(slotId:string,mode:'weekly'|'manual'){
+    if(songbookRunning.current||abortRef.current||llama.status!=='ready'||
+      busy||reflecting||mediaOccupied()||showSinging||sketchbookPlanning.current||sketchbookJob||
+      songbookRef.current.entries.length>=SONGBOOK_LIMIT)return;
+    let reserved=songbookRef.current;
+    if(mode==='weekly'){
+      try{reserved=reserveWeeklySong(reserved,slotId,new Date());}
+      catch{return;}
+      setSongbookState(reserved);
+    }
+    const ctrl=new AbortController();
+    songbookController.current=ctrl;
+    songbookRunning.current=true;
+    abortRef.current=ctrl;
+    setSongbookBusy(true);setReflecting(true);
+    setSongbookStatus('Mana is writing an original song…');
+    let nativeStarted=false,releaseGPU:(()=>Promise<void>)|undefined;
+    let draftId:string|null=null;
+    try{
+      if(mode==='weekly')await flushPersistence(); // No duplicate weekly jobs after restart.
+      if(ctrl.signal.aborted)throw Error('Composition cancelled.');
+      const idea=await prepareWeeklySongIdea({
+        port:llama.port,signal:ctrl.signal,
+        context:{
+          name:settings.charName,mood:companion.state.mood,
+          interests:identity.interests,
+          recentSongTitles:songbookRef.current.entries.slice(0,5).map(song=>song.title),
+        },
+      });
+      if(ctrl.signal.aborted)throw Error('Composition cancelled.');
+      // Preserve this original plan even when native ACE-Step is unavailable.
+      const entry:SongbookEntry={
+        id:'song-'+uid(),slotId,source:mode,createdAt:new Date().toISOString(),
+        title:idea.title,concept:idea.concept,creativeReason:idea.creativeReason,
+        brief:idea.brief,status:'draft',
+      };
+      draftId=entry.id;
+      setSongbookState(addSongDraft(songbookRef.current,entry));
+      await flushPersistence();
+      if(ctrl.signal.aborted)throw Error('Composition cancelled.');
+      if(!inTauri)throw Error('The original song is saved as a draft. Audio requires the Mana desktop app.');
+      setSongbookStatus('Lyrics saved. Preparing the installed local ACE-Step audio generator…');
+      // Keep the chat model available for composing; pause it only for music rendering.
+      releaseGPU=await llama.pauseForImage(ctrl.signal);
+      if(ctrl.signal.aborted)throw Error('Composition cancelled before music rendering.');
+      await invoke('original_song_start',{
+        title:entry.title,prompt:entry.brief.prompt,lyrics:entry.brief.lyrics,
+        style:entry.brief.style,instrumental:false,seed:entry.brief.seed,
+        duration:entry.brief.duration,previewOnly:true,
+      });
+      nativeStarted=true;
+      setSongbookStatus('Rendering one original song with local ACE-Step…');
+      const deadline=Date.now()+30*60_000;
+      let result:{mix?:string;seconds?:number;generatedLyrics?:string;error?:string}|undefined;
+      while(!ctrl.signal.aborted&&Date.now()<deadline){
+        await new Promise<void>(resolve=>setTimeout(resolve,1500));
+        if(ctrl.signal.aborted)break;
+        const poll=await invoke<{done:boolean;log:string;result?:{
+          mix?:string;seconds?:number;generatedLyrics?:string;error?:string;
+        }}>('singing_poll');
+        if(poll.done){
+          if(poll.result?.error)throw Error(poll.result.error);
+          result=poll.result;
+          break;
+        }
+      }
+      if(ctrl.signal.aborted)throw Error('Composition cancelled.');
+      if(!result)throw Error('The local music generator timed out. Your original lyrics were saved.');
+      if(!result.mix||!result.seconds)throw Error('The music generator produced no completed WAV. Draft lyrics were kept.');
+      // Never label a song as recorded until a validated finished WAV is returned.
+      const studio=initiativeRef.current.studio;
+      const canAdd=!!studio&&studio.projects.length<STUDIO_PROJECT_LIMIT;
+      const projectId=canAdd?'studio-'+uid():undefined;
+      const next=completeSongAudio(songbookRef.current,entry.id,{
+        mix:result.mix,seconds:result.seconds,generatedLyrics:result.generatedLyrics,
+        ...(projectId?{projectId}:{}),
+      });
+      if(canAdd&&projectId){
+        const project:StudioProject={
+          id:projectId,kind:'original',original:entry.brief,
+          title:entry.title,createdAt:new Date().toISOString(),
+          status:'ready',source:'',vocal:'',mix:result.mix,
+          instrumental:'',seconds:result.seconds,artwork:'',error:'',
+          generatedLyrics:result.generatedLyrics??'',
+          settings:{wholeSong:true,start:0,seconds:Math.min(60,entry.brief.duration),
+            separate:false,backingGain:1,vocalGain:0,reference:''},
+        };
+        changeInitiative({...initiativeRef.current,studio:{
+          projects:[project,...studio!.projects],selectedId:project.id,
+        }});
+      }
+      setSongbookState(recordSongbookOutcome(next,
+        canAdd?'Original song recorded and saved to Songbook and Music Studio.':
+        'Original WAV saved to Songbook. Music Studio library is full.'));
+      await flushPersistence();
+      setSongbookStatus('Mana saved her original song. The recording uses the local guide singer.');
+    }catch(error){
+      const reason=ctrl.signal.aborted?'Song composition stopped.':
+        'Song generation postponed: '+String(error);
+      if(draftId)setSongbookState(markSongAudioError(songbookRef.current,draftId,reason));
+      reportSongbook(reason+(draftId?' Original lyrics remain saved.':' No song was saved.'));
+    }finally{
+      if(nativeStarted)await invoke('singing_stop').catch(()=>{});
+      if(releaseGPU)await releaseGPU().catch(error=>{
+        reportSongbook('Song job finished, but restoring the chat model failed: '+String(error));
+      });
+      if(songbookController.current===ctrl)songbookController.current=null;
+      if(abortRef.current===ctrl)abortRef.current=null;
+      songbookRunning.current=false;setSongbookBusy(false);setReflecting(false);
     }
   }
 
