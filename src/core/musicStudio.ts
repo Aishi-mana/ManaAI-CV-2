@@ -31,8 +31,8 @@ export function validateCoverAttribution(raw:unknown):CoverAttribution|undefined
  try{
   const u=new URL(v.sourceUrl);
   if(u.protocol!=='https:'||!u.hostname||u.username||u.password||u.hash||
-    /^(localhost|127(?:\\.\\d+){3}|0\\.0\\.0\\.0|::1)$/i.test(u.hostname)||
-    /\\.(?:local|internal)$/i.test(u.hostname))return;
+    /^(localhost|127(?:\.\d+){3}|0\.0\.0\.0|::1)$/i.test(u.hostname)||
+    /\.(?:local|internal)$/i.test(u.hostname))return;
   return {ideaId:v.ideaId,sourceTitle:v.sourceTitle.trim(),sourceUrl:u.toString(),
    rightsBasis:v.rightsBasis as CoverAttribution['rightsBasis'],reviewedAt:v.reviewedAt};
  }catch{return;}
