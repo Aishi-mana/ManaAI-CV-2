@@ -23,7 +23,7 @@ export interface SketchbookEntry {
  title:string;
  concept:string;
  prompt:string;
- sourceType:'scheduled-drawing';
+ sourceType:'scheduled-drawing'|'manual-drawing';
  imagined:true;
  inspiration:SketchbookInspiration;
  relatedMemoryIds?:string[];
@@ -46,9 +46,17 @@ export interface SketchbookAttempt {
  count:number;
 }
 
+export interface SketchbookOutcome {
+ at:string;
+ kind:'saved'|'postponed'|'failed'|'cancelled';
+ message:string;
+}
+
 export interface SketchbookState {
  settings:SketchbookSettings;
  entries:SketchbookEntry[];
+ /** Most recent drawing outcome survives app restarts, including failures. */
+ lastOutcome?:SketchbookOutcome;
  /** Retain removed drawing slots so deleting an image cannot trigger a redraw. */
  removedSlots?:string[];
  lastAttempt?:SketchbookAttempt;
@@ -64,6 +72,7 @@ export const DEFAULT_SKETCHBOOK_SETTINGS:SketchbookSettings={
 };
 
 const imageIdPattern=/^[a-zA-Z0-9_-]{1,64}$/;
+const manualSlotPattern=/^manual-[a-zA-Z0-9_-]{1,64}$/;
 const inspirations:readonly SketchbookInspiration[]=['imagination','mood','interest','memory','season'];
 const RETRY_DELAY_MS=30*60_000;
 const MAX_ATTEMPTS_PER_SLOT=2;
@@ -85,7 +94,7 @@ function localWeekStart(date:string):string {
 
 function completedThisWeek(entries:readonly SketchbookEntry[],now:Date,timeZone:string):number {
  const week=localWeekStart(journalClock(now,timeZone).date);
- return entries.filter(entry=>localWeekStart(journalClock(new Date(entry.createdAt),timeZone).date)===week).length;
+ return entries.filter(entry=>entry.sourceType==='scheduled-drawing'&&localWeekStart(journalClock(new Date(entry.createdAt),timeZone).date)===week).length;
 }
 
 /** Normalize saved metadata. Never infer a drawing from a diary entry or an image file. */
@@ -109,18 +118,18 @@ export function validateSketchbook(value:unknown):SketchbookState {
    const inspiration=inspirations.find(kind=>kind===raw.inspiration);
    if(typeof id!=='string'||!imageIdPattern.test(id)||ids.has(id)||
       typeof imageId!=='string'||!imageIdPattern.test(imageId)||
-      !validSlotId(slotId)||slots.has(slotId)||!validTimestamp(createdAt)||
+      !(raw.sourceType==='scheduled-drawing'?validSlotId(slotId):raw.sourceType==='manual-drawing'&&typeof slotId==='string'&&manualSlotPattern.test(slotId))||slots.has(slotId)||!validTimestamp(createdAt)||
       typeof title!=='string'||!title.trim()||title.length>120||
       typeof concept!=='string'||!concept.trim()||concept.length>500||
       typeof prompt!=='string'||!prompt.trim()||prompt.length>1500||
-      raw.sourceType!=='scheduled-drawing'||raw.imagined!==true||!inspiration)continue;
+      raw.imagined!==true||!inspiration)continue;
    ids.add(id);slots.add(slotId);
    const relatedMemoryIds=Array.isArray(raw.relatedMemoryIds)?
     [...new Set(raw.relatedMemoryIds.filter((memoryId:unknown):memoryId is string=>
      typeof memoryId==='string'&&imageIdPattern.test(memoryId)))].slice(0,3):[];
    entries.push({
     id,imageId,slotId,createdAt,title:title.trim(),concept:concept.trim(),prompt:prompt.trim(),
-    sourceType:'scheduled-drawing',imagined:true,inspiration,
+    sourceType:raw.sourceType as 'scheduled-drawing'|'manual-drawing',imagined:true,inspiration,
     ...(relatedMemoryIds.length?{relatedMemoryIds}:{}),
     ...(typeof raw.model==='string'&&raw.model.trim()&&raw.model.length<=200?{model:raw.model}:{}),
     ...(typeof raw.seed==='number'&&Number.isInteger(raw.seed)&&raw.seed>=0&&raw.seed<=0xffffffff?{seed:raw.seed}:{}),
@@ -129,6 +138,12 @@ export function validateSketchbook(value:unknown):SketchbookState {
   }
  }
  const state:SketchbookState={settings,entries};
+ const outcome=isRecord(value)?value.lastOutcome:undefined;
+ if(isRecord(outcome)&&validTimestamp(outcome.at)&&
+    (outcome.kind==='saved'||outcome.kind==='postponed'||outcome.kind==='failed'||outcome.kind==='cancelled')&&
+    typeof outcome.message==='string'&&!!outcome.message.trim()&&outcome.message.length<=360){
+  state.lastOutcome={at:outcome.at,kind:outcome.kind,message:outcome.message};
+ }
  const removed=isRecord(value)?value.removedSlots:undefined;
  if(Array.isArray(removed)){
   const history=[...new Set(removed.filter((slot:unknown):slot is string=>validSlotId(slot)&&!slots.has(slot)))];
@@ -195,13 +210,13 @@ export function addSketchbookEntry(state:SketchbookState,entry:SketchbookEntry):
  if(state.entries.length>=SKETCHBOOK_LIMIT)throw Error('Mana’s Sketchbook is full.');
  const candidate=validateSketchbook({settings:state.settings,entries:[entry]}).entries[0];
  if(!candidate)throw Error('Invalid Sketchbook drawing metadata.');
- if(state.removedSlots?.includes(candidate.slotId))throw Error('This scheduled drawing was already removed.');
+ if(candidate.sourceType==='scheduled-drawing'&&state.removedSlots?.includes(candidate.slotId))throw Error('This scheduled drawing was already removed.');
  if(state.entries.some(existing=>existing.id===candidate.id||existing.slotId===candidate.slotId||existing.imageId===candidate.imageId))
   throw Error('This drawing or scheduled slot is already saved.');
  const week=localWeekStart(journalClock(new Date(entry.createdAt),state.settings.timeZone).date);
- const inWeek=state.entries.filter(existing=>
+ const inWeek=state.entries.filter(existing=>existing.sourceType==='scheduled-drawing'&&
   localWeekStart(journalClock(new Date(existing.createdAt),state.settings.timeZone).date)===week).length;
- if(inWeek>=state.settings.frequencyPerWeek)throw Error('The weekly Sketchbook limit has been reached.');
+ if(candidate.sourceType==='scheduled-drawing'&&inWeek>=state.settings.frequencyPerWeek)throw Error('The weekly Sketchbook limit has been reached.');
  return {...state,entries:[...state.entries,candidate]};
 }
 
@@ -219,9 +234,59 @@ export function canSaveScheduledSketchbook(
 export function removeSketchbookEntry(state:SketchbookState,id:string):SketchbookState {
  const existing=state.entries.find(entry=>entry.id===id);
  if(!existing)return state;
- const removedSlots=[...(state.removedSlots??[]).filter(slot=>slot!==existing.slotId),existing.slotId]
-  .slice(-SKETCHBOOK_REMOVED_SLOT_LIMIT);
- return {...state,entries:state.entries.filter(entry=>entry.id!==id),removedSlots};
+ const removedSlots=existing.sourceType==='scheduled-drawing'
+  ?[...(state.removedSlots??[]).filter(slot=>slot!==existing.slotId),existing.slotId].slice(-SKETCHBOOK_REMOVED_SLOT_LIMIT)
+  :state.removedSlots;
+ return {...state,entries:state.entries.filter(entry=>entry.id!==id),...(removedSlots?{removedSlots}:{})};
+}
+
+/** Persist brief outcome metadata, never the raw language-model output. */
+export function recordSketchbookOutcome(
+ state:SketchbookState,kind:SketchbookOutcome['kind'],message:string,at=new Date(),
+):SketchbookState {
+ if(!Number.isFinite(at.getTime()))throw Error('Invalid Sketchbook outcome time.');
+ return {...state,lastOutcome:{kind,at:at.toISOString(),message:message.trim().slice(0,360)||'Drawing status updated.'}};
+}
+
+/** A local-calendar summary, independent of whether the running app is idle. */
+export function sketchbookScheduleSummary(state:SketchbookState,now=new Date()):{
+ date:string;time:string;status:'off'|'due'|'upcoming'|'retry-wait';note:string;
+} {
+ const zone=state.settings.timeZone;
+ const local=journalClock(now,zone);
+ const due=dueSketchbookSlot(state,now);
+ if(due)return {date:due,time:SKETCHBOOK_DRAW_TIME,status:'due',
+  note:due===local.date?'Due now when Mana is idle.':'Missed drawing available for catch-up when Mana is idle.'};
+ const day=new Date(local.date+'T12:00:00Z');
+ const last=state.lastAttempt;
+ // Show backoff only if the previous slot is still the most recent eligible day.
+ if(state.settings.enabled&&last&&last.count<MAX_ATTEMPTS_PER_SLOT&&
+    !state.entries.some(e=>e.slotId===last.slotId)&&!state.removedSlots?.includes(last.slotId)){
+  const retryTime=Date.parse(last.at)+RETRY_DELAY_MS;
+  if(Number.isFinite(retryTime)&&retryTime>now.getTime()){
+   for(let i=0;i<7;i++){
+    const candidate=new Date(day);candidate.setUTCDate(candidate.getUTCDate()-i);
+    if(!SKETCHBOOK_DAYS.some(d=>d===candidate.getUTCDay()))continue;
+    if(candidate.toISOString().slice(0,10)===last.slotId){
+     const retry=journalClock(new Date(retryTime),zone);
+     return {date:retry.date,time:retry.time,status:'retry-wait',
+      note:'Retry eligible after '+retry.date+' '+retry.time+' if Mana is idle.'};
+    }
+    break;
+   }
+  }
+ }
+ for(let i=0;i<8;i++){
+  const candidate=new Date(day);candidate.setUTCDate(candidate.getUTCDate()+i);
+  if(!SKETCHBOOK_DAYS.some(d=>d===candidate.getUTCDay()))continue;
+  if(i===0&&local.time>=SKETCHBOOK_DRAW_TIME)continue;
+  return {date:candidate.toISOString().slice(0,10),time:SKETCHBOOK_DRAW_TIME,
+   status:state.settings.enabled?'upcoming':'off',
+   note:state.settings.enabled?'Next scheduled opportunity; Mana must be open and idle.':'Automatic drawings are off.'};
+ }
+ const future=new Date(day);future.setUTCDate(day.getUTCDate()+7);
+ return {date:future.toISOString().slice(0,10),time:SKETCHBOOK_DRAW_TIME,status:'upcoming',
+  note:'Next scheduled opportunity when Mana is open and idle.'};
 }
 
 /** Load from Mana's existing SQLite-backed store (localStorage in web preview). */
