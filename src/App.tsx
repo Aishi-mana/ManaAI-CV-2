@@ -1002,6 +1002,7 @@ export default function App() {
         energy:companion.state.energy,curiosity:companion.state.curiosity,
         interests:identity.interests,recentDrawings:sketchbookRef.current.entries.slice(-8),
         creativePatterns:sketchbookCreativePatterns(sketchbookRef.current.entries),
+        nextTimeFocus:[...sketchbookRef.current.entries].reverse().find(entry=>entry.reflection)?.reflection?.nextTime,
         revisitDrawing:sketchbookRevisitCandidate(sketchbookRef.current.entries),
         // Only actual saved artwork is available for artistic continuity.
         approvedMemories:[],
