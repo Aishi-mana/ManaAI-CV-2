@@ -39,8 +39,9 @@ import {mediaOccupied} from './core/mediaActivity';
 import {PORTRAIT_MILESTONES, PORTRAIT_REACTIONS, type PortraitInteraction} from './core/portraitInteractions';
 import SingingDrawer from './components/SingingDrawer';
 import SongbookWorkspace from './components/SongbookWorkspace';
-import {loadSongbook,saveSongbook,setSongbookEnabled,dueWeeklySong,reserveWeeklySong,addSongDraft,completeSongAudio,markSongAudioError,recordSongbookOutcome,SONGBOOK_LIMIT,type SongbookEntry} from './core/songbook';
+import {loadSongbook,saveSongbook,setSongbookEnabled,dueWeeklySong,reserveWeeklySong,addSongDraft,completeSongAudio,completeSongVoice,markSongAudioError,markSongVoiceError,recordSongbookOutcome,SONGBOOK_LIMIT,type SongbookEntry} from './core/songbook';
 import {prepareWeeklySongIdea} from './core/songbookIdeas';
+import {loadCustomVoice,singingVoiceReference} from './core/customVoice';
 import {STUDIO_PROJECT_LIMIT,type StudioProject} from './core/musicStudio';
 import { prepareAvatarReference,prepareAvatarClothingMask } from './core/avatarReference';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
@@ -1124,7 +1125,110 @@ export default function App() {
     setSongbookStatus(message);
   }
 
-  // Original weekly songs use only the installed ACE-Step backend and existing
+  /** The original ACE-Step WAV is already saved. This stage only adds a Mana-voice version. */
+  async function convertRecordedSongToManaVoice(id:string,ctrl:AbortController){
+    const song=songbookRef.current.entries.find(entry=>entry.id===id);
+    if(!song||song.status!=='ready'||!song.audioPath)throw Error('Save a complete original recording before voice conversion.');
+    if(ctrl.signal.aborted)throw Error('Voice conversion cancelled.');
+    // Songbook always uses Mana's trained singing model, never another selected
+    // character's profile or the chat/reference TTS voice.
+    const config=loadCustomVoice();
+    const voiceProfile='mana-trained-v1' as const;
+    const reference=singingVoiceReference({...config,singingVoiceProfile:voiceProfile});
+    setSongbookStatus('Original WAV saved. Separating the guide vocal and converting it to Mana’s trained voice…');
+    let nativeActive=false;
+    try{
+      await invoke('singing_start',{
+        python:config.singingPython,repo:config.singingRepo,
+        source:song.audioPath,reference,voiceProfile,
+        genre:'original',start:0,seconds:1,wholeSong:true,
+        separate:true,extractor:'mega-lead',backingGain:1,previewOnly:true,
+      });
+      nativeActive=true;
+      if(ctrl.signal.aborted)throw Error('Voice conversion cancelled.');
+      const deadline=Date.now()+120*60_000;
+      let result:{mix?:string;vocal?:string;seconds?:number;error?:string}|undefined;
+      while(!ctrl.signal.aborted&&Date.now()<deadline){
+        await new Promise<void>(resolve=>setTimeout(resolve,1500));
+        if(ctrl.signal.aborted)break;
+        const poll=await invoke<{done:boolean;log:string;result?:{
+          mix?:string;vocal?:string;seconds?:number;error?:string;
+        }}>('singing_poll');
+        if(poll.done){
+          nativeActive=false; // Rust releases the job after returning a result.
+          if(poll.result?.error)throw Error(poll.result.error);
+          result=poll.result;
+          break;
+        }
+      }
+      if(ctrl.signal.aborted)throw Error('Voice conversion cancelled.');
+      if(!result)throw Error('Voice conversion timed out. The guide singer WAV is still saved.');
+      const studio=initiativeRef.current.studio;
+      const canAdd=!!studio&&studio.projects.length<STUDIO_PROJECT_LIMIT;
+      const projectId=canAdd?'studio-'+uid():undefined;
+      // Validate returned WAVs before creating any Mana-voice entry or project.
+      const next=completeSongVoice(songbookRef.current,id,{
+        mix:result.mix??'',vocal:result.vocal??'',seconds:result.seconds??0,
+        ...(projectId?{projectId}:{}),
+      });
+      if(canAdd&&projectId){
+        const project:StudioProject={
+          id:projectId,kind:'cover',
+          title:song.title+' · Mana voice',createdAt:new Date().toISOString(),
+          status:'ready',source:song.audioPath,
+          vocal:result.vocal!,mix:result.mix!,instrumental:'',
+          seconds:result.seconds!,artwork:'',error:'',
+          generatedLyrics:song.generatedLyrics??song.brief.lyrics,
+          settings:{genre:'original',wholeSong:true,start:0,seconds:1,
+            separate:true,backingGain:1,vocalGain:1,reference,extractor:'mega-lead'},
+        };
+        changeInitiative({...initiativeRef.current,studio:{
+          projects:[project,...studio!.projects],selectedId:project.id,
+        }});
+      }
+      setSongbookState(recordSongbookOutcome(next,
+        canAdd?'Mana’s trained-voice version is saved in Songbook and Music Studio.':
+        'Mana’s trained-voice WAV is saved in Songbook. Music Studio library is full.'));
+      await flushPersistence();
+      setSongbookStatus('Mana finished singing! Her version is ready; the original guide is also preserved.');
+    }finally{
+      if(nativeActive)await invoke('singing_stop').catch(()=>{});
+    }
+  }
+
+  /** Convert older Songbook originals without regenerating their music or using a Sunday slot. */
+  async function convertSongbookVoiceOnDemand(id:string){
+    if(songbookRunning.current||abortRef.current||llama.status!=='ready'||
+      storage.error||busy||reflecting||mediaOccupied()||showSinging||
+      sketchbookPlanning.current||sketchbookJob)return;
+    const song=songbookRef.current.entries.find(entry=>entry.id===id);
+    if(!song||song.status!=='ready'||!song.audioPath||song.voiceMixPath)return;
+    const ctrl=new AbortController();
+    songbookController.current=ctrl;songbookRunningMode.current='manual';
+    songbookRunning.current=true;abortRef.current=ctrl;
+    setSongbookBusy(true);setReflecting(true);
+    let releaseGPU:(()=>Promise<void>)|undefined;
+    try{
+      releaseGPU=await llama.pauseForImage(ctrl.signal);
+      if(ctrl.signal.aborted)throw Error('Voice conversion cancelled.');
+      await convertRecordedSongToManaVoice(id,ctrl);
+    }catch(error){
+      const reason=ctrl.signal.aborted?'Voice conversion stopped.':
+        'Mana voice conversion unavailable: '+String(error);
+      setSongbookState(markSongVoiceError(songbookRef.current,id,reason));
+      reportSongbook(reason+' Original guide recording is safe.');
+    }finally{
+      if(releaseGPU)await releaseGPU().catch(error=>{
+        reportSongbook('Voice job finished, but restoring chat failed: '+String(error));
+      });
+      if(songbookController.current===ctrl)songbookController.current=null;
+      if(abortRef.current===ctrl)abortRef.current=null;
+      songbookRunning.current=false;songbookRunningMode.current=null;
+      setSongbookBusy(false);setReflecting(false);
+    }
+  }
+
+  // Original weekly songs use the installed ACE-Step backend and existing
   // llama.cpp GPU lease. A planned song survives audio failures as an honest draft.
   async function composeOriginalSong(slotId:string,mode:'weekly'|'manual'){
     if(songbookRunning.current||abortRef.current||llama.status!=='ready'||
@@ -1188,6 +1292,7 @@ export default function App() {
           mix?:string;seconds?:number;generatedLyrics?:string;error?:string;
         }}>('singing_poll');
         if(poll.done){
+          nativeStarted=false; // Rust has consumed and released the original-song job.
           if(poll.result?.error)throw Error(poll.result.error);
           result=poll.result;
           break;
@@ -1219,15 +1324,20 @@ export default function App() {
         }});
       }
       setSongbookState(recordSongbookOutcome(next,
-        canAdd?'Original song recorded and saved to Songbook and Music Studio.':
-        'Original WAV saved to Songbook. Music Studio library is full.'));
-      await flushPersistence();
-      setSongbookStatus('Mana saved her original song. The recording uses the local guide singer.');
+        'Original WAV saved. Converting the guide singer to Mana’s trained voice…'));
+      await flushPersistence(); // Keep the original even if conversion or the app later fails.
+      await convertRecordedSongToManaVoice(entry.id,ctrl);
     }catch(error){
-      const reason=ctrl.signal.aborted?'Song composition stopped.':
-        'Song generation postponed: '+String(error);
-      if(draftId)setSongbookState(markSongAudioError(songbookRef.current,draftId,reason));
-      reportSongbook(reason+(draftId?' Original lyrics remain saved.':' No song was saved.'));
+      const originalSaved=!!draftId&&songbookRef.current.entries.some(entry=>
+        entry.id===draftId&&entry.status==='ready');
+      const reason=originalSaved?
+        (ctrl.signal.aborted?'Voice conversion stopped.':'Mana voice conversion unavailable: '+String(error)):
+        (ctrl.signal.aborted?'Song composition stopped.':'Song generation postponed: '+String(error));
+      if(draftId)setSongbookState(originalSaved?
+        markSongVoiceError(songbookRef.current,draftId,reason):
+        markSongAudioError(songbookRef.current,draftId,reason));
+      reportSongbook(reason+(originalSaved?
+        ' Original guide recording is safe.':draftId?' Original lyrics remain saved.':' No song was saved.'));
     }finally{
       if(nativeStarted)await invoke('singing_stop').catch(()=>{});
       if(releaseGPU)await releaseGPU().catch(error=>{
@@ -1615,6 +1725,8 @@ export default function App() {
     showImageGeneration||showSinging||showSketchbook?'Wait until Mana finishes her other activity.':
     songbook.entries.length>=SONGBOOK_LIMIT?'Her Songbook library is full.':'';
 
+  const songbookVoiceUnavailable=songbookUnavailable==='Her Songbook library is full.'?'':songbookUnavailable;
+
   const drawNowReason=!galleryReady||galleryWorking?'Image gallery is loading or saving.':
     storage.error?'Storage is unavailable.':
     llama.status!=='ready'?'Start Mana’s local chat model first.':
@@ -1807,8 +1919,10 @@ export default function App() {
       <SingingDrawer active={showSinging&&!showSavedImages&&!showSongbook} initiative={initiative} onInitiative={changeInitiative} onBusy={setReflecting} onClose={()=>setShowSinging(false)}/>
       {showSongbook&&<SongbookWorkspace name={settings.charName} state={songbook} status={songbookStatus}
         busy={songbookBusy} unavailableReason={songbookUnavailable}
+        voiceUnavailableReason={songbookVoiceUnavailable}
         onCompose={()=>{if(!songbookUnavailable){lastActivityAt.current=Date.now();void composeOriginalSong('manual-'+uid(),'manual');}}}
         onStop={()=>songbookController.current?.abort()}
+        onConvertVoice={id=>{if(!songbookVoiceUnavailable){lastActivityAt.current=Date.now();void convertSongbookVoiceOnDemand(id);}}}
         onEnable={enabled=>{
           lastActivityAt.current=Date.now();
           const current=songbookRef.current;
