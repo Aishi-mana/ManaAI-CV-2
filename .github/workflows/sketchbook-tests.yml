@@ -1,8 +1,12 @@
-name: Sketchbook focused tests
+name: Sketchbook & Songbook focused tests
 on:
   pull_request:
     paths:
       - 'src/core/sketchbook*.ts'
+      - 'src/core/songbook*.ts'
+      - 'src/core/originalSong.ts'
+      - 'src/components/SongbookWorkspace.tsx'
+      - 'tests/songbook*.test.cjs'
       - 'src/core/imageReliability.ts'
       - 'src/core/imageSession.ts'
       - 'src/core/imageGeneration.ts'
@@ -25,7 +29,7 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
-      - name: Run Sketchbook test suite
-        run: node --test tests/sketchbook*.test.cjs
+      - name: Run creative-book test suites
+        run: node --test tests/sketchbook*.test.cjs tests/songbook*.test.cjs
       - name: Compile TypeScript and frontend
         run: npm run build
