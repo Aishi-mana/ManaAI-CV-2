@@ -8,7 +8,7 @@ export function imageGenerationRequest(value:ImageGenerationRequest):ImageGenera
 
 }
 
-export interface ChatPictureRequest {prompt:string;negative?:string;backend?:'neta'|'sd'|'animagine'|'photon'|'qwen';referenceAvatar?:boolean;clothingOnly?:boolean;qwenReferenceSource?:'sheet'|'avatar';referenceCast?:readonly string[]}
+export interface ChatPictureRequest {prompt:string;negative?:string;backend?:'neta'|'sd'|'animagine'|'photon'|'qwen';/** Name of a previously successful, installed checkpoint; ignored when absent. */ preferredModel?:string;/** For autonomous art only: use a smaller local checkpoint unless a proven model is available. */ preferEfficientModel?:boolean;referenceAvatar?:boolean;clothingOnly?:boolean;qwenReferenceSource?:'sheet'|'avatar';referenceCast?:readonly string[]}
 
 /** Only explicit leading creation requests; questions and quoted discussion stay chat. */
 
