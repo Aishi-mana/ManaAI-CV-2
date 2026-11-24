@@ -11,6 +11,8 @@ interface Props {
  unavailableReason:string;
  voiceUnavailableReason:string;
  onCompose:()=>void;
+ onDiscoverCover:(theme:string)=>void;
+ onRemoveCoverIdea:(id:string)=>void;
  onConvertVoice:(id:string)=>void;
  onStop:()=>void;
  onEnable:(enabled:boolean)=>void;
@@ -30,11 +32,13 @@ const voiceStatus=(entry:SongbookEntry)=>entry.voiceMixPath?'Mana voice ready':
 const defaultVersion=(entry:SongbookEntry):AudioVersion=>entry.voiceMixPath?'mana':'guide';
 
 export default function SongbookWorkspace({
- name,state,status,busy,unavailableReason,voiceUnavailableReason,onCompose,onConvertVoice,onStop,onEnable,onCatchUp,onOpenStudio,onClose,
+ name,state,status,busy,unavailableReason,voiceUnavailableReason,onCompose,onDiscoverCover,onRemoveCoverIdea,onConvertVoice,onStop,onEnable,onCatchUp,onOpenStudio,onClose,
 }:Props){
  const [now,setNow]=useState(()=>new Date());
  const [selectedId,setSelectedId]=useState('');
  const [search,setSearch]=useState('');
+ const [coverTheme,setCoverTheme]=useState('');
+ const [coverSourceError,setCoverSourceError]=useState('');
  const [versionSelection,setVersionSelection]=useState<{id:string;version:AudioVersion}|null>(null);
  const [audioUrl,setAudioUrl]=useState('');
  const [loadedAudio,setLoadedAudio]=useState<{id:string;version:AudioVersion}|null>(null);
@@ -116,7 +120,7 @@ export default function SongbookWorkspace({
       <div className="songbook-main-actions">
        <button className="btn primary songbook-compose" type="button" onClick={onCompose}
         disabled={busy||!!unavailableReason}>♫ &nbsp; Compose now</button>
-       {busy&&<button className="btn" type="button" onClick={onStop}>Stop song job</button>}
+       {busy&&<button className="btn" type="button" onClick={onStop}>Stop current activity</button>}
       </div>
       <p className="songbook-muted">{unavailableReason||'A manual composition. Your weekly song slot stays free.'}</p>
      </div>
@@ -155,6 +159,42 @@ export default function SongbookWorkspace({
      {!status&&state.lastOutcome&&<small>{dateLabel(state.lastOutcome.at)}</small>}
     </div>
    </div>}
+
+
+   <section className="songbook-cover-discovery" aria-label="Cover inspirations">
+    <div className="songbook-cover-heading">
+     <div>
+      <span className="songbook-eyebrow">COVER INSPIRATIONS</span>
+      <h2>Let Mana find something to sing</h2>
+      <p className="songbook-muted">She can research public music pages and save a possible cover idea. You review the source and supply permitted local audio in Music Studio before making a cover.</p>
+     </div>
+     <span className="songbook-small-status">Ideas · {state.coverIdeas.length}</span>
+    </div>
+    <form className="songbook-cover-form" onSubmit={event=>{event.preventDefault();setCoverSourceError('');onDiscoverCover(coverTheme);}}>
+     <label htmlFor="songbook-cover-theme">Music or mood to explore</label>
+     <div className="songbook-cover-input-row">
+      <input id="songbook-cover-theme" value={coverTheme} maxLength={120}
+       onChange={event=>setCoverTheme(event.target.value)} placeholder="Dreamy old songs, piano ballads, jazz…"/>
+      <button className="btn primary" type="submit" disabled={busy||!!voiceUnavailableReason}>Find a cover idea</button>
+     </div>
+     <small className="songbook-muted">Search uses Mana's installed SearXNG. A search result isn't proof that a song or recording is free to use.</small>
+    </form>
+    {state.coverIdeas.length>0&&<div className="songbook-cover-shelf" aria-label="Saved cover ideas">
+     {state.coverIdeas.map(idea=><article key={idea.id} className="songbook-cover-idea">
+      <span className="songbook-tag">Source to review</span>
+      <h3>{idea.title}</h3>
+      <p className="songbook-cover-reason"><strong>Mana's thought:</strong> {idea.reason}</p>
+      {idea.excerpt&&<p className="songbook-cover-excerpt">{idea.excerpt}</p>}
+      <div className="songbook-cover-actions">
+       <button className="btn" type="button" onClick={()=>{setCoverSourceError('');void invoke('open_web_source',{url:idea.url}).catch(error=>setCoverSourceError('Could not open the source: '+String(error)));}}>Open source</button>
+       <button className="btn" type="button" onClick={onOpenStudio} disabled={busy}>Music Studio</button>
+       <button className="btn" type="button" onClick={()=>onRemoveCoverIdea(idea.id)} disabled={busy}>Remove idea</button>
+      </div>
+      <small className="songbook-muted">Saved {dateLabel(idea.createdAt)} · Source only; no audio imported</small>
+     </article>)}
+    </div>}
+    {coverSourceError&&<p className="msg-error" role="alert">{coverSourceError}</p>}
+   </section>
 
    <section className="songbook-collection" aria-label="Original songs">
     <div className="songbook-collection-head">

@@ -3,6 +3,7 @@ import {generatedAudioPath} from './musicStudio';
 import {validateOriginalBrief,type OriginalBrief} from './originalSong';
 import {readStored,writeStored} from './persistence';
 import {isRecord,validDate} from './validation';
+import {COVER_IDEA_LIMIT,normalizeCoverIdea,type CoverIdea} from './coverDiscovery';
 
 export const SONGBOOK_KEY='mana.songbook.v1';
 export const SONGBOOK_LIMIT=100;
@@ -38,6 +39,7 @@ export interface SongbookEntry {
 export interface SongbookState {
  settings:{enabled:boolean;timeZone:string;enabledAt:string|null;catchUp:boolean};
  entries:SongbookEntry[];
+ coverIdeas:CoverIdea[];
  lastAttempt?:{slotId:string;at:string};
  lastOutcome?:{at:string;message:string};
 }
@@ -90,7 +92,7 @@ export function validateSongbook(value:unknown):SongbookState {
  const at=validTime(settings.enabledAt)?settings.enabledAt:null;
  const state:SongbookState={
   settings:{enabled:settings.enabled===true&&!!at,timeZone:zone,enabledAt:at,catchUp:settings.catchUp!==false},
-  entries:[],
+  entries:[],coverIdeas:[],
  };
  const unique=new Set<string>(),slots=new Set<string>();
  if(isRecord(value)&&Array.isArray(value.entries)){
@@ -98,6 +100,14 @@ export function validateSongbook(value:unknown):SongbookState {
    const entry=normalizedEntry(item);
    if(!entry||unique.has(entry.id)||slots.has(entry.slotId))continue;
    unique.add(entry.id);slots.add(entry.slotId);state.entries.push(entry);
+  }
+ }
+ const coverIds=new Set<string>(),coverUrls=new Set<string>();
+ if(isRecord(value)&&Array.isArray(value.coverIdeas)){
+  for(const raw of value.coverIdeas.slice(0,COVER_IDEA_LIMIT)){
+   const idea=normalizeCoverIdea(raw);
+   if(!idea||coverIds.has(idea.id)||coverUrls.has(idea.url))continue;
+   coverIds.add(idea.id);coverUrls.add(idea.url);state.coverIdeas.push(idea);
   }
  }
  if(isRecord(value)&&isRecord(value.lastAttempt)&&isSunday(String(value.lastAttempt.slotId))&&

@@ -41,6 +41,7 @@ import SingingDrawer from './components/SingingDrawer';
 import SongbookWorkspace from './components/SongbookWorkspace';
 import {loadSongbook,saveSongbook,setSongbookEnabled,dueWeeklySong,reserveWeeklySong,addSongDraft,completeSongAudio,completeSongVoice,markSongAudioError,markSongVoiceError,recordSongbookOutcome,SONGBOOK_LIMIT,type SongbookEntry} from './core/songbook';
 import {prepareWeeklySongIdea} from './core/songbookIdeas';
+import {addCoverIdea,removeCoverIdea,coverSearchQuery,pickCoverSource,type CoverSearchSource} from './core/coverDiscovery';
 import {loadCustomVoice,singingVoiceReference} from './core/customVoice';
 import {STUDIO_PROJECT_LIMIT,type StudioProject} from './core/musicStudio';
 import { prepareAvatarReference,prepareAvatarClothingMask } from './core/avatarReference';
@@ -1125,6 +1126,52 @@ export default function App() {
     setSongbookStatus(message);
   }
 
+
+  // Cover exploration stops at a public source suggestion; it never downloads
+  // recordings, imports third-party media, or starts a conversion job.
+  async function discoverCoverIdea(theme:string){
+    if(!inTauri||songbookRunning.current||abortRef.current||
+       busy||reflecting||mediaOccupied()||showSinging||
+       sketchbookPlanning.current||sketchbookJob||storage.error||
+       llama.status!=='ready')return;
+    const ctrl=new AbortController();
+    songbookController.current=ctrl;
+    songbookRunningMode.current='manual';
+    songbookRunning.current=true;
+    abortRef.current=ctrl;
+    setSongbookBusy(true);setReflecting(true);
+    try{
+      const query=coverSearchQuery(theme);
+      setSongbookStatus('Mana is looking through public music sources…');
+      const sources=await invoke<CoverSearchSource[]>('search_web',{query});
+      if(ctrl.signal.aborted)throw Error('Cover exploration stopped.');
+      setSongbookStatus('Mana is choosing a song source to explore…');
+      const chosen=await pickCoverSource({
+        sources,theme:theme.trim()||'traditional music',
+        name:settings.charName,port:llama.port,signal:ctrl.signal,
+      });
+      if(ctrl.signal.aborted)throw Error('Cover exploration stopped.');
+      const next=addCoverIdea(songbookRef.current,{
+        id:'cover-'+uid(),createdAt:new Date().toISOString(),
+        query:theme.trim()||'traditional music',
+        title:chosen.source.title,url:chosen.source.url,
+        excerpt:chosen.source.snippets.join(' ').slice(0,850),
+        reason:chosen.reason,
+      });
+      setSongbookState(next);
+      await flushPersistence();
+      setSongbookStatus('Mana saved a cover idea for review. No song audio was downloaded or converted.');
+    }catch(error){
+      setSongbookStatus(ctrl.signal.aborted?'Cover exploration stopped. Nothing new was saved.':
+        'Cover discovery unavailable: '+String(error));
+    }finally{
+      if(songbookController.current===ctrl)songbookController.current=null;
+      if(abortRef.current===ctrl)abortRef.current=null;
+      songbookRunning.current=false;songbookRunningMode.current=null;
+      setSongbookBusy(false);setReflecting(false);
+    }
+  }
+
   /** The original ACE-Step WAV is already saved. This stage only adds a Mana-voice version. */
   async function convertRecordedSongToManaVoice(id:string,ctrl:AbortController){
     const song=songbookRef.current.entries.find(entry=>entry.id===id);
@@ -1922,6 +1969,8 @@ export default function App() {
         voiceUnavailableReason={songbookVoiceUnavailable}
         onCompose={()=>{if(!songbookUnavailable){lastActivityAt.current=Date.now();void composeOriginalSong('manual-'+uid(),'manual');}}}
         onStop={()=>songbookController.current?.abort()}
+        onDiscoverCover={theme=>{lastActivityAt.current=Date.now();void discoverCoverIdea(theme);}}
+        onRemoveCoverIdea={id=>{lastActivityAt.current=Date.now();setSongbookState(removeCoverIdea(songbookRef.current,id));}}
         onConvertVoice={id=>{if(!songbookVoiceUnavailable){lastActivityAt.current=Date.now();void convertSongbookVoiceOnDemand(id);}}}
         onEnable={enabled=>{
           lastActivityAt.current=Date.now();
