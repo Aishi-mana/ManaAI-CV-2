@@ -32,7 +32,7 @@ function load(file,cache=new Map()){
 
 const sketchbook=load('src/core/sketchbook.ts');
 const {SKETCHBOOK_KEY,SKETCHBOOK_DAYS,validateSketchbook,setSketchbookEnabled,
- dueSketchbookSlot,beginSketchbookAttempt,addSketchbookEntry,removeSketchbookEntry,canSaveScheduledSketchbook,recordSketchbookOutcome,sketchbookScheduleSummary,sketchbookCreativePatterns,sketchbookRevisitCandidate,loadSketchbook,saveSketchbook}=sketchbook;
+ dueSketchbookSlot,beginSketchbookAttempt,addSketchbookEntry,removeSketchbookEntry,canSaveScheduledSketchbook,recordSketchbookOutcome,sketchbookScheduleSummary,sketchbookCreativePatterns,sketchbookRevisitCandidate,validateSketchbookReflection,addSketchbookReflection,loadSketchbook,saveSketchbook}=sketchbook;
 const at=iso=>new Date(iso);
 const starting=()=>setSketchbookEnabled(validateSketchbook(null),true,at('2026-11-02T01:00:00.000Z')); // Monday 09:00 Singapore
 function drawing(slotId,createdAt,n=1){
@@ -429,4 +429,55 @@ test('A revisit link remains historical artwork provenance after original entry 
  assert.equal(state.entries.length,1);
  assert.equal(state.entries[0].revisitedDrawingId,'drawing1');
  assert.ok(state.removedSlots.includes('2026-11-03'));
+});
+
+
+test('On-demand concept review saves on an existing finished drawing and survives persistence',()=>{
+ let state=starting();
+ state=addSketchbookEntry(state,drawing('2026-11-03','2026-11-03T04:10:00.000Z'));
+ const note={at:'2026-11-03T06:00:00.000Z',basis:'idea-only',
+  enjoyed:'I like the mood of the imagined moon garden.',
+  nextTime:'I would try a stronger focal tree and fewer flowers.'};
+ state=addSketchbookReflection(state,'drawing1',note);
+ assert.deepEqual(plain(state.entries[0].reflection),note);
+ saveSketchbook(state);
+ const saved=loadSketchbook();
+ assert.deepEqual(plain(saved.entries[0].reflection),note);
+ assert.equal(saved.entries[0].imageId,'image1');
+ assert.equal(saved.entries[0].sourceType,'scheduled-drawing');
+ assert.equal(saved.settings.frequencyPerWeek,3);
+ assert.equal(dueSketchbookSlot(saved,at('2026-11-03T06:01:00.000Z')),null);
+});
+
+test('A drawing can be reflected on once; deleted and unknown drawings cannot receive late notes',()=>{
+ const note={at:'2026-11-03T06:00:00.000Z',basis:'idea-only',
+  enjoyed:'I like the idea of a quiet night.',nextTime:'Next time, simplify the foreground.'};
+ const state=addSketchbookEntry(starting(),drawing('2026-11-03','2026-11-03T04:10:00.000Z'));
+ const updated=addSketchbookReflection(state,'drawing1',note);
+ assert.throws(()=>addSketchbookReflection(updated,'drawing1',note),/already has a reflection/);
+ assert.throws(()=>addSketchbookReflection(state,'not-present',note),/no longer in Sketchbook/);
+ const removed=removeSketchbookEntry(updated,'drawing1');
+ assert.equal(removed.entries.length,0);
+ assert.throws(()=>addSketchbookReflection(removed,'drawing1',note),/no longer in Sketchbook/);
+ assert.ok(removed.removedSlots.includes('2026-11-03'));
+});
+
+test('Unsafe or oversized review metadata is rejected without affecting the completed drawing',()=>{
+ const note={at:'2026-11-03T06:00:00.000Z',basis:'idea-only',
+  enjoyed:'I like this scene idea.',nextTime:'I would emphasize its soft moonlight.'};
+ const state=addSketchbookEntry(starting(),drawing('2026-11-03','2026-11-03T04:10:00.000Z'));
+ for(const invalid of [
+  {...note,basis:'visual-inspection'},
+  {...note,at:'not a date'},
+  {...note,enjoyed:'I saw my finished drawing and its colors.'},
+  {...note,nextTime:'I inspected the final image earlier.'},
+  {...note,enjoyed:'x'.repeat(251)},
+  {...note,nextTime:'x'.repeat(221)},
+ ]){
+  assert.equal(validateSketchbookReflection(invalid),undefined);
+  assert.throws(()=>addSketchbookReflection(state,'drawing1',invalid),/Invalid text-only/);
+ }
+ const injected=validateSketchbook({...state,entries:[{...state.entries[0],reflection:{...note,basis:'made-up'}}]});
+ assert.equal(injected.entries[0].reflection,undefined);
+ assert.equal(injected.entries[0].prompt,state.entries[0].prompt);
 });
