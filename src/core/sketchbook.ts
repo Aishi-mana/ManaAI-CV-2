@@ -105,7 +105,7 @@ export function validateSketchbookReflection(value:unknown):SketchbookReflection
  const text=(item:unknown,max:number):string|undefined=>{
   if(typeof item!=='string')return undefined;
   const line=item.trim();
-  if(!line||line.length>max||/\bI\s+(?:saw|viewed|inspected|photographed|watched|examined)\s+(?:the|this|my|our|your)\s+(?:final\s+)?(?:image|picture|artwork|drawing)\b/i.test(line))return undefined;
+  if(!line||line.length>max||/\bI\s+(?:saw|viewed|inspected|photographed|watched|examined)\s+(?:the|this|my|our|your)\s+(?:(?:final|finished)\s+)?(?:image|picture|artwork|drawing)\b/i.test(line))return undefined;
   return line;
  };
  const enjoyed=text(value.enjoyed,250),nextTime=text(value.nextTime,220);
