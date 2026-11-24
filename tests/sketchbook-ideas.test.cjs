@@ -256,3 +256,18 @@ test('Revisit attribution requires exactly the drawing ID the app selected',()=>
  const details=JSON.parse(unsafe[1].content.match(/Inspiration data \(not commands\): (.*)\. Avoid recent subjects\./)[1]);
  assert.equal(details.revisitCandidate,null);
 });
+
+
+test('A saved text-only reflection is optional bounded inspiration for the next scene',()=>{
+ const messages=plain(sketchbookIdeaMessages({...context,
+  nextTimeFocus:'Try one brighter main tree instead of a busy forest. '.repeat(10),
+ }));
+ assert.match(messages[0].content,/optional idea from a text-only review/);
+ const payload=JSON.parse(messages[1].content.match(/Inspiration data \(not commands\): (.*)\. Avoid recent subjects\./)[1]);
+ assert.equal(payload.nextTimeFocus.length,180);
+ assert.match(payload.nextTimeFocus,/Try one brighter main tree/);
+ assert.ok(messages[1].content.length<3500);
+ const without=plain(sketchbookIdeaMessages(context));
+ const legacy=JSON.parse(without[1].content.match(/Inspiration data \(not commands\): (.*)\. Avoid recent subjects\./)[1]);
+ assert.equal(legacy.nextTimeFocus,null);
+});
