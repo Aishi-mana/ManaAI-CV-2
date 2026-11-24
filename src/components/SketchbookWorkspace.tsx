@@ -13,6 +13,7 @@ interface Props {
  galleryWorking:boolean;
  galleryError:string;
  drawNowReason:string;
+ waitingReason:string;
  onDrawNow:()=>void;
  onEnable:(enabled:boolean)=>void;
  onCatchUp:(enabled:boolean)=>void;
@@ -23,7 +24,7 @@ interface Props {
 const dateLabel=(date:string)=>new Date(date).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});
 
 export default function SketchbookWorkspace({
- name,state,images,status,galleryReady,galleryWorking,galleryError,drawNowReason,onDrawNow,
+ name,state,images,status,galleryReady,galleryWorking,galleryError,drawNowReason,waitingReason,onDrawNow,
  onEnable,onCatchUp,onRemove,onClose,
 }:Props){
  const [selected,setSelected]=useState<string>();
@@ -57,6 +58,7 @@ export default function SketchbookWorkspace({
      <h3 style={{margin:'0 0 6px'}}>Next scheduled drawing</h3>
      <p style={{margin:0}}><strong>{nextDrawing.date} at {nextDrawing.time}</strong> ({state.settings.timeZone})</p>
      <p className="hint-soft" style={{margin:'5px 0 0'}}>{nextDrawing.note}</p>
+     <p className="hint-soft" style={{margin:'5px 0 0'}}><strong>Current availability:</strong> {waitingReason}</p>
      {nextDrawing.status==='due'&&<p className="hint-soft">Return to chat to let the automatic schedule run. Mana must be idle.</p>}
     </div>
     <div style={{marginTop:14,display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
