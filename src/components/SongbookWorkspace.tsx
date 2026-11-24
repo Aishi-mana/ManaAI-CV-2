@@ -1,6 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import {invoke} from '@tauri-apps/api/core';
-import {nextWeeklySong,type SongbookState} from '../core/songbook';
+import {nextWeeklySong,type SongbookEntry,type SongbookState} from '../core/songbook';
 import {durationLabel} from '../core/musicStudio';
 
 interface Props {
@@ -18,102 +18,258 @@ interface Props {
  onOpenStudio:()=>void;
  onClose:()=>void;
 }
+
+type AudioVersion='mana'|'guide';
 const dateLabel=(date:string)=>new Date(date).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});
+const scheduleDateLabel=(date:string)=>new Date(date+'T12:00:00Z').toLocaleDateString(undefined,{
+ weekday:'long',month:'short',day:'numeric',timeZone:'UTC',
+});
+const voiceStatus=(entry:SongbookEntry)=>entry.voiceMixPath?'Mana voice ready':
+ entry.status==='ready'?(entry.voiceError?'Voice needs retry':'Guide recorded'):
+ entry.status==='error'?'Audio unavailable':'Writing saved';
+const defaultVersion=(entry:SongbookEntry):AudioVersion=>entry.voiceMixPath?'mana':'guide';
 
 export default function SongbookWorkspace({
  name,state,status,busy,unavailableReason,voiceUnavailableReason,onCompose,onConvertVoice,onStop,onEnable,onCatchUp,onOpenStudio,onClose,
 }:Props){
  const [now,setNow]=useState(()=>new Date());
  const [selectedId,setSelectedId]=useState('');
+ const [search,setSearch]=useState('');
+ const [versionSelection,setVersionSelection]=useState<{id:string;version:AudioVersion}|null>(null);
  const [audioUrl,setAudioUrl]=useState('');
- const [audioVersion,setAudioVersion]=useState<'mana'|'guide'|''>('');
- const audioRequest=useRef(0);
+ const [loadedAudio,setLoadedAudio]=useState<{id:string;version:AudioVersion}|null>(null);
  const [audioLoading,setAudioLoading]=useState(false);
  const [audioError,setAudioError]=useState('');
- useEffect(()=>{const timer=window.setInterval(()=>setNow(new Date()),60_000);
-  return()=>window.clearInterval(timer);},[]);
+ const audioRequest=useRef(0);
+
+ useEffect(()=>{
+  const timer=window.setInterval(()=>setNow(new Date()),60_000);
+  return()=>window.clearInterval(timer);
+ },[]);
  useEffect(()=>()=>{if(audioUrl)URL.revokeObjectURL(audioUrl);},[audioUrl]);
+
  const next=nextWeeklySong(state,now);
  const entries=state.entries;
- const selected=entries.find(song=>song.id===selectedId)??entries[0];
- async function loadAudio(path:string,version:'mana'|'guide'){
+ const sungCount=entries.filter(song=>!!song.voiceMixPath).length;
+ const recordedCount=entries.filter(song=>song.status==='ready').length;
+ const filtered=entries.filter(song=>
+  (song.title+' '+song.concept+' '+song.brief.style).toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
+ const selected=filtered.find(song=>song.id===selectedId)??filtered[0];
+ const activeVersion=selected&&versionSelection?.id===selected.id?versionSelection.version:
+  selected?defaultVersion(selected):'guide';
+ const audioIsCurrent=!!selected&&loadedAudio?.id===selected.id&&loadedAudio.version===activeVersion;
+ const playingPath=selected?(activeVersion==='mana'?selected.voiceMixPath:selected.audioPath):undefined;
+
+ function resetAudio(){
+  audioRequest.current++;
+  setAudioLoading(false);setAudioUrl('');setAudioError('');setLoadedAudio(null);
+ }
+ function selectSong(song:SongbookEntry){
+  resetAudio();
+  setSelectedId(song.id);
+  setVersionSelection({id:song.id,version:defaultVersion(song)});
+ }
+ async function loadAudio(song:SongbookEntry,version:AudioVersion){
+  const path=version==='mana'?song.voiceMixPath:song.audioPath;
+  if(!path)return;
   const request=++audioRequest.current;
-  setAudioLoading(true);setAudioError('');setAudioUrl('');setAudioVersion(version);
+  setVersionSelection({id:song.id,version});
+  setAudioLoading(true);setAudioError('');setAudioUrl('');setLoadedAudio(null);
   try{
    const raw=await invoke<number[]|ArrayBuffer>('singing_audio',{path});
    if(request!==audioRequest.current)return;
    const bytes=raw instanceof ArrayBuffer?raw:new Uint8Array(raw).buffer;
    const url=URL.createObjectURL(new Blob([bytes],{type:'audio/wav'}));
-   setAudioUrl(url);
-  }catch(error){if(request===audioRequest.current)setAudioError('Could not load saved song audio: '+String(error));}
-  finally{if(request===audioRequest.current)setAudioLoading(false);}
+   setLoadedAudio({id:song.id,version});setAudioUrl(url);
+  }catch(error){
+   if(request===audioRequest.current)setAudioError('Could not load the saved recording: '+String(error));
+  }finally{
+   if(request===audioRequest.current)setAudioLoading(false);
+  }
  }
- return <section className="music-studio image-gallery" role="dialog" aria-label="Mana's Songbook">
-  <header className="studio-header">
-   <div><small>MANA • SONGBOOK</small><h1>{name}'s Songbook</h1>
-    <p>Her own original songs, imagined with local AI and rendered with the installed music generator.</p></div>
-   <button className="btn" onClick={onClose}>Back to chat</button>
+
+ return <section className="music-studio songbook-screen" role="dialog" aria-label={name+"'s Songbook"}>
+  <header className="studio-header songbook-header">
+   <div>
+    <small>MANA • SONGBOOK</small>
+    <h1>{name}'s Songbook</h1>
+    <p>Original music, written by Mana and sung in her own voice.</p>
+   </div>
+   <div className="songbook-header-actions">
+    <button className="btn" type="button" onClick={onOpenStudio} disabled={busy}>Music Studio</button>
+    <button className="btn" type="button" onClick={onClose}>Back to chat</button>
+   </div>
   </header>
-  <div className="gallery-body" style={{flex:1,minHeight:0,overflowY:'auto',padding:'24px 28px'}}>
-   <section className="diary-setting-card" aria-label="Original weekly songs">
-    <h2>Her weekly songwriting</h2>
-    <label className="check"><input type="checkbox" checked={state.settings.enabled} onChange={e=>onEnable(e.target.checked)}/>
-     Let {name} compose a song automatically each week</label>
-    <p>One original composition each Sunday at noon ({state.settings.timeZone}). Off by default.</p>
-    <label className="check"><input type="checkbox" checked={state.settings.catchUp} onChange={e=>onCatchUp(e.target.checked)}/>
-     Allow the current week's missed Sunday to catch up when Mana is idle</label>
-    <p className="hint-soft">Mana writes original lyrics, then ACE-Step generates a 60–120 second guide recording. Songbook automatically uses her installed trained singing voice to convert that recording. Both WAVs are kept; missing voice tools or conversion failures never delete the original. No web searches or external-song covers.</p>
-    <div style={{marginTop:12,padding:'12px 16px',border:'1px solid var(--border, #e2d9ef)',borderRadius:12}}>
-     <strong>Next song: {next.date} at {next.time}</strong> ({state.settings.timeZone})
-     <p className="hint-soft">{next.note}</p>
-     <p className="hint-soft"><strong>Current availability:</strong> {unavailableReason||'Open, local models ready and Mana idle for five minutes.'}</p>
-    </div>
-    <div style={{marginTop:12,display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}>
-     <button className="btn primary" type="button" onClick={onCompose} disabled={!!unavailableReason||busy}>Compose Now · Test</button>
-     {busy&&<button className="btn" type="button" onClick={onStop}>Stop song job</button>}
-     <small className="hint-soft">{unavailableReason||'One manual test; it does not use the weekly scheduled slot.'}</small>
-    </div>
-    {status&&<p role="status" className="hint-soft">{status}</p>}
-    {state.lastOutcome&&<p role="status" className="hint-soft">Last result: {state.lastOutcome.message} ({dateLabel(state.lastOutcome.at)})</p>}
-   </section>
-   <section aria-label="Original songs" style={{marginTop:22}}>
-    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
-     <div><h2>Original songs · {entries.length}</h2><p className="hint-soft">The original guide WAV is always retained. Mana's trained-voice WAV is shown only after a successful conversion.</p></div>
-     <button className="btn" onClick={onOpenStudio} disabled={busy}>Open Music Studio</button>
-    </div>
-    {!entries.length&&<p className="hint-soft">No songs yet. Enable weekly songwriting or use Compose Now while Mana's local chat model is ready.</p>}
-    <div style={{display:'flex',gap:12,flexWrap:'wrap',margin:'12px 0'}}>
-     {entries.map(entry=><button className={'btn'+(selected?.id===entry.id?' selected-mode':'')} key={entry.id}
-      onClick={()=>{audioRequest.current++;setSelectedId(entry.id);setAudioUrl('');setAudioVersion('');setAudioError('');}}>
-      {entry.title} · {entry.voiceMixPath?'Mana voice ready':entry.status==='ready'?'Guide recorded':entry.status==='error'?'Audio unavailable':'Composition draft'}
-     </button>)}
-    </div>
-    {selected&&<section style={{border:'1px solid var(--border, #e2d9ef)',borderRadius:12,padding:16,maxWidth:960}}>
-     <h3>{selected.title}</h3>
-     <p>{selected.concept}</p>
-     {selected.creativeReason&&<p className="hint-soft"><strong>Why Mana chose it:</strong> {selected.creativeReason}</p>}
-     <p className="hint-soft">{selected.source==='manual'?'Manual test':'Weekly original'} · {dateLabel(selected.createdAt)} · {selected.brief.style} · Target {durationLabel(selected.brief.duration)}</p>
-     <p className="hint-soft">{selected.voiceMixPath?'Mana’s trained voice is ready, with the original guide recording preserved.':selected.status==='ready'?'Original guide WAV recorded; Mana’s trained-voice version is not yet available.':selected.status==='error'?'Composition saved, but audio is unavailable.':'Original composition saved; audio is not yet available.'}</p>
-     {selected.status==='ready'&&selected.audioPath&&<>
-      <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
-       {selected.voiceMixPath&&<button className="btn primary" disabled={audioLoading}
-        onClick={()=>void loadAudio(selected.voiceMixPath!,'mana')}>Load Mana’s singing voice</button>}
-       <button className="btn" disabled={audioLoading}
-        onClick={()=>void loadAudio(selected.audioPath!,'guide')}>Load original guide</button>
-       {!selected.voiceMixPath&&<button className="btn" disabled={busy||!!voiceUnavailableReason}
-        onClick={()=>onConvertVoice(selected.id)}>{selected.voiceError?'Retry Mana voice conversion':'Convert saved song to Mana’s voice'}</button>}
+
+  <div className="songbook-scroll">
+   <section className="songbook-dashboard" aria-label="Songwriting controls">
+    <div className="songbook-feature">
+     <div className="songbook-feature-copy">
+      <span className="songbook-eyebrow">HER LITTLE MUSIC CORNER</span>
+      <h2>Another song, another little world.</h2>
+      <p>Mana writes the lyrics, makes an original recording, then brings it to life with her trained singing voice.</p>
+      <div className="songbook-steps" aria-label="Song creation stages">
+       <span>01 · Write</span><span>02 · Compose</span><span>03 · Sing</span>
       </div>
-      {audioUrl&&<p className="hint-soft">Playing: {audioVersion==='mana'?'Mana’s trained singing voice':'Original guide singer'}</p>}
-      {audioUrl&&<audio controls src={audioUrl} preload="metadata" aria-label={(audioVersion==='mana'?'Mana voice: ':'Original guide: ')+selected.title}/>}
-      {selected.seconds&&<p className="hint-soft">Original duration: {durationLabel(selected.seconds)}{selected.voiceSeconds?' · Mana voice duration: '+durationLabel(selected.voiceSeconds):''}</p>}
-     </>}
-     {audioError&&<p className="msg-error" role="alert">{audioError}</p>}
-     {selected.error&&<p className="msg-error" role="status">Audio generation: {selected.error}</p>}
-     {selected.voiceError&&<p className="msg-error" role="status">Mana voice conversion: {selected.voiceError}</p>}
-     <details><summary>Original lyrics</summary><pre className="studio-log">{selected.generatedLyrics||selected.brief.lyrics}</pre></details>
-     <details><summary>Musical direction</summary><p>{selected.brief.prompt}</p><p className="hint-soft">Seed {selected.brief.seed} · Duration requested {selected.brief.duration}s</p></details>
-     <p className="hint-soft">Both versions stay local. Successful Mana-voice conversions also appear as separate projects in Music Studio, alongside the original.</p>
-    </section>}
+     </div>
+     <div className="songbook-feature-bottom">
+      <div className="songbook-main-actions">
+       <button className="btn primary songbook-compose" type="button" onClick={onCompose}
+        disabled={busy||!!unavailableReason}>♫ &nbsp; Compose now</button>
+       {busy&&<button className="btn" type="button" onClick={onStop}>Stop song job</button>}
+      </div>
+      <p className="songbook-muted">{unavailableReason||'A manual composition. Your weekly song slot stays free.'}</p>
+     </div>
+    </div>
+
+    <aside className="songbook-schedule" aria-label="Weekly song schedule">
+     <div className="songbook-schedule-top">
+      <span className="songbook-eyebrow">WEEKLY SONG</span>
+      <span className={'songbook-small-status'+(state.settings.enabled?' is-on':'')}>
+       {state.settings.enabled?'On':'Off'}
+      </span>
+     </div>
+     <h3>{scheduleDateLabel(next.date)}</h3>
+     <p className="songbook-muted">12:00 noon · {state.settings.timeZone}</p>
+     <label className="songbook-toggle">
+      <span>Make a new song every Sunday</span>
+      <input type="checkbox" checked={state.settings.enabled} onChange={e=>onEnable(e.target.checked)}/>
+     </label>
+     <details className="songbook-schedule-details">
+      <summary>Schedule preferences</summary>
+      <label className="songbook-check">
+       <input type="checkbox" checked={state.settings.catchUp} onChange={e=>onCatchUp(e.target.checked)}/>
+       Catch up this week's song if Mana was offline
+      </label>
+      <p className="songbook-muted">{next.note}</p>
+      <p className="songbook-muted">Automatic songs run only when Mana is open and idle. No missed-week backlog.</p>
+     </details>
+    </aside>
+   </section>
+
+   {(busy||status||state.lastOutcome)&&<div className={'songbook-activity'+(busy?' is-busy':'')} role="status" aria-live="polite">
+    <span className="songbook-activity-icon" aria-hidden="true">♪</span>
+    <div>
+     <strong>{busy?'Mana is making music':status?'Songbook update':'Last songbook result'}</strong>
+     <p>{status||state.lastOutcome?.message}</p>
+     {!status&&state.lastOutcome&&<small>{dateLabel(state.lastOutcome.at)}</small>}
+    </div>
+   </div>}
+
+   <section className="songbook-collection" aria-label="Original songs">
+    <div className="songbook-collection-head">
+     <div>
+      <span className="songbook-eyebrow">SAVED ORIGINALS</span>
+      <h2>Her song collection <span>{entries.length}</span></h2>
+      <p className="songbook-muted">{recordedCount} recorded · {sungCount} in Mana's voice · All recordings stay on this computer</p>
+     </div>
+     <label className="songbook-search">
+      <span>Find a song</span>
+      <input type="search" value={search} onChange={e=>{resetAudio();setSearch(e.target.value);}}
+       placeholder="Search titles, ideas, styles…" aria-label="Search Songbook"/>
+     </label>
+    </div>
+
+    <div className="songbook-library-layout">
+     <aside className="songbook-song-list" aria-label="Saved song list">
+      {filtered.map(entry=><button className={'songbook-song-card'+(selected?.id===entry.id?' is-selected':'')}
+       type="button" key={entry.id} aria-pressed={selected?.id===entry.id} onClick={()=>selectSong(entry)}>
+       <span className="songbook-song-icon" aria-hidden="true">♫</span>
+       <span className="songbook-song-text">
+        <strong>{entry.title}</strong>
+        <span>{dateLabel(entry.createdAt)} · {entry.brief.style.replaceAll('-',' ')}</span>
+        <small className={'songbook-tag'+(entry.voiceMixPath?' is-sung':entry.status==='error'||entry.voiceError?' is-warning':'')}>{voiceStatus(entry)}</small>
+       </span>
+      </button>)}
+      {!filtered.length&&<div className="songbook-list-empty">
+       <span aria-hidden="true">♪</span>
+       <p>{entries.length?'No songs match that search.':'Mana hasn’t saved a song yet.'}</p>
+       {search&&<button type="button" className="btn" onClick={()=>setSearch('')}>Clear search</button>}
+      </div>}
+     </aside>
+
+     <div className="songbook-song-detail">
+      {selected?<article key={selected.id}>
+       <div className="songbook-detail-head">
+        <div className="songbook-record-cover" aria-hidden="true">
+         <span className="songbook-record-ring"><span>♪</span></span>
+         <small>MANA ORIGINAL</small>
+        </div>
+        <div className="songbook-detail-title">
+         <span className={'songbook-tag'+(selected.voiceMixPath?' is-sung':selected.status==='error'||selected.voiceError?' is-warning':'')}>{voiceStatus(selected)}</span>
+         <h2>{selected.title}</h2>
+         <p>{selected.concept}</p>
+         <div className="songbook-meta">
+          <span>{selected.source==='manual'?'Made on request':'Weekly original'}</span>
+          <span>{dateLabel(selected.createdAt)}</span>
+          <span>{selected.brief.style.replaceAll('-',' ')}</span>
+          <span>{durationLabel(selected.voiceSeconds||selected.seconds||selected.brief.duration)}{selected.seconds?' recorded':' target'}</span>
+         </div>
+        </div>
+       </div>
+
+       <section className="songbook-listening" aria-label="Song playback">
+        <div className="songbook-section-line">
+         <div>
+          <span className="songbook-eyebrow">LISTEN</span>
+          <h3>{selected.voiceMixPath?'Her voice, her song':selected.status==='ready'?'The original recording':'Recording not available yet'}</h3>
+         </div>
+         {selected.voiceMixPath&&<span className="songbook-version-note">Two versions saved</span>}
+        </div>
+        {selected.status==='ready'&&selected.audioPath?<>
+         <div className="songbook-version-picker" role="group" aria-label="Choose recording version">
+          {selected.voiceMixPath&&<button className={'btn'+(activeVersion==='mana'?' is-active':'')}
+           aria-pressed={activeVersion==='mana'} type="button" disabled={audioLoading}
+           onClick={()=>void loadAudio(selected,'mana')}>♫ Mana's singing voice</button>}
+          <button className={'btn'+(activeVersion==='guide'?' is-active':'')}
+           aria-pressed={activeVersion==='guide'} type="button" disabled={audioLoading}
+           onClick={()=>void loadAudio(selected,'guide')}>Original guide singer</button>
+         </div>
+         {audioLoading?<p className="songbook-muted" role="status">Loading the saved recording…</p>:
+          audioIsCurrent&&audioUrl?<audio key={audioUrl} className="songbook-audio" controls src={audioUrl}
+           preload="metadata" aria-label={(activeVersion==='mana'?"Mana's voice: ":'Guide recording: ')+selected.title}/>:
+          <p className="songbook-player-prompt">Choose {activeVersion==='mana'?"Mana's singing voice":'the original guide'} above to load the recording.</p>}
+         <div className="songbook-listening-foot">
+          {selected.voiceMixPath?<span>Mana's trained voice and the ACE-Step guide are saved separately.</span>:
+           <span>The original guide WAV is safely recorded.</span>}
+          {selected.seconds&&<span>Guide {durationLabel(selected.seconds)}{selected.voiceSeconds?' · Mana '+durationLabel(selected.voiceSeconds):''}</span>}
+         </div>
+         {!selected.voiceMixPath&&<div className="songbook-convert">
+          <div><strong>Give this original Mana's voice</strong>
+           <p>Convert the saved guide recording without composing the song again.</p></div>
+          <button className="btn primary" type="button" disabled={busy||!!voiceUnavailableReason}
+           title={voiceUnavailableReason||undefined}
+           onClick={()=>onConvertVoice(selected.id)}>{selected.voiceError?'Retry conversion':'Convert to Mana voice'}</button>
+         </div>}
+        </>:<p className="songbook-player-prompt">The lyrics and musical idea are saved. Audio will appear here once rendering succeeds.</p>}
+        {audioError&&<p className="msg-error" role="alert">{audioError}</p>}
+        {selected.error&&<p className="msg-error" role="status">Original recording: {selected.error}</p>}
+        {selected.voiceError&&<p className="msg-error" role="status">Mana voice conversion: {selected.voiceError}</p>}
+        {!selected.voiceMixPath&&selected.status==='ready'&&voiceUnavailableReason&&<p className="songbook-muted">{voiceUnavailableReason}</p>}
+       </section>
+
+       {selected.creativeReason&&<div className="songbook-thought">
+        <span aria-hidden="true">✦</span>
+        <p><strong>Why she chose it</strong> {selected.creativeReason}</p>
+       </div>}
+       <div className="songbook-notes">
+        <details>
+         <summary>Original lyrics <span>Read her words</span></summary>
+         <pre>{selected.generatedLyrics||selected.brief.lyrics}</pre>
+        </details>
+        <details>
+         <summary>Musical direction <span>Style &amp; generation details</span></summary>
+         <p>{selected.brief.prompt}</p>
+         <p className="songbook-muted">Seed {selected.brief.seed} · Requested duration {durationLabel(selected.brief.duration)}</p>
+        </details>
+       </div>
+      </article>:<div className="songbook-detail-empty">
+       <span aria-hidden="true">♫</span>
+       <h3>No song selected</h3>
+       <p>{entries.length?'Choose a different search to find a song.':'When Mana creates her first song, you’ll find its recording and lyrics here.'}</p>
+      </div>}
+     </div>
+    </div>
    </section>
   </div>
  </section>;
