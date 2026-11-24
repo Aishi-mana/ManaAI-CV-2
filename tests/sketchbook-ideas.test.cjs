@@ -176,7 +176,8 @@ test('Sketchbook negative prompt excludes page and collage artifacts without cha
  const {SKETCHBOOK_NEGATIVE_PROMPT}=exported;
  assert.match(SKETCHBOOK_NEGATIVE_PROMPT,/notebook, open sketchbook/);
  assert.match(SKETCHBOOK_NEGATIVE_PROMPT,/collage, moodboard/);
- assert.match(SKETCHBOOK_NEGATIVE_PROMPT,/text, handwriting/);
+ assert.match(SKETCHBOOK_NEGATIVE_PROMPT,/captions, handwriting/);
+ assert.doesNotMatch(SKETCHBOOK_NEGATIVE_PROMPT,/\btext\b/);
  assert.ok(SKETCHBOOK_NEGATIVE_PROMPT.length<1500);
 });
 
