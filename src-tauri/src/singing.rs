@@ -111,7 +111,8 @@ fn validate_arrangement_duration(vocal:&str,instrumental:&str,start:f64,seconds:
     let (minimum,maximum)=if band {(8.0,360.0)} else {(1.0,60.0)};
     if !start.is_finite()||start<0.0||!seconds.is_finite()||!(minimum..=maximum).contains(&seconds){return Err(format!("Choose a nonnegative start and {minimum}–{maximum} second duration."));}
 
-    let root=Path::new(r"C:\AI\ManaAI-CV-2\exports\singing").canonicalize().map_err(|e|e.to_string())?;
+    let root=if cfg!(test){std::env::temp_dir().join("mana-singing-preflight-fixtures")}else{PathBuf::from(r"C:\AI\ManaAI-CV-2\exports\singing")};
+    let root=root.canonicalize().map_err(|e|e.to_string())?;
 
     for path in [vocal,instrumental]{let file=Path::new(path).canonicalize().map_err(|e|e.to_string())?;if !file.starts_with(&root)||!file.is_file()||file.extension().and_then(|s|s.to_str())!=Some("wav"){return Err("Choose saved generated vocal and instrument stems.".into());}
 
@@ -561,7 +562,7 @@ mod library_tests{
 
     fn arrangement_preflight_checks_shorter_stem_before_launch(){
 
-        let dir=std::env::temp_dir().join(format!("mana-singing-preflight-test-{}-{}",std::process::id(),std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));fs::create_dir_all(&dir).unwrap();
+        let dir=std::env::temp_dir().join("mana-singing-preflight-fixtures").join(format!("preflight-test-{}-{}",std::process::id(),std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));fs::create_dir_all(&dir).unwrap();
 
         let write=|name:&str,frames:u32|{let mut bytes=vec![];bytes.extend_from_slice(b"RIFF");bytes.extend_from_slice(&(36+frames*2).to_le_bytes());bytes.extend_from_slice(b"WAVEfmt ");bytes.extend_from_slice(&16u32.to_le_bytes());bytes.extend_from_slice(&1u16.to_le_bytes());bytes.extend_from_slice(&1u16.to_le_bytes());bytes.extend_from_slice(&8000u32.to_le_bytes());bytes.extend_from_slice(&16000u32.to_le_bytes());bytes.extend_from_slice(&2u16.to_le_bytes());bytes.extend_from_slice(&16u16.to_le_bytes());bytes.extend_from_slice(b"data");bytes.extend_from_slice(&(frames*2).to_le_bytes());bytes.resize(44+frames as usize*2,0);let file=dir.join(name);fs::write(&file,bytes).unwrap();file.to_string_lossy().to_string()};
 
