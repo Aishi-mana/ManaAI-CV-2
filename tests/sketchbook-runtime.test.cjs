@@ -141,3 +141,28 @@ test('Do not retry transport failures or cancellation as a second local-model ca
  await assert.rejects(prepareSketchbookDrawing(session()),/disconnected/);
  assert.equal(count,1);
 });
+
+
+test('Runtime saves a creative explanation, visual motifs and a verified older-art reference',async()=>{
+ const creative={...valid,
+  creativeReason:'I wanted to give an earlier garden a brighter moon.',
+  motifs:['moon garden','blue light'],
+  revisitedDrawingId:'older123'};
+ const {prepareSketchbookDrawing}=runtime(async opts=>{opts.onToken(JSON.stringify(creative));});
+ const result=plain(await prepareSketchbookDrawing({...session(),
+  context:{...context,revisitDrawing:{id:'older123',title:'Earlier Garden',concept:'A small flower garden'}},
+ }));
+ assert.equal(result.idea.creativeReason,creative.creativeReason);
+ assert.deepEqual(result.idea.motifs,['moon garden','blue light']);
+ assert.equal(result.idea.revisitedDrawingId,'older123');
+ assert.match(result.pictureRequest.prompt,/moonlit cloud garden/);
+});
+
+test('Runtime does not allow fabricated drawing links outside actual saved artwork',async()=>{
+ const creative={...valid,revisitedDrawingId:'fake_drawing'};
+ const {prepareSketchbookDrawing}=runtime(async opts=>{opts.onToken(JSON.stringify(creative));});
+ const result=plain(await prepareSketchbookDrawing({...session(),
+  context:{...context,revisitDrawing:{id:'genuine123',title:'Real Previous Picture',concept:'Cozy garden'}},
+ }));
+ assert.equal(result.idea.revisitedDrawingId,undefined);
+});
