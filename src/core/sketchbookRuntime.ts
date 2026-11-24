@@ -38,32 +38,47 @@ export async function prepareSketchbookDrawing({
  const controller=new AbortController();
  const abort=()=>controller.abort();
  signal.addEventListener('abort',abort,{once:true});
- let text='',tooLong=false;
+ let tooLong=false;
  try {
-  await streamChat({
-   port,
-   temperature:.8,
-   maxTokens:550,
-   rejectTruncated:true,
-   signal:controller.signal,
-   messages:sketchbookIdeaMessages(context),
-   onToken:token=>{
-    if(controller.signal.aborted)return;
-    text+=token;
-    if(text.length>MAX_IDEA_TEXT){
-     tooLong=true;
-     controller.abort();
-    }
-   },
-  });
-  if(signal.aborted)throw Error('Sketchbook idea cancelled.');
-  if(tooLong)throw Error('Mana returned an oversized drawing idea. No image was generated.');
   const approvedIds=(context.approvedMemories??[]).slice(0,3).map(memory=>memory.id);
-  const idea=readSketchbookIdea(text,approvedIds);
-  // Normal unreferenced Create-picture request: ImageGenerationDrawer discovers
-  // the installed checkpoint and uses imageSession / image_generation_start.
-  const pictureRequest:ChatPictureRequest={prompt:sketchbookImagePrompt(idea)};
-  return {idea,pictureRequest};
+  // One bounded correction attempt handles a small local model that returns
+  // incomplete JSON. This does not spend another scheduled slot or start an image.
+  for(let attempt=0;attempt<2;attempt++){
+   let text='';
+   const messages=sketchbookIdeaMessages(context);
+   if(attempt===1)messages.push({
+    role:'user',
+    content:'The previous drawing idea could not be used. Please respond with ONLY a complete JSON object containing title, concept, prompt, inspiration, relatedMemoryIds. Example: {"title":"Cloud garden","concept":"An imagined flower garden on a cloud","prompt":"A tiny floating garden, lavender flowers, morning sky, soft colored pencil","inspiration":"imagination","relatedMemoryIds":[]}. You may create a different original idea. Use imagination unless an approved memory is listed; no commentary or code fences.',
+   });
+   await streamChat({
+    port,
+    temperature:attempt===0?.8:.35,
+    maxTokens:attempt===0?550:650,
+    rejectTruncated:true,
+    signal:controller.signal,
+    messages,
+    onToken:token=>{
+     if(controller.signal.aborted)return;
+     text+=token;
+     if(text.length>MAX_IDEA_TEXT){
+      tooLong=true;
+      controller.abort();
+     }
+    },
+   });
+   if(signal.aborted)throw Error('Sketchbook idea cancelled.');
+   if(tooLong)throw Error('Mana returned an oversized drawing idea. No image was generated.');
+   try{
+    const idea=readSketchbookIdea(text,approvedIds);
+    // Same installed image models and native job system as user-created pictures.
+    return {idea,pictureRequest:{prompt:sketchbookImagePrompt(idea)}};
+   }catch(error){
+    if(attempt===1)throw error;
+    // The initial response was syntactically complete but did not meet the
+    // bounded image-idea schema. Ask once more rather than generating bad art.
+   }
+  }
+  throw Error('Mana could not prepare a complete drawing idea. No image was generated.');
  }catch(error){
   if(signal.aborted)throw Error('Sketchbook idea cancelled.');
   if(tooLong)throw Error('Mana returned an oversized drawing idea. No image was generated.');
