@@ -47,6 +47,7 @@ import SketchbookWorkspace from './components/SketchbookWorkspace';
 import { loadSavedImages, saveSavedImages } from './core/savedImages';
 import {loadSketchbook,saveSketchbook,setSketchbookEnabled,dueSketchbookSlot,beginSketchbookAttempt,addSketchbookEntry,removeSketchbookEntry,canSaveScheduledSketchbook,recordSketchbookOutcome,SKETCHBOOK_LIMIT,sketchbookCreativePatterns,sketchbookRevisitCandidate} from './core/sketchbook';
 import {prepareSketchbookDrawing,type PreparedSketchbookDrawing} from './core/sketchbookRuntime';
+import {lastSuccessfulSketchbookModel} from './core/imageReliability';
 import { inspectForChat } from './core/visionChat';
 import { loadVisionSettings } from './core/vision';
 import type { ImageAttachment } from './core/vision';
@@ -1006,7 +1007,13 @@ export default function App() {
          (mode==='scheduled'&&!sketchbookRef.current.settings.enabled)||
          (mode==='manual'&&manualSketchbookId.current!==slotId))
         throw Error('Drawing cancelled or schedule disabled.');
-      setSketchbookJob({slotId,mode,prepared,enabledAt:reserved.settings.enabledAt});
+      // Prefer a checkpoint that genuinely completed prior Sketchbook artwork.
+      // On a fresh install, the drawer picks a smaller locally installed model
+      // where possible; an unavailable saved checkpoint is never downloaded.
+      const preferredModel=lastSuccessfulSketchbookModel(sketchbookRef.current.entries);
+      const pictureRequest={...prepared.pictureRequest,preferEfficientModel:true,
+        ...(preferredModel?{preferredModel}:{})};
+      setSketchbookJob({slotId,mode,prepared:{...prepared,pictureRequest},enabledAt:reserved.settings.enabledAt});
       setShowImageGeneration(true);
       if(mode==='manual')setShowSketchbook(false); // Show the standard live image progress in chat.
       setSketchbookStatus('Mana is drawing'+(mode==='manual'?' a test picture':'')+'…');
