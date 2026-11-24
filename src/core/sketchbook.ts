@@ -27,6 +27,12 @@ export interface SketchbookEntry {
  imagined:true;
  inspiration:SketchbookInspiration;
  relatedMemoryIds?:string[];
+ /** Model-written, bounded creative explanation. Never a claim of real experiences. */
+ creativeReason?:string;
+ /** Concrete visual themes extracted from Mana's own completed artwork ideas. */
+ motifs?:string[];
+ /** A previously saved drawing that influenced this one, not an external memory. */
+ revisitedDrawingId?:string;
  model?:string;
  seed?:number;
 }
@@ -73,6 +79,22 @@ export const DEFAULT_SKETCHBOOK_SETTINGS:SketchbookSettings={
 
 const imageIdPattern=/^[a-zA-Z0-9_-]{1,64}$/;
 const manualSlotPattern=/^manual-[a-zA-Z0-9_-]{1,64}$/;
+const motifPattern=/^[a-z][a-z0-9 -]{1,31}$/;
+const REVISIT_AGE_MS=7*24*60*60_000;
+
+/** Optional model notes are artwork metadata, not evidence of lived experiences. */
+function safeCreativeReason(value:unknown):string|undefined {
+ if(typeof value!=='string')return undefined;
+ const note=value.trim();
+ if(!note||note.length>220||/\bI\s+(?:saw|visited|went|met|photographed|remembered|witnessed|traveled|travelled)\b/i.test(note))return undefined;
+ return note;
+}
+
+function safeSketchbookMotifs(value:unknown):string[] {
+ if(!Array.isArray(value))return [];
+ return [...new Set(value.filter((item:unknown):item is string=>typeof item==='string')
+  .map(item=>item.trim().toLowerCase()).filter(item=>motifPattern.test(item)))].slice(0,3);
+}
 const inspirations:readonly SketchbookInspiration[]=['imagination','mood','interest','memory','season'];
 const RETRY_DELAY_MS=30*60_000;
 const MAX_ATTEMPTS_PER_SLOT=2;
@@ -131,6 +153,10 @@ export function validateSketchbook(value:unknown):SketchbookState {
     id,imageId,slotId,createdAt,title:title.trim(),concept:concept.trim(),prompt:prompt.trim(),
     sourceType:raw.sourceType as 'scheduled-drawing'|'manual-drawing',imagined:true,inspiration,
     ...(relatedMemoryIds.length?{relatedMemoryIds}:{}),
+    ...(safeCreativeReason(raw.creativeReason)?{creativeReason:safeCreativeReason(raw.creativeReason)}:{}),
+    ...(safeSketchbookMotifs(raw.motifs).length?{motifs:safeSketchbookMotifs(raw.motifs)}:{}),
+    ...(typeof raw.revisitedDrawingId==='string'&&imageIdPattern.test(raw.revisitedDrawingId)&&raw.revisitedDrawingId!==id
+      ?{revisitedDrawingId:raw.revisitedDrawingId}:{}),
     ...(typeof raw.model==='string'&&raw.model.trim()&&raw.model.length<=200?{model:raw.model}:{}),
     ...(typeof raw.seed==='number'&&Number.isInteger(raw.seed)&&raw.seed>=0&&raw.seed<=0xffffffff?{seed:raw.seed}:{}),
    });
@@ -218,6 +244,42 @@ export function addSketchbookEntry(state:SketchbookState,entry:SketchbookEntry):
   localWeekStart(journalClock(new Date(existing.createdAt),state.settings.timeZone).date)===week).length;
  if(candidate.sourceType==='scheduled-drawing'&&inWeek>=state.settings.frequencyPerWeek)throw Error('The weekly Sketchbook limit has been reached.');
  return {...state,entries:[...state.entries,candidate]};
+}
+
+/** Recurring motifs are observed only across saved drawings, not inferred biography. */
+export function sketchbookCreativePatterns(
+ entries:readonly Pick<SketchbookEntry,'motifs'>[],
+):{motif:string;count:number}[] {
+ const counts=new Map<string,number>();
+ for(const entry of entries){
+  for(const motif of safeSketchbookMotifs(entry.motifs)){
+   counts.set(motif,(counts.get(motif)??0)+1);
+  }
+ }
+ return [...counts].filter(([,count])=>count>=2)
+  .sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]))
+  .slice(0,5).map(([motif,count])=>({motif,count}));
+}
+
+/** Every fifth completed drawing may reinterpret a genuine, older saved picture.
+ * No fabricated recollections and no reliance on user chat or diary records.
+ * Pure and deterministic across retries and restarts.
+ */
+export function sketchbookRevisitCandidate(
+ entries:readonly Pick<SketchbookEntry,'id'|'title'|'concept'|'createdAt'|'revisitedDrawingId'>[],
+ now=new Date(),
+):Pick<SketchbookEntry,'id'|'title'|'concept'>|null {
+ if(!Number.isFinite(now.getTime())||entries.length<4||entries.length%4!==0)return null;
+ const already=new Set(entries.map(entry=>entry.revisitedDrawingId).filter(Boolean));
+ const eligible=entries.filter(entry=>
+  imageIdPattern.test(entry.id)&&typeof entry.title==='string'&&typeof entry.concept==='string'&&
+  Number.isFinite(Date.parse(entry.createdAt))&&
+  now.getTime()-Date.parse(entry.createdAt)>=REVISIT_AGE_MS);
+ if(!eligible.length)return null;
+ const unused=eligible.filter(entry=>!already.has(entry.id));
+ const source=[...(unused.length?unused:eligible)]
+  .sort((a,b)=>a.createdAt.localeCompare(b.createdAt)||a.id.localeCompare(b.id))[0];
+ return {id:source.id,title:source.title.slice(0,120),concept:source.concept.slice(0,500)};
 }
 
 /** A pending image belongs only to the schedule activation that created it. */
