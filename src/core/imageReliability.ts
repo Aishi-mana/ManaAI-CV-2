@@ -50,8 +50,7 @@ export function chooseReadyImageModel<T extends LocalImageModel>(
   return models.find(model=>model.kind==='sd1'&&model.name.toLowerCase()==='photon_v1.safetensors')??
    models.find(model=>model.kind==='sd1')??
    models.find(model=>model.kind==='neta')??
-   models.find(model=>model.kind==='sdxl')??
-   models.find(model=>model.kind==='qwen');
+   models.find(model=>model.kind==='sdxl');
  }
  const usual=choosePictureModel(discovery.models);
  return usual&&ready(usual)?usual:models[0];
