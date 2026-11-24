@@ -60,7 +60,7 @@ test('Calls the already-running local chat model and prepares an ordinary pictur
 });
 
 test('Invalid model output fails without constructing a picture',async()=>{
- for(const invalid of ['No idea today',JSON.stringify({...valid,sourceType:'diary',title:''})]){
+ for(const invalid of ['No idea today',JSON.stringify({...valid,sourceType:'diary',title:'',prompt:''})]){
   const {prepareSketchbookDrawing}=runtime(async opts=>{opts.onToken(invalid);});
   await assert.rejects(prepareSketchbookDrawing(session()),/No image was generated/);
  }
