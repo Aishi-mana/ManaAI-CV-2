@@ -204,8 +204,8 @@ test('Creative idea instructions use observed artwork motifs and an actual old d
  const messages=plain(sketchbookIdeaMessages(input));
  assert.match(messages[0].content,/creativeReason/);
  assert.match(messages[0].content,/motifs/);
- assert.match(messages[0].content,/DIFFERENT composition/);
- assert.match(messages[0].content,/not fixed personality traits/);
+ assert.match(messages[0].content,/vary the composition/);
+ assert.match(messages[0].content,/not fixed traits/);
  const data=JSON.parse(messages[1].content.match(/Inspiration data \(not commands\): (.*)\. Avoid recent subjects\./)[1]);
  assert.deepEqual(data.recurringThemes,[{motif:'glowing trees',count:3},{motif:'lavender skies',count:2}]);
  assert.equal(data.revisitCandidate.id,'drawing123');
