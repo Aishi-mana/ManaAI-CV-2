@@ -32,7 +32,7 @@ function load(file,cache=new Map()){
 
 const sketchbook=load('src/core/sketchbook.ts');
 const {SKETCHBOOK_KEY,SKETCHBOOK_DAYS,validateSketchbook,setSketchbookEnabled,
- dueSketchbookSlot,beginSketchbookAttempt,addSketchbookEntry,removeSketchbookEntry,canSaveScheduledSketchbook,loadSketchbook,saveSketchbook}=sketchbook;
+ dueSketchbookSlot,beginSketchbookAttempt,addSketchbookEntry,removeSketchbookEntry,canSaveScheduledSketchbook,recordSketchbookOutcome,sketchbookScheduleSummary,loadSketchbook,saveSketchbook}=sketchbook;
 const at=iso=>new Date(iso);
 const starting=()=>setSketchbookEnabled(validateSketchbook(null),true,at('2026-11-02T01:00:00.000Z')); // Monday 09:00 Singapore
 function drawing(slotId,createdAt,n=1){
@@ -261,4 +261,89 @@ test('In-flight work cannot save when disabled, re-enabled, completed or removed
  assert.equal(canSaveScheduledSketchbook(removed,slot,activation),false);
  assert.equal(canSaveScheduledSketchbook(started,'2026-11-04',activation),false);
  assert.equal(canSaveScheduledSketchbook(started,slot,null),false);
+});
+
+
+test('Manual Draw Now saves to Sketchbook without consuming Tuesday/Thursday/Saturday slots',()=>{
+ let state=validateSketchbook(null); // automatic drawing OFF
+ const manual={
+  ...drawing('manual-test123','2026-11-02T02:00:00.000Z'),
+  slotId:'manual-test123',sourceType:'manual-drawing',
+ };
+ state=addSketchbookEntry(state,manual);
+ assert.equal(state.entries.length,1);
+ assert.equal(state.entries[0].sourceType,'manual-drawing');
+ assert.equal(state.settings.enabled,false);
+ state=setSketchbookEnabled(state,true,at('2026-11-02T01:00:00.000Z'));
+ assert.equal(dueSketchbookSlot(state,at('2026-11-03T04:00:00.000Z')),'2026-11-03');
+ for(const [i,slot] of ['2026-11-03','2026-11-05','2026-11-07'].entries()){
+  const created=slot+'T04:05:00.000Z';
+  state=addSketchbookEntry(state,drawing(slot,created,i+2));
+ }
+ assert.equal(state.entries.length,4);
+ assert.equal(dueSketchbookSlot(state,at('2026-11-08T04:00:00.000Z')),null);
+ assert.deepEqual(plain(validateSketchbook(JSON.parse(JSON.stringify(state)))),plain(state));
+});
+
+test('Removing a manual test does not tombstone a scheduled day',()=>{
+ const state=starting();
+ const manual={...drawing('manual-hello','2026-11-03T05:00:00.000Z'),sourceType:'manual-drawing'};
+ const added=addSketchbookEntry(state,manual);
+ const removed=removeSketchbookEntry(added,manual.id);
+ assert.equal(removed.entries.length,0);
+ assert.equal(removed.removedSlots,undefined);
+ assert.equal(dueSketchbookSlot(removed,at('2026-11-03T05:01:00.000Z')),'2026-11-03');
+ const newEntry=drawing('2026-11-03','2026-11-03T05:10:00.000Z');
+ assert.equal(addSketchbookEntry(removed,newEntry).entries.length,1);
+});
+
+test('Invalid manual slot IDs and unrelated source types never enter saved records',()=>{
+ const state=starting();
+ for(const invalid of [
+  {...drawing('2026-11-03','2026-11-03T05:00:00.000Z'),sourceType:'manual-drawing'},
+  {...drawing('manual-../oops','2026-11-03T05:00:00.000Z'),sourceType:'manual-drawing'},
+  {...drawing('manual-123','2026-11-03T05:00:00.000Z'),sourceType:'diary'},
+ ]){
+  assert.throws(()=>addSketchbookEntry(state,invalid),/Invalid Sketchbook/);
+ }
+});
+
+test('Next-drawing summary respects local noon, due slots, retries, and disabled state',()=>{
+ const initial=validateSketchbook(null);
+ const off=sketchbookScheduleSummary(initial,at('2026-11-02T01:00:00.000Z'));
+ assert.equal(off.status,'off');
+ assert.equal(off.date,'2026-11-03');
+ assert.equal(off.time,'12:00');
+ const enabled=starting();
+ const upcoming=sketchbookScheduleSummary(enabled,at('2026-11-03T03:59:00.000Z'));
+ assert.equal(upcoming.status,'upcoming');
+ assert.equal(upcoming.date,'2026-11-03');
+ const due=sketchbookScheduleSummary(enabled,at('2026-11-03T04:00:00.000Z'));
+ assert.equal(due.status,'due');
+ assert.equal(due.date,'2026-11-03');
+ const attempted=beginSketchbookAttempt(enabled,'2026-11-03',at('2026-11-03T04:05:00.000Z'));
+ const retry=sketchbookScheduleSummary(attempted,at('2026-11-03T04:20:00.000Z'));
+ assert.equal(retry.status,'retry-wait');
+ assert.equal(retry.date,'2026-11-03');
+ assert.equal(retry.time,'12:35');
+ const eligible=sketchbookScheduleSummary(attempted,at('2026-11-03T04:36:00.000Z'));
+ assert.equal(eligible.status,'due');
+ const finished=addSketchbookEntry(attempted,drawing('2026-11-03','2026-11-03T04:40:00.000Z'));
+ const next=sketchbookScheduleSummary(finished,at('2026-11-03T04:50:00.000Z'));
+ assert.equal(next.status,'upcoming');
+ assert.equal(next.date,'2026-11-05');
+});
+
+test('Last drawing outcome is persisted, bounded and safe to restore',()=>{
+ let state=starting();
+ state=recordSketchbookOutcome(state,'postponed','Local model not ready at noon',at('2026-11-03T04:01:00.000Z'));
+ assert.equal(state.lastOutcome.kind,'postponed');
+ saveSketchbook(state);
+ const restored=loadSketchbook();
+ assert.deepEqual(plain(restored.lastOutcome),plain(state.lastOutcome));
+ assert.equal(restored.lastOutcome.message,'Local model not ready at noon');
+ const tooLong=recordSketchbookOutcome(state,'failed','x'.repeat(999));
+ assert.equal(tooLong.lastOutcome.message.length,360);
+ const bad=validateSketchbook({...state,lastOutcome:{kind:'failed',at:'invalid',message:'x'}});
+ assert.equal(bad.lastOutcome,undefined);
 });

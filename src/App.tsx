@@ -45,7 +45,7 @@ import VisionDrawer from './components/VisionDrawer';
 import SavedImagesDrawer from './components/SavedImagesDrawer';
 import SketchbookWorkspace from './components/SketchbookWorkspace';
 import { loadSavedImages, saveSavedImages } from './core/savedImages';
-import {loadSketchbook,saveSketchbook,setSketchbookEnabled,dueSketchbookSlot,beginSketchbookAttempt,addSketchbookEntry,removeSketchbookEntry,canSaveScheduledSketchbook} from './core/sketchbook';
+import {loadSketchbook,saveSketchbook,setSketchbookEnabled,dueSketchbookSlot,beginSketchbookAttempt,addSketchbookEntry,removeSketchbookEntry,canSaveScheduledSketchbook,recordSketchbookOutcome,SKETCHBOOK_LIMIT} from './core/sketchbook';
 import {prepareSketchbookDrawing,type PreparedSketchbookDrawing} from './core/sketchbookRuntime';
 import { inspectForChat } from './core/visionChat';
 import { loadVisionSettings } from './core/vision';
@@ -130,8 +130,10 @@ export default function App() {
   const savedImagesRef=useRef(savedImages);savedImagesRef.current=savedImages;
   const [sketchbook,setSketchbook]=useState(loadSketchbook);
   const sketchbookRef=useRef(sketchbook);sketchbookRef.current=sketchbook;
-  const [sketchbookJob,setSketchbookJob]=useState<{slotId:string;prepared:PreparedSketchbookDrawing;enabledAt:string|null}|null>(null);
+  const [sketchbookJob,setSketchbookJob]=useState<{slotId:string;mode:'scheduled'|'manual';prepared:PreparedSketchbookDrawing;enabledAt:string|null}|null>(null);
   const sketchbookPlanning=useRef(false);
+  const sketchbookPlanningMode=useRef<'scheduled'|'manual'|null>(null);
+  const manualSketchbookId=useRef<string|null>(null);
   const sketchbookIdeaController=useRef<AbortController|null>(null);
   const [sketchbookStatus,setSketchbookStatus]=useState('');
   const [galleryReady,setGalleryReady]=useState(false),[galleryWorking,setGalleryWorking]=useState(false),[galleryError,setGalleryError]=useState(''),[galleryPath,setGalleryPath]=useState('');
@@ -963,65 +965,89 @@ export default function App() {
     if(!galleryReadyRef.current)throw Error('The gallery is not ready. Open Image gallery to finish migration.');
     return queueGallery(async()=>{const saved=await addDiskImage(savedImagesRef.current,image);await commitGallery(saved.images);return saved.imageId;});
   }
-  // The scheduler only reserves a slot and asks the EXISTING chat model for an idea.
-  // The resulting picture is handed to the normal ImageGenerationDrawer below.
-  async function startSketchbookSlot(slotId:string){
+  function recordDrawingStatus(kind:'saved'|'postponed'|'failed'|'cancelled',message:string){
+    const next=recordSketchbookOutcome(sketchbookRef.current,kind,message);
+    sketchbookRef.current=next;setSketchbook(next);saveSketchbook(next);
+    setSketchbookStatus(message);
+  }
+
+  // Both manual tests and scheduled slots use Mana's existing local chat model
+  // and the SAME ImageGenerationDrawer. Only scheduled work reserves weekly slots.
+  async function startSketchbookSlot(slotId:string,mode:'scheduled'|'manual'='scheduled'){
     if(sketchbookPlanning.current||sketchbookJob||abortRef.current||!galleryReadyRef.current)return;
-    let reserved;
-    try{reserved=beginSketchbookAttempt(sketchbookRef.current,slotId,new Date());}
-    catch{return;}
-    sketchbookPlanning.current=true;
-    sketchbookRef.current=reserved;setSketchbook(reserved);saveSketchbook(reserved);
+    let reserved=sketchbookRef.current;
+    if(mode==='scheduled'){
+      try{reserved=beginSketchbookAttempt(sketchbookRef.current,slotId,new Date());}
+      catch{return;}
+      sketchbookRef.current=reserved;setSketchbook(reserved);saveSketchbook(reserved);
+    }else{
+      if(reserved.entries.length>=SKETCHBOOK_LIMIT||manualSketchbookId.current)return;
+      manualSketchbookId.current=slotId;
+    }
+    sketchbookPlanning.current=true;sketchbookPlanningMode.current=mode;
     const ctrl=new AbortController();sketchbookIdeaController.current=ctrl;abortRef.current=ctrl;setReflecting(true);
-    setSketchbookStatus('Mana is imagining a drawing…');
+    setSketchbookStatus('Mana is imagining a '+(mode==='manual'?'test ':'')+'drawing…');
+    let started=false;
     try{
-      await flushPersistence(); // Retry counters survive restart before any model work.
-      if(ctrl.signal.aborted||!sketchbookRef.current.settings.enabled)throw Error('Sketchbook disabled.');
+      // Scheduled reservations must survive restart. Manual tests don't consume slots.
+      if(mode==='scheduled')await flushPersistence();
+      if(ctrl.signal.aborted||(mode==='scheduled'&&!sketchbookRef.current.settings.enabled))
+        throw Error('Drawing cancelled or schedule disabled.');
       const prepared=await prepareSketchbookDrawing({port:llama.port,context:{
         name:settings.charName,personality:identity.personality,mood:companion.state.mood,
         energy:companion.state.energy,curiosity:companion.state.curiosity,
         interests:identity.interests,recentDrawings:sketchbookRef.current.entries.slice(-8),
-        // No unreviewed memories are passed to the autonomous idea planner.
         approvedMemories:[],
       },signal:ctrl.signal});
-      if(ctrl.signal.aborted||!sketchbookRef.current.settings.enabled)throw Error('Sketchbook disabled.');
-      setSketchbookJob({slotId,prepared,enabledAt:reserved.settings.enabledAt});
+      if(ctrl.signal.aborted||
+         (mode==='scheduled'&&!sketchbookRef.current.settings.enabled)||
+         (mode==='manual'&&manualSketchbookId.current!==slotId))
+        throw Error('Drawing cancelled or schedule disabled.');
+      setSketchbookJob({slotId,mode,prepared,enabledAt:reserved.settings.enabledAt});
       setShowImageGeneration(true);
-      setSketchbookStatus('Mana is drawing…');
+      if(mode==='manual')setShowSketchbook(false); // Show the standard live image progress in chat.
+      setSketchbookStatus('Mana is drawing'+(mode==='manual'?' a test picture':'')+'…');
+      started=true;
     }catch(error){
-      setSketchbookStatus('Sketchbook idea postponed: '+String(error));
+      recordDrawingStatus(ctrl.signal.aborted?'cancelled':'postponed',
+        'Sketchbook '+(mode==='manual'?'test':'idea')+' postponed: '+String(error));
     }finally{
+      if(!started&&mode==='manual'&&manualSketchbookId.current===slotId)manualSketchbookId.current=null;
       if(abortRef.current===ctrl)abortRef.current=null;
       if(sketchbookIdeaController.current===ctrl)sketchbookIdeaController.current=null;
-      sketchbookPlanning.current=false;setReflecting(false);
+      sketchbookPlanning.current=false;sketchbookPlanningMode.current=null;setReflecting(false);
     }
   }
-  async function saveScheduledSketchbookImage(job:{slotId:string;prepared:PreparedSketchbookDrawing;enabledAt:string|null},image:ImageAttachment){
+  async function saveScheduledSketchbookImage(
+    job:{slotId:string;mode:'scheduled'|'manual';prepared:PreparedSketchbookDrawing;enabledAt:string|null},
+    image:ImageAttachment,
+  ){
+    const canSave=()=>job.mode==='manual'?manualSketchbookId.current===job.slotId:
+      canSaveScheduledSketchbook(sketchbookRef.current,job.slotId,job.enabledAt);
     try{
-      // A drawing finished after the feature was disabled must not be saved.
-      if(!canSaveScheduledSketchbook(sketchbookRef.current,job.slotId,job.enabledAt))
-        throw Error('Scheduled drawings were disabled, restarted or this slot was removed.');
-      // Reuse the existing disk gallery, then persist the independent Sketchbook index.
+      if(!canSave())throw Error('This drawing was cancelled or its scheduled slot is no longer eligible.');
       const imageId=await saveInspectedImage(image);
-      // Saving the JPEG is asynchronous. Switching off during that write must
-      // never re-add a Sketchbook entry, even if drawing is enabled again later.
-      if(!canSaveScheduledSketchbook(sketchbookRef.current,job.slotId,job.enabledAt))
-        throw Error('The drawing is saved in Image Gallery, but the scheduled slot was disabled, restarted or removed.');
+      if(!canSave())throw Error('Image saved in Gallery, but the drawing was cancelled before Sketchbook indexing.');
       const next=addSketchbookEntry(sketchbookRef.current,{
         id:uid(),imageId,slotId:job.slotId,createdAt:new Date().toISOString(),
         title:job.prepared.idea.title,concept:job.prepared.idea.concept,
-        prompt:job.prepared.pictureRequest.prompt,sourceType:'scheduled-drawing',imagined:true,
+        prompt:job.prepared.pictureRequest.prompt,
+        sourceType:job.mode==='manual'?'manual-drawing':'scheduled-drawing',imagined:true,
         inspiration:job.prepared.idea.inspiration,
         ...(job.prepared.idea.relatedMemoryIds?.length?{relatedMemoryIds:job.prepared.idea.relatedMemoryIds}:{}),
         ...(image.origin?.model?{model:image.origin.model}:{}),
         ...(image.origin?.seed!==undefined?{seed:image.origin.seed}:{}),
       });
-      sketchbookRef.current=next;setSketchbook(next);saveSketchbook(next);
+      const result=recordSketchbookOutcome(next,'saved',
+        job.mode==='manual'?'Mana saved a manual test drawing in Sketchbook.':
+        'Mana saved a scheduled drawing in Sketchbook.');
+      sketchbookRef.current=result;setSketchbook(result);saveSketchbook(result);
       await flushPersistence();
-      setSketchbookStatus('Mana saved a new drawing in her Sketchbook.');
+      setSketchbookStatus(result.lastOutcome?.message??'Drawing saved.');
     }catch(error){
-      setSketchbookStatus('Drawing generated, but could not finish saving to Sketchbook: '+String(error));
+      recordDrawingStatus('failed','Drawing generated but could not finish saving to Sketchbook: '+String(error));
     }finally{
+      if(job.mode==='manual'&&manualSketchbookId.current===job.slotId)manualSketchbookId.current=null;
       setSketchbookJob(null);setShowImageGeneration(false);
     }
   }
@@ -1352,6 +1378,21 @@ export default function App() {
   const running = llama.running;
   const freshAssets = avatar.assets;
 
+  // Draw Now bypasses the calendar, not the local model/resource safety gates.
+  const drawNowReason=!galleryReady||galleryWorking?'Image gallery is loading or saving.':
+    storage.error?'Storage is unavailable.':
+    llama.status!=='ready'?'Start Mana’s local chat model first.':
+    llama.imageBusy||autoOutfitRunning?'Another image job is using the generator.':
+    sketchbookPlanning.current||sketchbookJob?'A Sketchbook drawing is already in progress.':
+    sketchbook.entries.length>=SKETCHBOOK_LIMIT?'The Sketchbook library is full.':
+    busy||reflecting||abortRef.current||reflectionDraft||journalWriting||diaryArtId||diaryArtQueue.length||
+    initiativeGenerating||hasChatDraft.current||mediaOccupied()?'Wait until Mana finishes her current activity.':
+    showImageGeneration||roomEditorOpen||showSinging||showOutfitPrototype||showWardrobe||
+    showVision||showCode||showGameDev||showDiary||showSettings||showBackgrounds||
+    showSavedImages||showMemories||showState||showGoals||showThoughts||showActivities||
+    showFollowups||showEvents||showNarratives||showSkills||showChatArchives||
+    archiving?'Close the other tool before drawing.':'';
+
   return (
     <div className={`app${showSinging||showSavedImages||showSketchbook?' studio-open':''}`} data-main-layout={mainLayout} data-room-editor={roomEditorOpen}>
      <div className="layout-avatar" id="main-avatar-panel" inert={mainLayout===3}>
@@ -1530,7 +1571,8 @@ export default function App() {
       {showImageGeneration&&!chatPicture&&!diaryArtId&&!sketchbookJob&&<ImageGenerationDrawer onPrototype={image=>{setAtelierCategory('outfit');setPrototypePicture(image);setShowImageGeneration(false);setChatPicture(undefined);setShowOutfitPrototype(true);}} beforeGenerate={async cpu=>cpu?async()=>{}:llama.pauseForImage()} prepareClothingMask={avatar.assets?(signal,keepAccessories=true)=>prepareAvatarClothingMask(avatar.assets!,{...cfg,accessories:keepAccessories?cfg.accessories:[]},signal):undefined} prepareReference={avatar.assets?(signal,clothingEdit,keepAccessories=true,garmentPrompt)=>prepareAvatarReference(avatar.assets!,{...cfg,accessories:keepAccessories?cfg.accessories:[]},signal,1024,clothingEdit,garmentPrompt):undefined} autoGenerate={false} available={!busy&&!reflecting&&!storage.error} onClose={()=>setShowImageGeneration(false)} onSave={savePictureToLibrary}/>}
       {showSavedImages&&<SavedImagesDrawer folder={galleryPath} images={savedImages} working={galleryWorking} error={galleryError} onRetry={()=>void initializeGallery()} editable={galleryReady&&!galleryWorking&&!busy&&!reflecting&&!sketchbookJob&&!sketchbookPlanning.current&&!storage.error} onClose={()=>setShowSavedImages(false)} onLabel={labelGallery} onDelete={deleteGallery}/>}
       {showSketchbook&&<SketchbookWorkspace name={settings.charName} state={sketchbook} images={savedImages} status={sketchbookStatus} galleryReady={galleryReady} galleryWorking={galleryWorking} galleryError={galleryError}
-        onEnable={enabled=>{lastActivityAt.current=Date.now();const current=sketchbookRef.current;const prepared=enabled?{...current,settings:{...current.settings,timeZone:journalRef.current.timeZone}}:current;const next=setSketchbookEnabled(prepared,enabled);sketchbookRef.current=next;saveSketchbook(next);setSketchbook(next);if(!enabled){sketchbookIdeaController.current?.abort();if(sketchbookJob){setSketchbookJob(null);setShowImageGeneration(false);}setSketchbookStatus('Automatic Sketchbook drawings are off.');}else setSketchbookStatus('Sketchbook schedule enabled. Mana will draw when the next slot is due and the app is idle.');}}
+        drawNowReason={drawNowReason} waitingReason={!sketchbook.settings.enabled?'Automatic drawings are disabled.':drawNowReason||'Return to chat and leave Mana idle for five minutes before the next due slot.'} onDrawNow={()=>{if(!drawNowReason){lastActivityAt.current=Date.now();void startSketchbookSlot('manual-'+uid(),'manual');}}}
+        onEnable={enabled=>{lastActivityAt.current=Date.now();const current=sketchbookRef.current;const prepared=enabled?{...current,settings:{...current.settings,timeZone:journalRef.current.timeZone}}:current;const next=setSketchbookEnabled(prepared,enabled);sketchbookRef.current=next;saveSketchbook(next);setSketchbook(next);if(!enabled){if(sketchbookPlanningMode.current==='scheduled')sketchbookIdeaController.current?.abort();if(sketchbookJob?.mode==='scheduled'){setSketchbookJob(null);setShowImageGeneration(false);}setSketchbookStatus('Automatic Sketchbook drawings are off.');}else setSketchbookStatus('Sketchbook schedule enabled. Mana will draw when the next slot is due and the app is idle.');}}
         onCatchUp={catchUp=>{lastActivityAt.current=Date.now();const next={...sketchbookRef.current,settings:{...sketchbookRef.current.settings,catchUp}};sketchbookRef.current=next;saveSketchbook(next);setSketchbook(next);}}
         onRemove={id=>{lastActivityAt.current=Date.now();const next=removeSketchbookEntry(sketchbookRef.current,id);sketchbookRef.current=next;saveSketchbook(next);setSketchbook(next);setSketchbookStatus('Removed from Sketchbook. The picture is still in Image Gallery.');}}
         onClose={()=>{lastActivityAt.current=Date.now();setShowSketchbook(false);}}/>}
@@ -1595,7 +1637,7 @@ export default function App() {
         onDelete={(id)=>setGoals((prev)=>prev.filter((g)=>g.id!==id))}
         onClose={()=>{if(goalGenerating||workGenerating)abortRef.current?.abort();setShowGoals(false);}} />}
 
-      {sketchbookJob&&<div className="diary-art-job"><strong>Mana’s Sketchbook</strong><p role="status">{sketchbookStatus}</p><ImageGenerationDrawer key={sketchbookJob.slotId} inline showSave={false} initialRequest={sketchbookJob.prepared.pictureRequest} available={!busy&&!reflecting&&!storage.error} beforeGenerate={async cpu=>cpu?async()=>{}:llama.pauseForImage()} onGenerated={image=>{void saveScheduledSketchbookImage(sketchbookJob,image);}} onFailure={error=>{setSketchbookStatus('Sketchbook drawing failed: '+error);setSketchbookJob(null);setShowImageGeneration(false);}} onStopped={()=>{setSketchbookStatus('Sketchbook drawing stopped.');setSketchbookJob(null);setShowImageGeneration(false);}} onClose={()=>{setSketchbookJob(null);setShowImageGeneration(false);}} onSave={()=>{}}/></div>}
+      {sketchbookJob&&<div className="diary-art-job"><strong>Mana’s Sketchbook</strong><p role="status">{sketchbookStatus}</p><ImageGenerationDrawer key={sketchbookJob.slotId} inline showSave={false} initialRequest={sketchbookJob.prepared.pictureRequest} available={!busy&&!reflecting&&!storage.error} beforeGenerate={async cpu=>cpu?async()=>{}:llama.pauseForImage()} onGenerated={image=>{void saveScheduledSketchbookImage(sketchbookJob,image);}} onFailure={error=>{if(sketchbookJob.mode==='manual')manualSketchbookId.current=null;recordDrawingStatus('failed','Sketchbook drawing failed: '+error);setSketchbookJob(null);setShowImageGeneration(false);}} onStopped={()=>{if(sketchbookJob.mode==='manual')manualSketchbookId.current=null;recordDrawingStatus('cancelled','Sketchbook drawing stopped.');setSketchbookJob(null);setShowImageGeneration(false);}} onClose={()=>{if(sketchbookJob.mode==='manual')manualSketchbookId.current=null;recordDrawingStatus('cancelled','Sketchbook drawing dismissed.');setSketchbookJob(null);setShowImageGeneration(false);}} onSave={()=>{}}/></div>}
       {diaryArtId&&diaryArtRequest&&<div className="diary-art-job"><strong>Illustrating diary</strong><ImageGenerationDrawer key={diaryArtId} inline initialRequest={diaryArtRequest} available={!busy&&!reflecting&&!storage.error} beforeGenerate={async()=>llama.pauseForImage()} prepareReference={avatar.assets?async signal=>prepareDiaryCastReference(await prepareAvatarReference(avatar.assets!,cfg,signal,1024),diaryArtRequest.referenceCast,signal):undefined} onStopped={()=>finishDiaryArt('Illustration stopped. Diary text is saved; use Add illustration to retry.')} onFailure={message=>finishDiaryArt('Diary text is safe. Picture failed: '+message)} onGenerated={image=>{void retainDiaryArtwork(diaryArtId,image);}} onClose={()=>finishDiaryArt('Illustration cancelled. Diary text is saved; use Add illustration to retry.')} onSave={()=>{}}/></div>}
       {showDiary && <DiaryDrawer name={settings.charName} entries={diary} artworkStatus={diaryArtStatus} artworkBusy={!!diaryArtId||!!diaryArtQueue.length} onIllustrate={id=>setDiaryArtQueue(q=>q.includes(id)?q:[...q,id])} onRemoveIllustration={id=>setDiary(prev=>prev.map(e=>{if(e.id!==id)return e;const {illustration,...rest}=e;return rest;}))} draft={reflectionDraft} generating={reflecting}
         onRestore={(id)=>{const entry=diary.find((e)=>e.id===id);if(entry?.journalDate&&diary.some((e)=>!e.deletedAt&&e.journalDate===entry.journalDate)){setJournalStatus("An entry for that day already exists. Move it to Recently deleted before restoring the earlier one.");return;}setDiary((prev)=>prev.map((e)=>{if(e.id!==id)return e;const {deletedAt,...restored}=e;return restored;}));}}
