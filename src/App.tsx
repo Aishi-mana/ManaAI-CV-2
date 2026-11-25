@@ -2327,6 +2327,56 @@ export default function App() {
       {showSongbook&&<SongbookWorkspace name={settings.charName} state={songbook} status={songbookStatus}
         busy={songbookBusy} unavailableReason={songbookUnavailable}
         voiceUnavailableReason={songbookVoiceUnavailable}
+        translationStatus={translationStatus}
+        translationBusy={songbookBusy&&songbookRunningMode.current==='translation'}
+        translationDraftUnavailableReason={!inTauri?'Translation drafts require Mana desktop.':
+          llama.status!=='ready'?'Start Mana’s local chat model first.':
+          storage.error?'Storage is unavailable.':
+          songbookBusy||busy||reflecting||abortRef.current||mediaOccupied()||
+          sketchbookPlanning.current||sketchbookJob?'Mana is busy with another activity.':''}
+        onCreateTranslation={(title,source,basis:AdaptationRightsBasis,acknowledged)=>{
+          lastActivityAt.current=Date.now();
+          if(songbookRunning.current||storage.error||songbookBusy){
+            setTranslationStatus('Finish the current activity before creating a translation.');return false;
+          }
+          try{
+            const project=createTranslationProject({
+              id:'translation-'+uid(),title,sourceLyrics:source,rightsBasis:basis,acknowledged,
+            });
+            setSongbookState(addTranslationProject(songbookRef.current,project));
+            setTranslationStatus('Translation draft saved locally. Ask Mana for English suggestions or edit individual lines.');
+            return true;
+          }catch(error){setTranslationStatus('Could not create translation: '+String(error));return false;}
+        }}
+        onDraftTranslation={id=>{lastActivityAt.current=Date.now();void draftTranslationEnglish(id);}}
+        onEditTranslation={(id,index,field:TranslationEditField,value)=>{
+          lastActivityAt.current=Date.now();
+          if(songbookRunning.current||storage.error)return;
+          try{setSongbookState(updateTranslationLine(songbookRef.current,id,index,field,value));}
+          catch(error){setTranslationStatus('Could not edit translation: '+String(error));}
+        }}
+        onSaveTranslationVersion={id=>{
+          lastActivityAt.current=Date.now();
+          if(songbookRunning.current||storage.error)return;
+          try{
+            setSongbookState(saveTranslationVersion(songbookRef.current,id,'version-'+uid()));
+            setTranslationStatus('English version saved. Earlier versions and original Japanese lines remain unchanged.');
+          }catch(error){setTranslationStatus('Could not save version: '+String(error));}
+        }}
+        onRestoreTranslationVersion={(id,versionId)=>{
+          lastActivityAt.current=Date.now();
+          if(songbookRunning.current||storage.error)return;
+          try{
+            setSongbookState(restoreTranslationVersion(songbookRef.current,id,versionId));
+            setTranslationStatus('Saved version restored into the editable working copy.');
+          }catch(error){setTranslationStatus('Could not restore version: '+String(error));}
+        }}
+        onRemoveTranslation={id=>{
+          lastActivityAt.current=Date.now();
+          if(songbookRunning.current||storage.error)return;
+          setSongbookState(removeTranslationProject(songbookRef.current,id));
+          setTranslationStatus('Translation draft and its versions removed. Songbook covers and originals are unchanged.');
+        }}
         onCompose={()=>{if(!songbookUnavailable){lastActivityAt.current=Date.now();void composeOriginalSong('manual-'+uid(),'manual');}}}
         onComposeAnime={()=>{if(!songbookUnavailable){lastActivityAt.current=Date.now();void composeOriginalSong('manual-'+uid(),'manual','anime-opening-original');}}}
         onStop={()=>songbookController.current?.abort()}
