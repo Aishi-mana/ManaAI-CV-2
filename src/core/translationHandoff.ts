@@ -18,8 +18,6 @@ export interface TranslationHandoff{
 }
 const rights=(value:unknown):value is GuideRecordingRightsBasis=>
  value==='owned'||value==='licensed'||value==='public-domain';
-const stamp=(value:unknown):value is string=>typeof value==='string'&&Number.isFinite(Date.parse(value))&&
- new Date(value).toISOString()===value;
 const allowedId=(id:unknown):id is string=>typeof id==='string'&&/^translation-[a-zA-Z0-9_-]{1,80}$/.test(id);
 const safeName=(s:unknown,max:number):s is string=>typeof s==='string'&&!!s.trim()&&s.length<=max;
 /** Owners render the English guide in OpenUtau, choose the WAV manually and
