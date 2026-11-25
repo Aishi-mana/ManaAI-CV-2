@@ -3,6 +3,7 @@ import {invoke} from '@tauri-apps/api/core';
 import {nextWeeklySong,type SongbookEntry,type SongbookState} from '../core/songbook';
 import {durationLabel} from '../core/musicStudio';
 import type {CoverRightsBasis} from '../core/coverHandoff';
+import {nextCoverDay,type WeeklyCoverKind} from '../core/weeklyCovers';
 
 interface Props {
  name:string;
@@ -15,6 +16,10 @@ interface Props {
  onDiscoverCover:(theme:string)=>void;
  onRemoveCoverIdea:(id:string)=>void;
  onPrepareCover:(id:string,rightsBasis:CoverRightsBasis,acknowledged:boolean)=>void;
+ onQueueWebAudio:(id:string,rightsBasis:CoverRightsBasis,acknowledged:boolean)=>void;
+ onSelectLocalCoverFolder:()=>void;
+ onApproveLocalCoverFolder:(approved:boolean)=>void;
+ onSetWeeklyCoverEnabled:(kind:WeeklyCoverKind,enabled:boolean)=>void;
  onConvertVoice:(id:string)=>void;
  onStop:()=>void;
  onEnable:(enabled:boolean)=>void;
@@ -34,7 +39,7 @@ const voiceStatus=(entry:SongbookEntry)=>entry.voiceMixPath?'Mana voice ready':
 const defaultVersion=(entry:SongbookEntry):AudioVersion=>entry.voiceMixPath?'mana':'guide';
 
 export default function SongbookWorkspace({
- name,state,status,busy,unavailableReason,voiceUnavailableReason,onCompose,onDiscoverCover,onRemoveCoverIdea,onPrepareCover,onConvertVoice,onStop,onEnable,onCatchUp,onOpenStudio,onClose,
+ name,state,status,busy,unavailableReason,voiceUnavailableReason,onCompose,onDiscoverCover,onRemoveCoverIdea,onPrepareCover,onQueueWebAudio,onSelectLocalCoverFolder,onApproveLocalCoverFolder,onSetWeeklyCoverEnabled,onConvertVoice,onStop,onEnable,onCatchUp,onOpenStudio,onClose,
 }:Props){
  const [now,setNow]=useState(()=>new Date());
  const [selectedId,setSelectedId]=useState('');
@@ -165,6 +170,69 @@ export default function SongbookWorkspace({
    </div>}
 
 
+
+   <section className="songbook-weekly-covers" aria-label="Two weekly cover routines">
+    <div className="songbook-cover-heading">
+     <div>
+      <span className="songbook-eyebrow">MANA'S WEEKLY COVERS</span>
+      <h2>Two little stages each week</h2>
+      <p className="songbook-muted">One local song on Tuesday, one web-discovered song on Friday. Both are optional, at noon in {state.weeklyCovers.timeZone}; Mana works only while open and idle.</p>
+     </div>
+     <span className="songbook-small-status">Off by default</span>
+    </div>
+    <div className="songbook-weekly-grid">
+     <article className="songbook-weekly-card">
+      <span className="songbook-eyebrow">TUESDAY · LOCAL</span>
+      <h3>From her music folder</h3>
+      <p className="songbook-muted">Mana looks only at filenames in the folder you choose and selects one to sing. No recursive browsing.</p>
+      <button className="btn" type="button" disabled={busy} onClick={onSelectLocalCoverFolder}>
+       {state.weeklyCovers.local.folder?'Change music folder':'Choose music folder'}
+      </button>
+      {state.weeklyCovers.local.folder&&<>
+       <p className="songbook-muted songbook-folder-path" title={state.weeklyCovers.local.folder}>
+        Selected: {state.weeklyCovers.local.folder}
+       </p>
+       <label className="songbook-cover-ack">
+        <input type="checkbox" checked={state.weeklyCovers.local.rightsApproved} disabled={busy}
+         onChange={event=>onApproveLocalCoverFolder(event.target.checked)}/>
+        I have rights or permission to use both the compositions and recordings in this folder for covers.
+       </label>
+      </>}
+      <label className="songbook-toggle">
+       <span>Weekly local cover</span>
+       <input type="checkbox" checked={state.weeklyCovers.local.enabled}
+        disabled={busy||!state.weeklyCovers.local.rightsApproved} onChange={event=>onSetWeeklyCoverEnabled('local',event.target.checked)}/>
+      </label>
+      <p className="songbook-muted">Next Tuesday: {scheduleDateLabel(nextCoverDay(state.weeklyCovers,'local',now))} · 12:00</p>
+     </article>
+     <article className="songbook-weekly-card">
+      <span className="songbook-eyebrow">FRIDAY · WEB</span>
+      <h3>From her discoveries</h3>
+      <p className="songbook-muted">Mana chooses from cleared web discoveries with owner-supplied audio. If none are ready, Friday saves a new idea for review, not a recording.</p>
+      <span className="songbook-tag is-sung">{
+       state.coverIdeas.filter(idea=>!!idea.approvedAudio&&!state.weeklyCovers.records.some(record=>record.sourceUrl===idea.url)).length
+      } approved songs ready</span>
+      <label className="songbook-toggle">
+       <span>Weekly web cover or new suggestion</span>
+       <input type="checkbox" checked={state.weeklyCovers.web.enabled} disabled={busy}
+        onChange={event=>onSetWeeklyCoverEnabled('web',event.target.checked)}/>
+      </label>
+      <p className="songbook-muted">Next Friday: {scheduleDateLabel(nextCoverDay(state.weeklyCovers,'web',now))} · 12:00</p>
+     </article>
+    </div>
+    {state.weeklyCovers.lastOutcome&&<p className="songbook-muted" role="status">Latest cover activity: {state.weeklyCovers.lastOutcome.message}</p>}
+    {state.weeklyCovers.records.length>0&&<details className="songbook-cover-history">
+     <summary>Mana's finished weekly covers ({state.weeklyCovers.records.length})</summary>
+     <div className="songbook-cover-history-list">{state.weeklyCovers.records.map(record=>
+      <div key={record.id} className="songbook-cover-history-entry">
+       <div><strong>{record.title}</strong>
+        <p className="songbook-muted">{record.kind==='local'?'Local':'Web-discovered'} · {dateLabel(record.at)} · {record.sourceLabel}</p>
+       </div>
+       <button className="btn" type="button" disabled={busy} onClick={onOpenStudio}>Listen in Music Studio</button>
+      </div>)}</div>
+    </details>}
+   </section>
+
    <section className="songbook-cover-discovery" aria-label="Cover inspirations">
     <div className="songbook-cover-heading">
      <div>
@@ -185,7 +253,7 @@ export default function SongbookWorkspace({
     </form>
     {state.coverIdeas.length>0&&<div className="songbook-cover-shelf" aria-label="Saved cover ideas">
      {state.coverIdeas.map(idea=><article key={idea.id} className="songbook-cover-idea">
-      <span className="songbook-tag">Source to review</span>
+      <span className={"songbook-tag"+(idea.approvedAudio?" is-sung":"")}>{idea.approvedAudio?"Approved recording queued":"Source to review"}</span>
       <h3>{idea.title}</h3>
       <p className="songbook-cover-reason"><strong>Mana's thought:</strong> {idea.reason}</p>
       {idea.excerpt&&<p className="songbook-cover-excerpt">{idea.excerpt}</p>}
@@ -208,13 +276,21 @@ export default function SongbookWorkspace({
          onChange={event=>setCoverAcknowledged(prev=>({...prev,[idea.id]:event.target.checked}))}/>
         I have reviewed this source and can use the composition and my selected local recording for this cover.
        </label>
-       <button className="btn primary" type="button"
-        disabled={busy||!!voiceUnavailableReason||!coverRights[idea.id]||!coverAcknowledged[idea.id]}
-        onClick={()=>{const rights=coverRights[idea.id];if(rights&&coverAcknowledged[idea.id])
-         onPrepareCover(idea.id,rights,true);}}>
-        Choose local audio &amp; create cover
-       </button>
-       <p className="songbook-muted">You choose the file; Mana doesn't download or use audio from this page. Music Studio previews the voice conversion before you save it.</p>
+       <div className="songbook-cover-review-actions">
+        <button className="btn primary" type="button"
+         disabled={busy||!!voiceUnavailableReason||!coverRights[idea.id]||!coverAcknowledged[idea.id]}
+         onClick={()=>{const rights=coverRights[idea.id];if(rights&&coverAcknowledged[idea.id])
+          onPrepareCover(idea.id,rights,true);}}>
+         Make cover now
+        </button>
+        <button className="btn" type="button"
+         disabled={busy||!!voiceUnavailableReason||!coverRights[idea.id]||!coverAcknowledged[idea.id]}
+         onClick={()=>{const rights=coverRights[idea.id];if(rights&&coverAcknowledged[idea.id])
+          onQueueWebAudio(idea.id,rights,true);}}>
+         Queue audio for Friday
+        </button>
+       </div>
+       <p className="songbook-muted">You choose the file; Mana doesn't download or use audio from this page. Use Make cover now to preview in Studio, or queue the approved local recording for an automatic Friday cover.</p>
       </div>
       <div className="songbook-cover-actions">
        <button className="btn" type="button" onClick={()=>{setCoverSourceError('');void invoke('open_web_source',{url:idea.url}).catch(error=>setCoverSourceError('Could not open the source: '+String(error)));}}>Review source</button>
