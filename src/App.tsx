@@ -44,7 +44,7 @@ import {loadSongbook,saveSongbook,setSongbookEnabled,dueWeeklySong,reserveWeekly
 import {prepareWeeklySongIdea} from './core/songbookIdeas';
 import {addCoverIdea,removeCoverIdea,approveWebCoverAudio,coverSearchQuery,pickCoverSource,type CoverSearchSource} from './core/coverDiscovery';
 import {eligibleCoverTracks,chooseLocalCover,chooseReadyWebCover,type LocalCoverTrack} from './core/coverSelection';
-import {configureWeeklyCover,setLocalCoverFolder,approveLocalCoverFolder,dueWeeklyCover,reserveWeeklyCover,recordWeeklyCover,recordCoverOutcome,type WeeklyCoverKind} from './core/weeklyCovers';
+import {configureWeeklyCover,setCoverMusicPreference,setLocalCoverFolder,approveLocalCoverFolder,dueWeeklyCover,reserveWeeklyCover,recordWeeklyCover,recordCoverOutcome,type WeeklyCoverKind} from './core/weeklyCovers';
 import {prepareCoverHandoff,type CoverHandoff,type CoverRightsBasis} from './core/coverHandoff';
 import {loadCustomVoice,singingVoiceReference} from './core/customVoice';
 import {STUDIO_PROJECT_LIMIT,generatedAudioPath,type StudioProject} from './core/musicStudio';
@@ -1256,14 +1256,15 @@ export default function App() {
     abortRef.current=ctrl;
     setSongbookBusy(true);setReflecting(true);
     try{
-      const query=coverSearchQuery(theme);
+      const preference=songbookRef.current.weeklyCovers.musicPreference;
+      const query=coverSearchQuery(theme,preference);
       setSongbookStatus('Mana is looking through public music sources…');
       const sources=await invoke<CoverSearchSource[]>('search_web',{query});
       if(ctrl.signal.aborted)throw Error('Cover exploration stopped.');
       setSongbookStatus('Mana is choosing a song source to explore…');
       const chosen=await pickCoverSource({
         sources,theme:theme.trim()||'traditional music',
-        name:settings.charName,port:llama.port,signal:ctrl.signal,
+        name:settings.charName,port:llama.port,signal:ctrl.signal,preference,
       });
       if(ctrl.signal.aborted)throw Error('Cover exploration stopped.');
       const next=addCoverIdea(songbookRef.current,{
@@ -1392,7 +1393,7 @@ export default function App() {
 
   // Original weekly songs use the installed ACE-Step backend and existing
   // llama.cpp GPU lease. A planned song survives audio failures as an honest draft.
-  async function composeOriginalSong(slotId:string,mode:'weekly'|'manual'){
+  async function composeOriginalSong(slotId:string,mode:'weekly'|'manual',creativeDirection?:'anime-opening-original'){
     if(songbookRunning.current||abortRef.current||llama.status!=='ready'||
       busy||reflecting||mediaOccupied()||showSinging||sketchbookPlanning.current||sketchbookJob||
       songbookRef.current.entries.length>=SONGBOOK_LIMIT)return;
@@ -1420,6 +1421,7 @@ export default function App() {
           name:settings.charName,mood:companion.state.mood,
           interests:identity.interests,
           recentSongTitles:songbookRef.current.entries.slice(0,5).map(song=>song.title),
+          ...(creativeDirection==='anime-opening-original'?{creativeDirection}:{}),
         },
       });
       if(ctrl.signal.aborted)throw Error('Composition cancelled.');
@@ -1543,7 +1545,7 @@ export default function App() {
         if(ctrl.signal.aborted)throw Error('Local cover stopped.');
         const choice=await chooseLocalCover({
           tracks,used:scheduled.local.used,name:settings.charName,
-          port:llama.port,signal:ctrl.signal,
+          port:llama.port,signal:ctrl.signal,preference:scheduled.musicPreference,
         });
         if(ctrl.signal.aborted)throw Error('Local cover stopped.');
         selectedTrack=choice.track.path;sourceLabel=choice.track.name;
@@ -1560,10 +1562,14 @@ export default function App() {
             r.kind==='web'&&r.sourceUrl===idea.url));
         if(!ready.length){
           setSongbookStatus('No cleared web recording is queued. Mana is finding an inspiration to review…');
-          const sources=await invoke<CoverSearchSource[]>('search_web',{query:coverSearchQuery('')});
+          const sources=await invoke<CoverSearchSource[]>('search_web',{
+            query:coverSearchQuery('',scheduled.musicPreference),
+          });
           if(ctrl.signal.aborted)throw Error('Web cover discovery stopped.');
           const picked=await pickCoverSource({
-            sources,theme:'traditional music',name:settings.charName,port:llama.port,signal:ctrl.signal,
+            sources,theme:scheduled.musicPreference==='english-anime'?'English anime openings':'traditional music',
+            name:settings.charName,port:llama.port,signal:ctrl.signal,
+            preference:scheduled.musicPreference,
           });
           if(ctrl.signal.aborted)throw Error('Web cover discovery stopped.');
           const next=addCoverIdea(songbookRef.current,{
@@ -1581,6 +1587,7 @@ export default function App() {
         const id=await chooseReadyWebCover({
           ideas:ready.map(idea=>({id:idea.id,title:idea.title,reason:idea.reason})),
           name:settings.charName,port:llama.port,signal:ctrl.signal,
+          preference:scheduled.musicPreference,
         });
         if(ctrl.signal.aborted)throw Error('Web cover stopped.');
         const idea=ready.find(item=>item.id===id);
@@ -2278,6 +2285,7 @@ export default function App() {
         busy={songbookBusy} unavailableReason={songbookUnavailable}
         voiceUnavailableReason={songbookVoiceUnavailable}
         onCompose={()=>{if(!songbookUnavailable){lastActivityAt.current=Date.now();void composeOriginalSong('manual-'+uid(),'manual');}}}
+        onComposeAnime={()=>{if(!songbookUnavailable){lastActivityAt.current=Date.now();void composeOriginalSong('manual-'+uid(),'manual','anime-opening-original');}}}
         onStop={()=>songbookController.current?.abort()}
         onDiscoverCover={theme=>{lastActivityAt.current=Date.now();void discoverCoverIdea(theme);}}
         onRemoveCoverIdea={id=>{lastActivityAt.current=Date.now();setSongbookState(removeCoverIdea(songbookRef.current,id));}}
@@ -2292,6 +2300,14 @@ export default function App() {
           if(!approved&&songbookRunningMode.current==='cover-local')songbookController.current?.abort();
           setSongbookStatus(approved?'Local folder rights acknowledged. Tuesdays can now be enabled.':
             'Local cover scheduling disabled. Saved recordings remain.');
+        }}
+        onSetCoverMusicPreference={preference=>{
+          lastActivityAt.current=Date.now();
+          const current=songbookRef.current;
+          setSongbookState({...current,weeklyCovers:setCoverMusicPreference(current.weeklyCovers,preference)});
+          setSongbookStatus(preference==='english-anime'?
+            'English anime opening covers preferred. Existing recordings are not translated or re-lyricized.':
+            'General musical cover selection restored.');
         }}
         onSetWeeklyCoverEnabled={(kind,enabled)=>{
           lastActivityAt.current=Date.now();
