@@ -15,7 +15,7 @@ import { canRecoverStarCollector, developmentAttempts, developmentDue, developme
 import { STAR_COLLECTOR_MARKER, STAR_COLLECTOR_REQUEST, STAR_COLLECTOR_STARTER } from "./core/starCollectorCheck";
 import { canRouteToWeb, shouldSearchWeb, webSearchCommand } from "./core/webSearch";
 import { invoke } from "@tauri-apps/api/core";
-import {open} from "@tauri-apps/plugin-dialog";
+import {open,save as saveDialog} from "@tauri-apps/plugin-dialog";
 import {requestsMemoryRecall, semanticReplyMemories} from './core/semanticMemory';
 import GeneratedHair from './components/GeneratedHair';
 import GeneratedAccessories from './components/GeneratedAccessories';
@@ -42,6 +42,9 @@ import SingingDrawer from './components/SingingDrawer';
 import SongbookWorkspace from './components/SongbookWorkspace';
 import {createTranslationProject,addTranslationProject,updateTranslationLine,applyTranslationProposal,saveTranslationVersion,restoreTranslationVersion,removeTranslationProject,type AdaptationRightsBasis,type TranslationEditField} from './core/translationWorkbench';
 import {proposeTranslation} from './core/translationIdeas';
+import {attachMidiGuide,editMelodyGuide,seedMelodyGuide,syncMelodyGuide,confirmMelodyGuide,dropMelodyGuide,type MelodyEditField} from './core/melodyGuide';
+import type {MidiPhraseFile,MelodyRightsBasis} from './core/midiMelody';
+import {exportOpenUtauGuide} from './core/openUtauExport';
 import {loadSongbook,saveSongbook,setSongbookEnabled,dueWeeklySong,reserveWeeklySong,addSongDraft,completeSongAudio,completeSongVoice,markSongAudioError,markSongVoiceError,recordSongbookOutcome,SONGBOOK_LIMIT,type SongbookEntry} from './core/songbook';
 import {prepareWeeklySongIdea} from './core/songbookIdeas';
 import {addCoverIdea,removeCoverIdea,approveWebCoverAudio,coverSearchQuery,pickCoverSource,type CoverSearchSource} from './core/coverDiscovery';
@@ -2376,6 +2379,79 @@ export default function App() {
           if(songbookRunning.current||storage.error)return;
           setSongbookState(removeTranslationProject(songbookRef.current,id));
           setTranslationStatus('Translation draft and its versions removed. Songbook covers and originals are unchanged.');
+        }}
+
+        onImportMelody={(id,file:MidiPhraseFile,track,name,basis:MelodyRightsBasis,ack)=>{
+          lastActivityAt.current=Date.now();
+          if(songbookRunning.current||songbookBusy||storage.error)return false;
+          try{
+            const next=attachMidiGuide(songbookRef.current,id,file,track,name,basis,ack);
+            setSongbookState(next);
+            setTranslationStatus('MIDI melody imported. Map English words to notes and review the guide before exporting.');
+            return true;
+          }catch(error){setTranslationStatus('Could not import melody: '+String(error));return false;}
+        }}
+        onEditMelody={(id,note,field:MelodyEditField,value)=>{
+          lastActivityAt.current=Date.now();
+          if(songbookRunning.current||songbookBusy||storage.error)return;
+          try{setSongbookState(editMelodyGuide(songbookRef.current,id,note,field,value));}
+          catch(error){setTranslationStatus('Melody edit rejected: '+String(error));}
+        }}
+        onSeedMelody={(id,fromLine,toLine)=>{
+          lastActivityAt.current=Date.now();
+          if(songbookRunning.current||songbookBusy||storage.error)return;
+          try{
+            setSongbookState(seedMelodyGuide(songbookRef.current,id,fromLine,toLine));
+            setTranslationStatus('Rough English word placement saved. Review each note lyric and syllable before approving.');
+          }catch(error){setTranslationStatus('Cannot seed English to notes: '+String(error));}
+        }}
+        onSyncMelody={id=>{
+          lastActivityAt.current=Date.now();
+          if(songbookRunning.current||songbookBusy||storage.error)return;
+          try{
+            setSongbookState(syncMelodyGuide(songbookRef.current,id));
+            setTranslationStatus('Current English lines are synced. Recheck every note, then confirm the mapping.');
+          }catch(error){setTranslationStatus('Melody sync unavailable: '+String(error));}
+        }}
+        onReviewMelody={id=>{
+          lastActivityAt.current=Date.now();
+          if(songbookRunning.current||songbookBusy||storage.error)return;
+          try{
+            setSongbookState(confirmMelodyGuide(songbookRef.current,id));
+            setTranslationStatus('Note mapping marked owner-reviewed. You may now save the OpenUtau guide project.');
+          }catch(error){setTranslationStatus('Cannot approve note map: '+String(error));}
+        }}
+        onRemoveMelody={id=>{
+          lastActivityAt.current=Date.now();
+          if(songbookRunning.current||songbookBusy||storage.error)return;
+          try{
+            setSongbookState(dropMelodyGuide(songbookRef.current,id));
+            setTranslationStatus('MIDI note guide removed; original and English lyric drafts remain safe.');
+          }catch(error){setTranslationStatus('Could not remove MIDI guide: '+String(error));}
+        }}
+        onExportMelody={id=>{
+          lastActivityAt.current=Date.now();
+          if(!inTauri||songbookRunning.current||songbookBusy||storage.error){
+            setTranslationStatus('Save an OpenUtau guide from the desktop app while no other job is running.');return;
+          }
+          void (async()=>{
+            try{
+              const project=songbookRef.current.translations.find(x=>x.id===id);
+              if(!project)throw Error('Translation draft was removed.');
+              const content=exportOpenUtauGuide(project);
+              const suggested=(project.title.replace(/[^a-z0-9 _-]/gi,'').trim().slice(0,40)||
+                'Mana-English-guide')+'.ustx';
+              const path=await saveDialog({defaultPath:suggested,filters:[{
+                name:'OpenUtau project',extensions:['ustx'],
+              }]});
+              if(typeof path!=='string')return;
+              const current=songbookRef.current.translations.find(x=>x.id===id);
+              if(!current||exportOpenUtauGuide(current)!==content)
+                throw Error('Lyrics or melody changed before export. Try again.');
+              await invoke('songbook_export_ustx',{path,content});
+              setTranslationStatus('OpenUtau guide saved. Select an English-capable singer and phonemizer in OpenUtau; render and listen there before any Mana voice conversion.');
+            }catch(error){setTranslationStatus('OpenUtau guide export unavailable: '+String(error));}
+          })();
         }}
         onCompose={()=>{if(!songbookUnavailable){lastActivityAt.current=Date.now();void composeOriginalSong('manual-'+uid(),'manual');}}}
         onComposeAnime={()=>{if(!songbookUnavailable){lastActivityAt.current=Date.now();void composeOriginalSong('manual-'+uid(),'manual','anime-opening-original');}}}
