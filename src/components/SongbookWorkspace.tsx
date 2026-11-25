@@ -3,7 +3,7 @@ import {invoke} from '@tauri-apps/api/core';
 import {nextWeeklySong,type SongbookEntry,type SongbookState} from '../core/songbook';
 import {durationLabel} from '../core/musicStudio';
 import type {CoverRightsBasis} from '../core/coverHandoff';
-import {nextCoverDay,type WeeklyCoverKind} from '../core/weeklyCovers';
+import {nextCoverDay,type WeeklyCoverKind,type CoverMusicPreference} from '../core/weeklyCovers';
 
 interface Props {
  name:string;
@@ -13,6 +13,7 @@ interface Props {
  unavailableReason:string;
  voiceUnavailableReason:string;
  onCompose:()=>void;
+ onComposeAnime:()=>void;
  onDiscoverCover:(theme:string)=>void;
  onRemoveCoverIdea:(id:string)=>void;
  onPrepareCover:(id:string,rightsBasis:CoverRightsBasis,acknowledged:boolean)=>void;
@@ -20,6 +21,7 @@ interface Props {
  onSelectLocalCoverFolder:()=>void;
  onApproveLocalCoverFolder:(approved:boolean)=>void;
  onSetWeeklyCoverEnabled:(kind:WeeklyCoverKind,enabled:boolean)=>void;
+ onSetCoverMusicPreference:(preference:CoverMusicPreference)=>void;
  onConvertVoice:(id:string)=>void;
  onStop:()=>void;
  onEnable:(enabled:boolean)=>void;
@@ -39,7 +41,7 @@ const voiceStatus=(entry:SongbookEntry)=>entry.voiceMixPath?'Mana voice ready':
 const defaultVersion=(entry:SongbookEntry):AudioVersion=>entry.voiceMixPath?'mana':'guide';
 
 export default function SongbookWorkspace({
- name,state,status,busy,unavailableReason,voiceUnavailableReason,onCompose,onDiscoverCover,onRemoveCoverIdea,onPrepareCover,onQueueWebAudio,onSelectLocalCoverFolder,onApproveLocalCoverFolder,onSetWeeklyCoverEnabled,onConvertVoice,onStop,onEnable,onCatchUp,onOpenStudio,onClose,
+ name,state,status,busy,unavailableReason,voiceUnavailableReason,onCompose,onComposeAnime,onDiscoverCover,onRemoveCoverIdea,onPrepareCover,onQueueWebAudio,onSelectLocalCoverFolder,onApproveLocalCoverFolder,onSetWeeklyCoverEnabled,onSetCoverMusicPreference,onConvertVoice,onStop,onEnable,onCatchUp,onOpenStudio,onClose,
 }:Props){
  const [now,setNow]=useState(()=>new Date());
  const [selectedId,setSelectedId]=useState('');
@@ -129,6 +131,10 @@ export default function SongbookWorkspace({
       <div className="songbook-main-actions">
        <button className="btn primary songbook-compose" type="button" onClick={onCompose}
         disabled={busy||!!unavailableReason}>♫ &nbsp; Compose now</button>
+       {state.weeklyCovers.musicPreference==='english-anime'&&<button className="btn" type="button"
+        onClick={onComposeAnime} disabled={busy||!!unavailableReason}>
+        Write original anime-style opening
+       </button>}
        {busy&&<button className="btn" type="button" onClick={onStop}>Stop current activity</button>}
       </div>
       <p className="songbook-muted">{unavailableReason||'A manual composition. Your weekly song slot stays free.'}</p>
@@ -180,11 +186,23 @@ export default function SongbookWorkspace({
      </div>
      <span className="songbook-small-status">Off by default</span>
     </div>
+    <div className="songbook-cover-preference">
+     <label htmlFor="songbook-music-preference">Her cover-song preference</label>
+     <select id="songbook-music-preference" value={state.weeklyCovers.musicPreference}
+      disabled={busy}
+      onChange={event=>onSetCoverMusicPreference(event.target.value as CoverMusicPreference)}>
+      <option value="any">Any music she likes</option>
+      <option value="english-anime">English anime-opening covers</option>
+     </select>
+     {state.weeklyCovers.musicPreference==='english-anime'?
+      <p className="songbook-muted">Mana favors titles that suggest English anime openings or English vocal covers. She does not translate Japanese lyrics yet, verify the language from audio, or download recordings. Existing songs still require your permissions.</p>:
+      <p className="songbook-muted">Mana can choose among approved songs without a special genre preference.</p>}
+    </div>
     <div className="songbook-weekly-grid">
      <article className="songbook-weekly-card">
       <span className="songbook-eyebrow">TUESDAY · LOCAL</span>
       <h3>From her music folder</h3>
-      <p className="songbook-muted">Mana looks only at filenames in the folder you choose and selects one to sing. No recursive browsing.</p>
+      <p className="songbook-muted">Mana looks only at filenames in the folder you choose and selects one to sing. No recursive browsing.{state.weeklyCovers.musicPreference==='english-anime'?' She favors anime-opening and English-version titles when available.':''}</p>
       <button className="btn" type="button" disabled={busy} onClick={onSelectLocalCoverFolder}>
        {state.weeklyCovers.local.folder?'Change music folder':'Choose music folder'}
       </button>
@@ -208,7 +226,7 @@ export default function SongbookWorkspace({
      <article className="songbook-weekly-card">
       <span className="songbook-eyebrow">FRIDAY · WEB</span>
       <h3>From her discoveries</h3>
-      <p className="songbook-muted">Mana chooses from cleared web discoveries with owner-supplied audio. If none are ready, Friday saves a new idea for review, not a recording.</p>
+      <p className="songbook-muted">Mana chooses from cleared web discoveries with owner-supplied audio. If none are ready, Friday saves a new idea for review, not a recording.{state.weeklyCovers.musicPreference==='english-anime'?' Anime-opening and English-vocal-cover sources receive priority.':''}</p>
       <span className="songbook-tag is-sung">{
        state.coverIdeas.filter(idea=>!!idea.approvedAudio&&!state.weeklyCovers.records.some(record=>record.sourceUrl===idea.url)).length
       } approved songs ready</span>
@@ -246,7 +264,7 @@ export default function SongbookWorkspace({
      <label htmlFor="songbook-cover-theme">Music or mood to explore</label>
      <div className="songbook-cover-input-row">
       <input id="songbook-cover-theme" value={coverTheme} maxLength={120}
-       onChange={event=>setCoverTheme(event.target.value)} placeholder="Dreamy old songs, piano ballads, jazz…"/>
+       onChange={event=>setCoverTheme(event.target.value)} placeholder={state.weeklyCovers.musicPreference==='english-anime'?'Anime openings, English covers, uplifting rock…':'Dreamy old songs, piano ballads, jazz…'}/>
       <button className="btn primary" type="submit" disabled={busy||!!voiceUnavailableReason}>Find a cover idea</button>
      </div>
      <small className="songbook-muted">Search uses Mana's installed SearXNG. A search result isn't proof that a song or recording is free to use.</small>
