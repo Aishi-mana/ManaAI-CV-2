@@ -142,3 +142,32 @@ before marking this feature accepted on the laptop.
       WAV durations, local folder, reviewed web source, rights basis and any
       `exports/singing/*/job.log` errors. CI is not a substitute for listening.
 
+
+## English Anime Cover preference (translation is a later phase)
+
+- [ ] Open **More → Songbook → Mana's Weekly Covers**. Set **Her cover-song preference**
+      to **English anime-opening covers**. Close and reopen Mana; verify the selection
+      persists without enabling Tuesday or Friday automatically.
+- [ ] On Tuesday, choose a folder of permitted recordings, ideally with descriptive
+      file names such as `Anime Opening - English Cover.wav`. Mana should prefer
+      anime-opening/English-version *title hints*. This is filename-only selection:
+      she cannot detect whether the recording really contains English vocals.
+      No new folder traversal, audio analysis, or automatic downloads are introduced.
+- [ ] On Friday, use **Find a cover idea** with the preference enabled. Confirm that
+      the SearXNG query favors anime-opening English-cover source pages, but that
+      the rights review and owner-supplied recording steps are **unchanged**.
+      With an approved English cover WAV queued, Mana can use the existing trained
+      singing-voice converter. The converter **does not translate Japanese vocals**
+      or rewrite lyrics.
+- [ ] Confirm existing saved cover ideas, approved local audio, weekly reservations,
+      Studio projects, WAVs, Sunday original songs, and both cover schedules
+      survive switching **Any music she likes ↔ English anime-opening covers**.
+- [ ] Select **Write original anime-style opening**. Mana's local chat model should
+      write completely original English lyrics and a new anime-opening-*inspired*
+      arrangement, without naming an anime/franchise/song, translating any
+      protected lyrics, borrowing a melody, or consuming a scheduled weekly slot.
+      Confirm the usual ACE-Step guide and Mana-voice conversion behavior.
+- [ ] Confirm preferences do not verify an English-language recording, change the
+      underlying cover's lyrics, or authorize unauthorized uses. Translation of
+      an existing anime opening is an explicitly **unimplemented future feature**
+      requiring review of adaptation rights and a usable English singing guide.
