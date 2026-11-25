@@ -1518,7 +1518,8 @@ export default function App() {
   async function runScheduledCover(kind:WeeklyCoverKind,week:string){
     if(!inTauri||songbookRunning.current||abortRef.current||llama.status!=='ready'||
       busy||reflecting||mediaOccupied()||storage.error||sketchbookPlanning.current||
-      sketchbookJob||showSinging||initiativeRef.current.studio.projects.length>=STUDIO_PROJECT_LIMIT)return;
+      sketchbookJob||showSinging||!initiativeRef.current.studio||
+      initiativeRef.current.studio.projects.length>=STUDIO_PROJECT_LIMIT)return;
     let scheduled;
     try{scheduled=reserveWeeklyCover(songbookRef.current.weeklyCovers,kind,week,new Date());}
     catch{return;}
@@ -1638,8 +1639,8 @@ export default function App() {
       };
       // Never use a stale library snapshot if another Studio entry was saved.
       const library=initiativeRef.current.studio;
-      if(library.projects.length>=STUDIO_PROJECT_LIMIT)
-        throw Error('Music Studio is full. Completed WAV files remain on disk.');
+      if(!library||library.projects.length>=STUDIO_PROJECT_LIMIT)
+        throw Error('Music Studio is unavailable or full. Completed WAV files remain on disk.');
       changeInitiative({...initiativeRef.current,studio:{
         projects:[project,...library.projects],selectedId:projectId,
       }});
