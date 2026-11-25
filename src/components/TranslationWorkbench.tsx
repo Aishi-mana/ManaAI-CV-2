@@ -10,6 +10,7 @@ interface Props{
  busy:boolean;
  drafting:boolean;
  status:string;
+ draftUnavailableReason:string;
  onCreate:(title:string,source:string,basis:AdaptationRightsBasis,acknowledged:boolean)=>void;
  onDraft:(id:string)=>void;
  onStop:()=>void;
@@ -19,7 +20,7 @@ interface Props{
  onRemove:(id:string)=>void;
 }
 export default function TranslationWorkbench({
- projects,busy,drafting,status,onCreate,onDraft,onStop,onEdit,onSaveVersion,onRestoreVersion,onRemove,
+ projects,busy,drafting,status,draftUnavailableReason,onCreate,onDraft,onStop,onEdit,onSaveVersion,onRestoreVersion,onRemove,
 }:Props){
  const [title,setTitle]=useState('');
  const [source,setSource]=useState('');
@@ -88,7 +89,7 @@ export default function TranslationWorkbench({
     <span className="songbook-translation-muted">Permission basis: {selected.rightsBasis.replace('-', ' ')} (owner-declared)</span>
    </div>
    <div className="songbook-translation-actions">
-    <button className="btn primary" disabled={busy} type="button" onClick={()=>{
+    <button className="btn primary" disabled={busy||!!draftUnavailableReason} type="button" onClick={()=>{
      if(existingEnglish&&!window.confirm('Mana’s new English suggestion will replace the current working lines. Save a version first if you want to keep them. Continue?'))return;
      onDraft(selected.id);
     }}>Ask Mana for English draft</button>
@@ -96,6 +97,7 @@ export default function TranslationWorkbench({
      type="button" onClick={()=>onSaveVersion(selected.id)}>Save current version</button>
     {drafting&&<button className="btn" type="button" onClick={onStop}>Stop drafting</button>}
    </div>
+   {draftUnavailableReason&&<p className="songbook-muted">{draftUnavailableReason}</p>}
    <p className="songbook-muted">Targets are optional estimated English syllables per line (0 = unset). Counts are approximate, not beat timing or a promise that a line fits the melody.</p>
    <div className="songbook-translation-lines">
     {selected.lines.map((line,index)=>{
