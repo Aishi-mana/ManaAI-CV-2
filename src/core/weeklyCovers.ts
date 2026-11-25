@@ -18,7 +18,10 @@ export const COVER_WEEKDAY:Record<WeeklyCoverKind,number>={local:2,web:5}; // Tu
 export const COVER_TIME='12:00';
 export const COVER_RECORD_LIMIT=40;
 const stamp=(x:unknown):x is string=>typeof x==='string'&&Number.isFinite(Date.parse(x))&&new Date(x).toISOString()===x;
-const weekId=(s:unknown):s is string=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&\n Number.isFinite(Date.parse(s+'T12:00:00Z'))&&\n new Date(s+'T12:00:00Z').toISOString().slice(0,10)===s&&\n new Date(s+'T12:00:00Z').getUTCDay()===0;
+const weekId=(s:unknown):s is string=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&
+ Number.isFinite(Date.parse(s+'T12:00:00Z'))&&
+ new Date(s+'T12:00:00Z').toISOString().slice(0,10)===s&&
+ new Date(s+'T12:00:00Z').getUTCDay()===0;
 const folderName=(s:unknown):s is string=>typeof s==='string'&&s.length>=3&&s.length<=1200&&
  /^[a-zA-Z]:[\\/]/.test(s)&&!s.includes('\0')&&!s.split(/[\\/]/).some(part=>part==='..');
 const lastSlot=(v:unknown):{week:string;at:string}|undefined=>{
