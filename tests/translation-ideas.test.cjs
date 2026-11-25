@@ -13,7 +13,8 @@ function load(file,mocks={}){
   {filename:file});
  return exports;
 }
-const workbench=load('src/core/translationWorkbench.ts');
+const midiMelody=load('src/core/midiMelody.ts');
+const workbench=load('src/core/translationWorkbench.ts',{'./midiMelody':midiMelody});
 const project=workbench.createTranslationProject({
  id:'translation-example',title:'An original Japanese poem for testing',
  sourceLyrics:'空に星が光る\n朝日を待っている',rightsBasis:'owned',acknowledged:true,
