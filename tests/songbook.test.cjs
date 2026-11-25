@@ -28,7 +28,8 @@ const persistence={
  readStored:key=>store.get(key)??null,
  writeStored:(key,value)=>store.set(key,value),
 };
-const cover=load('src/core/coverDiscovery.ts',{'./llm':{streamChat:async()=>{}},'./musicStudio':music});
+const cover=load('src/core/coverDiscovery.ts',{'./llm':{streamChat:async()=>{}},'./musicStudio':music,
+ './animeCoverPreference':{rankCoverCandidates:items=>items,coverPreferenceInstruction:()=>'',coverPreferenceSearchTheme:theme=>theme}});
 const weeklyCovers=load('src/core/weeklyCovers.ts',{'./clock':clock,'./musicStudio':music});
 const book=load('src/core/songbook.ts',{
  './clock':clock,'./musicStudio':music,'./coverDiscovery':cover,'./weeklyCovers':weeklyCovers,
