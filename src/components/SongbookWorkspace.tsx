@@ -6,6 +6,7 @@ import TranslationWorkbench from './TranslationWorkbench';
 import type {AdaptationRightsBasis,TranslationEditField} from '../core/translationWorkbench';
 import type {MidiPhraseFile,MelodyRightsBasis} from '../core/midiMelody';
 import type {MelodyEditField} from '../core/melodyGuide';
+import type {GuideRecordingRightsBasis} from '../core/translationHandoff';
 import type {CoverRightsBasis} from '../core/coverHandoff';
 import {nextCoverDay,type WeeklyCoverKind,type CoverMusicPreference} from '../core/weeklyCovers';
 
@@ -32,6 +33,7 @@ interface Props {
  onReviewMelody:(id:string)=>void;
  onRemoveMelody:(id:string)=>void;
  onExportMelody:(id:string)=>void;
+ onPrepareEnglishGuide:(id:string,guideRights:GuideRecordingRightsBasis,guideAcknowledged:boolean,withBacking:boolean,backingRights?:GuideRecordingRightsBasis,backingAcknowledged?:boolean)=>void;
  onCompose:()=>void;
  onComposeAnime:()=>void;
  onDiscoverCover:(theme:string)=>void;
@@ -62,7 +64,7 @@ const defaultVersion=(entry:SongbookEntry):AudioVersion=>entry.voiceMixPath?'man
 
 export default function SongbookWorkspace({
  name,state,status,busy,unavailableReason,voiceUnavailableReason,translationStatus,translationBusy,translationDraftUnavailableReason,onCreateTranslation,onDraftTranslation,onEditTranslation,onSaveTranslationVersion,onRestoreTranslationVersion,onRemoveTranslation,
- onImportMelody,onEditMelody,onSeedMelody,onSyncMelody,onReviewMelody,onRemoveMelody,onExportMelody,onCompose,onComposeAnime,onDiscoverCover,onRemoveCoverIdea,onPrepareCover,onQueueWebAudio,onSelectLocalCoverFolder,onApproveLocalCoverFolder,onSetWeeklyCoverEnabled,onSetCoverMusicPreference,onConvertVoice,onStop,onEnable,onCatchUp,onOpenStudio,onClose,
+ onImportMelody,onEditMelody,onSeedMelody,onSyncMelody,onReviewMelody,onRemoveMelody,onExportMelody,onPrepareEnglishGuide,onCompose,onComposeAnime,onDiscoverCover,onRemoveCoverIdea,onPrepareCover,onQueueWebAudio,onSelectLocalCoverFolder,onApproveLocalCoverFolder,onSetWeeklyCoverEnabled,onSetCoverMusicPreference,onConvertVoice,onStop,onEnable,onCatchUp,onOpenStudio,onClose,
 }:Props){
  const [now,setNow]=useState(()=>new Date());
  const [selectedId,setSelectedId]=useState('');
@@ -210,7 +212,7 @@ export default function SongbookWorkspace({
     onImportMelody={onImportMelody} onEditMelody={onEditMelody}
     onSeedMelody={onSeedMelody} onSyncMelody={onSyncMelody}
     onReviewMelody={onReviewMelody} onRemoveMelody={onRemoveMelody}
-    onExportMelody={onExportMelody}/>
+    onExportMelody={onExportMelody} onPrepareEnglishGuide={onPrepareEnglishGuide}/>
 
    <section className="songbook-weekly-covers" aria-label="Two weekly cover routines">
     <div className="songbook-cover-heading">
