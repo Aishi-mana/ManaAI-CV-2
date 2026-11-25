@@ -239,3 +239,63 @@ Known limitations: no direct recording-to-note extraction; only 1–128-note
 monophonic MIDI tracks; one stable meter per phrase; tempos between 30–300 BPM;
 rough word seeding is not pronunciation, phonemization, or reliable syllable
 alignment. Owner rights declaration is not independent license verification.
+
+
+## Phase 3C — Reviewed English OpenUtau guide → Mana trained voice
+
+This is a **manual**, preview-first workflow. It does **not** install OpenUtau, read its
+project automatically, render a voicebank, translate audio, discover external music,
+download audio, or publish covers. The original 3A/3B lyrics and MIDI and the
+owner-rendered OpenUtau WAV remain unchanged.
+
+1. [ ] Create an **original, permission-cleared** Japanese-to-English test project.
+       In Phase 3B, import an authorized lead-only MIDI, map English syllables,
+       then confirm the *current* English note mapping. Export the reviewed USTX.
+2. [ ] Open the USTX in **OpenUtau**, configure an **English-capable voicebank,
+       phonemizer and renderer**, audition its English pronunciation and pitch,
+       and **export a WAV** containing a dry English singing guide. Confirm the
+       specific voicebank and rendered-audio terms permit subsequent voice conversion.
+3. [ ] Return to **More → Songbook → English Lyric Translation Workbench →
+       Let Mana sing the English adaptation**. Confirm the action is unavailable
+       if the 3B note map has not been reviewed or becomes stale after editing
+       the English lines.
+4. [ ] Choose the separate rights basis for the **OpenUtau rendered recording
+       and singer/voicebank**, explicitly acknowledge your review, then select
+       **Choose rendered guide WAV & open Music Studio**. Declining the native
+       file chooser must not create a Music Studio project or trigger conversion.
+5. [ ] Confirm the owner-selected WAV is imported to
+       `exports/singing/import-*/track.wav` without deleting/changing the
+       original rendered WAV. Music Studio opens **Create Cover**, sets
+       **Mana · trained**, **Original backing**, **Whole song**, and **no vocal
+       separation**. No conversion starts until **Generate full cover preview**.
+6. [ ] Generate a preview. Listen for English pronunciation, note/pitch tracking,
+       and alignment. Confirm a fresh output WAV is created and can be auditioned
+       in Studio before saving. Keep the unsaved preview uncommitted or discard;
+       **Save this preview to library** must preserve the *exact* auditioned WAV.
+       Reopen Studio and verify recorded English lyrics, parent translation
+       title, MIDI source, guide/voicebank rights, and source WAV provenance.
+7. [ ] Optional: before selecting the guide WAV, enable **Also mix in a separately
+       permitted, aligned instrumental backing WAV**. Choose and acknowledge
+       separate composition/recording rights for it. Select the local instrumental
+       WAV when prompted; it must match the guide's duration within 1 second.
+       Conversion should be dry and the native FFmpeg mixer should combine
+       only the generated trained Mana vocal with the newly imported backing.
+       Listen for synchronization, clipping, and vocal/backing balance.
+       If mixing fails, the **dry vocal preview remains available** and reports
+       that the backing mix failed.
+8. [ ] Verify that removing a source file from the form clears the linked
+       adaptation attribution. Declining a confirmation to replace an existing
+       unsaved Music Studio preview must preserve that older preview and avoid
+       conversion.
+9. [ ] Confirm existing Tuesday local / Friday reviewed-web covers, Sunday
+       original songs, 3A English revisions and 3B USTX projects still work.
+       No singing occurs on a schedule as a side effect of Phase 3C.
+10. [ ] If converting crashes or GPU/CPU resources are exhausted, check Music
+        Studio processing details and `exports/singing/*/job.log`. The original
+        imported WAVs, translation revisions and MIDI guide should remain
+        available; retry explicitly when ready.
+
+**Important:** Neither the guide WAV nor the instrumental rights are verified
+by the app. The Phase 3C preview does not establish redistribution,
+translation/adaptation, publisher, singer, or voicebank permissions. This
+feature only uses content you have explicitly selected and reviewed.

@@ -11,6 +11,8 @@ on:
       - 'src/core/animeCoverPreference.ts'
       - 'src/core/songbookIdeas.ts'
       - 'src/core/translationWorkbench.ts'
+      - 'src/core/translationHandoff.ts'
+      - 'src/components/TranslationVoicePanel.tsx'
       - 'src/core/midiMelody.ts'
       - 'src/core/melodyGuide.ts'
       - 'src/core/openUtauExport.ts'

@@ -40,10 +40,11 @@ import {mediaOccupied} from './core/mediaActivity';
 import {PORTRAIT_MILESTONES, PORTRAIT_REACTIONS, type PortraitInteraction} from './core/portraitInteractions';
 import SingingDrawer from './components/SingingDrawer';
 import SongbookWorkspace from './components/SongbookWorkspace';
+import {prepareTranslationHandoff,type GuideRecordingRightsBasis,type TranslationHandoff} from './core/translationHandoff';
 import {createTranslationProject,addTranslationProject,updateTranslationLine,applyTranslationProposal,saveTranslationVersion,restoreTranslationVersion,removeTranslationProject,type AdaptationRightsBasis,type TranslationEditField} from './core/translationWorkbench';
 import {proposeTranslation} from './core/translationIdeas';
 import {attachMidiGuide,editMelodyGuide,seedMelodyGuide,syncMelodyGuide,confirmMelodyGuide,dropMelodyGuide,type MelodyEditField} from './core/melodyGuide';
-import type {MidiPhraseFile,MelodyRightsBasis} from './core/midiMelody';
+import {guideReady,type MidiPhraseFile,type MelodyRightsBasis} from './core/midiMelody';
 import {exportOpenUtauGuide} from './core/openUtauExport';
 import {loadSongbook,saveSongbook,setSongbookEnabled,dueWeeklySong,reserveWeeklySong,addSongDraft,completeSongAudio,completeSongVoice,markSongAudioError,markSongVoiceError,recordSongbookOutcome,SONGBOOK_LIMIT,type SongbookEntry} from './core/songbook';
 import {prepareWeeklySongIdea} from './core/songbookIdeas';
@@ -140,6 +141,7 @@ const STATUS_LABEL = {
 export default function App() {
   const [showSinging,setShowSinging]=useState(false);
   const [coverHandoff,setCoverHandoff]=useState<CoverHandoff|null>(null);
+  const [translationHandoff,setTranslationHandoff]=useState<TranslationHandoff|null>(null);
   const [showSongbook,setShowSongbook]=useState(false);
   const [songbook,setSongbook]=useState(loadSongbook);
   const songbookRef=useRef(songbook);songbookRef.current=songbook;
@@ -1177,6 +1179,63 @@ export default function App() {
       if(abortRef.current===ctrl)abortRef.current=null;
       songbookRunning.current=false;songbookRunningMode.current=null;
       setSongbookBusy(false);setReflecting(false);
+    }
+  }
+
+  // Phase 3C: a manual, owner-reviewed local OpenUtau recording handoff.
+  // Converting happens in Music Studio only after an explicit preview click.
+  async function prepareEnglishGuideForVoice(id:string,guideRights:GuideRecordingRightsBasis,
+    guideAcknowledged:boolean,withBacking:boolean,backingRights?:GuideRecordingRightsBasis,
+    backingAcknowledged?:boolean){
+    if(!inTauri||!showSongbook||songbookRunning.current||songbookBusy||
+      abortRef.current||busy||reflecting||mediaOccupied()||showSinging||storage.error)return;
+    const project=songbookRef.current.translations.find(x=>x.id===id);
+    if(!project||!project.melody||!guideReady(project.melody,project.lines)){
+      setTranslationStatus('Review the current English words and MIDI note mapping before importing guide audio.');
+      return;
+    }
+    if(!['owned','licensed','public-domain'].includes(guideRights)||!guideAcknowledged||
+       (withBacking&&(!backingRights||!['owned','licensed','public-domain'].includes(backingRights)||!backingAcknowledged))){
+      setTranslationStatus('Review rights for the guide recording, voicebank and optional instrumental first.');
+      return;
+    }
+    const ctrl=new AbortController();
+    songbookController.current=ctrl;songbookRunning.current=true;
+    songbookRunningMode.current='manual';abortRef.current=ctrl;setSongbookBusy(true);
+    try{
+      setTranslationStatus('Choose the English vocal-guide WAV you rendered and reviewed in OpenUtau.');
+      const source=await open({multiple:false,filters:[{name:'OpenUtau singing guide',extensions:['wav']}]});
+      if(ctrl.signal.aborted)throw Error('English guide import cancelled.');
+      if(typeof source!=='string'){setTranslationStatus('No English guide selected. Existing drafts are safe.');return;}
+      const guide=await invoke<{path:string;seconds:number;name:string}>('singing_import_track',{source});
+      if(ctrl.signal.aborted)throw Error('English guide import cancelled.');
+      let backing:{imported:{path:string;seconds:number;name:string};rightsBasis:GuideRecordingRightsBasis;acknowledged:boolean}|undefined;
+      if(withBacking){
+        setTranslationStatus('Choose the separately permitted instrumental WAV, aligned with the English vocal guide.');
+        const file=await open({multiple:false,filters:[{name:'Instrumental backing',extensions:['wav']}]});
+        if(ctrl.signal.aborted)throw Error('Instrumental import cancelled.');
+        if(typeof file!=='string'){setTranslationStatus('Backing choice cancelled. No voice conversion started.');return;}
+        const imported=await invoke<{path:string;seconds:number;name:string}>('singing_import_track',{source:file});
+        if(ctrl.signal.aborted)throw Error('Instrumental import cancelled.');
+        backing={imported,rightsBasis:backingRights!,acknowledged:backingAcknowledged===true};
+      }
+      const current=songbookRef.current.translations.find(x=>x.id===project.id);
+      if(!current||current.updatedAt!==project.updatedAt)
+        throw Error('The English or MIDI draft changed while importing. Start the handoff again.');
+      const handoff=prepareTranslationHandoff({
+        project:current,imported:guide,backing,rightsBasis:guideRights,
+        acknowledged:guideAcknowledged,token:'translationjob-'+uid(),
+      });
+      setTranslationHandoff(handoff);
+      setTranslationStatus('Reviewed English vocal guide imported. Music Studio is ready for a trained Mana-voice preview; no conversion has started yet.');
+      setShowSongbook(false);setShowSinging(true);
+    }catch(error){
+      setTranslationStatus(ctrl.signal.aborted?'English guide import cancelled. Saved text, MIDI and audio are safe.':
+       'English guide handoff unavailable: '+String(error));
+    }finally{
+      if(songbookController.current===ctrl)songbookController.current=null;
+      if(abortRef.current===ctrl)abortRef.current=null;
+      songbookRunning.current=false;songbookRunningMode.current=null;setSongbookBusy(false);
     }
   }
 
@@ -2326,10 +2385,14 @@ export default function App() {
         />
       </main>
 
-      <SingingDrawer active={showSinging&&!showSavedImages&&!showSongbook} initiative={initiative} onInitiative={changeInitiative} onBusy={setReflecting} coverHandoff={coverHandoff} onCoverHandoffConsumed={()=>setCoverHandoff(null)} onClose={()=>setShowSinging(false)}/>
+      <SingingDrawer active={showSinging&&!showSavedImages&&!showSongbook} initiative={initiative} onInitiative={changeInitiative} onBusy={setReflecting} coverHandoff={coverHandoff} onCoverHandoffConsumed={()=>setCoverHandoff(null)} translationHandoff={translationHandoff} onTranslationHandoffConsumed={()=>setTranslationHandoff(null)} onClose={()=>setShowSinging(false)}/>
       {showSongbook&&<SongbookWorkspace name={settings.charName} state={songbook} status={songbookStatus}
         busy={songbookBusy} unavailableReason={songbookUnavailable}
         voiceUnavailableReason={songbookVoiceUnavailable}
+        voiceHandoffUnavailableReason={!inTauri?'Importing the guide requires Mana desktop.':
+          storage.error?'Storage is unavailable.':
+          songbookBusy||songbookRunning.current||busy||reflecting||abortRef.current||
+          mediaOccupied()||showSinging?'Finish the current activity before importing vocals.':''}
         translationStatus={translationStatus}
         translationBusy={songbookBusy&&songbookRunningMode.current==='translation'}
         translationDraftUnavailableReason={!inTauri?'Translation drafts require Mana desktop.':
@@ -2428,6 +2491,10 @@ export default function App() {
             setSongbookState(dropMelodyGuide(songbookRef.current,id));
             setTranslationStatus('MIDI note guide removed; original and English lyric drafts remain safe.');
           }catch(error){setTranslationStatus('Could not remove MIDI guide: '+String(error));}
+        }}
+        onPrepareEnglishGuide={(id,guideRights,guideAcknowledged,withBacking,backingRights,backingAcknowledged)=>{
+          lastActivityAt.current=Date.now();
+          void prepareEnglishGuideForVoice(id,guideRights,guideAcknowledged,withBacking,backingRights,backingAcknowledged);
         }}
         onExportMelody={id=>{
           lastActivityAt.current=Date.now();

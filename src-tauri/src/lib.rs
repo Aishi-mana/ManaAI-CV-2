@@ -580,6 +580,7 @@ pub fn run() {
             singing::singing_stop,
             singing::singing_audio,
             singing::singing_import_track,
+            singing::songbook_mix_translation_backing,
             singing::singing_local_cover_files,
             singing::singing_import_folder_track,
             singing::singing_library,

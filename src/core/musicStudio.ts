@@ -4,6 +4,7 @@ import {validateLyrics,type LyricLine} from './lyrics';
 import {validateOriginalBrief,type OriginalBrief} from './originalSong';
 import {validateBuilderTracks,type BuilderTrack} from './coverBuilder';
 import type {CoverAttribution} from './coverHandoff';
+import type {TranslationAttribution,GuideRecordingRightsBasis} from './translationHandoff';
 export const STUDIO_PROJECT_LIMIT=1000;
 export const TRAINED_SINGING_VOICE=TRAINED_MANA_MODEL;
 export const SINGING_REFERENCE='C:/AI/ManaAI-CV-2/data/custom-voice/references/mana-v2/singing-stable-v1.wav';
@@ -13,6 +14,7 @@ export interface StudioProject{
  bandMixParts?:BandMixPart[];
  lyrics?:LyricLine[];kind?:'cover'|'original'|'builder';original?:OriginalBrief;generatedLyrics?:string;builderTracks?:BuilderTrack[];
  coverAttribution?:CoverAttribution;
+ translationAttribution?:TranslationAttribution;
  id:string;title:string;createdAt:string;status:'rendering'|'ready'|'error'|'stopped'|'interrupted';
  stems?:{name:string;path:string;gain:number;muted:boolean}[];
  source:string;vocal:string;mix:string;instrumental:string;seconds:number;artwork:string;error:string;
@@ -42,6 +44,34 @@ export const generatedAudioPath=(value:unknown):string=>{
  if(typeof value!=='string')return '';const path=value.replace(/\\/g,'/');
  return path.toLowerCase().startsWith('c:/ai/manaai-cv-2/exports/singing/')&&path.toLowerCase().endsWith('.wav')&&!path.split('/').some(s=>s==='.'||s==='..')?path:'';
 };
+const adaptationRights=(value:unknown):value is 'owned'|'licensed'|'public-domain'=>
+ value==='owned'||value==='licensed'||value==='public-domain';
+const adaptationStamp=(value:unknown):value is string=>
+ typeof value==='string'&&Number.isFinite(Date.parse(value))&&new Date(value).toISOString()===value;
+const adaptationName=(value:unknown,max:number):value is string=>
+ typeof value==='string'&&!!value.trim()&&value.length<=max;
+export function validateTranslationAttribution(raw:unknown):TranslationAttribution|undefined{
+ if(!raw||typeof raw!=='object'||Array.isArray(raw))return;
+ const p=raw as Record<string,unknown>;
+ if(!(typeof p.projectId==='string'&&/^translation-[a-zA-Z0-9_-]{1,80}$/.test(p.projectId))||!adaptationName(p.sourceTitle,120)||
+   !adaptationRights(p.lyricRightsBasis)||!adaptationRights(p.melodyRightsBasis)||!adaptationRights(p.guideRightsBasis)||
+   !adaptationName(p.melodySource,180)||!adaptationName(p.guideAudioName,100)||
+   !adaptationName(p.englishRevision,4500)||!adaptationStamp(p.reviewedAt)||
+   !Array.isArray(p.englishLyrics)||p.englishLyrics.length<1||p.englishLyrics.length>16||
+   !p.englishLyrics.every(line=>typeof line==='string'&&line.length<=250))return;
+ const backingAudio=p.backingAudio===undefined?undefined:generatedAudioPath(p.backingAudio);
+ if(p.backingAudio!==undefined&&(!backingAudio||!adaptationRights(p.backingRightsBasis)))return;
+ if(p.backingAudio===undefined&&p.backingRightsBasis!==undefined)return;
+ return {
+  projectId:p.projectId,sourceTitle:p.sourceTitle.trim(),
+  englishLyrics:(p.englishLyrics as string[]).map(x=>x.trim()),
+  lyricRightsBasis:p.lyricRightsBasis,melodyRightsBasis:p.melodyRightsBasis,
+  guideRightsBasis:p.guideRightsBasis,
+  melodySource:p.melodySource,englishRevision:p.englishRevision,
+  reviewedAt:p.reviewedAt,guideAudioName:p.guideAudioName,
+  ...(backingAudio?{backingAudio,backingRightsBasis:p.backingRightsBasis as GuideRecordingRightsBasis}:{})
+ };
+}
 export function validateStudio(value:unknown):StudioState{
  const raw=value&&typeof value==='object'?value as Record<string,unknown>:{};const projects:StudioProject[]=[];
  for(const item of (Array.isArray(raw.projects)?raw.projects:[]).slice(0,STUDIO_PROJECT_LIMIT)){
@@ -49,7 +79,7 @@ export function validateStudio(value:unknown):StudioState{
   if(typeof p.id!=='string'||!/^studio-[a-z0-9-]{1,80}$/.test(p.id)||projects.some(q=>q.id===p.id)||typeof p.title!=='string'||!p.title.trim()||typeof p.createdAt!=='string'||!Number.isFinite(Date.parse(p.createdAt)))continue;
   const settings=p.settings&&typeof p.settings==='object'?p.settings as Record<string,unknown>:{};
   const number=(v:unknown,fallback:number,min:number,max:number)=>typeof v==='number'&&Number.isFinite(v)&&v>=min&&v<=max?v:fallback;
-  projects.push({coverAttribution:validateCoverAttribution(p.coverAttribution),lyrics:p.lyrics===undefined?undefined:validateLyrics(p.lyrics),kind:p.kind==='original'?'original':p.kind==='builder'?'builder':'cover',builderTracks:validateBuilderTracks(p.builderTracks),original:validateOriginalBrief(p.original),generatedLyrics:typeof p.generatedLyrics==='string'?p.generatedLyrics.slice(0,6000):'',id:p.id,title:p.title.trim().slice(0,120),createdAt:p.createdAt,status:['rendering','ready','error','stopped','interrupted'].includes(String(p.status))?p.status as StudioProject['status']:'error',stems:Array.isArray(p.stems)?p.stems.slice(0,8).flatMap((item:unknown)=>{if(!item||typeof item!=='object')return [];const stem=item as Record<string,unknown>;const path=generatedAudioPath(stem.path);return path&&typeof stem.name==='string'&&['guitar','piano','bass','drums','other','sax','electric-guitar','replacement-piano','electric-guitar-distorted','sax-tenor','sax-weresax','finger-bass','picked-bass','guitar-bright-room','guitar-nam-warm','guitar-nam-rhythm','guitar-nam-lead','strings-estimate','winds-estimate','sax-extracted','piano-banquet','keyboard-extracted','electric-piano-extracted','trumpet-extracted','trumpet'].includes(stem.name)?[{name:stem.name,path,gain:number(stem.gain,1,0,1),muted:stem.muted===true}]:[];}):[],source:typeof p.source==='string'?p.source.slice(0,2000):'',vocal:generatedAudioPath(p.vocal),mix:generatedAudioPath(p.mix),instrumental:generatedAudioPath(p.instrumental),seconds:number(p.seconds,0,0,86400),artwork:typeof p.artwork==='string'&&p.artwork.length<=150000&&/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(p.artwork)?p.artwork:'',error:typeof p.error==='string'?p.error.slice(0,1000):'',settings:{percussion:settings.percussion===true,genre:['rock','jazz','pop','country','piano-trio','guitar-electric'].includes(String(settings.genre))?settings.genre as 'rock'|'jazz'|'pop'|'country'|'piano-trio'|'guitar-electric':'original',genreLead:checkedGenreLead(String(settings.genre),settings.genreLead),bandSource:isBandStyle(String(settings.genre))?checkedBandSource(settings.bandSource):undefined,followBass:isBandStyle(String(settings.genre))&&settings.followBass===true,extractor:settings.extractor==='mega-lead'?'mega-lead':'demucs',wholeSong:settings.wholeSong===true,start:number(settings.start,0,0,3600),seconds:number(settings.seconds,10,1,isBandStyle(String(settings.genre))?360:60),separate:settings.separate!==false,backingGain:number(settings.backingGain,.3,0,1),vocalGain:number(settings.vocalGain,1,0,1),reference:typeof settings.reference==='string'?settings.reference.slice(0,2000):''}});
+  projects.push({coverAttribution:validateCoverAttribution(p.coverAttribution),translationAttribution:validateTranslationAttribution(p.translationAttribution),lyrics:p.lyrics===undefined?undefined:validateLyrics(p.lyrics),kind:p.kind==='original'?'original':p.kind==='builder'?'builder':'cover',builderTracks:validateBuilderTracks(p.builderTracks),original:validateOriginalBrief(p.original),generatedLyrics:typeof p.generatedLyrics==='string'?p.generatedLyrics.slice(0,6000):'',id:p.id,title:p.title.trim().slice(0,120),createdAt:p.createdAt,status:['rendering','ready','error','stopped','interrupted'].includes(String(p.status))?p.status as StudioProject['status']:'error',stems:Array.isArray(p.stems)?p.stems.slice(0,8).flatMap((item:unknown)=>{if(!item||typeof item!=='object')return [];const stem=item as Record<string,unknown>;const path=generatedAudioPath(stem.path);return path&&typeof stem.name==='string'&&['guitar','piano','bass','drums','other','sax','electric-guitar','replacement-piano','electric-guitar-distorted','sax-tenor','sax-weresax','finger-bass','picked-bass','guitar-bright-room','guitar-nam-warm','guitar-nam-rhythm','guitar-nam-lead','strings-estimate','winds-estimate','sax-extracted','piano-banquet','keyboard-extracted','electric-piano-extracted','trumpet-extracted','trumpet'].includes(stem.name)?[{name:stem.name,path,gain:number(stem.gain,1,0,1),muted:stem.muted===true}]:[];}):[],source:typeof p.source==='string'?p.source.slice(0,2000):'',vocal:generatedAudioPath(p.vocal),mix:generatedAudioPath(p.mix),instrumental:generatedAudioPath(p.instrumental),seconds:number(p.seconds,0,0,86400),artwork:typeof p.artwork==='string'&&p.artwork.length<=150000&&/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(p.artwork)?p.artwork:'',error:typeof p.error==='string'?p.error.slice(0,1000):'',settings:{percussion:settings.percussion===true,genre:['rock','jazz','pop','country','piano-trio','guitar-electric'].includes(String(settings.genre))?settings.genre as 'rock'|'jazz'|'pop'|'country'|'piano-trio'|'guitar-electric':'original',genreLead:checkedGenreLead(String(settings.genre),settings.genreLead),bandSource:isBandStyle(String(settings.genre))?checkedBandSource(settings.bandSource):undefined,followBass:isBandStyle(String(settings.genre))&&settings.followBass===true,extractor:settings.extractor==='mega-lead'?'mega-lead':'demucs',wholeSong:settings.wholeSong===true,start:number(settings.start,0,0,3600),seconds:number(settings.seconds,10,1,isBandStyle(String(settings.genre))?360:60),separate:settings.separate!==false,backingGain:number(settings.backingGain,.3,0,1),vocalGain:number(settings.vocalGain,1,0,1),reference:typeof settings.reference==='string'?settings.reference.slice(0,2000):''}});
  }
  return {projects,selectedId:projects.some(p=>p.id===raw.selectedId)?raw.selectedId as string:projects[0]?.id??null};
 }
