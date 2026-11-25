@@ -40,6 +40,8 @@ import {mediaOccupied} from './core/mediaActivity';
 import {PORTRAIT_MILESTONES, PORTRAIT_REACTIONS, type PortraitInteraction} from './core/portraitInteractions';
 import SingingDrawer from './components/SingingDrawer';
 import SongbookWorkspace from './components/SongbookWorkspace';
+import {createTranslationProject,addTranslationProject,updateTranslationLine,applyTranslationProposal,saveTranslationVersion,restoreTranslationVersion,removeTranslationProject,type AdaptationRightsBasis,type TranslationEditField} from './core/translationWorkbench';
+import {proposeTranslation} from './core/translationIdeas';
 import {loadSongbook,saveSongbook,setSongbookEnabled,dueWeeklySong,reserveWeeklySong,addSongDraft,completeSongAudio,completeSongVoice,markSongAudioError,markSongVoiceError,recordSongbookOutcome,SONGBOOK_LIMIT,type SongbookEntry} from './core/songbook';
 import {prepareWeeklySongIdea} from './core/songbookIdeas';
 import {addCoverIdea,removeCoverIdea,approveWebCoverAudio,coverSearchQuery,pickCoverSource,type CoverSearchSource} from './core/coverDiscovery';
@@ -139,10 +141,11 @@ export default function App() {
   const [songbook,setSongbook]=useState(loadSongbook);
   const songbookRef=useRef(songbook);songbookRef.current=songbook;
   const songbookController=useRef<AbortController|null>(null);
-  const songbookRunningMode=useRef<'weekly'|'manual'|'cover-local'|'cover-web'|null>(null);
+  const songbookRunningMode=useRef<'weekly'|'manual'|'cover-local'|'cover-web'|'translation'|null>(null);
   const songbookRunning=useRef(false);
   const [songbookBusy,setSongbookBusy]=useState(false);
   const [songbookStatus,setSongbookStatus]=useState('');
+  const [translationStatus,setTranslationStatus]=useState('');
   const [showImageGeneration,setShowImageGeneration]=useState(false);
   const [chatPicture,setChatPicture]=useState<ChatPictureRequest>();
 
@@ -1133,6 +1136,46 @@ export default function App() {
 
 
 
+
+
+  /** Only explicitly provided, rights-reviewed text enters Mana's local LLM.
+   * Proposals update the working copy, never overwrite Japanese source or
+   * any saved English version, and never launch native audio conversion. */
+  async function draftTranslationEnglish(projectId:string){
+    if(!inTauri||!showSongbook||songbookRunning.current||abortRef.current||
+      songbookBusy||busy||reflecting||mediaOccupied()||storage.error||
+      sketchbookPlanning.current||sketchbookJob||llama.status!=='ready'){
+      setTranslationStatus('Start Mana’s local chat model and finish other activities before drafting.');
+      return;
+    }
+    const project=songbookRef.current.translations.find(item=>item.id===projectId);
+    if(!project)return;
+    const ctrl=new AbortController();
+    songbookController.current=ctrl;songbookRunning.current=true;
+    songbookRunningMode.current='translation';abortRef.current=ctrl;
+    setSongbookBusy(true);setReflecting(true);
+    setTranslationStatus('Mana is drafting English lyrics from your supplied lines…');
+    try{
+      const proposal=await proposeTranslation({project,port:llama.port,signal:ctrl.signal});
+      if(ctrl.signal.aborted)throw Error('Translation stopped.');
+      const current=songbookRef.current.translations.find(item=>item.id===project.id);
+      if(!current||current.updatedAt!==project.updatedAt||
+         current.lines.length!==project.lines.length||
+         current.lines.some((line,index)=>line.source!==project.lines[index].source))
+        throw Error('The source project changed during drafting. No working lyrics were replaced.');
+      setSongbookState(applyTranslationProposal(songbookRef.current,project.id,proposal));
+      await flushPersistence();
+      setTranslationStatus('Mana’s English suggestions are ready for your edits. Review syllables, timing and meaning, then save a version.');
+    }catch(error){
+      setTranslationStatus(ctrl.signal.aborted?'Translation stopped. Your existing text and versions remain.':
+       'English draft unavailable: '+String(error)+'. Your working lines are unchanged.');
+    }finally{
+      if(songbookController.current===ctrl)songbookController.current=null;
+      if(abortRef.current===ctrl)abortRef.current=null;
+      songbookRunning.current=false;songbookRunningMode.current=null;
+      setSongbookBusy(false);setReflecting(false);
+    }
+  }
 
   async function chooseWeeklyLocalCoverFolder(){
     if(!inTauri||!showSongbook||songbookRunning.current||storage.error)return;
