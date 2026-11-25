@@ -2281,6 +2281,29 @@ export default function App() {
         onDiscoverCover={theme=>{lastActivityAt.current=Date.now();void discoverCoverIdea(theme);}}
         onRemoveCoverIdea={id=>{lastActivityAt.current=Date.now();setSongbookState(removeCoverIdea(songbookRef.current,id));}}
         onPrepareCover={(id,rights,acknowledged)=>{lastActivityAt.current=Date.now();void prepareReviewedCover(id,rights,acknowledged);}}
+        onQueueWebAudio={(id,rights,acknowledged)=>{lastActivityAt.current=Date.now();void queueWeeklyWebAudio(id,rights,acknowledged);}}
+        onSelectLocalCoverFolder={()=>{lastActivityAt.current=Date.now();void chooseWeeklyLocalCoverFolder();}}
+        onApproveLocalCoverFolder={approved=>{
+          lastActivityAt.current=Date.now();
+          const current=songbookRef.current;
+          const weeklyCovers=approveLocalCoverFolder(current.weeklyCovers,approved);
+          setSongbookState({...current,weeklyCovers});
+          if(!approved&&songbookRunningMode.current==='cover-local')songbookController.current?.abort();
+          setSongbookStatus(approved?'Local folder rights acknowledged. Tuesdays can now be enabled.':
+            'Local cover scheduling disabled. Saved recordings remain.');
+        }}
+        onSetWeeklyCoverEnabled={(kind,enabled)=>{
+          lastActivityAt.current=Date.now();
+          const current=songbookRef.current;
+          try{
+            const configured={...current.weeklyCovers,timeZone:journalRef.current.timeZone};
+            const weeklyCovers=configureWeeklyCover(configured,kind,enabled,new Date());
+            setSongbookState({...current,weeklyCovers});
+            if(!enabled&&songbookRunningMode.current==='cover-'+kind)songbookController.current?.abort();
+            setSongbookStatus((kind==='local'?'Tuesday local':'Friday web')+
+              ' covers '+(enabled?'enabled. Mana waits until idle.':'disabled. Saved music stays.'));
+          }catch(error){setSongbookStatus(String(error));}
+        }}
         onConvertVoice={id=>{if(!songbookVoiceUnavailable){lastActivityAt.current=Date.now();void convertSongbookVoiceOnDemand(id);}}}
         onEnable={enabled=>{
           lastActivityAt.current=Date.now();
