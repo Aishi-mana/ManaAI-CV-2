@@ -94,7 +94,7 @@ test('Phase 2B never fetches or auto-starts cover from web excerpts',()=>{
  assert.match(ui,/Make cover now/);
  assert.match(ui,/Queue audio for Friday/);
  assert.match(studio,/setSingingProfile\('mana-trained-v1'\)/);
- assert.match(studio,/targetProfile=linkedAttribution\?'mana-trained-v1':singingProfile/);
+ assert.match(studio,/targetProfile=linkedAttribution\|\|linkedTranslation\?'mana-trained-v1':singingProfile/);
  assert.match(studio,/setCoverDraft\(\{project:.*?status:'ready'/s);
  assert.match(studio,/saved:false/);
 });
