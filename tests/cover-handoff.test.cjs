@@ -21,7 +21,8 @@ const music=load('src/core/musicStudio.ts',{
  './originalSong':{validateOriginalBrief:()=>undefined},
  './coverBuilder':{validateBuilderTracks:()=>[]},
 });
-const discovery=load('src/core/coverDiscovery.ts',{'./llm':{streamChat:async()=>{}},'./musicStudio':music});
+const discovery=load('src/core/coverDiscovery.ts',{'./llm':{streamChat:async()=>{}},'./musicStudio':music,
+ './animeCoverPreference':{rankCoverCandidates:items=>items,coverPreferenceInstruction:()=>'',coverPreferenceSearchTheme:theme=>theme}});
 const cover=load('src/core/coverHandoff.ts',{
  './musicStudio':music,'./coverDiscovery':discovery,
 });
