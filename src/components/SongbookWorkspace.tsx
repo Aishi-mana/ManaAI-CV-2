@@ -2,6 +2,8 @@ import {useEffect,useRef,useState} from 'react';
 import {invoke} from '@tauri-apps/api/core';
 import {nextWeeklySong,type SongbookEntry,type SongbookState} from '../core/songbook';
 import {durationLabel} from '../core/musicStudio';
+import TranslationWorkbench from './TranslationWorkbench';
+import type {AdaptationRightsBasis,TranslationEditField} from '../core/translationWorkbench';
 import type {CoverRightsBasis} from '../core/coverHandoff';
 import {nextCoverDay,type WeeklyCoverKind,type CoverMusicPreference} from '../core/weeklyCovers';
 
@@ -12,6 +14,15 @@ interface Props {
  busy:boolean;
  unavailableReason:string;
  voiceUnavailableReason:string;
+ translationStatus:string;
+ translationBusy:boolean;
+ translationDraftUnavailableReason:string;
+ onCreateTranslation:(title:string,source:string,basis:AdaptationRightsBasis,acknowledged:boolean)=>void;
+ onDraftTranslation:(id:string)=>void;
+ onEditTranslation:(id:string,index:number,field:TranslationEditField,value:string|number)=>void;
+ onSaveTranslationVersion:(id:string)=>void;
+ onRestoreTranslationVersion:(id:string,versionId:string)=>void;
+ onRemoveTranslation:(id:string)=>void;
  onCompose:()=>void;
  onComposeAnime:()=>void;
  onDiscoverCover:(theme:string)=>void;
@@ -41,7 +52,7 @@ const voiceStatus=(entry:SongbookEntry)=>entry.voiceMixPath?'Mana voice ready':
 const defaultVersion=(entry:SongbookEntry):AudioVersion=>entry.voiceMixPath?'mana':'guide';
 
 export default function SongbookWorkspace({
- name,state,status,busy,unavailableReason,voiceUnavailableReason,onCompose,onComposeAnime,onDiscoverCover,onRemoveCoverIdea,onPrepareCover,onQueueWebAudio,onSelectLocalCoverFolder,onApproveLocalCoverFolder,onSetWeeklyCoverEnabled,onSetCoverMusicPreference,onConvertVoice,onStop,onEnable,onCatchUp,onOpenStudio,onClose,
+ name,state,status,busy,unavailableReason,voiceUnavailableReason,translationStatus,translationBusy,translationDraftUnavailableReason,onCreateTranslation,onDraftTranslation,onEditTranslation,onSaveTranslationVersion,onRestoreTranslationVersion,onRemoveTranslation,onCompose,onComposeAnime,onDiscoverCover,onRemoveCoverIdea,onPrepareCover,onQueueWebAudio,onSelectLocalCoverFolder,onApproveLocalCoverFolder,onSetWeeklyCoverEnabled,onSetCoverMusicPreference,onConvertVoice,onStop,onEnable,onCatchUp,onOpenStudio,onClose,
 }:Props){
  const [now,setNow]=useState(()=>new Date());
  const [selectedId,setSelectedId]=useState('');
@@ -176,6 +187,16 @@ export default function SongbookWorkspace({
    </div>}
 
 
+
+
+   <TranslationWorkbench projects={state.translations} busy={busy}
+    drafting={translationBusy} status={translationStatus}
+    draftUnavailableReason={translationDraftUnavailableReason}
+    onCreate={onCreateTranslation}
+    onDraft={onDraftTranslation} onStop={onStop}
+    onEdit={onEditTranslation} onSaveVersion={onSaveTranslationVersion}
+    onRestoreVersion={onRestoreTranslationVersion}
+    onRemove={onRemoveTranslation}/>
 
    <section className="songbook-weekly-covers" aria-label="Two weekly cover routines">
     <div className="songbook-cover-heading">
