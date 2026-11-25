@@ -501,7 +501,7 @@ fn songbook_export_ustx(path: String, content: String) -> Result<(), String> {
         .create_new(true)
         .open(target)
         .map_err(|_| "Cannot create guide. Select a new filename; existing files are never overwritten.")?;
-    if let Err(error) = output.write_all(content.as_bytes()).and_then(|_| output.sync_all()) {
+    if let Err(error) = std::io::Write::write_all(&mut output, content.as_bytes()).and_then(|_| output.sync_all()) {
         drop(output);
         let _ = std::fs::remove_file(target);
         return Err(format!("Failed to write the guide: {error}"));
