@@ -1133,6 +1133,70 @@ export default function App() {
 
 
 
+
+  async function chooseWeeklyLocalCoverFolder(){
+    if(!inTauri||!showSongbook||songbookRunning.current||storage.error)return;
+    const ctrl=new AbortController();
+    songbookController.current=ctrl;songbookRunning.current=true;
+    songbookRunningMode.current='manual';abortRef.current=ctrl;setSongbookBusy(true);
+    try{
+      const chosen=await open({directory:true,multiple:false});
+      if(ctrl.signal.aborted)return;
+      if(typeof chosen!=='string')return;
+      const tracks=await invoke<LocalCoverTrack[]>('singing_local_cover_files',{folder:chosen});
+      if(ctrl.signal.aborted)return;
+      if(!tracks.length)throw Error('The chosen folder has no supported audio files.');
+      const state=setLocalCoverFolder(songbookRef.current.weeklyCovers,chosen);
+      setSongbookState({...songbookRef.current,weeklyCovers:state});
+      setSongbookStatus('Mana found '+tracks.length+
+        ' local music files. Approve composition and recording rights before enabling Tuesdays.');
+    }catch(error){
+      setSongbookStatus('Local cover folder unavailable: '+String(error));
+    }finally{
+      if(songbookController.current===ctrl)songbookController.current=null;
+      if(abortRef.current===ctrl)abortRef.current=null;
+      songbookRunning.current=false;songbookRunningMode.current=null;
+      setSongbookBusy(false);
+    }
+  }
+
+  /** Queue only a user-selected, imported, rights-reviewed recording for Friday.
+   * The web source page is never treated as an audio download or a license. */
+  async function queueWeeklyWebAudio(ideaId:string,rightsBasis:CoverRightsBasis,acknowledged:boolean){
+    if(!inTauri||!showSongbook||songbookRunning.current||abortRef.current||
+      songbookBusy||storage.error||busy||reflecting||mediaOccupied())return;
+    const idea=songbookRef.current.coverIdeas.find(item=>item.id===ideaId);
+    if(!idea||!acknowledged||!['owned','licensed','public-domain'].includes(rightsBasis)){
+      setSongbookStatus('Review rights for both the composition and the recording first.');return;
+    }
+    const ctrl=new AbortController();
+    songbookController.current=ctrl;songbookRunning.current=true;abortRef.current=ctrl;
+    songbookRunningMode.current='manual';setSongbookBusy(true);
+    try{
+      setSongbookStatus('Choose a permitted local recording corresponding to this web discovery.');
+      const source=await open({multiple:false,filters:[{name:'Audio',
+        extensions:['wav','mp3','flac','ogg','m4a']}]});
+      if(ctrl.signal.aborted)throw Error('Web approval cancelled.');
+      if(typeof source!=='string'){setSongbookStatus('No recording chosen. Nothing was queued.');return;}
+      const imported=await invoke<{path:string;seconds:number;name:string}>(
+        'singing_import_track',{source});
+      if(ctrl.signal.aborted)throw Error('Web approval cancelled.');
+      const current=songbookRef.current;
+      if(!current.coverIdeas.some(item=>item.id===ideaId&&item.url===idea.url))
+        throw Error('That web idea was removed.');
+      const next=approveWebCoverAudio(current,ideaId,imported,rightsBasis);
+      setSongbookState(next);
+      await flushPersistence();
+      setSongbookStatus('The reviewed recording is queued for a future Friday web cover. No conversion started yet.');
+    }catch(error){
+      setSongbookStatus('Web cover queue unavailable: '+String(error));
+    }finally{
+      if(songbookController.current===ctrl)songbookController.current=null;
+      if(abortRef.current===ctrl)abortRef.current=null;
+      songbookRunning.current=false;songbookRunningMode.current=null;setSongbookBusy(false);
+    }
+  }
+
   /** An owner's explicit local file selection is required for every external cover.
    * Public search snippets never become audio, and they never grant rights. */
   async function prepareReviewedCover(ideaId:string,rightsBasis:CoverRightsBasis,acknowledged:boolean){
