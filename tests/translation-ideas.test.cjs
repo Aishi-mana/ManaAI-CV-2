@@ -8,7 +8,7 @@ function load(file,mocks={}){
  const js=ts.transpileModule(fs.readFileSync(file,'utf8'),{
   compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022},
  }).outputText;
- vm.runInNewContext(js,{exports,JSON,Date,Number,Math,Map,Set,Object,Array,Error,String,
+ vm.runInNewContext(js,{exports,JSON,Date,Number,Math,Map,Set,Object,Array,Error,String,AbortController,
   require:name=>{if(name in mocks)return mocks[name];throw Error('Unexpected '+name);}},
   {filename:file});
  return exports;
