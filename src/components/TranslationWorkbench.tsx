@@ -11,7 +11,7 @@ interface Props{
  drafting:boolean;
  status:string;
  draftUnavailableReason:string;
- onCreate:(title:string,source:string,basis:AdaptationRightsBasis,acknowledged:boolean)=>void;
+ onCreate:(title:string,source:string,basis:AdaptationRightsBasis,acknowledged:boolean)=>boolean;
  onDraft:(id:string)=>void;
  onStop:()=>void;
  onEdit:(id:string,index:number,field:TranslationEditField,value:string|number)=>void;
@@ -47,7 +47,9 @@ export default function TranslationWorkbench({
    <form onSubmit={event=>{
     event.preventDefault();setFormError('');
     if(!canCreate){setFormError('Add source lyrics and confirm adaptation permission first.');return;}
-    onCreate(title,source,rightsBasis as AdaptationRightsBasis,true);
+    if(!onCreate(title,source,rightsBasis as AdaptationRightsBasis,true)){
+     setFormError('The draft could not be created. Check source line limits and the workbench status below.');return;
+    }
     setTitle('');setSource('');setRightsBasis('');setAcknowledged(false);
    }}>
     <label className="songbook-translation-field">Working song title
