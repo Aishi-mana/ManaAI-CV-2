@@ -44,7 +44,7 @@ import {prepareTranslationHandoff,type GuideRecordingRightsBasis,type Translatio
 import {createTranslationProject,addTranslationProject,updateTranslationLine,applyTranslationProposal,saveTranslationVersion,restoreTranslationVersion,removeTranslationProject,type AdaptationRightsBasis,type TranslationEditField} from './core/translationWorkbench';
 import {proposeTranslation} from './core/translationIdeas';
 import {attachMidiGuide,editMelodyGuide,seedMelodyGuide,syncMelodyGuide,confirmMelodyGuide,dropMelodyGuide,type MelodyEditField} from './core/melodyGuide';
-import type {MidiPhraseFile,MelodyRightsBasis} from './core/midiMelody';
+import {guideReady,type MidiPhraseFile,type MelodyRightsBasis} from './core/midiMelody';
 import {exportOpenUtauGuide} from './core/openUtauExport';
 import {loadSongbook,saveSongbook,setSongbookEnabled,dueWeeklySong,reserveWeeklySong,addSongDraft,completeSongAudio,completeSongVoice,markSongAudioError,markSongVoiceError,recordSongbookOutcome,SONGBOOK_LIMIT,type SongbookEntry} from './core/songbook';
 import {prepareWeeklySongIdea} from './core/songbookIdeas';
