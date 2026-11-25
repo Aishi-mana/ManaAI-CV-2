@@ -1,4 +1,7 @@
 import {useState} from 'react';
+import MelodyGuidePanel from './MelodyGuidePanel';
+import type {MidiPhraseFile,MelodyRightsBasis} from '../core/midiMelody';
+import type {MelodyEditField} from '../core/melodyGuide';
 import {
  approximateEnglishSyllables,TRANSLATION_LINE_LIMIT,TRANSLATION_PROJECT_LIMIT,
  TRANSLATION_VERSION_LIMIT,type AdaptationRightsBasis,type TranslationProject,
@@ -18,9 +21,17 @@ interface Props{
  onSaveVersion:(id:string)=>void;
  onRestoreVersion:(id:string,versionId:string)=>void;
  onRemove:(id:string)=>void;
+ onImportMelody:(id:string,file:MidiPhraseFile,track:number,name:string,basis:MelodyRightsBasis,ack:boolean)=>boolean;
+ onEditMelody:(id:string,note:number,field:MelodyEditField,value:string|number)=>void;
+ onSeedMelody:(id:string,fromLine:number,toLine:number)=>void;
+ onSyncMelody:(id:string)=>void;
+ onReviewMelody:(id:string)=>void;
+ onRemoveMelody:(id:string)=>void;
+ onExportMelody:(id:string)=>void;
 }
 export default function TranslationWorkbench({
  projects,busy,drafting,status,draftUnavailableReason,onCreate,onDraft,onStop,onEdit,onSaveVersion,onRestoreVersion,onRemove,
+ onImportMelody,onEditMelody,onSeedMelody,onSyncMelody,onReviewMelody,onRemoveMelody,onExportMelody,
 }:Props){
  const [title,setTitle]=useState('');
  const [source,setSource]=useState('');
@@ -41,7 +52,7 @@ export default function TranslationWorkbench({
    </div>
    <span className="songbook-small-status">{projects.length} / {TRANSLATION_PROJECT_LIMIT} drafts</span>
   </div>
-  <p className="songbook-translation-boundary">Text-only drafts. Mana does not fetch lyrics, check permissions, detect the melody, translate sung audio, or generate a guide singer in this phase. No existing weekly song or cover schedule is affected.</p>
+  <p className="songbook-translation-boundary">Phase 3A drafts use only owner-supplied lyrics and the local LLM. Phase 3B accepts an owner-selected MIDI melody and exports an unrendered OpenUtau singing guide. No lyric scraping, automatic audio transcription, or singing WAV synthesis is performed by Mana yet. Weekly music schedules are unaffected.</p>
   <details className="songbook-translation-create" open={projects.length===0?true:undefined}>
    <summary>Start a Japanese → English adaptation</summary>
    <form onSubmit={event=>{
@@ -158,6 +169,10 @@ export default function TranslationWorkbench({
      }}>Restore to editor</button>
     </div>)}
    </div>
+   <MelodyGuidePanel project={selected} busy={busy}
+    onImport={onImportMelody} onEdit={onEditMelody} onSeed={onSeedMelody}
+    onSync={onSyncMelody} onReview={onReviewMelody}
+    onRemove={onRemoveMelody} onExport={onExportMelody}/>
    <button className="btn" type="button" disabled={busy} onClick={()=>{
     if(window.confirm('Remove this draft and all its saved versions? This cannot be undone.')){onRemove(selected.id);setSelectedId('');}
    }}>Remove translation draft</button>
