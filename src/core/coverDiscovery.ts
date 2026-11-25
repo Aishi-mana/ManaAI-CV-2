@@ -5,7 +5,7 @@ import type {CoverRightsBasis} from './coverHandoff';
 export interface CoverSearchSource{url:string;title:string;snippets:string[]}
 export interface CoverIdea{
  id:string;createdAt:string;query:string;title:string;url:string;excerpt:string;reason:string;
- approvedAudio?:{path:string;seconds:number;rightsBasis:CoverRightsBasis;approvedAt:string};
+ approvedAudio?:{path:string;seconds:number;name:string;rightsBasis:CoverRightsBasis;approvedAt:string};
 }
 export const COVER_IDEA_LIMIT=20;
 const coverId=/^cover-[a-zA-Z0-9_-]{1,80}$/;
@@ -39,6 +39,7 @@ export function normalizeCoverIdea(raw:unknown):CoverIdea|undefined{
  return {id:v.id,createdAt:v.createdAt,query:v.query.trim(),title:v.title.trim(),
   url,excerpt:v.excerpt.trim(),reason:v.reason.trim(),
   ...(accepted?{approvedAudio:{path,seconds:seconds as number,
+   name:typeof approved!.name==='string'?approved!.name.slice(0,100):'Approved local audio',
    rightsBasis:approved!.rightsBasis as CoverRightsBasis,approvedAt:approved!.approvedAt as string}}:{})};
 }
 export function addCoverIdea<T extends {coverIdeas:CoverIdea[]}>(state:T,raw:CoverIdea):T{
@@ -49,14 +50,14 @@ export function addCoverIdea<T extends {coverIdeas:CoverIdea[]}>(state:T,raw:Cov
  return {...state,coverIdeas:[idea,...state.coverIdeas]};
 }
 export function approveWebCoverAudio<T extends {coverIdeas:CoverIdea[]}>(state:T,id:string,
- imported:{path:string;seconds:number},rightsBasis:CoverRightsBasis,now=new Date()):T{
+ imported:{path:string;seconds:number;name:string},rightsBasis:CoverRightsBasis,now=new Date()):T{
  const path=generatedAudioPath(imported.path);
  if(!path||!Number.isFinite(imported.seconds)||imported.seconds<=0||imported.seconds>3600||
   !['owned','licensed','public-domain'].includes(rightsBasis)||!Number.isFinite(now.getTime()))
   throw Error('A validated local recording and reviewed rights are required.');
  if(!state.coverIdeas.some(idea=>idea.id===id))throw Error('The cover idea was removed.');
  return {...state,coverIdeas:state.coverIdeas.map(idea=>idea.id===id?{
-  ...idea,approvedAudio:{path,seconds:imported.seconds,rightsBasis,approvedAt:now.toISOString()},
+  ...idea,approvedAudio:{path,seconds:imported.seconds,name:imported.name.slice(0,100),rightsBasis,approvedAt:now.toISOString()},
  }:idea)};
 }
 export function removeCoverIdea<T extends {coverIdeas:CoverIdea[]}>(state:T,id:string):T{
