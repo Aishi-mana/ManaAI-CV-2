@@ -184,3 +184,58 @@ before marking this feature accepted on the laptop.
 - [ ] Close/reopen Songbook and restart Mana. Verify each project's source lines, working English copy, rights basis, and all saved versions persist in the existing **local** Songbook storage. No automatic lyrics retrieval or web request should occur.
 - [ ] Run the model with malformed or incomplete JSON, cancel in progress, and try again while editing. A failed, stopped or stale proposal should not overwrite the working text or saved versions.
 - [ ] Confirm the editor cannot generate WAVs, MIDI, translated vocals, an English singing guide or any cover audio yet. These belong to later phases 3B–3C. Permission to adapt and to use any backing recording must be verified separately by the owner.
+
+
+## Phase 3B — reviewed MIDI melody & English singing guide (OpenUtau handoff)
+
+This phase does not extract melody automatically from arbitrary MP3/WAV, download
+third-party music or render a singing guide inside Mana. It prepares editable
+note data and an unrendered OpenUtau .ustx project. A compatible OpenUtau
+installation, **English-capable singer, phonemizer and renderer** are external
+requirements for guide WAV synthesis. See:
+- [OpenUtau Getting Started](https://openutau.com/Getting-Started/)
+- [OpenUtau USTX file specification](https://github.com/openutau/OpenUtau/wiki/USTX-file-format)
+
+1. [ ] Start with your own original Japanese/English lyric test project from
+       Phase 3A, and your own small **monophonic MIDI file** with 1–128 lead
+       notes; a type-0 or type-1 .mid / .midi, standard PPQ timing, <=1 MB.
+       No need to use copyrighted anime music for this first test.
+2. [ ] In **More → Songbook → Translation Workbench → Give the English lyrics a
+       melody**, choose the MIDI file. Verify only **monophonic** tracks are
+       offered, with their actual note count. Confirm the correct lead track
+       yourself; Mana does not identify the singer or auto-transcribe audio.
+3. [ ] Select the separate **composition/melody rights basis** and confirm it.
+       The original Japanese text and current English draft must remain
+       unchanged after import. Replacing the melody requires confirmation.
+4. [ ] Check detected MIDI note starts/durations/pitches, BPM events and meter.
+       Input a new pitch, time, note lyric or source line. Overlap with a
+       neighboring note must be rejected without corrupting the guide.
+5. [ ] Click **Seed English words (rough)** for a chosen lyric-line range.
+       Verify that it does not mark the mapping as reviewed or synthesize
+       English pronunciation automatically. Adjust each note's words,
+       syllables and + / +~ holds manually. Confirm every note is filled.
+6. [ ] Press **Confirm note lyrics and timing reviewed**. Export should now be
+       available. Change an English line or restore a saved translation
+       revision: export must become unavailable until you explicitly resync
+       and re-review the note assignments.
+7. [ ] Use **Save OpenUtau guide (.ustx)**, choose a **new filename**, and
+       verify the exported UTF-8 YAML 0.6 contains 480-tick notes, tempo events,
+       note lyrics, and no source Japanese lyrics or auto-rendered WAV.
+       Reusing an existing filename must not overwrite its contents.
+8. [ ] Open the .ustx in an installed version of **OpenUtau**. Choose an
+       English-capable singing voicebank and compatible phonemizer, correct
+       pronunciation and timing in its piano roll, then export a real WAV
+       using **File → Export Audio**. Listen and verify that the guide is
+       intelligible. The project is deliberately exported without choosing
+       or installing any third-party voicebank on your behalf.
+9. [ ] Confirm projects and MIDI note edits survive a restart and appear in
+       the existing Songbook backup; the Tuesday/Friday cover schedules,
+       Sunday originals and existing Music Studio projects remain untouched.
+10. [ ] After WAV export succeeds on Windows, record the OpenUtau version,
+        voicebank, phonemizer, and note mismatches. **Phase 3C** will import the
+        approved English guide and convert it to Mana's trained singing voice.
+
+Known limitations: no direct recording-to-note extraction; only 1–128-note
+monophonic MIDI tracks; one stable meter per phrase; tempos between 30–300 BPM;
+rough word seeding is not pronunciation, phonemization, or reliable syllable
+alignment. Owner rights declaration is not independent license verification.

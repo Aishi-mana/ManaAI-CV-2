@@ -1,5 +1,5 @@
-/** Phase 3A is text-only. These are user-supplied, permission-reviewed lyrics,
- * never discovered/downloaded from the internet or sent to external services. */
+/** Phase 3A lyric drafts + Phase 3B owner-reviewed MIDI singing-guide data. */
+import {normalizeMelodyGuide,type MelodyGuide} from './midiMelody';
 export const TRANSLATION_PROJECT_LIMIT=16;
 export const TRANSLATION_LINE_LIMIT=16;
 export const TRANSLATION_VERSION_LIMIT=8;
@@ -20,6 +20,7 @@ export interface TranslationProject {
  rightsBasis:AdaptationRightsBasis;rightsAcknowledgedAt:string;
  lines:TranslationLine[];
  versions:TranslationVersion[];
+ melody?:MelodyGuide;
 }
 export const translationId=/^translation-[a-zA-Z0-9_-]{1,80}$/;
 const versionId=/^version-[a-zA-Z0-9_-]{1,80}$/;
@@ -74,7 +75,8 @@ export function normalizeTranslationProject(raw:unknown):TranslationProject|unde
  }
  return {id:p.id,title:p.title.trim(),createdAt:p.createdAt,updatedAt:p.updatedAt,
   sourceLanguage:'ja',targetLanguage:'en',rightsBasis:p.rightsBasis,rightsAcknowledgedAt:p.rightsAcknowledgedAt,
-  lines:lines as TranslationLine[],versions};
+  lines:lines as TranslationLine[],versions,
+  ...(normalizeMelodyGuide(p.melody,lines.length)?{melody:normalizeMelodyGuide(p.melody,lines.length)}:{}),};
 }
 export function validateTranslationProjects(raw:unknown):TranslationProject[]{
  const projects:TranslationProject[]=[],used=new Set<string>();

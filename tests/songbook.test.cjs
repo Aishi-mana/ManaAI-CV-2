@@ -31,7 +31,8 @@ const persistence={
 const cover=load('src/core/coverDiscovery.ts',{'./llm':{streamChat:async()=>{}},'./musicStudio':music,
  './animeCoverPreference':{rankCoverCandidates:items=>items,coverPreferenceInstruction:()=>'',coverPreferenceSearchTheme:theme=>theme}});
 const weeklyCovers=load('src/core/weeklyCovers.ts',{'./clock':clock,'./musicStudio':music});
-const translations=load('src/core/translationWorkbench.ts');
+const midiMelody=load('src/core/midiMelody.ts');
+const translations=load('src/core/translationWorkbench.ts',{'./midiMelody':midiMelody});
 const book=load('src/core/songbook.ts',{
  './clock':clock,'./musicStudio':music,'./coverDiscovery':cover,'./weeklyCovers':weeklyCovers,
  './translationWorkbench':translations,

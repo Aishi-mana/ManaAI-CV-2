@@ -471,6 +471,44 @@ async fn read_avatar_image(
     Ok(tauri::ipc::Response::new(bytes))
 }
 
+/// Explicit Save-dialog-only handoff for an unrendered OpenUtau guide.
+/// Never overwrite an existing song file or silently launch a third-party app.
+#[tauri::command]
+fn songbook_export_ustx(path: String, content: String) -> Result<(), String> {
+    if content.is_empty()
+        || content.len() > 120_000
+        || !content.contains("ustx_version: \"0.6\"")
+        || !content.contains("\nvoice_parts:\n")
+        || !content.contains("\nwave_parts: []")
+    {
+        return Err("Invalid or oversize OpenUtau singing-guide project.".into());
+    }
+    let target = Path::new(&path);
+    if !target.is_absolute()
+        || !target
+            .extension()
+            .and_then(|x| x.to_str())
+            .is_some_and(|x| x.eq_ignore_ascii_case("ustx"))
+    {
+        return Err("Choose an absolute .ustx file using Save As.".into());
+    }
+    let parent = target.parent().ok_or("Choose an existing output folder.")?;
+    if !parent.is_dir() {
+        return Err("The selected output folder does not exist.".into());
+    }
+    let mut output = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(target)
+        .map_err(|_| "Cannot create guide. Select a new filename; existing files are never overwritten.")?;
+    if let Err(error) = std::io::Write::write_all(&mut output, content.as_bytes()).and_then(|_| output.sync_all()) {
+        drop(output);
+        let _ = std::fs::remove_file(target);
+        return Err(format!("Failed to write the guide: {error}"));
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -549,6 +587,7 @@ pub fn run() {
             singing::singing_save_mix,
             singing::singing_band_mix,
             singing::singing_export,
+            songbook_export_ustx,
             singing::arrangement_start,
             singing::builder_notes_read,
             singing::original_song_start,
@@ -623,4 +662,28 @@ pub fn run() {
                 }
             }
         });
+}
+
+
+#[cfg(test)]
+mod songbook_ustx_export_tests {
+    use super::songbook_export_ustx;
+    use std::fs;
+    #[test]
+    fn only_new_explicit_ustx_files_are_written() {
+        let path = std::env::temp_dir().join(format!("mana-ustx-test-{}-{}.ustx",
+            std::process::id(),
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        let content = "name: \"Test\"\nustx_version: \"0.6\"\nvoice_parts:\nwave_parts: []\n".to_string();
+        assert!(songbook_export_ustx(path.to_string_lossy().into(), content.clone()).is_ok());
+        assert_eq!(fs::read_to_string(&path).unwrap(), content);
+        assert!(songbook_export_ustx(path.to_string_lossy().into(), content.clone()).is_err());
+        assert_eq!(fs::read_to_string(&path).unwrap(), content);
+        let wrong = path.with_extension("wav");
+        assert!(songbook_export_ustx(wrong.to_string_lossy().into(), content.clone()).is_err());
+        assert!(!wrong.exists());
+        fs::remove_file(&path).unwrap();
+        assert!(songbook_export_ustx(path.to_string_lossy().into(), "invalid".into()).is_err());
+        assert!(!path.exists());
+    }
 }

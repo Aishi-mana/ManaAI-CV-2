@@ -2188,3 +2188,43 @@ button, input, select, textarea { font: inherit; color: inherit; }
  .songbook-translation-line-tail {grid-template-columns:1fr;}
  .songbook-translation-version {align-items:flex-start;flex-direction:column;}
 }
+
+
+/* Phase 3B: owner-reviewed monophonic MIDI phrase → OpenUtau singing guide */
+.songbook-melody {display:grid;gap:15px;border-top:1px solid #e9d8ec;margin-top:15px;padding-top:20px;}
+.songbook-melody h3 {margin:4px 0 7px;font-size:1.08rem;}
+.songbook-melody-import {display:grid;gap:11px;padding:12px 0 2px;}
+.songbook-melody-import>.btn {justify-self:start;}
+.songbook-melody-info {display:flex;flex-direction:column;gap:5px;
+ padding:10px 13px;background:#faf4fc;border:1px solid #eddbef;border-radius:11px;}
+.songbook-melody-info strong {font-size:.86rem;}
+.songbook-melody-info small {font-size:.72rem;color:#765b7c;overflow-wrap:anywhere;}
+.songbook-melody-roll {position:relative;height:105px;background:
+ repeating-linear-gradient(to bottom,transparent,transparent 17px,#ead9ed 18px),
+ linear-gradient(115deg,#fdf9fd,#f1eafa);border:1px solid #e4d1e7;
+ border-radius:12px;overflow:hidden;}
+.songbook-melody-roll span {position:absolute;height:5px;min-width:2px;max-height:5px;
+ border-radius:4px;background:#9c70b0;box-shadow:0 0 3px #9c70b045;}
+.songbook-melody-seed {display:flex;flex-wrap:wrap;gap:9px;align-items:end;}
+.songbook-melody-seed>.songbook-translation-field {min-width:110px;flex:1;}
+.songbook-melody-seed>.btn {min-height:37px;}
+.songbook-melody-notes {display:grid;gap:0;border:1px solid #ead8eb;
+ border-radius:12px;background:#fff;max-height:375px;overflow:auto;}
+.songbook-melody-note,.songbook-melody-note-head {display:grid;
+ grid-template-columns:50px minmax(56px,.65fr) minmax(78px,1fr) minmax(78px,1fr)
+ minmax(145px,2fr) minmax(75px,.8fr);
+ gap:7px;align-items:center;min-width:640px;padding:7px 9px;}
+.songbook-melody-note:not(:last-child) {border-bottom:1px solid #f0e8f2;}
+.songbook-melody-note-head {background:#f8f2fa;position:sticky;top:0;z-index:1;
+ font-size:.7rem;color:#74547d;font-weight:800;}
+.songbook-melody-note strong {font-size:.74rem;}
+.songbook-melody-note input,.songbook-melody-note select {min-width:0;width:100%;
+ border:1px solid #e0d3e6;border-radius:8px;background:#fff;
+ box-sizing:border-box;padding:6px;font-size:.78rem;color:var(--ink);}
+.songbook-melody-actions {display:flex;gap:9px;flex-wrap:wrap;align-items:center;}
+.songbook-melody .songbook-translation-boundary .btn {display:block;margin-top:10px;}
+@media(max-width:720px){
+ .songbook-melody-seed {align-items:stretch;flex-direction:column;}
+ .songbook-melody-seed>.songbook-translation-field {width:100%;}
+ .songbook-melody-notes {max-height:310px;}
+}

@@ -13,7 +13,8 @@ function load(path,mocks={}){
   {filename:path});
  return exports;
 }
-const workbench=load('src/core/translationWorkbench.ts');
+const midiMelody=load('src/core/midiMelody.ts');
+const workbench=load('src/core/translationWorkbench.ts',{'./midiMelody':midiMelody});
 const plain=x=>JSON.parse(JSON.stringify(x));
 const example='光の道を歩いて\n新しい朝が来る\n夢を胸に抱きしめて';
 const at=()=>new Date('2026-11-25T04:00:00.000Z');
@@ -139,7 +140,7 @@ test('Translation UI provides reviewed sources, editable English and version rec
  assert.match(ui,/Restore to editor/);
  assert.match(ui,/source \(read-only\)/);
  assert.match(ui,/Target syllables/);
- assert.match(ui,/does not fetch lyrics/);
+ assert.match(ui,/Phase 3A drafts use only owner-supplied lyrics/);
  const phase=app.slice(app.indexOf('async function draftTranslationEnglish('),app.indexOf('async function chooseWeeklyLocalCoverFolder('));
  assert.match(phase,/proposeTranslation\(/);
  assert.match(phase,/applyTranslationProposal\(/);
