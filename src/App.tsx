@@ -2389,6 +2389,10 @@ export default function App() {
       {showSongbook&&<SongbookWorkspace name={settings.charName} state={songbook} status={songbookStatus}
         busy={songbookBusy} unavailableReason={songbookUnavailable}
         voiceUnavailableReason={songbookVoiceUnavailable}
+        voiceHandoffUnavailableReason={!inTauri?'Importing the guide requires Mana desktop.':
+          storage.error?'Storage is unavailable.':
+          songbookBusy||songbookRunning.current||busy||reflecting||abortRef.current||
+          mediaOccupied()||showSinging?'Finish the current activity before importing vocals.':''}
         translationStatus={translationStatus}
         translationBusy={songbookBusy&&songbookRunningMode.current==='translation'}
         translationDraftUnavailableReason={!inTauri?'Translation drafts require Mana desktop.':
