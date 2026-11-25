@@ -1447,6 +1447,200 @@ export default function App() {
     }
   }
 
+
+  /** Two independent, opt-in slots. A local cover picks only from an approved
+   * folder. A web cover uses only a previously reviewed/imported audio file;
+   * otherwise Friday saves one new suggestion for owner review instead. */
+  async function runScheduledCover(kind:WeeklyCoverKind,week:string){
+    if(!inTauri||songbookRunning.current||abortRef.current||llama.status!=='ready'||
+      busy||reflecting||mediaOccupied()||storage.error||sketchbookPlanning.current||
+      sketchbookJob||showSinging||initiativeRef.current.studio.projects.length>=STUDIO_PROJECT_LIMIT)return;
+    let scheduled;
+    try{scheduled=reserveWeeklyCover(songbookRef.current.weeklyCovers,kind,week,new Date());}
+    catch{return;}
+    setSongbookState({...songbookRef.current,weeklyCovers:scheduled});
+    const ctrl=new AbortController();
+    songbookController.current=ctrl;songbookRunning.current=true;
+    songbookRunningMode.current=kind==='local'?'cover-local':'cover-web';
+    abortRef.current=ctrl;setSongbookBusy(true);setReflecting(true);
+    let nativeStarted=false,releaseGPU:(()=>Promise<void>)|undefined;
+    try{
+      await flushPersistence(); // Reserve before discovery or any file/model work.
+      if(ctrl.signal.aborted||!songbookRef.current.weeklyCovers[kind].enabled)
+        throw Error('Weekly cover was disabled or cancelled.');
+      let source='',sourceLabel='',title='',reason='',sourceUrl:string|undefined;
+      let selectedTrack:string|undefined;
+      let attribution:StudioProject['coverAttribution'];
+      if(kind==='local'){
+        const folder=scheduled.local.folder;
+        setSongbookStatus('Mana is browsing titles in her approved local song folder…');
+        const tracks=await invoke<LocalCoverTrack[]>('singing_local_cover_files',{folder});
+        if(ctrl.signal.aborted)throw Error('Local cover stopped.');
+        const choice=await chooseLocalCover({
+          tracks,used:scheduled.local.used,name:settings.charName,
+          port:llama.port,signal:ctrl.signal,
+        });
+        if(ctrl.signal.aborted)throw Error('Local cover stopped.');
+        selectedTrack=choice.track.path;sourceLabel=choice.track.name;
+        title=(sourceLabel.replace(/\.[^.]+$/,'').slice(0,94)||'Local song')+' · Mana cover';
+        reason=choice.reason;
+        setSongbookStatus('Mana chose '+sourceLabel+'. Importing a separate working copy…');
+        const imported=await invoke<{path:string;seconds:number;name:string}>(
+          'singing_import_folder_track',{folder,source:selectedTrack});
+        if(ctrl.signal.aborted)throw Error('Local cover stopped.');
+        source=generatedAudioPath(imported.path);
+      }else{
+        const ready=songbookRef.current.coverIdeas.filter(idea=>
+          !!idea.approvedAudio&&!songbookRef.current.weeklyCovers.records.some(r=>
+            r.kind==='web'&&r.sourceUrl===idea.url));
+        if(!ready.length){
+          setSongbookStatus('No cleared web recording is queued. Mana is finding an inspiration to review…');
+          const sources=await invoke<CoverSearchSource[]>('search_web',{query:coverSearchQuery('')});
+          if(ctrl.signal.aborted)throw Error('Web cover discovery stopped.');
+          const picked=await pickCoverSource({
+            sources,theme:'traditional music',name:settings.charName,port:llama.port,signal:ctrl.signal,
+          });
+          if(ctrl.signal.aborted)throw Error('Web cover discovery stopped.');
+          const next=addCoverIdea(songbookRef.current,{
+            id:'cover-'+uid(),createdAt:new Date().toISOString(),query:'traditional music',
+            title:picked.source.title,url:picked.source.url,
+            excerpt:picked.source.snippets.join(' ').slice(0,850),reason:picked.reason,
+          });
+          const msg='Friday web inspiration saved for rights review. No recording was downloaded or covered.';
+          setSongbookState({...next,weeklyCovers:recordCoverOutcome(next.weeklyCovers,msg)});
+          await flushPersistence();
+          setSongbookStatus(msg);
+          return;
+        }
+        setSongbookStatus('Mana is choosing from web songs with approved local recordings…');
+        const id=await chooseReadyWebCover({
+          ideas:ready.map(idea=>({id:idea.id,title:idea.title,reason:idea.reason})),
+          name:settings.charName,port:llama.port,signal:ctrl.signal,
+        });
+        if(ctrl.signal.aborted)throw Error('Web cover stopped.');
+        const idea=ready.find(item=>item.id===id);
+        if(!idea?.approvedAudio)throw Error('Selected web song no longer has approved audio.');
+        source=generatedAudioPath(idea.approvedAudio.path);
+        sourceLabel=idea.approvedAudio.name;
+        title=(sourceLabel.slice(0,94)||'Reviewed song')+' · Mana cover';
+        sourceUrl=idea.url;
+        reason=idea.reason;
+        attribution={ideaId:idea.id,sourceTitle:idea.title,sourceUrl:idea.url,
+          rightsBasis:idea.approvedAudio.rightsBasis,reviewedAt:idea.approvedAudio.approvedAt};
+      }
+      if(!source)throw Error('No valid local WAV was imported for cover generation.');
+      if(ctrl.signal.aborted||!songbookRef.current.weeklyCovers[kind].enabled)
+        throw Error('Weekly cover was cancelled before processing.');
+      setSongbookStatus('Preparing Mana’s trained singing voice: '+sourceLabel);
+      releaseGPU=await llama.pauseForImage(ctrl.signal);
+      if(ctrl.signal.aborted)throw Error('Cover conversion cancelled.');
+      const config=loadCustomVoice();
+      const reference=singingVoiceReference({...config,singingVoiceProfile:'mana-trained-v1'});
+      await invoke('singing_start',{
+        python:config.singingPython,repo:config.singingRepo,
+        source,reference,voiceProfile:'mana-trained-v1',
+        genre:'original',start:0,seconds:1,wholeSong:true,
+        separate:true,extractor:'mega-lead',backingGain:1,previewOnly:true,
+      });
+      nativeStarted=true;
+      setSongbookStatus('Mana is singing her '+(kind==='local'?'local':'web-discovered')+' cover…');
+      const deadline=Date.now()+120*60_000;
+      let result:{mix?:string;vocal?:string;seconds?:number;error?:string}|undefined;
+      while(!ctrl.signal.aborted&&Date.now()<deadline){
+        await new Promise<void>(resolve=>setTimeout(resolve,1500));
+        if(ctrl.signal.aborted)break;
+        const poll=await invoke<{done:boolean;result?:typeof result;log:string}>('singing_poll');
+        if(poll.done){
+          nativeStarted=false;
+          if(poll.result?.error)throw Error(poll.result.error);
+          result=poll.result;
+          break;
+        }
+      }
+      if(ctrl.signal.aborted)throw Error('Cover conversion stopped.');
+      const mix=generatedAudioPath(result?.mix),vocal=generatedAudioPath(result?.vocal);
+      const seconds=result?.seconds;
+      if(!mix||!vocal||typeof seconds!=='number'||!Number.isFinite(seconds)||
+         seconds<=0||seconds>3600)
+        throw Error('No valid completed cover WAVs were returned. No cover is marked ready.');
+      const current=songbookRef.current.weeklyCovers;
+      const projectId='studio-'+uid(),at=new Date().toISOString();
+      const project:StudioProject={
+        id:projectId,kind:'cover',title:title.slice(0,120),createdAt:at,
+        status:'ready',source,vocal,mix,instrumental:'',
+        seconds,artwork:'',error:'',...(attribution?{coverAttribution:attribution}:{}),
+        settings:{genre:'original',wholeSong:true,start:0,seconds:1,
+          separate:true,backingGain:1,vocalGain:1,reference,extractor:'mega-lead'},
+      };
+      // Never use a stale library snapshot if another Studio entry was saved.
+      const library=initiativeRef.current.studio;
+      if(library.projects.length>=STUDIO_PROJECT_LIMIT)
+        throw Error('Music Studio is full. Completed WAV files remain on disk.');
+      changeInitiative({...initiativeRef.current,studio:{
+        projects:[project,...library.projects],selectedId:projectId,
+      }});
+      const record={
+        id:'cover-record-'+uid(),kind,week,at,title:project.title,
+        sourceLabel,projectId,mix,vocal,seconds,
+        ...(sourceUrl?{sourceUrl}:{}),
+      };
+      const next=recordWeeklyCover(current,record,selectedTrack);
+      const outcome='Mana saved her '+(kind==='local'?'local':'web-discovered')+
+        ' weekly cover: '+title+'. '+reason.slice(0,120);
+      setSongbookState({...songbookRef.current,weeklyCovers:recordCoverOutcome(next,outcome)});
+      await flushPersistence();
+      setSongbookStatus(outcome);
+    }catch(error){
+      const msg=(ctrl.signal.aborted?'Weekly cover stopped.':
+        kind==='local'?'Local weekly cover unavailable: ':'Web weekly cover unavailable: ')+
+        (ctrl.signal.aborted?'':String(error));
+      setSongbookState({...songbookRef.current,
+        weeklyCovers:recordCoverOutcome(songbookRef.current.weeklyCovers,msg)});
+      setSongbookStatus(msg+' No finished cover was added.');
+    }finally{
+      if(nativeStarted)await invoke('singing_stop').catch(()=>{});
+      if(releaseGPU)await releaseGPU().catch(error=>
+        setSongbookStatus('Cover ended, but chat GPU recovery failed: '+String(error)));
+      if(songbookController.current===ctrl)songbookController.current=null;
+      if(abortRef.current===ctrl)abortRef.current=null;
+      songbookRunning.current=false;songbookRunningMode.current=null;
+      setSongbookBusy(false);setReflecting(false);
+    }
+  }
+
+  // Local songs on Tuesday, reviewed web sources on Friday, noon in journal
+  // timezone. The normal Sunday original and Sketchbook keep priority.
+  useEffect(()=>{
+    const check=()=>{
+      if(songbookRunning.current||sketchbookPlanning.current||sketchbookJob||
+        llama.status!=='ready'||llama.imageBusy||storage.error||busy||reflecting||
+        abortRef.current||hasChatDraft.current||mediaOccupied()||autoOutfitRunning||
+        diaryArtId||diaryArtQueue.length||journalWriting||initiativeGenerating||
+        reflectionDraft||showImageGeneration||showSketchbook||showSongbook||
+        showSinging||showSavedImages||showVision||roomEditorOpen||showGameDev||
+        showCode||showDiary||showSettings||showBackgrounds||showWardrobe||
+        showOutfitPrototype||showMemories||showGoals||showState||showThoughts||
+        showFollowups||showActivities||showEvents||showNarratives||showSkills||
+        showChatArchives||archiving||document.visibilityState!=='visible'||
+        Date.now()-lastActivityAt.current<300_000)return;
+      if(dueWeeklySong(songbookRef.current,new Date()))return;
+      const state=songbookRef.current.weeklyCovers;
+      const kind:WeeklyCoverKind|null=dueWeeklyCover(state,'local',new Date())?'local':
+        dueWeeklyCover(state,'web',new Date())?'web':null;
+      if(kind){const week=dueWeeklyCover(state,kind,new Date());if(week)void runScheduledCover(kind,week);}
+    };
+    check();
+    const timer=window.setInterval(check,60_000);
+    return()=>window.clearInterval(timer);
+  },[songbook,songbookBusy,sketchbook,sketchbookJob,llama.status,llama.imageBusy,
+    storage.error,busy,reflecting,autoOutfitRunning,diaryArtId,diaryArtQueue,
+    journalWriting,initiativeGenerating,reflectionDraft,roomEditorOpen,
+    showImageGeneration,showOutfitPrototype,showWardrobe,showSinging,showSongbook,
+    showSavedImages,showSketchbook,showVision,showCode,showGameDev,showDiary,
+    showSettings,showBackgrounds,showMemories,showState,showGoals,showThoughts,
+    showActivities,showFollowups,showEvents,showNarratives,showSkills,
+    showChatArchives,archiving]);
+
   // One opt-in Sunday composition. Like Sketchbook, never preempt user work,
   // never run while another creative tool is open, and reserve the weekly slot.
   useEffect(()=>{
