@@ -132,7 +132,7 @@ export function updateTranslationLine<T extends {translations:TranslationProject
  }else{
   if(typeof value!=='string'||value.length>(field==='english'?250:200))
    throw Error('English line or note exceeds its length limit.');
-  next=value.trim();
+  next=value; // Keep spaces while typing; persistence normalizes text on reload.
  }
  if(project.lines[index][field]===next)return state;
  return {...state,translations:state.translations.map(p=>p.id===id?{
