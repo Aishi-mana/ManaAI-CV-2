@@ -2121,3 +2121,17 @@ button, input, select, textarea { font: inherit; color: inherit; }
  .songbook-weekly-covers {padding:17px;border-radius:16px;}
  .songbook-cover-history-entry {align-items:flex-start;flex-direction:column;}
 }
+
+
+/* English anime cover taste is a preference, not a translation feature. */
+.songbook-cover-preference {display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;
+ padding:14px 18px;margin-top:16px;border:1px solid #efdbe9;border-radius:15px;
+ background:linear-gradient(115deg,#fff5fa,#f9f4ff);}
+.songbook-cover-preference>label {font-size:.83rem;font-weight:850;color:#6c4772;}
+.songbook-cover-preference>select {min-width:220px;max-width:100%;padding:9px 12px;
+ border:1px solid #dbc8e8;border-radius:11px;background:#fff;color:var(--ink);font:inherit;font-size:.81rem;}
+.songbook-cover-preference>.songbook-muted {flex-basis:100%;margin:0;}
+@media(max-width:620px){
+ .songbook-cover-preference {padding:14px;align-items:stretch;flex-direction:column;}
+ .songbook-cover-preference>select {min-width:0;width:100%;}
+}
