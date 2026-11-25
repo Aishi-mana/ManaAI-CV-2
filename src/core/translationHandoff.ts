@@ -1,4 +1,4 @@
-import {generatedAudioPath} from './musicStudio';
+import {generatedAudioPath,validateTranslationAttribution} from './musicStudio';
 import {guideReady,englishRevision} from './midiMelody';
 import type {TranslationProject,AdaptationRightsBasis} from './translationWorkbench';
 
@@ -22,28 +22,6 @@ const stamp=(value:unknown):value is string=>typeof value==='string'&&Number.isF
  new Date(value).toISOString()===value;
 const allowedId=(id:unknown):id is string=>typeof id==='string'&&/^translation-[a-zA-Z0-9_-]{1,80}$/.test(id);
 const safeName=(s:unknown,max:number):s is string=>typeof s==='string'&&!!s.trim()&&s.length<=max;
-export function validateTranslationAttribution(raw:unknown):TranslationAttribution|undefined{
- if(!raw||typeof raw!=='object'||Array.isArray(raw))return;
- const p=raw as Record<string,unknown>;
- if(!allowedId(p.projectId)||!safeName(p.sourceTitle,120)||
-   !rights(p.lyricRightsBasis)||!rights(p.melodyRightsBasis)||!rights(p.guideRightsBasis)||
-   !safeName(p.melodySource,180)||!safeName(p.guideAudioName,100)||
-   !safeName(p.englishRevision,180)||!stamp(p.reviewedAt)||
-   !Array.isArray(p.englishLyrics)||p.englishLyrics.length<1||p.englishLyrics.length>16||
-   !p.englishLyrics.every(line=>typeof line==='string'&&line.length<=250))return;
- const backingAudio=p.backingAudio===undefined?undefined:generatedAudioPath(p.backingAudio);
- if(p.backingAudio!==undefined&&(!backingAudio||!rights(p.backingRightsBasis)))return;
- if(p.backingAudio===undefined&&p.backingRightsBasis!==undefined)return;
- return {
-  projectId:p.projectId,sourceTitle:p.sourceTitle.trim(),
-  englishLyrics:(p.englishLyrics as string[]).map(x=>x.trim()),
-  lyricRightsBasis:p.lyricRightsBasis,melodyRightsBasis:p.melodyRightsBasis,
-  guideRightsBasis:p.guideRightsBasis,
-  melodySource:p.melodySource,englishRevision:p.englishRevision,
-  reviewedAt:p.reviewedAt,guideAudioName:p.guideAudioName,
-  ...(backingAudio?{backingAudio,backingRightsBasis:p.backingRightsBasis as GuideRecordingRightsBasis}:{})
- };
-}
 /** Owners render the English guide in OpenUtau, choose the WAV manually and
  * acknowledge voicebank/recording reuse rights. This never verifies language,
  * recording provenance, guide quality, melody or licensed adaptation scope. */
