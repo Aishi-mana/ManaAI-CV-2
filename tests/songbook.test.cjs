@@ -28,9 +28,10 @@ const persistence={
  readStored:key=>store.get(key)??null,
  writeStored:(key,value)=>store.set(key,value),
 };
-const cover=load('src/core/coverDiscovery.ts',{'./llm':{streamChat:async()=>{}}});
+const cover=load('src/core/coverDiscovery.ts',{'./llm':{streamChat:async()=>{}},'./musicStudio':music});
+const weeklyCovers=load('src/core/weeklyCovers.ts',{'./clock':clock,'./musicStudio':music});
 const book=load('src/core/songbook.ts',{
- './clock':clock,'./musicStudio':music,'./coverDiscovery':cover,
+ './clock':clock,'./musicStudio':music,'./coverDiscovery':cover,'./weeklyCovers':weeklyCovers,
  './originalSong':original,'./persistence':persistence,
  './validation':{isRecord:x=>!!x&&typeof x==='object'&&!Array.isArray(x),
  validDate:s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&
