@@ -21,7 +21,7 @@ const music=load('src/core/musicStudio.ts',{
  './originalSong':{validateOriginalBrief:()=>undefined},
  './coverBuilder':{validateBuilderTracks:()=>[]},
 });
-const discovery=load('src/core/coverDiscovery.ts',{'./llm':{streamChat:async()=>{}}});
+const discovery=load('src/core/coverDiscovery.ts',{'./llm':{streamChat:async()=>{}},'./musicStudio':music});
 const cover=load('src/core/coverHandoff.ts',{
  './musicStudio':music,'./coverDiscovery':discovery,
 });
