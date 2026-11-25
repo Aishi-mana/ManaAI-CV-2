@@ -149,7 +149,8 @@ export function parseMidiFile(bytes:Uint8Array):MidiPhraseFile{
  const all:MidiPhraseTrack[]=[];
  for(let trackIndex=0;trackIndex<trackCount;trackIndex++){
   if(tag()!=='MTrk')throw Error('Invalid MIDI track header.');
-  const length=u32(),end=take(length)+length;
+  const length=u32(),end=pos+length;
+  if(length<1||end>bytes.length)throw Error('MIDI track is incomplete.');
   const active=new Map<string,{tick:number;tone:number}>(),notes:{tick:number;end:number;tone:number}[]=[];
   let tick=0,status=0,name='Track '+(trackIndex+1),eventCount=0;
   const byte=()=>{if(pos>=end)throw Error('Truncated MIDI event.');return bytes[pos++];};
