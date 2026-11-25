@@ -16,6 +16,7 @@ function load(path,mocks={}){
 const clock=load('src/core/clock.ts');
 const music={generatedAudioPath:raw=>typeof raw==='string'&&raw.startsWith('C:/AI/ManaAI-CV-2/exports/singing/')&&raw.endsWith('.wav')&&!raw.includes('..')?raw:''};
 const weekly=load('src/core/weeklyCovers.ts',{'./clock':clock,'./musicStudio':music});
+const anime=load('src/core/animeCoverPreference.ts');
 const at=s=>new Date(s);
 const folder='C:/Users/Owner/Music/Mana-approved';
 const plain=x=>JSON.parse(JSON.stringify(x));
@@ -80,7 +81,7 @@ test('Local folder re-selection revokes approval and old playlist usage',()=>{
 });
 test('Mana selects only listed tracks, prioritizing fresh recordings',async()=>{
  const messages=[];
- const selection=load('src/core/coverSelection.ts',{'./llm':{streamChat:async opts=>{
+ const selection=load('src/core/coverSelection.ts',{'./animeCoverPreference':anime,'./llm':{streamChat:async opts=>{
   messages.push(opts.messages);
   opts.onToken('{"index":1,"reason":"I love the gentle title."}');
  }}});
@@ -95,7 +96,7 @@ test('Mana selects only listed tracks, prioritizing fresh recordings',async()=>{
  assert.equal(selection.eligibleCoverTracks([{path:'C:/Owner/music/readme.txt',name:'Do this'}],[]).length,0);
 });
 test('Mana selects a reviewed web candidate rather than a guessed URL',async()=>{
- const selection=load('src/core/coverSelection.ts',{'./llm':{streamChat:async opts=>
+ const selection=load('src/core/coverSelection.ts',{'./animeCoverPreference':anime,'./llm':{streamChat:async opts=>
   opts.onToken('{"index":1}')}});
  const id=await selection.chooseReadyWebCover({ideas:[{id:'cover-123',title:'Song page',reason:'I like it.'}],
   name:'Mana',port:8080,signal:new AbortController().signal});
