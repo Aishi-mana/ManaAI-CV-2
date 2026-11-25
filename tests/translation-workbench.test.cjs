@@ -140,7 +140,7 @@ test('Translation UI provides reviewed sources, editable English and version rec
  assert.match(ui,/Restore to editor/);
  assert.match(ui,/source \(read-only\)/);
  assert.match(ui,/Target syllables/);
- assert.match(ui,/does not fetch lyrics/);
+ assert.match(ui,/Phase 3A drafts use only owner-supplied lyrics/);
  const phase=app.slice(app.indexOf('async function draftTranslationEnglish('),app.indexOf('async function chooseWeeklyLocalCoverFolder('));
  assert.match(phase,/proposeTranslation\(/);
  assert.match(phase,/applyTranslationProposal\(/);
