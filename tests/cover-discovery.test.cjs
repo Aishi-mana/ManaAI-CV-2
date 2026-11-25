@@ -10,7 +10,7 @@ function load(streamChat=async()=>{}){
  }).outputText;
  vm.runInNewContext(source,{
   exports,JSON,Date,Math,Map,Set,Array,Object,Number,String,Error,URL,
-  require:id=>id==='./llm'?{streamChat}:(()=>{throw Error('Unexpected '+id);})(),
+  require:id=>id==='./llm'?{streamChat}:id==='./musicStudio'?{generatedAudioPath:path=>typeof path==='string'&&path.startsWith('C:/AI/ManaAI-CV-2/exports/singing/')&&path.endsWith('.wav')?path:''}:(()=>{throw Error('Unexpected '+id);})(),
  },{filename:'src/core/coverDiscovery.ts'});
  return exports;
 }

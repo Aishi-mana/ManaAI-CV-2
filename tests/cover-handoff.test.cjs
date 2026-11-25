@@ -21,7 +21,7 @@ const music=load('src/core/musicStudio.ts',{
  './originalSong':{validateOriginalBrief:()=>undefined},
  './coverBuilder':{validateBuilderTracks:()=>[]},
 });
-const discovery=load('src/core/coverDiscovery.ts',{'./llm':{streamChat:async()=>{}}});
+const discovery=load('src/core/coverDiscovery.ts',{'./llm':{streamChat:async()=>{}},'./musicStudio':music});
 const cover=load('src/core/coverHandoff.ts',{
  './musicStudio':music,'./coverDiscovery':discovery,
 });
@@ -90,7 +90,8 @@ test('Phase 2B never fetches or auto-starts cover from web excerpts',()=>{
  assert.match(step,/prepareCoverHandoff/);
  assert.doesNotMatch(step,/invoke\('singing_start'|invoke\('original_song_start'|fetch\(/);
  assert.match(ui,/I have reviewed this source/);
- assert.match(ui,/Choose local audio &amp; create cover/);
+ assert.match(ui,/Make cover now/);
+ assert.match(ui,/Queue audio for Friday/);
  assert.match(studio,/setSingingProfile\('mana-trained-v1'\)/);
  assert.match(studio,/targetProfile=linkedAttribution\?'mana-trained-v1':singingProfile/);
  assert.match(studio,/setCoverDraft\(\{project:.*?status:'ready'/s);

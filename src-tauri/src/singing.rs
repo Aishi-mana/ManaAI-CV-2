@@ -66,6 +66,47 @@ pub fn singing_stop(state: tauri::State<Singing>) -> Result<(), String> {
 
 }
 
+/// Only direct, ordinary audio files in the exact user-selected folder may be
+/// used for scheduled local covers. Never recurse or follow symbolic links.
+fn local_cover_files(folder:&Path)->Result<Vec<(PathBuf,String)>,String>{
+ if(!folder.is_dir()){return Err("Choose an existing local music folder.".into());}
+ let root=folder.canonicalize().map_err(|_|"Could not read the selected music folder.")?;
+ let mut matches=Vec::new();
+ for candidate in fs::read_dir(&root).map_err(|_|"Unable to list the selected music folder.")?.take(5000){
+  let Ok(entry)=candidate else{continue};
+  if !entry.file_type().map(|t|t.is_file()&&!t.is_symlink()).unwrap_or(false){continue;}
+  let source=entry.path();
+  let ext=source.extension().and_then(|s|s.to_str()).unwrap_or("").to_ascii_lowercase();
+  if !["wav","mp3","flac","ogg","m4a"].contains(&ext.as_str()){continue;}
+  let Ok(actual)=source.canonicalize() else{continue};
+  if actual.parent()!=Some(root.as_path())||!actual.is_file(){continue;}
+  let Ok(info)=actual.metadata() else{continue};
+  if info.len()<1024||info.len()>2_000_000_000{continue;}
+  let name=entry.file_name().to_string_lossy().to_string();
+  if name.starts_with('.')||name.len()>180{continue;}
+  matches.push((actual,name));
+ }
+ matches.sort_by(|a,b|a.1.to_lowercase().cmp(&b.1.to_lowercase()));
+ matches.truncate(200);
+ Ok(matches)
+}
+
+#[tauri::command]
+pub fn singing_local_cover_files(folder:String)->Result<Vec<serde_json::Value>,String>{
+ Ok(local_cover_files(Path::new(&folder))?.into_iter().map(|(path,name)|
+  serde_json::json!({"path":path.to_string_lossy().to_string(),"name":name})
+ ).collect())
+}
+#[tauri::command]
+pub fn singing_import_folder_track(folder:String,source:String)->Result<serde_json::Value,String>{
+ let files=local_cover_files(Path::new(&folder))?;
+ let source=Path::new(&source).canonicalize().map_err(|_|"Local cover audio is unavailable.")?;
+ if !files.iter().any(|(file,_)|file==&source){
+  return Err("The selected song is not a permitted direct file in the approved music folder.".into());
+ }
+ singing_import_track(source.to_string_lossy().to_string())
+}
+
 #[tauri::command]
 
 pub fn singing_import_track(source:String)->Result<serde_json::Value,String>{
@@ -993,4 +1034,27 @@ fn validate_builder_notes(notes:&[serde_json::Value],seconds:f64)->Result<(),Str
 #[tauri::command]pub fn builder_notes_read(path:String)->Result<serde_json::Value,String>{let root=Path::new("C:/AI/ManaAI-CV-2/exports/singing").canonicalize().map_err(|e|e.to_string())?;let file=Path::new(&path).canonicalize().map_err(|e|e.to_string())?;if !file.starts_with(root)||file.extension().and_then(|x|x.to_str())!=Some("json")||fs::metadata(&file).map_err(|e|e.to_string())?.len()>2_000_000{return Err("Choose saved notes.json under exports/singing (up to2MB).".into());}serde_json::from_slice(&fs::read(file).map_err(|e|e.to_string())?).map_err(|e|e.to_string())}
 #[cfg(test)]mod builder_note_tests{use super::*;
  #[test]fn edited_notes_reject_invalid_values_before_launch(){assert!(validate_builder_notes(&[],1.).is_ok());assert!(validate_builder_notes(&[serde_json::json!([0.,1.,60,0.5])],1.).is_ok());for note in [serde_json::json!([0.,2.,60,0.5]),serde_json::json!([0.,1.,128,0.5]),serde_json::json!([0.,1.,60,2.]),serde_json::json!([true,1.,60,0.5])]{assert!(validate_builder_notes(&[note],1.).is_err());}}
+}
+
+#[cfg(test)]
+mod local_cover_folder_tests{
+ use super::*;
+ #[test]
+ fn local_scan_filters_extensions_never_recurses_and_import_rejects_strangers(){
+  let dir=std::env::temp_dir().join(format!("mana-local-cover-{}-{}",std::process::id(),
+   std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+  fs::create_dir_all(dir.join("nested")).unwrap();
+  fs::write(dir.join("song.wav"),vec![2u8;2048]).unwrap();
+  fs::write(dir.join("also.MP3"),vec![3u8;2048]).unwrap();
+  fs::write(dir.join("ignore.txt"),vec![4u8;2048]).unwrap();
+  fs::write(dir.join("nested").join("secret.wav"),vec![5u8;2048]).unwrap();
+  let tracks=local_cover_files(&dir).unwrap();
+  assert_eq!(tracks.len(),2);
+  assert!(tracks.iter().all(|(_,name)|name.ends_with(".wav")||name.ends_with(".MP3")));
+  assert!(singing_import_folder_track(dir.to_string_lossy().to_string(),
+   dir.join("nested/secret.wav").to_string_lossy().to_string()).is_err());
+  assert!(singing_import_folder_track(dir.to_string_lossy().to_string(),
+   dir.join("ignore.txt").to_string_lossy().to_string()).is_err());
+  fs::remove_dir_all(dir).unwrap();
+ }
 }

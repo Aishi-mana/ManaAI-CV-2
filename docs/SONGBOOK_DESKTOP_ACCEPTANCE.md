@@ -104,3 +104,41 @@ Record the app commit, ACE-Step and trained Mana voice setup, both WAV
 paths and durations, guide-to-conversion handoff, chat recovery after GPU use
 and any native `exports/singing/original-*/job.log` or conversion job errors
 before marking this feature accepted on the laptop.
+
+
+## Phase 2C — one local and one web cover each week
+
+- [ ] Confirm **Tuesday local covers** and **Friday web covers** are **OFF**
+      after update and that the old Sunday original-song schedule is unchanged.
+- [ ] Choose an approved local audio folder. Confirm only top-level audio files
+      appear, not subfolders, shortcuts, or linked files. Replacing the selected
+      folder must revoke the earlier permissions and turn Tuesdays off.
+- [ ] Enable Tuesday covers only after checking the acknowledgment that rights
+      to BOTH compositions and recordings in the folder permit covers.
+- [ ] Verify next Tuesday at **12:00 in the configured journal timezone** and
+      that automatic processing waits for 5 idle minutes while the app is open
+      and visible. Close the app and reopen it during the slot; only one attempt
+      is allowed for that week.
+- [ ] Listen to the chosen local recording and its generated **trained Mana**
+      mix from Music Studio. Confirm the original source file is unchanged and
+      the imported working WAV is stored under `exports/singing/import-*/track.wav`.
+- [ ] Verify finished local covers appear in Music Studio and Songbook's weekly
+      cover history; a failed converter must not invent a saved recording.
+- [ ] Enable Friday web covers. Without a previously approved audio file, Mana
+      should discover one **source page** using SearXNG and save it as an
+      inspiration **awaiting review**, not a completed cover or downloaded WAV.
+- [ ] Review one inspiration's source page, rights basis and check the
+      acknowledgment; select a permitted local recording and press
+      **Queue audio for Friday**. Verify the imported WAV and rights basis
+      survive a restart; the source URL alone must not count as audio.
+- [ ] On the next due Friday, verify Mana chooses from approved queued
+      recordings, converts into her trained singing voice, and saves a real
+      playable Studio cover with source attribution. Avoid re-covering the same
+      reviewed web source in later weeks.
+- [ ] With weekly local and web covers enabled, confirm neither competes with
+      Sunday's original composition, Sketchbook, active chat, or other GPU work.
+      Verify cancellation and the local chat model's GPU recovery.
+- [ ] Record the real Windows app commit, model/reference paths, input/output
+      WAV durations, local folder, reviewed web source, rights basis and any
+      `exports/singing/*/job.log` errors. CI is not a substitute for listening.
+
