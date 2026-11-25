@@ -20,6 +20,7 @@ interface Props {
  translationStatus:string;
  translationBusy:boolean;
  translationDraftUnavailableReason:string;
+ voiceHandoffUnavailableReason:string;
  onCreateTranslation:(title:string,source:string,basis:AdaptationRightsBasis,acknowledged:boolean)=>boolean;
  onDraftTranslation:(id:string)=>void;
  onEditTranslation:(id:string,index:number,field:TranslationEditField,value:string|number)=>void;
@@ -63,7 +64,7 @@ const voiceStatus=(entry:SongbookEntry)=>entry.voiceMixPath?'Mana voice ready':
 const defaultVersion=(entry:SongbookEntry):AudioVersion=>entry.voiceMixPath?'mana':'guide';
 
 export default function SongbookWorkspace({
- name,state,status,busy,unavailableReason,voiceUnavailableReason,translationStatus,translationBusy,translationDraftUnavailableReason,onCreateTranslation,onDraftTranslation,onEditTranslation,onSaveTranslationVersion,onRestoreTranslationVersion,onRemoveTranslation,
+ name,state,status,busy,unavailableReason,voiceUnavailableReason,translationStatus,translationBusy,translationDraftUnavailableReason,voiceHandoffUnavailableReason,onCreateTranslation,onDraftTranslation,onEditTranslation,onSaveTranslationVersion,onRestoreTranslationVersion,onRemoveTranslation,
  onImportMelody,onEditMelody,onSeedMelody,onSyncMelody,onReviewMelody,onRemoveMelody,onExportMelody,onPrepareEnglishGuide,onCompose,onComposeAnime,onDiscoverCover,onRemoveCoverIdea,onPrepareCover,onQueueWebAudio,onSelectLocalCoverFolder,onApproveLocalCoverFolder,onSetWeeklyCoverEnabled,onSetCoverMusicPreference,onConvertVoice,onStop,onEnable,onCatchUp,onOpenStudio,onClose,
 }:Props){
  const [now,setNow]=useState(()=>new Date());
@@ -204,6 +205,7 @@ export default function SongbookWorkspace({
    <TranslationWorkbench projects={state.translations} busy={busy}
     drafting={translationBusy} status={translationStatus}
     draftUnavailableReason={translationDraftUnavailableReason}
+    voiceHandoffUnavailableReason={voiceHandoffUnavailableReason}
     onCreate={onCreateTranslation}
     onDraft={onDraftTranslation} onStop={onStop}
     onEdit={onEditTranslation} onSaveVersion={onSaveTranslationVersion}
