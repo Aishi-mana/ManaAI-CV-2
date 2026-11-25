@@ -2,6 +2,9 @@ import {journalClock,validTimeZone} from './clock';
 import {generatedAudioPath} from './musicStudio';
 
 export type WeeklyCoverKind='local'|'web';
+export type CoverMusicPreference='any'|'english-anime';
+export const COVER_MUSIC_PREFERENCES:readonly CoverMusicPreference[]=['any','english-anime'];
+export const validCoverMusicPreference=(x:unknown):x is CoverMusicPreference=>x==='any'||x==='english-anime';
 export interface WeeklyCoverRecord{
  id:string;kind:WeeklyCoverKind;week:string;at:string;title:string;
  sourceLabel:string;projectId:string;mix:string;vocal:string;seconds:number;
@@ -9,6 +12,7 @@ export interface WeeklyCoverRecord{
 }
 export interface WeeklyCovers{
  timeZone:string;
+ musicPreference:CoverMusicPreference;
  local:{enabled:boolean;enabledAt:string|null;folder:string;rightsApproved:boolean;used:string[];lastSlot?:{week:string;at:string}};
  web:{enabled:boolean;enabledAt:string|null;lastSlot?:{week:string;at:string}};
  records:WeeklyCoverRecord[];
@@ -31,7 +35,7 @@ const lastSlot=(v:unknown):{week:string;at:string}|undefined=>{
 const stringSet=(value:unknown,max:number)=>Array.isArray(value)?[...new Set(
  value.filter(x=>typeof x==='string'&&x.length<1200).slice(0,max) as string[])]:[];
 export function defaultWeeklyCovers(timeZone='Asia/Singapore'):WeeklyCovers{
- return {timeZone,local:{enabled:false,enabledAt:null,folder:'',rightsApproved:false,used:[]},
+ return {timeZone,musicPreference:'any',local:{enabled:false,enabledAt:null,folder:'',rightsApproved:false,used:[]},
   web:{enabled:false,enabledAt:null},records:[]};
 }
 export function validateWeeklyCovers(value:unknown,timeZone='Asia/Singapore'):WeeklyCovers{
@@ -44,7 +48,7 @@ export function validateWeeklyCovers(value:unknown,timeZone='Asia/Singapore'):We
  const atLocal=stamp(local.enabledAt)?local.enabledAt:null;
  const atWeb=stamp(web.enabledAt)?web.enabledAt:null;
  const state:WeeklyCovers={
-  timeZone:zone,
+  timeZone:zone,musicPreference:validCoverMusicPreference(raw.musicPreference)?raw.musicPreference:'any',
   local:{enabled:local.enabled===true&&rightsApproved&&!!atLocal,enabledAt:atLocal,
    folder,rightsApproved,used:stringSet(local.used,100),...(lastSlot(local.lastSlot)?{lastSlot:lastSlot(local.lastSlot)}:{})},
   web:{enabled:web.enabled===true&&!!atWeb,enabledAt:atWeb,...(lastSlot(web.lastSlot)?{lastSlot:lastSlot(web.lastSlot)}:{})},
@@ -74,6 +78,10 @@ export function validateWeeklyCovers(value:unknown,timeZone='Asia/Singapore'):We
    state.lastOutcome={at:outcome.at,message:outcome.message};
  }
  return state;
+}
+export function setCoverMusicPreference(state:WeeklyCovers,preference:CoverMusicPreference):WeeklyCovers{
+ if(!validCoverMusicPreference(preference))throw Error('Choose a supported cover music preference.');
+ return {...state,musicPreference:preference};
 }
 export function configureWeeklyCover(state:WeeklyCovers,kind:WeeklyCoverKind,enabled:boolean,now=new Date()):WeeklyCovers{
  if(!Number.isFinite(now.getTime()))throw Error('Invalid cover schedule time.');
