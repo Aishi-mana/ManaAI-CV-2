@@ -132,3 +132,16 @@ test('Markdown fenced JSON from compatible local models is accepted',()=>{
  const result=readSongbookIdea(f+'json\n'+JSON.stringify(idea)+'\n'+f);
  assert.equal(result.title,idea.title);
 });
+
+
+test('Original anime opening request stays new and English rather than translating a cover',()=>{
+ const {songbookIdeaMessages}=runtime(async()=>{});
+ const messages=plain(songbookIdeaMessages({...context,creativeDirection:'anime-opening-original'}));
+ assert.match(messages[0].content,/ORIGINAL English-language anime-opening-inspired song/);
+ assert.match(messages[0].content,/NOT an adaptation, translation, cover/);
+ assert.match(messages[0].content,/Do not mention or copy a named franchise/);
+ assert.match(messages[1].content,/completely original English anime-opening-style song/);
+ assert.match(messages[1].content,/anime-opening-original/);
+ const normal=plain(songbookIdeaMessages(context));
+ assert.doesNotMatch(normal[0].content,/For this request, write a completely ORIGINAL English-language anime-opening-inspired song/);
+});
