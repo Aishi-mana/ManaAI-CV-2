@@ -1,5 +1,7 @@
 import {useState} from 'react';
 import MelodyGuidePanel from './MelodyGuidePanel';
+import TranslationVoicePanel from './TranslationVoicePanel';
+import type {GuideRecordingRightsBasis} from '../core/translationHandoff';
 import type {MidiPhraseFile,MelodyRightsBasis} from '../core/midiMelody';
 import type {MelodyEditField} from '../core/melodyGuide';
 import {
@@ -28,10 +30,11 @@ interface Props{
  onReviewMelody:(id:string)=>void;
  onRemoveMelody:(id:string)=>void;
  onExportMelody:(id:string)=>void;
+ onPrepareEnglishGuide:(id:string,guideRights:GuideRecordingRightsBasis,guideAcknowledged:boolean,withBacking:boolean,backingRights?:GuideRecordingRightsBasis,backingAcknowledged?:boolean)=>void;
 }
 export default function TranslationWorkbench({
  projects,busy,drafting,status,draftUnavailableReason,onCreate,onDraft,onStop,onEdit,onSaveVersion,onRestoreVersion,onRemove,
- onImportMelody,onEditMelody,onSeedMelody,onSyncMelody,onReviewMelody,onRemoveMelody,onExportMelody,
+ onImportMelody,onEditMelody,onSeedMelody,onSyncMelody,onReviewMelody,onRemoveMelody,onExportMelody,onPrepareEnglishGuide,
 }:Props){
  const [title,setTitle]=useState('');
  const [source,setSource]=useState('');
@@ -52,7 +55,7 @@ export default function TranslationWorkbench({
    </div>
    <span className="songbook-small-status">{projects.length} / {TRANSLATION_PROJECT_LIMIT} drafts</span>
   </div>
-  <p className="songbook-translation-boundary">Phase 3A drafts use only owner-supplied lyrics and the local LLM. Phase 3B accepts an owner-selected MIDI melody and exports an unrendered OpenUtau singing guide. No lyric scraping, automatic audio transcription, or singing WAV synthesis is performed by Mana yet. Weekly music schedules are unaffected.</p>
+  <p className="songbook-translation-boundary">Phase 3A drafts use only owner-supplied lyrics and the local LLM. Phase 3B accepts an owner-selected MIDI melody and exports an unrendered OpenUtau singing guide. Phase 3C imports an owner-rendered English guide WAV and offers a trained Mana-voice preview in Music Studio. No lyric scraping, automatic audio transcription, web audio downloading or in-app OpenUtau rendering is performed. Weekly music schedules are unaffected.</p>
   <details className="songbook-translation-create" open={projects.length===0?true:undefined}>
    <summary>Start a Japanese → English adaptation</summary>
    <form onSubmit={event=>{
@@ -173,6 +176,8 @@ export default function TranslationWorkbench({
     onImport={onImportMelody} onEdit={onEditMelody} onSeed={onSeedMelody}
     onSync={onSyncMelody} onReview={onReviewMelody}
     onRemove={onRemoveMelody} onExport={onExportMelody}/>
+   <TranslationVoicePanel project={selected} busy={busy}
+    unavailableReason={draftUnavailableReason} onPrepare={onPrepareEnglishGuide}/>
    <button className="btn" type="button" disabled={busy} onClick={()=>{
     if(window.confirm('Remove this draft and all its saved versions? This cannot be undone.')){onRemove(selected.id);setSelectedId('');}
    }}>Remove translation draft</button>
