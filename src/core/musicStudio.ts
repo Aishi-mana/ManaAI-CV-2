@@ -4,7 +4,7 @@ import {validateLyrics,type LyricLine} from './lyrics';
 import {validateOriginalBrief,type OriginalBrief} from './originalSong';
 import {validateBuilderTracks,type BuilderTrack} from './coverBuilder';
 import type {CoverAttribution} from './coverHandoff';
-import {validateTranslationAttribution,type TranslationAttribution} from './translationHandoff';
+import type {TranslationAttribution} from './translationHandoff';
 export const STUDIO_PROJECT_LIMIT=1000;
 export const TRAINED_SINGING_VOICE=TRAINED_MANA_MODEL;
 export const SINGING_REFERENCE='C:/AI/ManaAI-CV-2/data/custom-voice/references/mana-v2/singing-stable-v1.wav';
@@ -44,6 +44,34 @@ export const generatedAudioPath=(value:unknown):string=>{
  if(typeof value!=='string')return '';const path=value.replace(/\\/g,'/');
  return path.toLowerCase().startsWith('c:/ai/manaai-cv-2/exports/singing/')&&path.toLowerCase().endsWith('.wav')&&!path.split('/').some(s=>s==='.'||s==='..')?path:'';
 };
+const adaptationRights=(value:unknown):value is 'owned'|'licensed'|'public-domain'=>
+ value==='owned'||value==='licensed'||value==='public-domain';
+const adaptationStamp=(value:unknown):value is string=>
+ typeof value==='string'&&Number.isFinite(Date.parse(value))&&new Date(value).toISOString()===value;
+const adaptationName=(value:unknown,max:number):value is string=>
+ typeof value==='string'&&!!value.trim()&&value.length<=max;
+export function validateTranslationAttribution(raw:unknown):TranslationAttribution|undefined{
+ if(!raw||typeof raw!=='object'||Array.isArray(raw))return;
+ const p=raw as Record<string,unknown>;
+ if(!(typeof p.projectId==='string'&&/^translation-[a-zA-Z0-9_-]{1,80}$/.test(p.projectId))||!adaptationName(p.sourceTitle,120)||
+   !adaptationRights(p.lyricRightsBasis)||!adaptationRights(p.melodyRightsBasis)||!adaptationRights(p.guideRightsBasis)||
+   !adaptationName(p.melodySource,180)||!adaptationName(p.guideAudioName,100)||
+   !adaptationName(p.englishRevision,4500)||!adaptationStamp(p.reviewedAt)||
+   !Array.isArray(p.englishLyrics)||p.englishLyrics.length<1||p.englishLyrics.length>16||
+   !p.englishLyrics.every(line=>typeof line==='string'&&line.length<=250))return;
+ const backingAudio=p.backingAudio===undefined?undefined:generatedAudioPath(p.backingAudio);
+ if(p.backingAudio!==undefined&&(!backingAudio||!adaptationRights(p.backingRightsBasis)))return;
+ if(p.backingAudio===undefined&&p.backingRightsBasis!==undefined)return;
+ return {
+  projectId:p.projectId,sourceTitle:p.sourceTitle.trim(),
+  englishLyrics:(p.englishLyrics as string[]).map(x=>x.trim()),
+  lyricRightsBasis:p.lyricRightsBasis,melodyRightsBasis:p.melodyRightsBasis,
+  guideRightsBasis:p.guideRightsBasis,
+  melodySource:p.melodySource,englishRevision:p.englishRevision,
+  reviewedAt:p.reviewedAt,guideAudioName:p.guideAudioName,
+  ...(backingAudio?{backingAudio,backingRightsBasis:p.backingRightsBasis as GuideRecordingRightsBasis}:{})
+ };
+}
 export function validateStudio(value:unknown):StudioState{
  const raw=value&&typeof value==='object'?value as Record<string,unknown>:{};const projects:StudioProject[]=[];
  for(const item of (Array.isArray(raw.projects)?raw.projects:[]).slice(0,STUDIO_PROJECT_LIMIT)){
