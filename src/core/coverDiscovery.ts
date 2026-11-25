@@ -1,8 +1,11 @@
 import {streamChat} from './llm';
+import {generatedAudioPath} from './musicStudio';
+import type {CoverRightsBasis} from './coverHandoff';
 
 export interface CoverSearchSource{url:string;title:string;snippets:string[]}
 export interface CoverIdea{
  id:string;createdAt:string;query:string;title:string;url:string;excerpt:string;reason:string;
+ approvedAudio?:{path:string;seconds:number;rightsBasis:CoverRightsBasis;approvedAt:string};
 }
 export const COVER_IDEA_LIMIT=20;
 const coverId=/^cover-[a-zA-Z0-9_-]{1,80}$/;
@@ -26,8 +29,17 @@ export function normalizeCoverIdea(raw:unknown):CoverIdea|undefined{
     typeof v.title!=='string'||!v.title.trim()||v.title.length>200||
     typeof v.excerpt!=='string'||v.excerpt.length>850||
     typeof v.reason!=='string'||v.reason.length>300)return;
+ const approved=v.approvedAudio&&typeof v.approvedAudio==='object'&&!Array.isArray(v.approvedAudio)?
+  v.approvedAudio as Record<string,unknown>:null;
+ const path=generatedAudioPath(approved?.path);
+ const seconds=approved?.seconds;
+ const accepted=!!path&&typeof seconds==='number'&&Number.isFinite(seconds)&&seconds>0&&seconds<=3600&&
+  (approved?.rightsBasis==='owned'||approved?.rightsBasis==='licensed'||approved?.rightsBasis==='public-domain')&&
+  typeof approved?.approvedAt==='string'&&Number.isFinite(Date.parse(approved.approvedAt));
  return {id:v.id,createdAt:v.createdAt,query:v.query.trim(),title:v.title.trim(),
-  url,excerpt:v.excerpt.trim(),reason:v.reason.trim()};
+  url,excerpt:v.excerpt.trim(),reason:v.reason.trim(),
+  ...(accepted?{approvedAudio:{path,seconds:seconds as number,
+   rightsBasis:approved!.rightsBasis as CoverRightsBasis,approvedAt:approved!.approvedAt as string}}:{})};
 }
 export function addCoverIdea<T extends {coverIdeas:CoverIdea[]}>(state:T,raw:CoverIdea):T{
  const idea=normalizeCoverIdea(raw);
@@ -35,6 +47,17 @@ export function addCoverIdea<T extends {coverIdeas:CoverIdea[]}>(state:T,raw:Cov
  if(state.coverIdeas.some(existing=>existing.url===idea.url))throw Error('That cover source is already saved.');
  if(state.coverIdeas.length>=COVER_IDEA_LIMIT)throw Error('Mana’s cover idea shelf is full.');
  return {...state,coverIdeas:[idea,...state.coverIdeas]};
+}
+export function approveWebCoverAudio<T extends {coverIdeas:CoverIdea[]}>(state:T,id:string,
+ imported:{path:string;seconds:number},rightsBasis:CoverRightsBasis,now=new Date()):T{
+ const path=generatedAudioPath(imported.path);
+ if(!path||!Number.isFinite(imported.seconds)||imported.seconds<=0||imported.seconds>3600||
+  !['owned','licensed','public-domain'].includes(rightsBasis)||!Number.isFinite(now.getTime()))
+  throw Error('A validated local recording and reviewed rights are required.');
+ if(!state.coverIdeas.some(idea=>idea.id===id))throw Error('The cover idea was removed.');
+ return {...state,coverIdeas:state.coverIdeas.map(idea=>idea.id===id?{
+  ...idea,approvedAudio:{path,seconds:imported.seconds,rightsBasis,approvedAt:now.toISOString()},
+ }:idea)};
 }
 export function removeCoverIdea<T extends {coverIdeas:CoverIdea[]}>(state:T,id:string):T{
  return {...state,coverIdeas:state.coverIdeas.filter(idea=>idea.id!==id)};
