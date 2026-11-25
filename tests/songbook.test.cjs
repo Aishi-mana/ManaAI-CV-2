@@ -31,8 +31,10 @@ const persistence={
 const cover=load('src/core/coverDiscovery.ts',{'./llm':{streamChat:async()=>{}},'./musicStudio':music,
  './animeCoverPreference':{rankCoverCandidates:items=>items,coverPreferenceInstruction:()=>'',coverPreferenceSearchTheme:theme=>theme}});
 const weeklyCovers=load('src/core/weeklyCovers.ts',{'./clock':clock,'./musicStudio':music});
+const translations=load('src/core/translationWorkbench.ts');
 const book=load('src/core/songbook.ts',{
  './clock':clock,'./musicStudio':music,'./coverDiscovery':cover,'./weeklyCovers':weeklyCovers,
+ './translationWorkbench':translations,
  './originalSong':original,'./persistence':persistence,
  './validation':{isRecord:x=>!!x&&typeof x==='object'&&!Array.isArray(x),
  validDate:s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&
@@ -264,4 +266,27 @@ test('Cover-source inspirations persist without altering weekly songwriting or W
  assert.deepEqual(plain(loaded.entries),plain(changed.entries));
  assert.equal(loaded.settings.enabled,false);
  assert.equal(cover.removeCoverIdea(loaded,'cover-idea-1').coverIdeas.length,0);
+});
+
+
+test('Translation Workbench saves authorized sources and English versions across Songbook reload',()=>{
+ const p=translations.createTranslationProject({
+  id:'translation-test1',title:'Original short Japanese poem',
+  sourceLyrics:'夜に星が光る\n希望はここにある',
+  rightsBasis:'owned',acknowledged:true,
+  now:new Date('2026-11-25T00:00:00.000Z'),
+ });
+ let bookState=translations.addTranslationProject(book.validateSongbook(null),p);
+ assert.equal(bookState.weeklyCovers.musicPreference,'any');
+ bookState=translations.updateTranslationLine(bookState,p.id,0,'english','Starlight in the night',
+  new Date('2026-11-25T00:01:00.000Z'));
+ bookState=translations.saveTranslationVersion(bookState,p.id,'version-001',
+  new Date('2026-11-25T00:02:00.000Z'));
+ book.saveSongbook(bookState);
+ const restored=book.loadSongbook();
+ assert.deepEqual(plain(restored.translations),plain(bookState.translations));
+ assert.equal(restored.translations[0].lines[0].source,'夜に星が光る');
+ assert.equal(restored.translations[0].versions[0].lines[0].english,'Starlight in the night');
+ assert.equal(restored.entries.length,0);
+ assert.equal(restored.weeklyCovers.local.enabled,false);
 });

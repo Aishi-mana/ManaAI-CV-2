@@ -5,6 +5,7 @@ import {readStored,writeStored} from './persistence';
 import {isRecord,validDate} from './validation';
 import {COVER_IDEA_LIMIT,normalizeCoverIdea,type CoverIdea} from './coverDiscovery';
 import {validateWeeklyCovers,type WeeklyCovers} from './weeklyCovers';
+import {validateTranslationProjects,type TranslationProject} from './translationWorkbench';
 
 export const SONGBOOK_KEY='mana.songbook.v1';
 export const SONGBOOK_LIMIT=100;
@@ -42,6 +43,7 @@ export interface SongbookState {
  entries:SongbookEntry[];
  coverIdeas:CoverIdea[];
  weeklyCovers:WeeklyCovers;
+ translations:TranslationProject[];
  lastAttempt?:{slotId:string;at:string};
  lastOutcome?:{at:string;message:string};
 }
@@ -95,6 +97,7 @@ export function validateSongbook(value:unknown):SongbookState {
  const state:SongbookState={
   settings:{enabled:settings.enabled===true&&!!at,timeZone:zone,enabledAt:at,catchUp:settings.catchUp!==false},
   entries:[],coverIdeas:[],weeklyCovers:validateWeeklyCovers(isRecord(value)?value.weeklyCovers:null,zone),
+  translations:validateTranslationProjects(isRecord(value)?value.translations:null),
  };
  const unique=new Set<string>(),slots=new Set<string>();
  if(isRecord(value)&&Array.isArray(value.entries)){

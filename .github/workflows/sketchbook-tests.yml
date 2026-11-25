@@ -10,6 +10,9 @@ on:
       - 'src/core/coverSelection.ts'
       - 'src/core/animeCoverPreference.ts'
       - 'src/core/songbookIdeas.ts'
+      - 'src/core/translationWorkbench.ts'
+      - 'src/core/translationIdeas.ts'
+      - 'src/components/TranslationWorkbench.tsx'
       - 'src/core/musicStudio.ts'
       - 'src/components/SingingDrawer.tsx'
       - 'src/core/originalSong.ts'
@@ -20,6 +23,7 @@ on:
       - 'tests/weekly-covers.test.cjs'
       - 'tests/anime-cover-preference.test.cjs'
       - 'tests/songbook-ideas.test.cjs'
+      - 'tests/translation-*.test.cjs'
       - 'src/core/imageReliability.ts'
       - 'src/core/imageSession.ts'
       - 'src/core/imageGeneration.ts'
@@ -43,6 +47,6 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Run creative-book test suites
-        run: node --test tests/sketchbook*.test.cjs tests/songbook*.test.cjs tests/cover-discovery.test.cjs tests/cover-handoff.test.cjs tests/weekly-covers.test.cjs tests/anime-cover-preference.test.cjs tests/songbook-ideas.test.cjs
+        run: node --test tests/sketchbook*.test.cjs tests/songbook*.test.cjs tests/cover-discovery.test.cjs tests/cover-handoff.test.cjs tests/weekly-covers.test.cjs tests/anime-cover-preference.test.cjs tests/songbook-ideas.test.cjs tests/translation-*.test.cjs
       - name: Compile TypeScript and frontend
         run: npm run build

@@ -171,3 +171,16 @@ before marking this feature accepted on the laptop.
       underlying cover's lyrics, or authorize unauthorized uses. Translation of
       an existing anime opening is an explicitly **unimplemented future feature**
       requiring review of adaptation rights and a usable English singing guide.
+
+
+## Phase 3A — Japanese → English lyric translation workbench (text only)
+
+- [ ] Pull/rebuild the new code, then open **More → Songbook → English Lyric Translation Workbench**. Existing original songs, Tuesday local covers, Friday web covers, approved recordings, schedule toggles and Music Studio remain unchanged.
+- [ ] Create a project using **only your own original Japanese test lyrics or lyrics for which you have permission to translate/adapt**. Enter a working title, a 1–16-line excerpt, select a valid adaptation-rights basis and explicitly acknowledge permission.
+- [ ] Confirm creating a project without acknowledgment or without source lyrics is blocked. Paste 17+ lines, an empty excerpt, or a line over 220 characters; creation should reject invalid source without deleting what you typed.
+- [ ] Start Mana's **local chat model**, press **Ask Mana for English draft**, and verify that exactly one English suggestion is produced for each supplied Japanese line, in the same order. Source lines remain read-only and unchanged.
+- [ ] Edit a line into natural singable English, add a phrasing/rhyme note and an optional syllable target. An approximate English syllable count and difference should appear; **this is not timing, pitch detection or proof a melody fits**.
+- [ ] Save **Version 1**, change the wording, save **Version 2**, and restore Version 1 after the explicit confirmation. Verify Version 2 and the Japanese source remain untouched.
+- [ ] Close/reopen Songbook and restart Mana. Verify each project's source lines, working English copy, rights basis, and all saved versions persist in the existing **local** Songbook storage. No automatic lyrics retrieval or web request should occur.
+- [ ] Run the model with malformed or incomplete JSON, cancel in progress, and try again while editing. A failed, stopped or stale proposal should not overwrite the working text or saved versions.
+- [ ] Confirm the editor cannot generate WAVs, MIDI, translated vocals, an English singing guide or any cover audio yet. These belong to later phases 3B–3C. Permission to adapt and to use any backing recording must be verified separately by the owner.
