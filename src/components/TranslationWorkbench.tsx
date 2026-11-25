@@ -16,6 +16,7 @@ interface Props{
  drafting:boolean;
  status:string;
  draftUnavailableReason:string;
+ voiceHandoffUnavailableReason:string;
  onCreate:(title:string,source:string,basis:AdaptationRightsBasis,acknowledged:boolean)=>boolean;
  onDraft:(id:string)=>void;
  onStop:()=>void;
@@ -33,7 +34,7 @@ interface Props{
  onPrepareEnglishGuide:(id:string,guideRights:GuideRecordingRightsBasis,guideAcknowledged:boolean,withBacking:boolean,backingRights?:GuideRecordingRightsBasis,backingAcknowledged?:boolean)=>void;
 }
 export default function TranslationWorkbench({
- projects,busy,drafting,status,draftUnavailableReason,onCreate,onDraft,onStop,onEdit,onSaveVersion,onRestoreVersion,onRemove,
+ projects,busy,drafting,status,draftUnavailableReason,voiceHandoffUnavailableReason,onCreate,onDraft,onStop,onEdit,onSaveVersion,onRestoreVersion,onRemove,
  onImportMelody,onEditMelody,onSeedMelody,onSyncMelody,onReviewMelody,onRemoveMelody,onExportMelody,onPrepareEnglishGuide,
 }:Props){
  const [title,setTitle]=useState('');
@@ -177,7 +178,7 @@ export default function TranslationWorkbench({
     onSync={onSyncMelody} onReview={onReviewMelody}
     onRemove={onRemoveMelody} onExport={onExportMelody}/>
    <TranslationVoicePanel project={selected} busy={busy}
-    unavailableReason={draftUnavailableReason} onPrepare={onPrepareEnglishGuide}/>
+    unavailableReason={voiceHandoffUnavailableReason} onPrepare={onPrepareEnglishGuide}/>
    <button className="btn" type="button" disabled={busy} onClick={()=>{
     if(window.confirm('Remove this draft and all its saved versions? This cannot be undone.')){onRemove(selected.id);setSelectedId('');}
    }}>Remove translation draft</button>
