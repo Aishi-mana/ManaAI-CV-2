@@ -4,7 +4,7 @@ import {validateLyrics,type LyricLine} from './lyrics';
 import {validateOriginalBrief,type OriginalBrief} from './originalSong';
 import {validateBuilderTracks,type BuilderTrack} from './coverBuilder';
 import type {CoverAttribution} from './coverHandoff';
-import type {TranslationAttribution} from './translationHandoff';
+import type {TranslationAttribution,GuideRecordingRightsBasis} from './translationHandoff';
 export const STUDIO_PROJECT_LIMIT=1000;
 export const TRAINED_SINGING_VOICE=TRAINED_MANA_MODEL;
 export const SINGING_REFERENCE='C:/AI/ManaAI-CV-2/data/custom-voice/references/mana-v2/singing-stable-v1.wav';
