@@ -17,7 +17,7 @@ interface Props {
  translationStatus:string;
  translationBusy:boolean;
  translationDraftUnavailableReason:string;
- onCreateTranslation:(title:string,source:string,basis:AdaptationRightsBasis,acknowledged:boolean)=>void;
+ onCreateTranslation:(title:string,source:string,basis:AdaptationRightsBasis,acknowledged:boolean)=>boolean;
  onDraftTranslation:(id:string)=>void;
  onEditTranslation:(id:string,index:number,field:TranslationEditField,value:string|number)=>void;
  onSaveTranslationVersion:(id:string)=>void;
