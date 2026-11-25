@@ -870,6 +870,92 @@ pub async fn singing_band_mix(app:tauri::AppHandle,paths:Vec<String>,gains:Vec<f
     }).await.map_err(|e|e.to_string())?
 }
 
+/// Only the generated trained Mana vocal and a separately imported backing WAV
+/// may be mixed. Both files must live under the app's own singing exports.
+fn english_mix_input_shapes(vocal:&Path,backing:&Path)->bool{
+ let voice_name=vocal.file_name().and_then(|s|s.to_str());
+ let backing_name=backing.file_name().and_then(|s|s.to_str());
+ let voice_dir=vocal.parent().and_then(Path::file_name).and_then(|s|s.to_str()).unwrap_or("");
+ let backing_dir=backing.parent().and_then(Path::file_name).and_then(|s|s.to_str()).unwrap_or("");
+ voice_name==Some("vc_mana-trained-v1.wav") &&
+ !voice_dir.is_empty()&&voice_dir.chars().all(|c|c.is_ascii_digit()) &&
+ backing_name==Some("track.wav")&&backing_dir.starts_with("import-")&&
+ backing_dir.len()>7&&backing_dir[7..].chars().all(|c|c.is_ascii_digit())
+}
+
+#[tauri::command]
+pub async fn songbook_mix_translation_backing(vocal:String,backing:String)
+ ->Result<serde_json::Value,String>{
+ tauri::async_runtime::spawn_blocking(move||{
+  let root=Path::new(r"C:\AI\ManaAI-CV-2\exports\singing")
+   .canonicalize().map_err(|_|"Singing export folder is missing.")?;
+  let v=Path::new(&vocal).canonicalize().map_err(|_|"Generated Mana vocal is missing.")?;
+  let b=Path::new(&backing).canonicalize().map_err(|_|"Approved imported backing is missing.")?;
+  if v==b||!v.starts_with(&root)||!b.starts_with(&root)||
+     !v.is_file()||!b.is_file()||!english_mix_input_shapes(&v,&b){
+   return Err("Choose a generated trained Mana vocal and an imported instrumental backing.".to_string());
+  }
+  let length=wav_seconds(&v).ok_or("Could not read Mana vocal duration.")?;
+  let backing_length=wav_seconds(&b).ok_or("Could not read imported backing duration.")?;
+  if !(1.0..=3600.0).contains(&length)||!backing_length.is_finite()||
+      (length-backing_length).abs()>1.0 {
+   return Err("The imported instrumental must align with the Mana vocal within one second.".to_string());
+  }
+  if [v.as_path(),b.as_path()].iter().any(|p|
+     p.metadata().map(|m|m.len()>512_000_000).unwrap_or(true)){
+   return Err("Guide and backing audio must be under 512 MB each.".to_string());
+  }
+  let ffmpeg=Path::new(r"C:\AI\Applio\ffmpeg.exe");
+  if !ffmpeg.is_file(){return Err("Local FFmpeg is missing.".to_string());}
+  let dir=root.join("mixes");fs::create_dir_all(&dir).map_err(|e|e.to_string())?;
+  let dir=dir.canonicalize().map_err(|e|e.to_string())?;
+  if !dir.starts_with(&root){return Err("Invalid mix output directory.".to_string());}
+  let nonce=std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
+   .map_err(|e|e.to_string())?.as_nanos();
+  let output=dir.join(format!("english-adaptation-{nonce}.wav"));
+  let mut cmd=Command::new(ffmpeg);
+  cmd.args(["-hide_banner","-loglevel","error","-nostdin","-n"])
+   .arg("-i").arg(&v).arg("-i").arg(&b)
+   .args(["-filter_complex",
+    "[0:a]volume=0.9[v];[1:a]volume=0.45[b];[v][b]amix=inputs=2:duration=first:dropout_transition=0:normalize=0,alimiter=limit=0.98[out]",
+    "-map","[out]","-ar","44100","-ac","2","-c:a","pcm_s16le"])
+   .arg(&output).stdout(Stdio::null()).stderr(Stdio::piped());
+  #[cfg(windows)]{use std::os::windows::process::CommandExt;cmd.creation_flags(0x08000000);}
+  let run=cmd.output().map_err(|e|e.to_string())?;
+  if !run.status.success(){
+   let _=fs::remove_file(&output);
+   return Err(format!("English backing mix failed: {}",
+    String::from_utf8_lossy(&run.stderr).chars().take(600).collect::<String>()));
+  }
+  let seconds=wav_seconds(&output).ok_or("The finished instrumental mix is not readable.")?;
+  if seconds<1.0||(seconds-length).abs()>1.0{
+   let _=fs::remove_file(&output);
+   return Err("The instrumental mix duration did not match the singing guide.".to_string());
+  }
+  Ok(serde_json::json!({"mix":output.to_string_lossy().trim_start_matches(r"\\?\").replace('\\',"/"),"seconds":seconds}))
+ }).await.map_err(|e|e.to_string())?
+}
+
+#[cfg(test)]
+mod english_guide_mix_tests{
+ use super::*;
+ #[test]
+ fn only_trained_guide_and_imported_backing_are_accepted(){
+  assert!(english_mix_input_shapes(
+   Path::new("/exports/singing/123456/vc_mana-trained-v1.wav"),
+   Path::new("/exports/singing/import-987654/track.wav")));
+  assert!(!english_mix_input_shapes(
+   Path::new("/exports/singing/import-123/track.wav"),
+   Path::new("/exports/singing/import-987654/track.wav")));
+  assert!(!english_mix_input_shapes(
+   Path::new("/exports/singing/123456/vc_mousey-trained-v2.wav"),
+   Path::new("/exports/singing/import-987654/track.wav")));
+  assert!(!english_mix_input_shapes(
+   Path::new("/exports/singing/123456/vc_mana-trained-v1.wav"),
+   Path::new("/exports/singing/elsewhere/track.wav")));
+ }
+}
+
 #[tauri::command]
 
 pub fn singing_save_mix(bytes:Vec<u8>)->Result<String,String>{
