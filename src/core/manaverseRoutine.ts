@@ -27,6 +27,13 @@ export function manaRoutineDestination(clock:{date:string;time:string},messages:
  return invitation&&visitIsDue(invitation,now)?'living':manaRoutine(clock).place;
 }
 
+// A new completion timestamp opens a new home cycle after its quiet break.
+// Only an already-planned stay at home may start one; never delay a departure.
+export function homeActivityCycleKey({place,destination,slot,night=false,busy=false,cooldownUntil,now=Date.now()}:{place:string;destination:string;slot:string;night?:boolean;busy?:boolean;cooldownUntil?:string;now?:number}){
+ if((place!=='bedroom'&&place!=='living')||place!==destination||night||busy||Date.parse(cooldownUntil??'')>now)return;
+ return `${slot}:${place}:${cooldownUntil??'first'}`;
+}
+
 export function nextManaStop(time:string,place:string){
  return manaDay.find(slot=>slot.start>time&&slot.place!==place)??manaDay.find(slot=>slot.place!==place);
 }

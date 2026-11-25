@@ -5977,3 +5977,241 @@ test('weather reactions require an awake visible actor and discard stale locatio
  instant=Date.parse('2026-11-20T19:30:00Z');interval();assert.equal(render(),null,'no overnight weather chatter');
  for(const slot of slots)slot?.cleanup?.();assert.equal(listeners.size,0);
 });
+
+test('activity preferences accept only supported activities and cited current memories',()=>{
+ const p=loader()('src/core/activityPreferences.ts'),memories=['I enjoy writing little stories.'];
+ const raw={likes:['write'],avoid:['window'],reason:'Writing helps me collect my little stories.',memoryIndexes:[0]};
+ const saved=p.readActivityPreference(JSON.stringify(raw),'luna',memories,new Date('2026-11-26T04:00:00Z'));
+ assert.ok(saved);assert.deepEqual(Array.from(saved.basedOn),memories);
+ assert.equal(p.effectiveActivityPreference('luna',{luna:saved},memories),saved);
+ assert.equal(p.effectiveActivityPreference('luna',{luna:saved},[]),undefined,'forgetting the source removes its influence');
+ for(const invalid of [{...raw,likes:['teleport']},{...raw,likes:['write'],avoid:['write']},{...raw,memoryIndexes:[]},{...raw,memoryIndexes:[1]},{...raw,memoryIndexes:[.5]},{...raw,likes:['write','sketch','window']},{...raw,reason:'x'.repeat(181)}])assert.equal(p.readActivityPreference(JSON.stringify(invalid),'luna',memories),undefined);
+ assert.equal(p.readActivityPreference('null','luna',memories),undefined);
+ assert.match(p.activityPreferencePrompt('luna',memories),/Distinguish YOUR preferences from another person's tastes/);
+ assert.equal(p.activityPreferenceContext('luna',{luna:saved},[]),'');
+ assert.match(p.activityPreferenceContext('luna',{luna:saved},memories),/not completed activities/);
+ const r=loader()('src/core/companionRoom.ts'),restored=r.validateRoom(JSON.parse(JSON.stringify({activityPreferences:{luna:saved}})));
+ assert.deepEqual(JSON.parse(JSON.stringify(restored.activityPreferences.luna)),JSON.parse(JSON.stringify(saved)));
+ assert.equal(r.validateRoom({activityPreferences:{aishi:saved,luna:{...saved,likes:['tinker']}}}).activityPreferences,undefined);
+});
+
+test('activity preferences gently bias free-time choices while keeping variety and reducing immediate repeats',()=>{
+ const load=loader(),p=load('src/core/activityPreferences.ts');
+ const sample=(owner,prefs={},memories=[],previous,goal)=>Array.from({length:1000},(_,i)=>p.chooseResidentFreeActivity(owner,prefs,memories,previous,goal,(i+.5)/1000).pose);
+ const count=(values,id)=>values.filter(value=>value===id).length;
+ for(const [owner,favorite,other] of [['luna','sketch','write'],['lyra','read','bottle']]){
+  const base=sample(owner);assert.equal(new Set(base).size,3);assert.ok(count(base,favorite)>count(base,other));
+  assert.ok(count(sample(owner,{},[],favorite),favorite)<count(base,favorite));
+  assert.ok(count(sample(owner,{},[],undefined,other),other)>count(base,other));
+ }
+ const memory=['I enjoy writing little stories.'],saved=p.readActivityPreference(JSON.stringify({likes:['write'],avoid:['sketch'],reason:'I enjoy writing.',memoryIndexes:[0]}),'luna',memory);
+ assert.ok(count(sample('luna',{luna:saved},memory),'write')>count(sample('luna'),'write'));
+ assert.deepEqual(sample('luna',{luna:saved},[]),sample('luna'),'forgotten preference returns to normal interests');
+ const r=load('src/core/companionRoom.ts'),state=r.validateRoom({energy:100}),at=new Date('2026-11-26T12:00:00Z'),manaMemory=['I enjoy reading in the evening.'];
+ const mana=p.readActivityPreference(JSON.stringify({likes:['read'],avoid:[],reason:'Reading sounds relaxing.',memoryIndexes:[0]}),'mana',manaMemory);
+ const home=prefs=>Array.from({length:1000},(_,i)=>r.chooseRoomActivity({...state,activityPreferences:prefs},at,'Asia/Singapore',(i+.5)/1000,manaMemory));
+ assert.ok(count(home({mana}),'read')>count(home({}),'read'));assert.equal(new Set(home({mana})).size,8);
+});
+
+test('activity preference memory inputs exclude user-only facts and stay bounded',()=>{
+ const p=loader()('src/core/activityPreferences.ts');
+ const values=p.manaPreferenceMemories([{category:'user',content:'The user enjoys racing.',importance:10,pinned:true},{category:'mana',content:'I like reading.',importance:6,pinned:false},{category:'shared',content:'We sketch together.',importance:8,pinned:true}]);
+ assert.deepEqual(Array.from(values),['We sketch together.','I like reading.']);
+ assert.equal(p.preferenceMemories(Array.from({length:20},(_,i)=>String(i)+'x'.repeat(600))).length,12);assert.ok(p.preferenceMemories(['x'.repeat(600)])[0].length<=400);
+});
+
+test('activity preference background updates discard stale memories, sleep results and repeated unsupported suggestions',async()=>{
+ let instant=Date.parse('2026-11-26T04:00:00Z'),slots=[],cursor=0,run,night=false,calls=0,resolve,saveCount=0;
+ class ClockDate extends Date{constructor(...args){super(...(args.length?args:[instant]));}static now(){return instant;}}
+ const react={useRef(initial){const id=cursor++;return slots[id]??(slots[id]={current:initial});},useState(initial){const id=cursor++;if(!Object.hasOwn(slots,id))slots[id]=typeof initial==='function'?initial():initial;return [slots[id],value=>slots[id]=value];}};
+ const load=loader({react,'./useSceneTask':{useSceneTask:(enabled,ready,interval,lease,task)=>run=enabled&&ready?task:undefined},'../core/companionRoom':{saveRoom:()=>saveCount++,roomSleepNight:()=>night?'2026-11-25':undefined}},{Date:ClockDate,document:{visibilityState:'visible'}});
+ const {useActivityPreferences}=load('src/components/useActivityPreferences.ts'),p=load('src/core/activityPreferences.ts'),room={current:{layout:2,energy:50}},source={mana:['I enjoy reading.'],luna:[],lyra:[]};
+ const suggestion=memory=>({likes:['read'],avoid:[],reason:'I enjoy reading.',basedOn:[memory],updatedAt:new ClockDate().toISOString()});
+ let choose=()=>{calls++;return new Promise(done=>resolve=done);},enabled=true;
+ function render(){cursor=0;return useActivityPreferences(room,enabled,true,'Asia/Singapore',{current:undefined},owner=>source[owner],(...args)=>choose(...args));}
+ render();const first=run(new AbortController().signal);source.mana=['I enjoy quiet reading.'];resolve(suggestion('I enjoy reading.'));await first;assert.equal(saveCount,0);
+ choose=async()=>{calls++;return suggestion(source.mana[0]);};room.current.energy=70;render();await run(new AbortController().signal);assert.equal(saveCount,1);assert.equal(room.current.energy,70);assert.ok(room.current.activityPreferences.mana);
+ render();await run(new AbortController().signal);assert.equal(calls,2,'fresh supported preference does not trigger another AI call');
+ source.mana=['I like reading new books.'];choose=()=>{calls++;return new Promise(done=>resolve=done);};render();const pending=run(new AbortController().signal);night=true;resolve(suggestion(source.mana[0]));await pending;assert.equal(saveCount,1,'late AI result cannot update while everyone sleeps');
+ night=false;source.mana=['I have no activity preference.'];choose=async()=>{calls++;return undefined;};render();await run(new AbortController().signal);const after=calls;await run(new AbortController().signal);assert.equal(calls,after,'unsupported memories have a six-hour retry cooldown');
+ source.mana=[];render();assert.equal(render().summaries.find(item=>item.owner==='mana').reason,undefined,'forgotten sources immediately clear the displayed reason');
+ enabled=false;render();assert.equal(run,undefined);
+});
+
+test('home activity cycles repeat after rest without taking over departures, visits or bedtime',()=>{
+ const {homeActivityCycleKey,manaRoutineDestination}=loader()('src/core/manaverseRoutine.ts'),now=Date.parse('2026-11-26T12:00:00Z');
+ const home={place:'bedroom',destination:'bedroom',slot:'2026-11-26T20:00',now};
+ const first=homeActivityCycleKey(home);assert.ok(first);
+ const cooldownUntil=new Date(now+30_000).toISOString();assert.equal(homeActivityCycleKey({...home,cooldownUntil}),undefined);
+ const next=homeActivityCycleKey({...home,cooldownUntil,now:now+30_000});assert.ok(next);assert.notEqual(first,next,'a completed session permits another activity in the SAME evening');
+ assert.equal(homeActivityCycleKey({...home,night:true}),undefined);assert.equal(homeActivityCycleKey({...home,busy:true}),undefined);
+ assert.equal(homeActivityCycleKey({...home,destination:'office'}),undefined);assert.equal(homeActivityCycleKey({...home,place:'workshop',destination:'workshop'}),undefined);
+ assert.ok(homeActivityCycleKey({...home,place:'living',destination:'living'}));
+ assert.equal(manaRoutineDestination({date:'2026-11-26',time:'08:00'},[]),'office');assert.equal(manaRoutineDestination({date:'2026-11-26',time:'22:00'},[],true),'bedroom');
+});
+
+test('home activity selection uses only activities supported by the current room and still follows preferences',()=>{
+ const load=loader(),r=load('src/core/companionRoom.ts'),state=r.validateRoom({energy:100}),now=new Date('2026-11-26T00:00:00Z');
+ const sample=room=>Array.from({length:1000},(_,i)=>r.chooseRoomActivity(room,now,'Asia/Singapore',(i+.5)/1000,[],['water','read','sleep']));
+ const choices=sample(state);assert.deepEqual([...new Set(choices)].sort(),['read','sleep','water']);
+ assert.ok(sample({...state,energy:20}).filter(id=>id==='sleep').length>choices.filter(id=>id==='sleep').length);
+ assert.ok(sample({...state,lastActivity:'water'}).filter(id=>id==='water').length<choices.filter(id=>id==='water').length);
+ assert.equal(r.ROOM_TIMING.homePause,30_000);
+});
+
+test('living home activities walk to the right furniture and can start a fresh cycle after completion',()=>{
+ let slots=[],cursor=0,pending=[],nextTimer=1;const timers=new Map(),done=[],positions=[],jsx=(type,props)=>({type,props});
+ const react={useState(initial){const id=cursor++;if(!Object.hasOwn(slots,id))slots[id]=typeof initial==='function'?initial():initial;return [slots[id],value=>slots[id]=typeof value==='function'?value(slots[id]):value];},useRef(initial){const id=cursor++;return slots[id]??(slots[id]={current:initial});},useEffect(effect,deps){const id=cursor++,previous=slots[id];if(previous&&deps.every((value,index)=>Object.is(value,previous.deps[index])))return;const entry={deps};slots[id]=entry;pending.push(()=>{previous?.cleanup?.();entry.cleanup=effect();});}};
+ const stub={__esModule:true,default:()=>null};
+ const load=loader({react,'react/jsx-runtime':{jsx,jsxs:jsx},'./SceneViewport':stub,'./MapTransferArrow':stub,'./CharacterGesture':stub,'./ResidentSprite':stub,'./ManaSprite':stub,'./SceneVoice':{useSceneLine:()=>undefined}},{window:{matchMedia:()=>({matches:true}),setTimeout:(fn,ms)=>{const id=nextTimer++;timers.set(id,{fn,ms});return id;}},clearTimeout:id=>timers.delete(id),cancelAnimationFrame(){},document:{visibilityState:'visible'},requestAnimationFrame:()=>1});
+ const Living=load('src/components/LivingSpace.tsx'),r=load('src/core/companionRoom.ts');
+ const props={position:Living.livingSpaceEntry,onPosition:p=>{positions.push(p);props.position=p;},present:true,shown:true,sleeping:false,returning:false,streetExit:false,memories:{},onRemember(){},onBedroom(){},onStreet(){},onReturn(){},onActivityDone:id=>done.push(id),onVisitAvailability(){},onManaIdle(){},onActivityStatus(){},onVisitorAway(){},onVisitorPresent(){},onVisitorPreparing(){},visitorAtDoor:null,onStreetGuest(){}};
+ function render(){cursor=0;pending=[];const tree=Living.default(props);pending.forEach(effect=>effect());return tree;}
+ for(const [index,kind,pieceId] of [[1,'read','bookshelf'],[2,'sleep','chair'],[3,'water','plant']]){
+  props.scheduledActivity=undefined;render();props.scheduledActivity='cycle-'+index;props.scheduledKind=kind;render();render();
+  const piece=r.livingFurnishings.find(piece=>piece.id===pieceId),target=r.roomPosition(piece.x+piece.width/2,piece.footprint.bottom+14,r.livingFurnishings);
+  assert.deepEqual(positions.at(-1),target,kind+' walks to its own furniture');
+  const session=[...timers.entries()].find(([,timer])=>timer.ms===r.ROOM_TIMING.activity);assert.ok(session);timers.delete(session[0]);session[1].fn();render();assert.equal(done.at(-1),kind);
+ }
+ const count=positions.length;props.sleeping=true;props.scheduledActivity='sleep-blocked';render();assert.equal(positions.length,count);
+ props.sleeping=false;props.returning=true;props.scheduledActivity='departure-blocked';render();assert.equal([...timers.values()].filter(timer=>timer.ms===r.ROOM_TIMING.activity).length,0);
+ for(const slot of slots)slot?.cleanup?.();
+});
+
+test('small favors use current supported activities and do not require an invented shared past',()=>{
+ const load=loader(),f=load('src/core/smallFavors.ts'),i=load('src/core/memoryInvitations.ts');
+ for(const activity of ['sketch','read','tinker']){
+  const choice=f.smallFavorChoice(activity,[],Date.parse('2026-11-26T04:00:00Z'));
+  assert.equal(choice.activity,activity);assert.equal(choice.recipient,'aishi');assert.equal(choice.memoryId,undefined);assert.match(choice.fact,/first request/);
+  assert.match(i.memoryInvitationPrompt(choice.owner,[choice]),/small optional favor/);
+  assert.ok(i.readMemoryInvitation(JSON.stringify({id:choice.id,text:'Could you help me choose?'}),[choice]));
+  for(const text of ['Thanks for helping me finish!','You have finished the sketch!','Can we do that again?','Can you help with my new game?'])assert.equal(i.readMemoryInvitation(JSON.stringify({id:choice.id,text}),[choice]),undefined);
+  assert.equal(f.smallFavorAnswer(choice.favor,'unknown'),undefined);
+  const def=f.smallFavors[choice.favor],answer=f.smallFavorAnswer(choice.favor,def.answers[0].id);assert.ok(answer.outcome.startsWith('Aishi '));assert.equal(answer.owner,choice.owner);
+ }
+ const memory={id:'shared-day-aishi-read:lyra:aishi',owner:'lyra',with:'aishi',fact:'Aishi and Lyra read together.',at:'2026-11-26T03:00:00Z'};
+ assert.equal(f.smallFavorChoice('read',[memory],Date.parse('2026-11-26T04:00:00Z')).memoryId,memory.id);
+ assert.equal(f.smallFavorChoice('sketch',[memory],Date.parse('2026-11-26T04:00:00Z')).memoryId,undefined);
+ assert.equal(f.smallFavorNearby('read','library',{x:39,y:62},false,true),true);
+ assert.equal(f.smallFavorNearby('read','library',{x:70,y:80},false),false);
+ assert.equal(f.smallFavorNearby('read','park',{x:39,y:62},false),false);
+ assert.equal(f.smallFavorNearby('read','library',{x:39,y:62},true),false);
+});
+
+test('small favors walk before answering, record only a chosen answer once, and respect cooldown and sleep',async()=>{
+ let instant=Date.parse('2026-11-26T04:00:00Z'),slots=[],cursor=0,pending=[],run,offered=0,joined=0,completed=[],sleeping=false;
+ class ClockDate extends Date{constructor(...args){super(...(args.length?args:[instant]));}static now(){return instant;}}
+ const react={useState(initial){const id=cursor++;if(!Object.hasOwn(slots,id))slots[id]=initial;return [slots[id],value=>slots[id]=typeof value==='function'?value(slots[id]):value];},useRef(initial){const id=cursor++;return slots[id]??(slots[id]={current:initial});},useEffect(effect,deps){const id=cursor++,previous=slots[id];if(previous&&deps.every((value,index)=>Object.is(value,previous.deps[index])))return;const entry={deps};slots[id]=entry;pending.push(()=>{previous?.cleanup?.();entry.cleanup=effect();});}};
+ const actor={dataset:{},closest:()=>null,querySelector:()=>({getAttribute:()=>null})},listeners=new Map();
+ const doc={visibilityState:'visible',addEventListener:(key,fn)=>listeners.set(key,fn),removeEventListener:key=>listeners.delete(key)};
+ const load=loader({react,'./useSceneTask':{useSceneTask:(enabled,ready,interval,lease,fn)=>run=enabled&&ready?fn:undefined},'../core/companionRoom':{roomSleepNight:()=>sleeping?'2026-11-25':undefined}},{Date:ClockDate,document:doc,window:{setTimeout:()=>1},clearTimeout(){}});
+ const {useSmallFavors}=load('src/components/useSmallFavors.ts');
+ const options={enabled:true,ready:true,timeZone:'Asia/Singapore',room:{current:{sharedMemories:[]}},lease:{current:undefined},root:{current:{querySelector:selector=>selector.includes('scene-open-chat')?null:actor}},available:'read',area:'library',point:{x:45,y:64},walking:false,joining:undefined,
+  choose:async(owner,choices)=>{offered++;return {choice:choices[0],text:'Could you help me choose a reading pace?'};},join:()=>{joined++;options.walking=true;options.joining='read';return true;},onComplete:(...args)=>completed.push(args)};
+ function render(){cursor=0;pending=[];const result=useSmallFavors(options);pending.forEach(effect=>effect());return result;}
+ let ui=render();await run(new AbortController().signal);assert.equal(offered,0);
+ instant+=60_000;await run(new AbortController().signal);ui=render();assert.equal(ui.favor.stage,'offered');assert.equal(completed.length,0);
+ ui.answer('slow');assert.equal(completed.length,0);ui.accept();ui=render();assert.equal(joined,1);assert.equal(ui.favor.stage,'helping');
+ ui.answer('slow');assert.equal(completed.length,0,'walking is not completion');
+ options.point={x:39,y:62};options.walking=false;render();ui=render();assert.equal(ui.favor.stage,'answering');
+ ui.answer('slow');ui.answer('steady');ui=render();assert.equal(completed.length,1);assert.match(completed[0][2],/A little slower/);assert.equal(completed[0][3],'lyra');assert.equal(ui.favor.stage,'completed');
+ ui.dismiss();ui=render();options.joining=undefined;await run(new AbortController().signal);assert.equal(offered,1,'no immediate repeat');
+ instant+=21*60_000;render();await run(new AbortController().signal);ui=render();assert.equal(ui.favor.stage,'offered');
+ // Already at the shared spot: answer without trying an impossible zero-length walk.
+ ui.accept();render();ui=render();assert.equal(ui.favor.stage,'answering');assert.equal(joined,1);
+ ui.dismiss();render();sleeping=true;instant+=21*60_000;await run(new AbortController().signal);assert.equal(offered,2);
+ sleeping=false;options.available=undefined;render();await run(new AbortController().signal);assert.equal(offered,2);
+ for(const slot of slots)slot?.cleanup?.();assert.equal(listeners.size,0);
+});
+
+test('small favor AI replies are discarded when the host leaves, Aishi moves away, or a cited memory is forgotten',async()=>{
+ let now=Date.parse('2026-11-26T04:00:00Z'),slots=[],cursor=0,run,resolve,records=0;
+ class ClockDate extends Date{constructor(...args){super(...(args.length?args:[now]));}static now(){return now;}}
+ const react={useState(initial){const id=cursor++;if(!Object.hasOwn(slots,id))slots[id]=initial;return [slots[id],value=>slots[id]=value];},useRef(initial){const id=cursor++;return slots[id]??(slots[id]={current:initial});},useEffect(){cursor++;}};
+ const actor={dataset:{},closest:()=>null,querySelector:()=>null};
+ const load=loader({react,'./useSceneTask':{useSceneTask:(enabled,ready,interval,lease,fn)=>run=fn},'../core/companionRoom':{roomSleepNight:()=>undefined}},{Date:ClockDate,document:{visibilityState:'visible'},window:{setTimeout:()=>1},clearTimeout(){}});
+ const hook=load('src/components/useSmallFavors.ts').useSmallFavors,room={current:{sharedMemories:[{id:'shared-old-aishi-read:lyra:aishi',owner:'lyra',with:'aishi',fact:'We read together.',at:'2026-11-26T01:00:00Z'}]}};
+ const options={enabled:true,ready:true,timeZone:'Asia/Singapore',room,lease:{current:undefined},root:{current:{querySelector:selector=>selector.includes('scene-open-chat')?null:actor}},available:'read',area:'library',point:{x:39,y:62},walking:false,choose:async(owner,choices)=>new Promise(done=>resolve=()=>done({choice:choices[0],text:'Could you choose a pace?'})),join:()=>true,onComplete:()=>records++};
+ function render(){cursor=0;return hook(options);}
+ render();now+=60_000;options.allowOffers=false;render();await run(new AbortController().signal);assert.equal(resolve,undefined,'wind-down pauses new favors');options.allowOffers=true;render();let pending=run(new AbortController().signal);options.available=undefined;render();resolve();await pending;assert.equal(render().favor,undefined);
+ options.available='read';now+=21*60_000;render();pending=run(new AbortController().signal);room.current.sharedMemories=[];resolve();await pending;assert.equal(render().favor,undefined);
+ now+=21*60_000;render();pending=run(new AbortController().signal);options.point={x:90,y:90};render();resolve();await pending;assert.equal(render().favor,undefined);assert.equal(records,0);
+});
+
+test('friendship habits count completed shared moments once and ignore future or cancelled records',()=>{
+ const load=loader(),shared=load('src/core/residentRelationships.ts'),h=load('src/core/friendshipHabits.ts'),now=Date.parse('2026-11-26T04:00:00Z');
+ const history=shared.rememberSharedActivity([],'shared-2026-11-20-cafe-meetup','Coffee Shop meetup','Mana and Luna caught up.',['mana','luna'],new Date('2026-11-20T04:00:00Z'));
+ assert.equal(history.length,2);
+ const rows=h.friendshipHabitSummaries(history,now);assert.equal(rows.length,1);assert.equal(rows[0].moments,1,'reciprocal character memories count as one meeting');
+ const extra=[...history,{...history[0],id:'invitation:mana:luna',activity:'Invitation'},{...history[0],id:'cancelled:mana:luna',activity:'Cancelled meetup'},{...history[0],id:'future:mana:luna',at:'2026-12-01T04:00:00Z'}];
+ assert.equal(h.friendshipHabitSummaries(extra,now)[0].moments,1);
+ assert.equal(h.friendshipHabitSummaries([],now).length,0);
+ assert.equal(h.friendshipHabitContext('lyra',history,now),'','another character’s memories are not Lyra’s own past');
+ assert.equal(h.friendshipHabitContext('mana',history.filter(memory=>memory.owner==='luna'),now),'','forgetting Mana’s copy removes it from her AI context');
+ assert.match(h.friendshipHabitContext('mana',history,now),/not feelings or commitments/);
+ assert.match(h.friendshipHabitContext('mana',history,now),/Past company never proves anyone is present now/);
+});
+
+test('friendship choices gently favor familiar company, cap repeated sessions and retain variety',()=>{
+ const load=loader(),h=load('src/core/friendshipHabits.ts'),s=load('src/core/residentRelationships.ts'),now=Date.parse('2026-11-26T04:00:00Z');
+ let memories=[];for(let day=18;day<=23;day++)memories=s.rememberSharedActivity(memories,'cafe-'+day,'Coffee Shop meetup','Mana and Luna caught up.',['mana','luna'],new Date(`2026-11-${day}T04:00:00Z`));
+ const candidates=h.availableFriendshipPairs(true,false),pair=candidates.find(pair=>pair.second==='luna');
+ const sample=rows=>Array.from({length:1000},(_,i)=>h.chooseFriendshipPair(rows,candidates,(i+.5)/1000,now).second);
+ const base=sample([]),familiar=sample(memories),count=rows=>rows.filter(id=>id==='luna').length;
+ assert.ok(count(familiar)>count(base));assert.ok(count(familiar)<650,'familiarity stays a gentle bias');assert.equal(new Set(familiar).size,2);
+ const recent=s.rememberSharedActivity(memories,'just-met','Coffee Shop meetup','Mana and Luna caught up.',['mana','luna'],new Date(now-1000));
+ assert.ok(h.friendshipPairWeight(recent,pair,now)<h.friendshipPairWeight(memories,pair,now),'a recent meeting encourages other company');
+ const repeated=Array.from({length:200},(_,i)=>({id:`session-${i}:mana:luna`,owner:'mana',with:'luna',at:'2026-11-25T04:00:00Z',activity:'Coffee Shop meetup',fact:'We caught up.'}));
+ assert.equal(h.friendshipPairWeight(repeated,pair,now),h.friendshipPairWeight(repeated.slice(0,1),pair,now),'repeated completions in one session do not inflate familiarity');
+ assert.deepEqual(sample([]),base,'forgetting all evidence restores neutral choice weights');assert.equal(h.chooseFriendshipPair(memories,[],.5,now),undefined);
+ assert.ok(h.availableFriendshipPairs(true,false).every(pair=>pair.first==='mana'));assert.ok(h.availableFriendshipPairs(false,true).every(pair=>pair.first!=='mana'));
+});
+
+test('friendship-influenced meetups keep sleep and availability gates and do not record invitations as visits',async()=>{
+ let slots=[],cursor=0,jobs=[],now=Date.parse('2026-11-26T04:00:00Z'),roll=.1,meetups=[],friendPlans=[],requests=[];
+ class ClockDate extends Date{constructor(...args){super(...(args.length?args:[now]));}static now(){return now;}}
+ const math=Object.create(Math);math.random=()=>roll;
+ const react={useRef(initial){const id=cursor++;return slots[id]??(slots[id]={current:initial});},useEffect(){cursor++;},useState:initial=>[initial,()=>{}]};
+ const load=loader({react,'./useSceneTask':{useSceneTask:(enabled,ready,interval,lease,run)=>jobs.push(run)}},{Date:ClockDate,Math:math,document:{visibilityState:'visible'}});
+ const hook=load('src/components/useSocialActivities.ts').useSocialActivities;
+ const state={invitationRequest:{current:undefined},setFriendMeetup:plan=>friendPlans.push(plan),setAishiInvitation(){},setGroupJoining(){},setGroupJoinError(){},setGroupJoinReply(){},setGroupJoinPending(){}};
+ const room={current:{sharedMemories:[],phoneMessages:[]}};
+ const options={state,room,visible:true,editing:false,sleeping:false,night:false,manaSpeechReady:true,lighting:'daylight',hasTownEvent:false,townGathering:false,visitorAvailable:true,awayVisitor:null,visitorPreparing:null,hostPlan:false,invitation:false,dive:{root:{current:null},stopJoining(){}},sharedMemories:[],personalGoals:{preferred:()=>undefined},onChooseInvitation:async(owner,choices)=>{requests.push({owner,choices});return {choice:choices[0],text:'Would you like to read together?'};},onAskGroupToJoin:async()=>undefined,startMeetup:(...args)=>{meetups.push(args);return true;}};
+ function render(){cursor=0;jobs=[];hook(options);}
+ render();now+=13*60_000;await jobs[0](new AbortController().signal);assert.equal(meetups.length,1);assert.equal(meetups[0][0],'luna');assert.equal(room.current.sharedMemories.length,0);
+ options.night=true;render();await jobs[0](new AbortController().signal);await jobs[1](new AbortController().signal);assert.equal(meetups.length,1);assert.equal(friendPlans.length,0);
+ options.night=false;options.windDown=true;render();await jobs[1](new AbortController().signal);assert.equal(requests.length,0,'wind-down pauses new social invitations');options.windDown=false;
+ options.night=false;options.editing=true;render();await jobs[1](new AbortController().signal);assert.equal(friendPlans.length,0);
+ options.editing=false;roll=.99;render();await jobs[1](new AbortController().signal);assert.equal(requests.length,2,'both friends decide through the existing AI invitation flow');assert.equal(friendPlans.length,1);assert.equal(room.current.sharedMemories.length,0,'a planned visit is not a completed shared moment');
+});
+
+test('evening wind-down follows the town timezone, ends at bedtime and persists only valid once-per-evening dates',()=>{
+ const load=loader(),w=load('src/core/eveningWindDown.ts'),r=load('src/core/companionRoom.ts');
+ for(const [time,expected] of [['13:44:59',undefined],['13:45:00','2026-11-26'],['13:59:59','2026-11-26'],['14:00:00',undefined],['19:30:00',undefined]])assert.equal(w.eveningWindDown(new Date(`2026-11-26T${time}Z`),'Asia/Singapore'),expected,time);
+ assert.equal(w.eveningWindDown(new Date('2026-11-26T13:50:00Z'),'UTC'),undefined);
+ const dates={mana:'2026-11-26',luna:'2026-11-25',lyra:'2026-11-26'};
+ assert.deepEqual(JSON.parse(JSON.stringify(r.validateRoom(JSON.parse(JSON.stringify({eveningWindDownDates:dates}))).eveningWindDownDates)),dates);
+ assert.equal(Object.keys(w.validateEveningWindDown({mana:'2026-99-99',luna:'2026-02-30',lyra:'bad',aishi:'2026-11-26'})).length,0);
+ for(const owner of ['luna','lyra']){assert.notEqual(w.residentEveningActivity(owner,true).pose,'sleep');assert.match(w.residentEveningActivity(owner,true).status,/putting/);assert.match(w.residentEveningActivity(owner,false).status,/quiet/);}
+ const prompt=w.eveningGoodnightPrompt('Mana','Mana put away her desk things.');assert.match(prompt,/have not gone to sleep yet/);assert.match(prompt,/Do not claim Aishi/);assert.match(prompt,/send a phone message/);
+ assert.ok(r.roomSleepNight(new Date('2026-11-26T14:00:00Z'),'Asia/Singapore'),'existing bedtime remains at 22:00');
+});
+
+test('resident wind-down walks before completing a tidy, records it once, and does not replay on reopening',()=>{
+ for(const resident of ['luna','lyra']){
+  let slots=[],cursor=0,pending=[],next=1,frames=[],completed=[],regular=[],status='',contexts=[];
+  const timers=new Map(),intervals=new Map(),jsx=(type,props)=>({type,props}),instant=Date.parse('2026-11-26T13:46:00Z');
+  class ClockDate extends Date{constructor(...args){super(...(args.length?args:[instant]));}static now(){return instant;}}
+  const react={useState(initial){const id=cursor++;if(!Object.hasOwn(slots,id))slots[id]=typeof initial==='function'?initial():initial;return [slots[id],value=>slots[id]=typeof value==='function'?value(slots[id]):value];},useRef(initial){const id=cursor++;return slots[id]??(slots[id]={current:initial});},useEffect(effect,deps){const id=cursor++,previous=slots[id];if(previous&&deps.every((value,index)=>Object.is(value,previous.deps[index])))return;const entry={deps};slots[id]=entry;pending.push(()=>{previous?.cleanup?.();entry.cleanup=effect();});}};
+  const stub={__esModule:true,default:()=>null};
+  const load=loader({react,'react/jsx-runtime':{jsx,jsxs:jsx},'./ActivityKeepsake':stub,'./MapTransferArrow':stub,'./SceneViewport':stub,'./CharacterGesture':stub,'./ResidentSprite':stub,'./ManaSprite':stub,'./ManaRoomSpeech':stub,'./SceneVoice':{useSceneLine:context=>{contexts.push(context);return undefined;}}},{Date:ClockDate,window:{matchMedia:()=>({matches:true}),setTimeout:(fn,ms)=>{const id=next++;timers.set(id,{fn,ms});return id;},setInterval:fn=>{const id=next++;intervals.set(id,fn);return id;}},clearTimeout:id=>timers.delete(id),clearInterval:id=>intervals.delete(id),requestAnimationFrame:fn=>{frames.push(fn);return next++;},cancelAnimationFrame(){},document:{visibilityState:'visible',addEventListener(){},removeEventListener(){}}});
+  const Room=load('src/components/ResidentRoom.tsx').default,props={resident,shown:true,away:false,outdoors:false,timeZone:'Asia/Singapore',manaPresent:false,onActivityDone:(...args)=>regular.push(args),onActivityStatus:text=>status=text,onStreet(){},onEveningComplete:(...args)=>completed.push(args)};
+  function render(){cursor=0;pending=[];Room(props);pending.forEach(effect=>effect());}
+  function fire(ms){const entry=[...timers].find(([,timer])=>timer.ms===ms);assert.ok(entry,'timer '+ms);timers.delete(entry[0]);entry[1].fn();}
+  function arrive(){let limit=0;while(frames.length){const batch=frames;frames=[];batch.forEach(fn=>fn(++limit));assert.ok(limit<1000);}render();}
+  render();fire(1800);assert.equal(completed.length,0);arrive();assert.match(status,/putting/);assert.equal(regular.length,0);
+  fire(12_000);arrive();assert.equal(completed.length,1);assert.equal(completed[0][0],resident);assert.equal(completed[0][1],'2026-11-26');assert.equal(regular.length,0,'tidying does not fabricate reading or sketching goal progress');assert.match(status,/quiet/);assert.ok(contexts.some(context=>context?.includes('Quiet evening wind-down')));
+  for(const slot of slots)slot?.cleanup?.();slots=[];timers.clear();intervals.clear();frames=[];contexts=[];props.eveningCompleted='2026-11-26';render();fire(1800);arrive();assert.match(status,/quiet/);assert.ok(![...timers.values()].some(timer=>timer.ms===12_000));assert.equal(completed.length,1);assert.ok(!contexts.some(context=>context?.includes('Quiet evening wind-down')),'reopening does not replay the goodnight');
+  for(const slot of slots)slot?.cleanup?.();
+ }
+});

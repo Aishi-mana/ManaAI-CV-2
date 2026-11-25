@@ -199,14 +199,14 @@ function useLivingVisitor(manaPresent:boolean,sleeping:boolean,memories:Partial<
 
 type LivingActivity='water'|'read'|'sleep';
 
-export default function LivingSpace({petBot,renderSpeech,position,onPosition,onBedroom,onStreet,shown,present,returning,onReturn,sleeping,memories,onRemember,scheduledActivity,onActivityDone,phoneVisit,onVisitAvailability,onManaIdle,onActivityStatus,onVisitorAway,onVisitorPresent,onVisitorPreparing,visitorAtDoor,onStreetGuest,streetExit}:{
+export default function LivingSpace({petBot,renderSpeech,position,onPosition,onBedroom,onStreet,shown,present,returning,onReturn,sleeping,memories,onRemember,scheduledActivity,scheduledKind='water',onActivityDone,phoneVisit,onVisitAvailability,onManaIdle,onActivityStatus,onVisitorAway,onVisitorPresent,onVisitorPreparing,visitorAtDoor,onStreetGuest,streetExit}:{
  petBot?:ReactNode;
  renderSpeech?:(feet:{x:number;y:number},activity:string)=>ReactNode;
  position:RoomPosition;onPosition:(position:RoomPosition)=>void;onBedroom:()=>void;
  onStreet:()=>void;
  shown:boolean;present:boolean;returning:boolean;streetExit:boolean;onReturn:(arrived:boolean)=>void;
  sleeping:boolean;memories:Partial<Record<RoomContact,LunaVisitMemory>>;onRemember:(contact:RoomContact,memory:LunaVisitMemory)=>void;
- scheduledActivity?:string;onActivityDone:(id:LivingActivity,label:string)=>void;
+ scheduledActivity?:string;scheduledKind?:LivingActivity;onActivityDone:(id:LivingActivity,label:string)=>void;
  phoneVisit?:{contact:RoomContact};onVisitAvailability:(available:boolean)=>void;onManaIdle:(idle:boolean)=>void;onActivityStatus:(status:string)=>void;
  onVisitorAway:(contact:RoomContact|null)=>void;
  onVisitorPresent:(contact:RoomContact|null)=>void;
@@ -281,10 +281,11 @@ export default function LivingSpace({petBot,renderSpeech,position,onPosition,onB
   cancelAnimationFrame(animation.current);
   setWalking(false);
   setActivity(undefined);
+  lastScheduledActivity.current=undefined;
  },[present]);
  useEffect(()=>()=>cancelAnimationFrame(animation.current),[]);
  useEffect(()=>{
-  if(!present||walking||meeting||returning)return;
+  if(!present||sleeping||walking||meeting||returning)return;
   if(activity){
    const timeout=window.setTimeout(()=>{
     const id=activity===interactions.plant?'water':activity===interactions.bookshelf?'read':'sleep';
@@ -293,12 +294,14 @@ export default function LivingSpace({petBot,renderSpeech,position,onPosition,onB
    },ROOM_TIMING.activity);
    return ()=>clearTimeout(timeout);
   }
-  if(!scheduledActivity||lastScheduledActivity.current===scheduledActivity)return;
-  const plant=livingFurnishings.find(piece=>piece.id==='plant');
-  if(!plant?.footprint)return;
+  if(!scheduledActivity){lastScheduledActivity.current=undefined;return;}
+  if(lastScheduledActivity.current===scheduledActivity)return;
+  const id=scheduledKind==='read'?'bookshelf':scheduledKind==='sleep'?'chair':'plant';
+  const piece=livingFurnishings.find(piece=>piece.id===id);
+  if(!piece?.footprint)return;
   lastScheduledActivity.current=scheduledActivity;
-  walk(plant.x+plant.width/2,plant.footprint.bottom+14,interactions.plant);
- },[activity,present,walking,meeting,returning,scheduledActivity]);
+  walk(piece.x+piece.width/2,piece.footprint.bottom+14,interactions[id]);
+ },[activity,present,sleeping,walking,meeting,returning,scheduledActivity,scheduledKind]);
 
  function walk(x:number,y:number,interaction?:Interaction,onArrival?:(arrived:boolean)=>void){
   if(!present)return;

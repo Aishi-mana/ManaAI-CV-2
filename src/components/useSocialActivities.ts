@@ -11,6 +11,7 @@ import type {ParkChat} from './useParkChat';
 import type {useManaversePlayer} from './useManaversePlayer';
 import type {useTownPersonalGoals} from './useTownPersonalGoals';
 import {useSceneTask} from './useSceneTask';
+import {availableFriendshipPairs,chooseFriendshipPair} from '../core/friendshipHabits';
 
 export function useTownSocialState(){
  const invitationRequest=useRef<AbortController|undefined>(undefined);
@@ -66,6 +67,8 @@ export function useSocialMeetups({state,room,sleeping,visitorAvailable,hostPlann
 }
 
 type SocialOptions={
+ windDown?:boolean;
+ smallFavorActive?:boolean;favorCooldownUntil?:number;
  sheltering?:boolean;
  state:TownSocialState;room:RefObject<RoomState>;visible:boolean;editing:boolean;sleeping:boolean;night:boolean;
  manaSpeechReady:boolean;lighting:string;hasTownEvent:boolean;townGathering:boolean;visitorAvailable:boolean;
@@ -99,7 +102,9 @@ export function useSocialActivities(options:SocialOptions){
  useSceneTask(visible,manaSpeechReady,60_000,invitationRequest,async signal=>{
   if(hasTownEvent||Date.now()-lastAutonomousMeetup.current<12*60_000||
    !invitationGate.current.npc||current.current.pondSketch?.status==='invited'||Math.random()>=.35)return;
-  const contact:RoomContact=Math.random()<.5?'luna':'lyra';
+  const pair=chooseFriendshipPair(current.current.sharedMemories??[],availableFriendshipPairs(!!invitationGate.current.npc,!!invitationGate.current.friends));
+  if(!pair||pair.first!=='mana')return;
+  const contact=pair.second as RoomContact;
   const choices=memoryInvitations(current.current.sharedMemories??[],contact,'mana')
    .filter(choice=>(!sheltering||choice.activity==='cafe')&&(choice.parkActivity!=='stars'||lighting==='night'));
   if(!choices.length){
@@ -166,15 +171,17 @@ export function useSocialActivities(options:SocialOptions){
   `.manaverse-park-map .character-gesture:has(button[aria-label="Interact with ${ROOM_CONTACTS[groupJoinReply.host].name}"])`):undefined;
  invitationGate.current={
   sheltering,
-  npc:visible&&!editing&&!sleeping&&!night&&visitorAvailable&&!meetup&&!friendMeetup&&!hostPlan&&!invitation&&
+  npc:visible&&!editing&&!sleeping&&!night&&!options.windDown&&visitorAvailable&&!meetup&&!friendMeetup&&!hostPlan&&!invitation&&
    !hasTownEvent&&document.visibilityState==='visible',
-  friends:!sheltering&&visible&&!editing&&!sleeping&&!night&&visitorAvailable&&!meetup&&!friendMeetup&&!hostPlan&&!invitation&&
+  friends:!sheltering&&visible&&!editing&&!sleeping&&!night&&!options.windDown&&visitorAvailable&&!meetup&&!friendMeetup&&!hostPlan&&!invitation&&
    !awayVisitor&&!visitorPreparing&&!townGathering&&!cafeEncounter&&!aishiJoining&&!parkChat&&document.visibilityState==='visible',
-  aishi:visible&&!editing&&!sleeping&&!friendMeetup&&!aishiJoining&&document.visibilityState==='visible'?availableJoin:undefined,
+  aishi:visible&&!editing&&!sleeping&&!night&&!options.windDown&&!options.smallFavorActive&&Date.now()>=(options.favorCooldownUntil??0)&&!friendMeetup&&!aishiJoining&&document.visibilityState==='visible'?availableJoin:undefined,
  };
  const lastFriendOffer=useRef(Date.now());
  useSceneTask(visible,manaSpeechReady,60_000,invitationRequest,async signal=>{
   if(!invitationGate.current.friends||Date.now()-lastFriendOffer.current<10*60_000)return;
+  const pair=chooseFriendshipPair(current.current.sharedMemories??[],availableFriendshipPairs(!!invitationGate.current.npc,true));
+  if(!pair||pair.first==='mana')return;
   const host:RoomContact=Math.random()<.5?'luna':'lyra';
   const guest:RoomContact=host==='luna'?'lyra':'luna';
   const available=residentFriendChoices(current.current.sharedMemories??[],host);

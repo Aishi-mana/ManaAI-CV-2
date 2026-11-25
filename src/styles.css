@@ -2228,3 +2228,6 @@ button, input, select, textarea { font: inherit; color: inherit; }
  .songbook-melody-seed>.songbook-translation-field {width:100%;}
  .songbook-melody-notes {max-height:310px;}
 }
+.small-favor-panel { max-width: 32rem; margin: .5rem auto; padding: .7rem 1rem; border: 1px solid var(--mist-deep); border-radius: 14px; background: var(--milk); }
+.small-favor-panel p { margin: .4rem 0; }
+.small-favor-panel .btn { margin: .25rem; }

@@ -19,13 +19,24 @@ import RoomSpeech from './ManaRoomSpeech';
 
 import {residentProfiles,type ResidentActivity,type ResidentId} from '../core/residentProfiles';
 import {chooseResidentFreeActivity,type ActivityPreferences} from '../core/activityPreferences';
+import {eveningWindDown,residentEveningActivity,eveningGoodnightPrompt,EVENING_TIDY_MS} from '../core/eveningWindDown';
 
-export default function ResidentRoom({preferences={},coreMemories=[],preferredPose,onActivityDone,keepsake,resident,shown,away,outdoors,leavingHome=false,onResidentExit,onStreet,timeZone,manaPresent,manaLeaving=false,onManaExit,lunaVisiting=false,lunaLeaving=false,onLunaExit,storyLine,upstairs=false,onStairs,onActivityStatus,sharingActivity=false,chat}:{preferences?:ActivityPreferences;coreMemories?:string[];preferredPose?:string;onActivityDone:(resident:ResidentId,pose:string)=>void;keepsake?:Keepsake;resident:ResidentId;shown:boolean;away:boolean;outdoors:boolean;leavingHome?:boolean;onResidentExit?:()=>void;onStreet:()=>void;timeZone:string;manaPresent:boolean;manaLeaving?:boolean;onManaExit?:()=>void;lunaVisiting?:boolean;lunaLeaving?:boolean;onLunaExit?:()=>void;storyLine?:string;upstairs?:boolean;onStairs?:()=>void;onActivityStatus:(status:string)=>void;sharingActivity?:boolean;
+export default function ResidentRoom({eveningCompleted,onEveningComplete,preferences={},coreMemories=[],preferredPose,onActivityDone,keepsake,resident,shown,away,outdoors,leavingHome=false,onResidentExit,onStreet,timeZone,manaPresent,manaLeaving=false,onManaExit,lunaVisiting=false,lunaLeaving=false,onLunaExit,storyLine,upstairs=false,onStairs,onActivityStatus,sharingActivity=false,chat}:{eveningCompleted?:string;onEveningComplete?:(resident:ResidentId,key:string,outcome:string)=>void;preferences?:ActivityPreferences;coreMemories?:string[];preferredPose?:string;onActivityDone:(resident:ResidentId,pose:string)=>void;keepsake?:Keepsake;resident:ResidentId;shown:boolean;away:boolean;outdoors:boolean;leavingHome?:boolean;onResidentExit?:()=>void;onStreet:()=>void;timeZone:string;manaPresent:boolean;manaLeaving?:boolean;onManaExit?:()=>void;lunaVisiting?:boolean;lunaLeaving?:boolean;onLunaExit?:()=>void;storyLine?:string;upstairs?:boolean;onStairs?:()=>void;onActivityStatus:(status:string)=>void;sharingActivity?:boolean;
  chat?:{ready:boolean;onSend:(message:string,context:string,onReply:(reply:string)=>void,signal:AbortSignal)=>Promise<void>};
 }){
  const goalActivity=useRef({preferredPose,onActivityDone,preferences,coreMemories});
  goalActivity.current={preferredPose,onActivityDone,preferences,coreMemories};
  const [chatOpen,setChatOpen]=useState(false);
+ const [eveningLine,setEveningLine]=useState<string>();
+ const eveningDone=useRef(eveningCompleted);
+ if(eveningCompleted)eveningDone.current=eveningCompleted;
+ const completeEvening=useRef(onEveningComplete);completeEvening.current=onEveningComplete;
+ useEffect(()=>{
+  if(!eveningLine)return;
+  if(!shown){setEveningLine(undefined);return;}
+  const timer=window.setTimeout(()=>setEveningLine(undefined),10_000);
+  return ()=>clearTimeout(timer);
+ },[eveningLine,shown]);
  const {name,home,upstairs:bedroom,activities,sleep}=residentProfiles[resident];
  const place=home==='library'?'the library':'her home';
  const entrance=manaversePassage('street',home)!.entry;
@@ -113,17 +124,24 @@ export default function ResidentRoom({preferences={},coreMemories=[],preferredPo
   function chooseActivity(){
    if(sharing.current){timer=window.setTimeout(chooseActivity,1000);return;}
    const beforeBed=finishedStargazing?undefined:sleep.beforeBed;
+   const eveningKey=!night?eveningWindDown(new Date(),timeZone):undefined;
+   const tidying=!!eveningKey&&eveningDone.current!==eveningKey;
    const choice:ResidentActivity=night
     ?(beforeBed??nightActivity)
-    :chooseResidentFreeActivity(resident,goalActivity.current.preferences,goalActivity.current.coreMemories,previousPose,goalActivity.current.preferredPose);
+    :eveningKey?residentEveningActivity(resident,tidying):chooseResidentFreeActivity(resident,goalActivity.current.preferences,goalActivity.current.coreMemories,previousPose,goalActivity.current.preferredPose);
    previousPose=choice.pose;
    walk(choice.position,()=>{
     setActivity(choice);
     if(choice===beforeBed)finishedStargazing=true;
     if(choice!==nightActivity)timer=window.setTimeout(()=>{
-     if(!choice.shortPause&&!sharing.current)goalActivity.current.onActivityDone(resident,choice.pose);
+     if(tidying&&eveningKey&&eveningWindDown(new Date(),timeZone)===eveningKey&&!sharing.current){
+      eveningDone.current=eveningKey;
+      const outcome=resident==='luna'?'Luna put away her sketchbook for the evening.':'Lyra put her bottles away for the evening.';
+      completeEvening.current?.(resident,eveningKey,outcome);
+      setEveningLine(eveningGoodnightPrompt(name,outcome));
+     }else if(!tidying&&!choice.shortPause&&!sharing.current)goalActivity.current.onActivityDone(resident,choice.pose);
      chooseActivity();
-    },choice.shortPause?6500:22000);
+    },tidying?EVENING_TIDY_MS:choice.shortPause?6500:22000);
    });
   }
 
@@ -155,9 +173,9 @@ export default function ResidentRoom({preferences={},coreMemories=[],preferredPo
  const artwork=isLyra?(upstairs?'lyra-upstairs':'lyra-library'):'luna-home-interior';
  const canChat=shown&&!away&&!outdoors&&!upstairs&&!night&&!leavingHome&&residentFloor===floor&&!!chat;
  useEffect(()=>{if(!canChat)setChatOpen(false);},[canChat]);
- const line=useSceneLine(shown&&!away&&!outdoors&&!upstairs&&!night&&!leavingHome&&residentFloor===floor&&!chatOpen&&(storyLine||activity)?
+ const line=useSceneLine(shown&&!away&&!outdoors&&!upstairs&&!night&&!leavingHome&&residentFloor===floor&&!chatOpen&&(storyLine||eveningLine||activity)?
   storyLine?`You are looking at the library’s framed note with Mana. The note reads: ${storyLine}. Give a short reaction.`:
-   `You are in ${place}. Current activity: ${activity?.status} Say a short thought about what you are doing.`:undefined,resident);
+   eveningLine??`You are in ${place}. Current activity: ${activity?.status} Say a short thought about what you are doing.`:undefined,resident);
  return <div className="companion-room-body manaverse-outside" hidden={!shown}>
   {canChat&&<button type="button" className="btn" aria-pressed={chatOpen} onClick={()=>setChatOpen(open=>!open)}>Talk to {name}</button>}
   <SceneViewport>
@@ -247,4 +265,5 @@ function HomeVisitor({visitor,home,shown,hostPresent,leaving=false,onExit}:{
   } as CSSProperties}><p>{line}</p></div>}
  </>;
 }
+
 

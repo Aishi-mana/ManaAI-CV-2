@@ -1,5 +1,6 @@
 import {townGoalPrompt,readTownGoal,townGoalContext} from './core/townPersonalGoals';
-import {activityPreferencePrompt,readActivityPreference} from './core/activityPreferences';
+import {activityPreferencePrompt,readActivityPreference,activityPreferenceContext,manaPreferenceMemories} from './core/activityPreferences';
+import {friendshipHabitContext} from './core/friendshipHabits';
 import {groupJoinPrompt,readGroupJoinReply} from './core/aishiActivities';
 import {memoryInvitationPrompt,readMemoryInvitation} from './core/memoryInvitations';
 import {sharedMemoryContext} from './core/residentRelationships';
@@ -446,7 +447,8 @@ export default function App() {
       }
       if(!quickGreeting&&channel!=='invitation'){
         const room=loadRoom();
-        system+=sharedMemoryContext(room.sharedMemories??[],speaker)+townGoalContext(room.personalGoals??[],speaker);
+        const preferenceCore=speaker==='mana'?manaPreferenceMemories(memories):room[residentProfiles[speaker].memory.coreKey]??[];
+        system+=sharedMemoryContext(room.sharedMemories??[],speaker)+townGoalContext(room.personalGoals??[],speaker)+activityPreferenceContext(speaker,room.activityPreferences??{},preferenceCore)+friendshipHabitContext(speaker,room.sharedMemories??[]);
       }
       await streamChat({port:llama.port,temperature:.65,maxTokens:message?160:channel!=='scene'?180:70,signal:controller.signal,
         messages:[{role:'system',content:system},{role:'user',content:message??(channel==='phone'?'Write the phone text for this event.':privateScene?'Write the next spoken line to the named character.':'Say one short line for your in-world speech bubble.')}],
@@ -2244,7 +2246,7 @@ export default function App() {
         return readGroupJoinReply(raw);
        }}
        onChooseInvitation={async(owner,choices,signal)=>{
-        const raw=await speakInRoom(memoryInvitationPrompt(owner,choices),signal,owner,undefined,'invitation');
+        const raw=await speakInRoom(memoryInvitationPrompt(owner,choices)+friendshipHabitContext(owner,loadRoom().sharedMemories??[]),signal,owner,undefined,'invitation');
         return readMemoryInvitation(raw,choices);
        }}
        onManaThought={speakInRoom} onManaRoomChat={(message,context,onReply)=>send(message,undefined,{context,onReply})}

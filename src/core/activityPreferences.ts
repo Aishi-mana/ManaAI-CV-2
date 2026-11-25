@@ -34,6 +34,12 @@ export function activityPreferenceWeight(owner:TownCharacter,activity:string,pre
  const saved=effectiveActivityPreference(owner,preferences,memories),likes=saved?.likes??defaultActivityLikes[owner];
  return likes.includes(activity)?1.8:saved?.avoid.includes(activity)? .65:1;
 }
+export function activityPreferenceContext(owner:TownCharacter,preferences:ActivityPreferences,memories:readonly string[]){
+ const saved=effectiveActivityPreference(owner,preferences,memories);
+ if(!saved)return '';
+ const labels=(ids:string[])=>preferenceOptions(owner).filter(option=>ids.includes(option.id)).map(option=>option.label);
+ return `\nYour current memory-supported free-time preferences (not completed activities): ${JSON.stringify({enjoys:labels(saved.likes),lessOften:labels(saved.avoid),reason:saved.reason})}. Mention these only when asked or directly relevant. Do not claim you acted on them, finished a project, or changed your schedule.\n`;
+}
 export function chooseResidentFreeActivity(owner:ResidentId,preferences:ActivityPreferences,memories:readonly string[],previous?:string,goal?:string,roll=Math.random()){
  const choices:readonly ResidentActivity[]=residentProfiles[owner].activities;
  const weights=choices.map(choice=>activityPreferenceWeight(owner,choice.pose,preferences,memories)*(choice.pose===previous? .2:1)*(choice.pose===goal?1.8:1)*(choice.shortPause? .65:1));

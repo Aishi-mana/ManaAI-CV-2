@@ -3,6 +3,7 @@ import TownWeatherControls from './TownWeather';
 import type {TownTodayState} from '../core/townToday';
 import {latestPhoneIncoming,phoneMessageReadKey,unreadPhoneContacts,type PhoneReadState} from '../core/phoneReadState';
 import TownPersonalGoals from './TownPersonalGoals';
+import FriendshipHabits from './FriendshipHabits';
 import type {TownPersonalGoal} from '../core/townPersonalGoals';
 import type {PetBotFriends} from '../core/petBot';
 import type {SharedMemory,TownCharacter} from '../core/residentRelationships';
@@ -199,6 +200,7 @@ export default function RoomPhone({preferenceSummaries=[],visible,sleeping,messa
     {screen==='today'&&<TownToday state={today} pendingVisit={pendingVisit} hostVisit={hostVisit} timeZone={timeZone} now={now}
      onView={destination=>{onChooseArea(destination);close();}}/>}
     {screen==='plans'&&<div className="room-phone-list room-phone-plans">
+     <FriendshipHabits memories={sharedMemories}/>
      <TownPersonalGoals goals={personalGoals}/>
      {!!preferenceSummaries.length&&<section aria-label="Free-time preferences"><h3>Free-time preferences</h3>
       {preferenceSummaries.map(preference=><article key={preference.owner}>

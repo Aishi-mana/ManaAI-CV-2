@@ -1,5 +1,6 @@
 import {validateTownWeather,type TownWeatherSettings} from './townWeather';
 import {validateActivityPreferences,activityPreferenceWeight,type ActivityPreferences} from './activityPreferences';
+import {validateEveningWindDown,type EveningWindDownDates} from './eveningWindDown';
 import {validatePhoneReadState,type PhoneReadState} from './phoneReadState';
 import {validateTownDecorations,type TownDecorationSettings} from './townFestivities';
 import {validateTownPersonalGoals,type TownPersonalGoal} from './townPersonalGoals';
@@ -37,8 +38,8 @@ export type RoomPieceColors=Partial<Record<string,Exclude<typeof ROOM_PIECE_COLO
 type ResidentMemoryProfile=(typeof residentProfiles)[ResidentId]['memory'];
 type ResidentMemoryFields=Partial<Record<ResidentMemoryProfile['coreKey'],string[]>>
  & Partial<Record<ResidentMemoryProfile['visitKey'],LunaVisitMemory[]>>;
-export interface RoomState extends ResidentMemoryFields {layout:2;activityPreferences?:ActivityPreferences;weather?:TownWeatherSettings;phoneReadMessages?:PhoneReadState;townDecorations?:TownDecorationSettings;personalGoals?:TownPersonalGoal[];petBotFriends?:PetBotFriends;activityKeepsakes?:ActivityKeepsake[];sharedMemories?:SharedMemory[];petBotMemory?:string[];officeLayout?:OfficeLayout;townEvents?:CustomTownEvent[];townGuestbook?:TownGuestbookVisit[];position:RoomPosition;wateredAt?:string;lastActivity?:RoomActivity;idleActivities?:boolean;activityCooldownUntil?:string;placements?:RoomPlacements;finishes?:RoomFinishes;pieceColors?:RoomPieceColors;energy?:number;sleep?:{night:string;startedAt:string};skipSleepNight?:string;furnitureUses?:Partial<Record<RoomActivity,number>>;shop?:RoomShop;background?:string;backgrounds?:string[];effectStats?:RoomEffectStats;livingPosition?:RoomPosition;phoneMessages?:PhoneMessage[];aiPhone?:true;pondSketch?:PondSketchGoal;libraryStory?:LibraryStory;manaKeepsake?:ManaKeepsake;sharedKeepsake?:ManaKeepsake}
-export const ROOM_TIMING={walk:20_000,idle:15_000,activity:120_000,cooldown:300_000,activityChance:.25} as const;
+export interface RoomState extends ResidentMemoryFields {layout:2;eveningWindDownDates?:EveningWindDownDates;activityPreferences?:ActivityPreferences;weather?:TownWeatherSettings;phoneReadMessages?:PhoneReadState;townDecorations?:TownDecorationSettings;personalGoals?:TownPersonalGoal[];petBotFriends?:PetBotFriends;activityKeepsakes?:ActivityKeepsake[];sharedMemories?:SharedMemory[];petBotMemory?:string[];officeLayout?:OfficeLayout;townEvents?:CustomTownEvent[];townGuestbook?:TownGuestbookVisit[];position:RoomPosition;wateredAt?:string;lastActivity?:RoomActivity;idleActivities?:boolean;activityCooldownUntil?:string;placements?:RoomPlacements;finishes?:RoomFinishes;pieceColors?:RoomPieceColors;energy?:number;sleep?:{night:string;startedAt:string};skipSleepNight?:string;furnitureUses?:Partial<Record<RoomActivity,number>>;shop?:RoomShop;background?:string;backgrounds?:string[];effectStats?:RoomEffectStats;livingPosition?:RoomPosition;phoneMessages?:PhoneMessage[];aiPhone?:true;pondSketch?:PondSketchGoal;libraryStory?:LibraryStory;manaKeepsake?:ManaKeepsake;sharedKeepsake?:ManaKeepsake}
+export const ROOM_TIMING={walk:20_000,idle:15_000,activity:120_000,cooldown:300_000,homePause:30_000,activityChance:.25} as const;
 export const ROOM_ACTIVITY_FURNITURE:Record<RoomActivity,string>={
  water:'Plant',read:'Bookshelf',play:'Game table',sleep:'Beanbag',bed:'Bed',think:'Desk',window:'Window',remember:'Photo board',
 };
@@ -86,7 +87,7 @@ export function roomEnergyState(energy:number,recovering=false){
  if(energy<=35)return 'Low energy';
  return 'Getting tired';
 }
-export function chooseRoomActivity(state:RoomState,now:Date,timeZone:string,roll=Math.random(),memories:readonly string[]=[]):RoomActivity{
+export function chooseRoomActivity(state:RoomState,now:Date,timeZone:string,roll=Math.random(),memories:readonly string[]=[],available:readonly RoomActivity[]=ROOM_ACTIVITIES):RoomActivity{
  const {time}=journalClock(now,timeZone);
  const morning=time>='06:00'&&time<'12:00';
  const afternoon=time>='12:00'&&time<'18:00';
@@ -109,12 +110,13 @@ export function chooseRoomActivity(state:RoomState,now:Date,timeZone:string,roll
  if(stats.focus<=30){weights.read++;weights.think++;}
  if(stats.happiness<=35){weights.window++;weights.play++;}
  for(const activity of ROOM_ACTIVITIES)weights[activity]*=activityPreferenceWeight('mana',activity,state.activityPreferences??{},memories)*(state.lastActivity===activity? .6:1);
- let remaining=roll*Object.values(weights).reduce((total,weight)=>total+weight,0);
- for(const activity of ROOM_ACTIVITIES){
+ const choices=ROOM_ACTIVITIES.filter(activity=>available.includes(activity));
+ let remaining=roll*choices.reduce((total,activity)=>total+weights[activity],0);
+ for(const activity of choices){
   remaining-=weights[activity];
   if(remaining<0)return activity;
  }
- return 'remember';
+ return choices[choices.length-1]??'remember';
 }
 export function recordFurnitureUse(state:RoomState,activity:RoomActivity):RoomState{
  const count=state.furnitureUses?.[activity]??0;
@@ -435,11 +437,12 @@ export function validateRoom(value:unknown):RoomState {
  const officeLayout=validateOfficeLayout(isRecord(value)?value.officeLayout:undefined);
  const personalGoals=validateTownPersonalGoals(isRecord(value)?value.personalGoals:undefined);
  const activityPreferences=validateActivityPreferences(isRecord(value)?value.activityPreferences:undefined);
+ const eveningWindDownDates=validateEveningWindDown(isRecord(value)?value.eveningWindDownDates:undefined);
  const petBotFriends=validatePetBotFriends(isRecord(value)?value.petBotFriends:undefined);
  const activityKeepsakes=validateActivityKeepsakes(isRecord(value)?value.activityKeepsakes:undefined);
  const sharedMemories=validateSharedMemories(isRecord(value)?value.sharedMemories:undefined);
  const petBotMemory=validateCoreMemories(isRecord(value)?value.petBotMemory:undefined);
- return {layout:2,position,...(Object.keys(activityPreferences).length?{activityPreferences}:{}),...(weather?{weather}:{}),...(Object.keys(phoneReadMessages).length?{phoneReadMessages}:{}),...(townDecorations?{townDecorations}:{}),...(personalGoals.length?{personalGoals}:{}),...(Object.keys(petBotFriends).length?{petBotFriends}:{}),...(activityKeepsakes.length?{activityKeepsakes}:{}),...(sharedMemories.length?{sharedMemories}:{}),...(townGuestbook.length?{townGuestbook}:{}),...(townEvents.length?{townEvents}:{}),...(officeLayout?{officeLayout}:{}),...(wateredAt?{wateredAt}:{}),...(lastActivity?{lastActivity}:{}),
+ return {layout:2,position,...(Object.keys(eveningWindDownDates).length?{eveningWindDownDates}:{}),...(Object.keys(activityPreferences).length?{activityPreferences}:{}),...(weather?{weather}:{}),...(Object.keys(phoneReadMessages).length?{phoneReadMessages}:{}),...(townDecorations?{townDecorations}:{}),...(personalGoals.length?{personalGoals}:{}),...(Object.keys(petBotFriends).length?{petBotFriends}:{}),...(activityKeepsakes.length?{activityKeepsakes}:{}),...(sharedMemories.length?{sharedMemories}:{}),...(townGuestbook.length?{townGuestbook}:{}),...(townEvents.length?{townEvents}:{}),...(officeLayout?{officeLayout}:{}),...(wateredAt?{wateredAt}:{}),...(lastActivity?{lastActivity}:{}),
   ...(typeof idleActivities==='boolean'?{idleActivities}:{}),...(activityCooldownUntil?{activityCooldownUntil}:{}),
   ...(Object.keys(placements).length?{placements}:{}),
   ...(wall!=='Original'||floor!=='Original'?{finishes:{wall,floor}}:{}),
@@ -488,6 +491,7 @@ export function loadRoom():RoomState {
 export function saveRoom(state:RoomState){
  writeStored(ROOM_KEY,JSON.stringify(validateRoom(state)));
 }
+
 
 
 
