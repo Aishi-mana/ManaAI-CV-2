@@ -24,8 +24,9 @@ import {STUDIO_PROJECT_LIMIT,singingVoiceLabel,durationLabel,mergeDiscovered,val
 import type {InitiativeState} from '../core/initiative';
 import {uid} from '../core/types';
 import type {CoverAttribution,CoverHandoff} from '../core/coverHandoff';
+import type {TranslationAttribution,TranslationHandoff} from '../core/translationHandoff';
 interface Result{lyricsAdjusted?:boolean;durationLimited?:boolean;generatedLyrics?:string;error?:string;vocal?:string;mix?:string;seconds?:number;stems?:StudioProject['stems'];bandMixParts?:StudioProject['bandMixParts']}
-interface Props{active:boolean;onClose:()=>void;onBusy:(busy:boolean)=>void;initiative:InitiativeState;onInitiative:(state:InitiativeState)=>void;coverHandoff?:CoverHandoff|null;onCoverHandoffConsumed?:()=>void}
+interface Props{active:boolean;onClose:()=>void;onBusy:(busy:boolean)=>void;initiative:InitiativeState;onInitiative:(state:InitiativeState)=>void;coverHandoff?:CoverHandoff|null;onCoverHandoffConsumed?:()=>void;translationHandoff?:TranslationHandoff|null;onTranslationHandoffConsumed?:()=>void}
 export default function SingingDrawer(p:Props){
  const props=useRef(p);props.current=p;const studio=validateStudio(p.initiative.studio);const state=useRef(studio);state.current=studio;
  const arrangementNames:Record<string,string>={'keyboard-extract':'Keyboard extraction','electric-piano-extract':'Electric piano extraction','trumpet-extract':'Trumpet extraction','sax-extract':'Sax extraction','piano-extract':'Acoustic piano extraction','piano-trio':'Piano trio','fine-stems':'Strings & winds',piano:'Piano','gentle-piano':'Gentle piano',jazz:'Jazz swing',pop:'Pop band',rock:'Rock band',country:'Country band','guitar-electric':'Electric guitar · source notes','review-stems':'Instrument parts','replace-guitar-sax':'Guitar → Sax','replace-guitar-piano':'Guitar → Piano','replace-guitar-electric-guitar':'Guitar → Clean electric guitar','replace-guitar-electric-guitar-distorted':'Guitar → Distorted electric guitar'};
@@ -38,6 +39,7 @@ export default function SingingDrawer(p:Props){
  const [source,setSource]=useState(''),[title,setTitle]=useState(''),[start,setStart]=useState(0),[end,setEnd]=useState(10),[backingGain,setBackingGain]=useState(1),[separate,setSeparate]=useState(true),[wholeSong,setWholeSong]=useState(true);
  const [handoffSource,setHandoffSource]=useState('');
  const [coverAttribution,setCoverAttribution]=useState<CoverAttribution|undefined>();
+ const [translationAttribution,setTranslationAttribution]=useState<TranslationAttribution|undefined>();
  const [restoredDrafts]=useState(loadMusicDrafts);
  const [coverDraft,setCoverDraft]=useState<CoverPreviewDraft|null>(()=>restoredDrafts.cover&&!studio.projects.some(project=>project.id===restoredDrafts.cover?.project.id)?restoredDrafts.cover:null);
  const [percussion,setPercussion]=useState(false),[arrPercussion,setArrPercussion]=useState(false);
@@ -127,20 +129,48 @@ export default function SingingDrawer(p:Props){
  async function convert(){
   if(busy||poolActive||loading)return;
   const linkedAttribution=source===handoffSource?coverAttribution:undefined;
-  const targetProfile=linkedAttribution?'mana-trained-v1':singingProfile;
+  const linkedTranslation=source===handoffSource?translationAttribution:undefined;
+  const targetProfile=linkedAttribution||linkedTranslation?'mana-trained-v1':singingProfile;
+  // A rendered OpenUtau guide is already sung English. Do not attempt
+  // vocal separation or re-translation on the dry singing source.
+  const conversionGenre=linkedTranslation?'original':genre;
+  const conversionSeparate=linkedTranslation?false:separate;
+  const conversionWholeSong=linkedTranslation?true:wholeSong;
+  const conversionBackingGain=linkedTranslation?0:backingGain;
   clearPlayer();const epoch=++token.current,config=loadCustomVoice(),reference=singingVoiceReference({...config,singingVoiceProfile:targetProfile});
   const project:StudioProject={
-   ...(linkedAttribution?{coverAttribution:linkedAttribution}:{}),id:'studio-'+uid(),title:title.trim()||source.replace(/\\/g,'/').split('/').pop()?.replace(/\.[^.]+$/,'')||'Untitled cover',createdAt:new Date().toISOString(),status:'rendering',source,vocal:'',mix:'',instrumental:'',seconds:0,artwork:'',error:'',settings:{genre,genreLead:leadFor(genre),bandSource:isBandStyle(genre)?bandSource:undefined,followBass:isBandStyle(genre)&&followBass,percussion,wholeSong,start:wholeSong?0:start,seconds:wholeSong?1:seconds,separate,backingGain,reference,extractor}};
+   ...(linkedAttribution?{coverAttribution:linkedAttribution}:{}),...(linkedTranslation?{translationAttribution:linkedTranslation}:{}),id:'studio-'+uid(),title:title.trim()||source.replace(/\\/g,'/').split('/').pop()?.replace(/\.[^.]+$/,'')||'Untitled cover',createdAt:new Date().toISOString(),status:'rendering',source,vocal:'',mix:'',instrumental:'',seconds:0,artwork:'',error:'',settings:{genre:conversionGenre,genreLead:linkedTranslation?undefined:leadFor(genre),bandSource:!linkedTranslation&&isBandStyle(genre)?bandSource:undefined,followBass:!linkedTranslation&&isBandStyle(genre)&&followBass,percussion:!linkedTranslation&&percussion,wholeSong:conversionWholeSong,start:conversionWholeSong?0:start,seconds:conversionWholeSong?1:seconds,separate:conversionSeparate,backingGain:conversionBackingGain,reference,extractor}};
   currentJob.current=null;setBusy(true);setStatus('Preparing your cover preview…');setLog('');
   try{
-   await invoke('singing_start',{previewOnly:true,genre,genreLead:leadFor(genre),bandSource:project.settings.bandSource,followBass:project.settings.followBass,percussion,voiceProfile:targetProfile,python:config.singingPython,repo:config.singingRepo,source,reference,start:project.settings.start,seconds:project.settings.seconds,separate,backingGain,wholeSong,extractor});
+   await invoke('singing_start',{previewOnly:true,genre:conversionGenre,genreLead:project.settings.genreLead,bandSource:project.settings.bandSource,followBass:project.settings.followBass,percussion:project.settings.percussion,voiceProfile:targetProfile,python:config.singingPython,repo:config.singingRepo,source,reference,start:project.settings.start,seconds:project.settings.seconds,separate:conversionSeparate,backingGain:conversionBackingGain,wholeSong:conversionWholeSong,extractor});
    if(epoch!==token.current){await invoke('singing_stop');return;}
-   const deadline=Date.now()+(wholeSong?120:30)*60*1000;
+   const deadline=Date.now()+(conversionWholeSong?120:30)*60*1000;
    while(epoch===token.current){
     if(Date.now()>deadline)throw Error('Conversion timed out. Try a shorter excerpt.');
     await new Promise(resolve=>setTimeout(resolve,1000));if(epoch!==token.current)return;
     const poll=await invoke<{done:boolean;log:string;result?:Result}>('singing_poll');setLog(poll.log);setStatus(poll.log.includes('Restyling instrumental backing')&&!poll.log.includes('Converting guide vocal')?'Restyling the instruments…':poll.log.includes('Converting guide vocal')?'Bringing Mana’s voice into the song…':(poll.log.includes('Separating vocals')||poll.log.includes('Lead extraction'))?'Separating the voice and instruments…':'Preparing the song…');
-    if(poll.done){if(poll.result?.error)throw Error(poll.result.error);const result=poll.result;if(!result?.vocal)throw Error('Conversion returned no vocal file.');setCoverDraft({project:{...project,status:'ready',vocal:result.vocal,mix:result.mix??'',instrumental:separate?result.vocal.replace(/[^/\\]+$/,'instrumental.wav'):'',seconds:result.seconds??0,bandMixParts:result.bandMixParts,error:''},saved:false});setStatus('Preview ready. Listen below, then save this version if you like it.');return;}
+    if(poll.done){
+     if(poll.result?.error)throw Error(poll.result.error);
+     const result=poll.result;if(!result?.vocal)throw Error('Conversion returned no vocal file.');
+     let mix=result.mix??'',instrumental=conversionSeparate?
+      result.vocal.replace(/[^/\\]+$/,'instrumental.wav'):'';
+     let backingError='';
+     if(linkedTranslation?.backingAudio){
+      setStatus('Mixing Mana’s English vocal with your approved instrumental…');
+      try{
+       const mixed=await invoke<{mix:string;seconds:number}>('songbook_mix_translation_backing',{
+        vocal:result.vocal,backing:linkedTranslation.backingAudio,
+       });
+       if(epoch!==token.current)return;
+       mix=mixed.mix;instrumental=linkedTranslation.backingAudio;
+      }catch(e){backingError=' The instrumental mix failed: '+String(e)+'. The dry Mana vocal is still available.';}
+     }
+     if(epoch!==token.current)return;
+     setCoverDraft({project:{...project,status:'ready',vocal:result.vocal,mix,
+      instrumental,seconds:result.seconds??0,bandMixParts:result.bandMixParts,error:''},saved:false});
+     setStatus('Mana’s English vocal preview is ready. Listen before saving.'+backingError);
+     return;
+    }
    }
   }catch(error){if(epoch===token.current){setStatus(String(error));await invoke('singing_stop').catch(()=>{});}}finally{if(epoch===token.current){currentJob.current=null;setBusy(false);}}
  }
@@ -172,7 +202,7 @@ export default function SingingDrawer(p:Props){
    }
   }catch(error){if(epoch===token.current){if(!previewOnly)patch(project.id,{status:'error',error:String(error)});setArrError(String(error));setStatus(String(error));await invoke('singing_stop').catch(()=>{});}}finally{if(epoch===token.current){currentJob.current=null;setBusy(false);}}
  }
- useEffect(()=>{if(p.active&&tab==='create'&&!(coverAttribution&&source===handoffSource))
+ useEffect(()=>{if(p.active&&tab==='create'&&!(coverAttribution&&source===handoffSource)&&!(translationAttribution&&source===handoffSource))
   setSingingProfile(loadCustomVoice().singingVoiceProfile);},[p.active,tab]);
 
  // Only a direct, owner-initiated Songbook handoff may populate these settings.
@@ -188,7 +218,7 @@ export default function SingingDrawer(p:Props){
   }
   clearPlayer();setCoverDraft(null);setArrDraft(null);
   setSource(handoff.localAudio);setTitle(handoff.title);
-  setHandoffSource(handoff.localAudio);setCoverAttribution(handoff.attribution);
+  setHandoffSource(handoff.localAudio);setCoverAttribution(handoff.attribution);setTranslationAttribution(undefined);
   setSingingProfile('mana-trained-v1');setGenre('original');setSeparate(true);
   setExtractor('mega-lead');setWholeSong(true);setStart(0);setEnd(10);
   setBackingGain(1);setLog('');
@@ -196,6 +226,25 @@ export default function SingingDrawer(p:Props){
   setStatus('Reviewed local recording ready. Mana’s trained singing voice is selected. Generate a preview, listen, then save.');
   p.onCoverHandoffConsumed?.();
  },[p.active,p.coverHandoff?.token,busy,poolActive,loading]);
+
+ useEffect(()=>{
+  const handoff=p.translationHandoff;
+  if(!p.active||!handoff||busy||poolActive||loading)return;
+  if(coverDraft&&!coverDraft.saved&&!window.confirm(
+    'A Music Studio cover preview is unsaved. Replace it with this English guide?')){
+    setStatus('Kept the unsaved preview. The imported English guide WAV is untouched.');
+    p.onTranslationHandoffConsumed?.();return;
+  }
+  clearPlayer();setCoverDraft(null);setArrDraft(null);
+  setSource(handoff.localAudio);setTitle(handoff.title);
+  setHandoffSource(handoff.localAudio);
+  setCoverAttribution(undefined);setTranslationAttribution(handoff.attribution);
+  setSingingProfile('mana-trained-v1');setGenre('original');setSeparate(false);
+  setWholeSong(true);setExtractor('mega-lead');setStart(0);setEnd(10);
+  setBackingGain(0);setLog('');setTab('create');
+  setStatus('Reviewed English OpenUtau guide ready. Preview uses Mana’s trained voice without separation; this converter does not translate lyrics.');
+  p.onTranslationHandoffConsumed?.();
+ },[p.active,p.translationHandoff?.token,busy,poolActive,loading]);
  const track=selected?(mode==='mix'?selected.mix||selected.vocal:mode==='vocal'?selected.vocal:selected.instrumental):'';
  async function play(selectedTrack=track){
   if(!selectedTrack||busy||poolActive||loading)return;
