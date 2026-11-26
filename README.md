@@ -540,7 +540,7 @@ existing identity, memory, chat, and progress data in place, adding strength and
 
 ## Avatar (step 2)
 
-Mana's paper doll is built from the PNGs in your avatar folder (Settings -> Avatar folder). Expected layout:
+Mana's paper doll is built from image layers in your avatar folder (Settings -> Avatar folder). Bundled layers use lossless WebP; custom PNG/JPEG/WebP folders remain supported. Expected bundled layout:
 
 The default avatar is bundled automatically in development and packaged builds. Leave **Custom avatar folder**
 empty, or click **Use bundled avatar**, to use it. Browse to a folder to use your own assets.
@@ -550,12 +550,12 @@ When moving a portable build made with `Build Mana exe.bat`, copy `mana.exe` and
 together. Installer builds include the assets automatically.
 
 ```
-base/            body.png
-eyes/            eye_<name>.png      (one per look, plus eye_closed and eye_half_closed for blinking)
-mouth/           mouth_<name>.png    (rest mouths) and mouth_a/e/i/o/u.png (lip sync)
-hairstyles/<style>/   hair_back.png (behind the body), hair_front.png, hair_ahoge.png ...
-outfits/<name>/       outfit.png      (a file with "_back" in its name goes behind the body)
-accessories/     any .png, toggled from "Dress up and test"
+base/            body.webp
+eyes/            eye_<name>.webp      (one per look, plus eye_closed and eye_half_closed for blinking)
+mouth/           mouth_<name>.webp    (rest mouths) and mouth_a/e/i/o/u.webp (lip sync)
+hairstyles/<style>/   hair_back.webp (behind the body), hair_front.webp, hair_ahoge.webp ...
+outfits/<name>/       outfit.webp      (a file with "_back" in its name goes behind the body)
+accessories/     PNG/JPEG/WebP images, toggled from "Dress up and test"
 accessories/<depth>/   same, but placed at a depth (see below)
 ```
 
