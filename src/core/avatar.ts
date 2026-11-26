@@ -146,6 +146,12 @@ function mimeFor(rel: string): string {
   return "image/png";
 }
 
+/** Bundled layers use WebP; user-supplied avatar folders may still use PNG. */
+export function avatarImageUrl(assets:AvatarAssets,rel:string){
+ const path=rel.replace(/\\/g,'/').toLowerCase();
+ return assets.urls.get(path)??assets.urls.get(path.replace(/\.png$/,'.webp'))??assets.urls.get(path.replace(/\.webp$/,'.png'));
+}
+
 /** Reads every image (and items.json) in the avatar folder through the Rust side. */
 export async function loadAvatarAssets(dir: string): Promise<AvatarAssets> {
   const files = await invoke<string[]>("scan_avatar", { dir });

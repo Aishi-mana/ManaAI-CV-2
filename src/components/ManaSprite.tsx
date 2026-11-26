@@ -23,5 +23,5 @@ export default function ManaSprite({walking=false,facing=1,pose='idle',visible=t
   reduced.addEventListener('change',schedule);
   return ()=>{window.clearInterval(timer);reduced.removeEventListener('change',schedule);};
  },[frames,motion,visible]);
- return <img src={`./companion-room/mana_${motion}_${frames[frame%frames.length]}.png`} style={{scale:`${facing} 1`}} alt="Mini Mana" draggable={false}/>;
+ return <img src={`./companion-room/mana_${motion}_${frames[frame%frames.length]}.webp`} style={{scale:`${facing} 1`}} alt="Mini Mana" draggable={false}/>;
 }

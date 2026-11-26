@@ -97,7 +97,7 @@ export default function PetBotChat({memory, ready, roomContext, objects, entry, 
       if(!open)onOpen();
       setOpen(!open);
     }}>
-    <img src={ROOM_ART+'pet_bot.png'} style={{scale:`${facing} 1`}} alt="" draggable={false}/>
+    <img src={ROOM_ART+'pet_bot.webp'} style={{scale:`${facing} 1`}} alt="" draggable={false}/>
     {charging&&<span className="pet-bot-charge-icon" aria-hidden="true">ϟ</span>}
    </button>
    {(!bedtime&&!characterChatOpen&&(open||line||waiting))&&<div className={`companion-room-thought pet-bot-overlay ${open?'scene-open-chat':'scene-pet-line'}`} style={anchor}>

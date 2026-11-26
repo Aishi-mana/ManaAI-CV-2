@@ -180,7 +180,7 @@ export default function ResidentRoom({eveningCompleted,onEveningComplete,prefere
   {canChat&&<button type="button" className="btn" aria-pressed={chatOpen} onClick={()=>setChatOpen(open=>!open)}>Talk to {name}</button>}
   <SceneViewport>
   <div className={`district-interior resident-interior ${artwork}`}>
-   <img className="district-interior-shell" src={ROOM_ART+(isLyra?artwork:'luna-home-daylight')+'.png'} alt="" draggable={false}/>
+   <img className="district-interior-shell" src={ROOM_ART+(isLyra?artwork:'luna-home-daylight')+'.webp'} alt="" draggable={false}/>
    {keepsake&&shown&&!upstairs&&<ActivityKeepsake key={keepsake.id} keepsake={keepsake} timeZone={timeZone} reflect={!night&&!away&&!outdoors&&!leavingHome}
     style={{left:isLyra?'16%':'49%',top:isLyra?'58%':'49%',width:isLyra?'2.5%':'4%',zIndex:60}}/>}
    {!away&&!outdoors&&residentFloor===floor&&<CharacterGesture character={resident} asleep={inBed} onDrop={!activity&&(!isLyra||!walking)?point=>{
@@ -198,7 +198,7 @@ export default function ResidentRoom({eveningCompleted,onEveningComplete,prefere
     top:`${point.y}%`,
     zIndex:Math.round(point.y),
    }}>
-    {activity?.pose?<img className="visitor-idle" src={`./companion-room/${resident}-${activity.pose}.png`} alt={name}/>:
+    {activity?.pose?<img className="visitor-idle" src={`./companion-room/${resident}-${activity.pose}.webp`} alt={name}/>:
      <ResidentSprite resident={resident} walking={walking} facing={facing} visible={shown}/>}
    </CharacterGesture>}
    {canChat&&chatOpen&&chat&&<RoomSpeech name={name} open onClose={()=>setChatOpen(false)} ready={chat.ready}

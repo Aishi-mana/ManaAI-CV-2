@@ -10,9 +10,9 @@ export default function ActivityKeepsake({keepsake,timeZone,style,reflect=false}
  const closeButton=useRef<HTMLButtonElement>(null);
  useEffect(()=>{if(open)closeButton.current?.focus({preventScroll:true});},[open]);
  const close=()=>{setOpen(false);trigger.current?.focus({preventScroll:true});};
- const title=keepsake.project?.title??activityKeepsakeNames[keepsake.kind];
+ const title=keepsake.birthday?.title??keepsake.project?.title??activityKeepsakeNames[keepsake.kind];
  const thought=useSceneLine(open&&reflect?projectKeepsakeReflection(keepsake):undefined,keepsake.owner);
- const participants=keepsake.participants.map(person=>person==='aishi'?'Aishi':person==='mana'?'Mana':residentProfiles[person].name).join(', ');
+ const participants=keepsake.participants.filter(person=>!keepsake.birthday||person!==keepsake.owner).map(person=>person==='aishi'?'Aishi':person==='mana'?'Mana':residentProfiles[person].name).join(', ');
  const room=open?trigger.current?.closest('.companion-room'):null;
  return <>
   <button ref={trigger} type="button" className="activity-keepsake" data-kind={keepsake.kind}
@@ -31,9 +31,10 @@ export default function ActivityKeepsake({keepsake,timeZone,style,reflect=false}
    <p>{keepsake.moment}</p>
    {thought&&<p className="activity-keepsake-reflection" role="status">{thought}</p>}
    {keepsake.kind==='trinket'&&<p className="activity-keepsake-location">Displayed on Mana’s bedroom desk.</p>}
-   <p>{keepsake.project?'By':'With'} {participants}</p>
+   <p>{keepsake.birthday?'Celebrated with':keepsake.project?'By':'With'} {participants}</p>
    {keepsake.project&&<p>Project completed</p>}
-   <time dateTime={keepsake.at}>{new Intl.DateTimeFormat(undefined,{timeZone,dateStyle:'medium',timeStyle:'short'}).format(new Date(keepsake.at))}</time>
+   {keepsake.birthday?<time dateTime={keepsake.birthday.date}>{new Intl.DateTimeFormat(undefined,{timeZone:'UTC',dateStyle:'long'}).format(new Date(keepsake.birthday.date+'T12:00:00Z'))}</time>:
+    <time dateTime={keepsake.at}>{new Intl.DateTimeFormat(undefined,{timeZone,dateStyle:'medium',timeStyle:'short'}).format(new Date(keepsake.at))}</time>}
   </section></div>,room)}
  </>;
 }

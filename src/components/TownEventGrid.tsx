@@ -1,5 +1,7 @@
 import {useEffect,useRef,useState} from 'react';
-import {townEventsForMonth,validTownEvent,type CustomTownEvent,type TownEventCalendar,type TownEventDraft} from '../core/townEvents';
+import {townEventsForMonth,validTownEvent,birthdayTitle,type CustomTownEvent,type TownEventCalendar,type TownEventDraft} from '../core/townEvents';
+import {residentIds,residentProfiles} from '../core/residentProfiles';
+import type {TownCharacter} from '../core/residentRelationships';
 
 export type TownEventGridProps={
  townEventClock:TownEventCalendar['clock'];
@@ -57,19 +59,23 @@ export default function TownEventGrid({townEventClock,customTownEvents,onAddTown
    </li>)}</ul>}
    <form onSubmit={event=>{
     event.preventDefault();
-    if(!validTownEvent(draft)){setFeedback('Enter an event name and an end time after the start time.');return;}
+    if(!validTownEvent(draft)){setFeedback(draft.birthdayFor?'Choose a celebration of up to one hour between 08:00 and 21:00.':'Enter an event name and an end time after the start time.');return;}
     onAddTownEvent(draft);
-    setFeedback('Event added to Town Square.');
-    setDraft({...draft,title:''});
+    setFeedback(draft.birthdayFor?'Birthday saved. Saving another date for this character replaces it.':'Event added to Town Square.');
+    if(!draft.birthdayFor)setDraft({...draft,title:''});
    }}>
-    <label>Event name <input ref={titleField} value={draft.title} required maxLength={80}
+    <label>Event type <select value={draft.birthdayFor??'custom'} onChange={event=>{
+     const owner=event.target.value==='custom'?undefined:event.target.value as TownCharacter;
+     setDraft({...draft,birthdayFor:owner,title:owner?birthdayTitle(owner):'',start:'16:00',end:owner?'16:30':'18:00'});
+    }}><option value="custom">Custom event</option>{(['mana',...residentIds] as TownCharacter[]).map(owner=><option key={owner} value={owner}>{owner==='mana'?'Mana':residentProfiles[owner].name}’s birthday</option>)}</select></label>
+    <label>Event name <input ref={titleField} value={draft.title} required maxLength={80} readOnly={!!draft.birthdayFor}
      onChange={event=>setDraft({...draft,title:event.target.value})}/></label>
     <div className="town-event-times">
      <label>Starts <input type="time" required value={draft.start} onChange={event=>setDraft({...draft,start:event.target.value})}/></label>
      <label>Ends <input type="time" required value={draft.end} onChange={event=>setDraft({...draft,end:event.target.value})}/></label>
     </div>
-    <button className="btn" type="submit">Add event</button>
-    <small>{draft.date.endsWith('-02-29')?'Repeats in leap years.':'Repeats every year.'}</small>
+    <button className="btn" type="submit">{draft.birthdayFor?'Save birthday':'Add event'}</button>
+    <small>{draft.birthdayFor?'Repeats yearly. February 29 birthdays use February 28 in other years.':draft.date.endsWith('-02-29')?'Repeats in leap years.':'Repeats every year.'}</small>
    </form>
    {feedback&&<p role="status">{feedback}</p>}
   </section>}

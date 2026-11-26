@@ -52,7 +52,9 @@ import MapTransferArrow from './MapTransferArrow';
 import SceneViewport,{ScenePanContext,SceneZoomControls} from './SceneViewport';
 import {manaRoutine,manaRoutineDestination,nextManaStop,nextResidentStop,homeActivityCycleKey} from '../core/manaverseRoutine';
 import {recordTownAttendance,townGuestbookEntries,type TownGuest} from '../core/townGuestbook';
-import {townEventCalendar,validTownEvent,type TownEventDraft} from '../core/townEvents';
+import {townEventCalendar,validTownEvent,birthdayTitle,birthdayOwner,type TownEventDraft} from '../core/townEvents';
+import BirthdayCelebration from './BirthdayCelebration';
+import {recordBirthdayWish,birthdayGuest} from '../core/townBirthdays';
 import RoomPhone from './RoomPhone';
 import {ROOM_CONTACTS,pendingHostVisit,latestVisitRequest,pendingVisitRequest,phoneMessage,validatePhone,visitIsDue,phoneCanSend,type PhoneMessage,type RoomContact} from '../core/roomPhone';
 import {useEffect,useLayoutEffect,useMemo,useRef,useState,type CSSProperties,type PointerEvent} from 'react';
@@ -75,8 +77,8 @@ import type {GameDevEntry} from './GameDevWorkspace';
 
 const art='./companion-room/';
 const roomPieceImage=(image:string)=>image.startsWith('data:')?image:ROOM_ART+image;
-const idle=art+'mana_idle_1.png';
-const framesFor=(action:string,count=3)=>Array.from({length:count},(_,index)=>art+`mana_${action}_${index+1}.png`);
+const idle=art+'mana_idle_1.webp';
+const framesFor=(action:string,count=3)=>Array.from({length:count},(_,index)=>art+`mana_${action}_${index+1}.webp`);
 const walkFrames=framesFor('walk');
 const idleFrames=framesFor('idle',8);
 const activities=[
@@ -187,7 +189,7 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
  const [customTownEvents,setCustomTownEvents]=useState(()=>room.townEvents??[]);
  function addTownEvent(draft:TownEventDraft){
   if(!validTownEvent(draft))return;
-  const events=[...(current.current.townEvents??[]),{...draft,title:draft.title.trim(),id:crypto.randomUUID()}];
+  const events=[...(current.current.townEvents??[]).filter(event=>!draft.birthdayFor||event.id!==`birthday-${draft.birthdayFor}`),{...draft,title:draft.birthdayFor?birthdayTitle(draft.birthdayFor):draft.title.trim(),id:draft.birthdayFor?`birthday-${draft.birthdayFor}`:crypto.randomUUID()}];
   const next={...current.current,townEvents:events};
   saveRoom(next);
   current.current=next;
@@ -348,11 +350,16 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
   if(lyraAtGathering)present.push('Lyra');
   const previous=current.current.townGuestbook??guestbookVisits;
   const updated=recordTownAttendance(previous,calendar.active,present);
-  if(updated===previous)return;
-  const next={...current.current,townGuestbook:updated};
-  saveRoom(next);
-  current.current=next;
-  setGuestbookVisits(updated);
+  if(updated!==previous){
+   const next={...current.current,townGuestbook:updated};
+   saveRoom(next);current.current=next;setGuestbookVisits(updated);
+  }
+  for(const event of calendar.active){
+   const owner=birthdayOwner(event);if(!owner||!present.includes(birthdayGuest(owner)))continue;
+   for(const speaker of ['mana','luna','lyra'] as const){
+    if(speaker!==owner&&present.includes(birthdayGuest(speaker)))rememberTogether(`birthday-celebration-${owner}-${speaker}`,event.title,`${birthdayGuest(speaker)} and ${birthdayGuest(owner)} celebrated ${event.title} together in Town Square.`,[speaker,owner]);
+   }
+  }
  },[calendar.active,manaAtGathering,lunaAtGathering,lyraAtGathering,guestbookVisits,sheltering]);
  const guestbookEntries=useMemo(()=>townGuestbookEntries(guestbookVisits,calendar.clock),[guestbookVisits,calendar.clock]);
  const streetResidents=outdoorResidents.filter(resident=>resident.squareStops===undefined);
@@ -430,7 +437,7 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
  ])].slice(0,ROOM_BACKGROUND_LIMIT));
  const [backgroundJob,setBackgroundJob]=useState(false);
  const [backgroundStatus,setBackgroundStatus]=useState('');
- const backgroundReference=ROOM_ART+'roombg.png';
+ const backgroundReference=ROOM_ART+'roombg.webp';
  const backgroundBusy=useRef(0);
  const [shopCategory,setShopCategory]=useState<RoomShopCategory|'Any category'>('Any category');
  const [design,setDesign]=useState<RoomDesign>();
@@ -480,6 +487,7 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
  function rememberTogether(action:string,title:string,outcome:string,participants:readonly SharedMemory['with'][]){
   const date=journalClock(new Date(),timeZone).date;
   const next=rememberSharedActivity(current.current.sharedMemories??[],`shared-${date}-${action}`,title,outcome,participants);
+  if(next===current.current.sharedMemories)return;
   current.current={...current.current,sharedMemories:next};
   saveRoom(current.current);
   setSharedMemories(next);
@@ -492,7 +500,7 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
    setProjectReaction({area,owner:goal.owner,context});
   }
  }});
- const displayKeepsakes=homeDisplayKeepsakes(activityKeepsakes,personalGoals.goals);
+ const displayKeepsakes=homeDisplayKeepsakes(activityKeepsakes,personalGoals.goals,Date.now(),guestbookVisits,timeZone);
  const coreForPreferences=(owner:SharedMemory['owner'])=>owner==='mana'?manaPreferenceMemories(memories):current.current[residentProfiles[owner].memory.coreKey]??[];
  const freeTimePreferences=useActivityPreferences(current,visible&&!editing&&!sleeping,manaSpeechReady,timeZone,invitationRequest,coreForPreferences,onChooseActivityPreference);
  function onActivity(action:string,title:string,outcome:string,participants?:readonly SharedMemory['with'][]){
@@ -1529,6 +1537,13 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
   {dive.avatar}
   {!projectLine&&activitySpeaker&&createPortal(<p className="manaverse-player-greeting scene-activity-line" role="status">{sceneLine}</p>,activitySpeaker)}
   {projectSpeaker&&createPortal(<p className="manaverse-player-greeting scene-project-line" role="status">{projectLine}</p>,projectSpeaker)}
+  {visible&&!editing&&!sleeping&&!sheltering&&area==='square'&&<BirthdayCelebration events={calendar.active} visits={guestbookVisits} root={dive.root.current}
+   present={([...manaAtGathering?['mana' as const]:[],...lunaAtGathering?['luna' as const]:[],...lyraAtGathering?['lyra' as const]:[]])}
+   onWish={(event,speaker)=>{
+    const previous=current.current.townGuestbook??[];
+    const updated=recordBirthdayWish(previous,event,speaker);if(updated===previous)return;
+    current.current={...current.current,townGuestbook:updated};saveRoom(current.current);setGuestbookVisits(updated);
+   }}/>} 
   <WeatherReactions root={dive.root} area={area} characters={mapCharacters} timeZone={timeZone}
    active={visible&&!editing&&!mapOpen&&!manaSpeechRoom&&!sceneLine&&!meetup&&!friendMeetup&&!hostMeeting&&!petBotListening}/>
   {invitationSpeaker&&aishiInvitation&&createPortal(<p className="manaverse-player-greeting scene-invitation-line" role="status">{aishiInvitation.text}</p>,invitationSpeaker)}
@@ -1544,7 +1559,7 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
   </div>}
   <div className="companion-room-status-bar" hidden={editing}>
    {statsPanel}
-   <RoomPhone onStartTownProject={personalGoals.start} preferenceSummaries={freeTimePreferences.summaries} today={{
+   <RoomPhone activityKeepsakes={activityKeepsakes} birthdayVisits={guestbookVisits} onStartTownProject={personalGoals.start} preferenceSummaries={freeTimePreferences.summaries} today={{
     characters:mapCharacters,activeEvents:calendar.active,goals:personalGoals.goals,
     meetup:meetup?{contact:meetup,place:meetupPlace}:undefined,
     friends:friendMeetup?{host:friendMeetup.host,activity:friendMeetup.activity,ready:!!friendChat,joining:!!groupJoining}:undefined,
@@ -1612,7 +1627,7 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
     {backgrounds.length>=ROOM_BACKGROUND_LIMIT&&<p className="hint-soft">Library full. Remove an unused background to make space.</p>}
     {backgroundJob&&<ImageGenerationDrawer inline initialRequest={{backend:'qwen',prompt:ROOM_BACKGROUND_PROMPT}}
      objectDimensions={{width:800,height:704}}
-     prepareObjectReference={signal=>prepareFurnitureReference({reference:'roombg.png'},signal)}
+     prepareObjectReference={signal=>prepareFurnitureReference({reference:'roombg.webp'},signal)}
      available={canGenerateFurniture} beforeGenerate={beforeFurnitureGeneration} onGenerated={image=>void previewBackground(image)}
      onFailure={message=>{setBackgroundStatus(message);setBackgroundJob(false);}}
      onClose={()=>{backgroundBusy.current++;setBackgroundJob(false);}} onStopped={()=>{backgroundBusy.current++;setBackgroundJob(false);}}

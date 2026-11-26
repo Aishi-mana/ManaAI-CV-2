@@ -2,7 +2,7 @@ import {useWearableSchedule} from './useWearableSchedule';
 import WearableScheduleControls from './WearableScheduleControls';
 import {useEffect,useRef,useState} from 'react';
 import {invoke} from '@tauri-apps/api/core';
-import type {AvatarAssets,AvatarConfig} from '../core/avatar';
+import {avatarImageUrl,type AvatarAssets,type AvatarConfig} from '../core/avatar';
 import {referenceLayers} from '../core/avatarReference';
 import {cleanHairPanel,hairPanelSplit,hairBounds,fitHairToLandmarks,hairLandmarks,BACK_HAIR_STYLES,BACK_HAIR_STYLE_IDS,BACK_HAIR_GROUPS,FRONT_HAIR_STYLES,FRONT_HAIR_STYLE_IDS,hairstylePrompt,type BackHairStyle,type FrontHairStyle} from '../core/generatedHair';
 import {loadOutfitImage,renderOutfit} from '../core/outfitPrototype';
@@ -18,10 +18,10 @@ export default function GeneratedHair({assets,cfg,available,beforeGenerate,onCre
  async function create(automatic=false){if(busy.current)return;busy.current=true;cancel.current=false;setRunning(true);onRunningChange(true);setError('');let url='';let savedDesign=false;const selectedStyle=automatic?BACK_HAIR_STYLE_IDS[Math.floor(Math.random()*BACK_HAIR_STYLE_IDS.length)]:style;const selectedFront=automatic?FRONT_HAIR_STYLE_IDS[Math.floor(Math.random()*FRONT_HAIR_STYLE_IDS.length)]:frontStyle;const variation=automatic?'':name.trim();const generationPrompt=hairstylePrompt(selectedStyle,selectedFront);
  try{
   const bodyLayer=referenceLayers(assets,cfg).find(l=>l.key.startsWith('base/'));if(!bodyLayer)throw Error('Mana’s body is unavailable.');const body=await loadOutfitImage(bodyLayer.url),bodySize={width:body.naturalWidth,height:body.naturalHeight};
-  const frontUrl=assets.urls.get('hairstyles/default/hair_front.png'),backUrl=assets.urls.get('hairstyles/default/hair_back.png');if(!frontUrl||(selectedStyle==='long'&&!backUrl))throw Error('Mana’s original hair style reference is missing.');
+  const frontUrl=avatarImageUrl(assets,'hairstyles/default/hair_front.png'),backUrl=avatarImageUrl(assets,'hairstyles/default/hair_back.png');if(!frontUrl||(selectedStyle==='long'&&!backUrl))throw Error('Mana’s original hair style reference is missing.');
   const [originalFront,originalBack]=await Promise.all([loadOutfitImage(frontUrl),selectedStyle==='long'&&backUrl?loadOutfitImage(backUrl):undefined]);const reference=canvas(1024,768),rc=reference.getContext('2d')!;rc.fillStyle='white';rc.fillRect(0,0,1024,768);
   const pixelsOf=(image:HTMLImageElement)=>{const c=canvas(bodySize.width,bodySize.height),ctx=c.getContext('2d')!;ctx.drawImage(image,0,0,c.width,c.height);return ctx.getImageData(0,0,c.width,c.height).data;};
-  const feature=async(key:string)=>{const url=assets.urls.get(key);return url?pixelsOf(await loadOutfitImage(url)):undefined;};
+  const feature=async(key:string)=>{const url=avatarImageUrl(assets,key);return url?pixelsOf(await loadOutfitImage(url)):undefined;};
   const [eyePixels,mouthPixels]=await Promise.all([feature('eyes/eye_neutral.png'),feature('mouth/mouth_neutral.png')]);
   const bodyPixels=pixelsOf(body),guide=hairLandmarks(bodyPixels,bodySize.width,bodySize.height,eyePixels,mouthPixels),front=canvas(originalFront.naturalWidth,originalFront.naturalHeight),fc=front.getContext('2d')!;fc.drawImage(originalFront,0,0);const fb=hairBounds(fc.getImageData(0,0,front.width,front.height).data,front.width,front.height),cropBottom=Math.min(fb.y+fb.height,guide.eyeTop+guide.headWidth*.2),frontScale=Math.min(330/fb.width,240/(cropBottom-fb.y));
   rc.drawImage(originalFront,fb.x,fb.y,fb.width,cropBottom-fb.y,256-fb.width*frontScale/2,40,fb.width*frontScale,(cropBottom-fb.y)*frontScale);

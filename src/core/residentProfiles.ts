@@ -19,7 +19,7 @@ export const residentProfiles={
  luna:{
   name:'Luna',description:'Observant, quietly playful, and fond of stargazing, sketching, and collecting little stories.',
   voice:'Speak warmly with occasional quiet wit and a sketchbook artist’s eye for small details.',home:'luna-home',upstairs:undefined,
-  avatar:art+'luna-visitor.png',blink:art+'luna-blink.png',step:art+'luna-stride.png',drag:art+'luna-drag.png',
+  avatar:art+'luna-visitor.webp',blink:art+'luna-blink.webp',step:art+'luna-stride.webp',drag:art+'luna-drag.webp',
   outings:[{start:'10:00',end:'11:30',place:'park'},{start:'15:00',end:'17:00',place:'library'}],
   activities:[
    {pose:'sketch',position:{x:46,y:54},status:'Luna is sketching at her desk.'},
@@ -33,7 +33,7 @@ export const residentProfiles={
  lyra:{
   name:'Lyra',description:'A calm, thoughtful systems architect who looks out for Mana, collects mysterious bottles, and guesses the shapes of clouds.',
   voice:'Your library is your home. Speak gently, with quiet curiosity and a little dry warmth.',home:'library',upstairs:'lyra-room',
-  avatar:art+'lyra-visitor-clean.png',blink:art+'lyra-blink.png',step:art+'lyra-step.png',drag:art+'lyra-drag.png',
+  avatar:art+'lyra-visitor-clean.webp',blink:art+'lyra-blink.webp',step:art+'lyra-step.webp',drag:art+'lyra-drag.webp',
   outings:[{start:'12:00',end:'13:30',place:'cafe'},{start:'16:00',end:'18:00',place:'park'}],
   activities:[
    {pose:'read',position:{x:34,y:58},status:'Lyra is reading by the window.'},

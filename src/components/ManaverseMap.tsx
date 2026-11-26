@@ -26,10 +26,10 @@ export const manaversePlaces={
 
 export type ManaverseArea=keyof typeof manaversePlaces;
 const characterPortraits={
- mana:{name:'Mana',image:'./companion-room/mana_idle_1.png'},
+ mana:{name:'Mana',image:'./companion-room/mana_idle_1.webp'},
  luna:{name:'Luna',image:ROOM_CONTACTS.luna.avatar},
  lyra:{name:'Lyra',image:ROOM_CONTACTS.lyra.avatar},
- aishi:{name:'Aishi',image:'./companion-room/aishi-sprites.png'},
+ aishi:{name:'Aishi',image:'./companion-room/aishi-sprites.webp'},
 };
 type MapCharacter={location:ManaverseArea;activity?:string;next?:{place:ManaverseArea;start?:string}};
 type CharacterId=keyof typeof characterPortraits;
@@ -81,7 +81,7 @@ export default function ManaverseMap({area,characters,onChoose,diving}:{
    <SceneZoomControls zoom={zoom} onZoom={setZoom}/>
    <ScenePanContext.Provider value={()=>{}}><SceneViewport className={zoom>1?"phone-map-viewport phone-map-zoomed":"phone-map-viewport"}>
    <div className="manaverse-town-art" style={{'--phone-map-zoom':zoom} as CSSProperties}>
-    <img className="manaverse-town-illustration" src="./companion-room/manaverse-town-map.png"
+    <img className="manaverse-town-illustration" src="./companion-room/manaverse-town-map.webp"
      alt="Illustrated town overview from the residential street and pond park to the fountain square and Second Street." />
     {mapLandmarks.map(({id,label,x,y})=><button className="btn manaverse-map-pin" key={id} type="button"
      style={{left:`${x}%`,top:`${y}%`}} aria-label={manaversePlaces[id]} aria-current={area===id?'location':undefined}

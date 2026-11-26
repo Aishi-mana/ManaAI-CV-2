@@ -1,4 +1,6 @@
 import {journalClock} from './clock';
+import {residentIds,residentProfiles} from './residentProfiles';
+import type {TownCharacter} from './residentRelationships';
 
 const schedule=[
  {title:'Town Market',day:1,start:'11:00',end:'13:00'},
@@ -8,12 +10,21 @@ const schedule=[
  {title:'Winter Lantern Festival',month:12,day:21,start:'18:00',end:'20:00'},
 ] as const;
 
-export type TownEventDraft={title:string;date:string;start:string;end:string};
+export type TownEventDraft={title:string;date:string;start:string;end:string;birthdayFor?:TownCharacter};
 export type CustomTownEvent=TownEventDraft&{id:string};
 const timePattern=/^(?:[01]\d|2[0-3]):[0-5]\d$/;
+export function birthdayOwner(event:{id:string}):TownCharacter|undefined{
+ return (['mana',...residentIds] as TownCharacter[]).find(owner=>event.id===`birthday-${owner}`);
+}
+export function birthdayTitle(owner:TownCharacter){return `${owner==='mana'?'Mana':residentProfiles[owner].name}’s birthday`;}
 
 export function validTownEvent(event:TownEventDraft){
  const date=new Date(event.date+'T12:00:00Z');
+ if(event.birthdayFor){
+  if(!(['mana',...residentIds] as string[]).includes(event.birthdayFor)||event.start<'08:00'||event.end>'21:00')return false;
+  const minutes=(time:string)=>Number(time.slice(0,2))*60+Number(time.slice(3));
+  if(minutes(event.end)-minutes(event.start)>60)return false;
+ }
  return event.title.trim().length>0&&event.title.length<=80&&/^\d{4}-\d{2}-\d{2}$/.test(event.date)&&
   Number.isFinite(date.getTime())&&date.toISOString().slice(0,10)===event.date&&
   timePattern.test(event.start)&&timePattern.test(event.end)&&event.end>event.start;
@@ -39,7 +50,8 @@ export function townEventsForMonth(month:string,custom:readonly CustomTownEvent[
  }));
  const annual=custom.flatMap(event=>{
   if(event.date.slice(5,7)!==month.slice(5))return [];
-  const date=month+'-'+event.date.slice(8);
+  let date=month+'-'+event.date.slice(8);
+  if(birthdayOwner(event)&&date.endsWith('-02-29')&&!validTownEvent({...event,date}))date=month+'-28';
   const occurrence={...event,date};
   return validTownEvent(occurrence)?[occurrence]:[];
  });

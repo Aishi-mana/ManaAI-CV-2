@@ -2,7 +2,7 @@ import {useEffect,useRef,useState,type RefObject} from 'react';
 import type {RoomState} from '../core/companionRoom';
 import {roomSleepNight} from '../core/companionRoom';
 import {aishiActivities,type AishiActivity} from '../core/aishiActivities';
-import {smallFavorChoice,smallFavorNearby,smallFavorAnswer,SMALL_FAVOR_GAP,smallFavors} from '../core/smallFavors';
+import {smallFavorChoices,smallFavorNearby,smallFavorAnswer,smallFavorCompanyResult,SMALL_FAVOR_COMPANY_MS,SMALL_FAVOR_GAP,smallFavors} from '../core/smallFavors';
 import type {MemoryInvitation} from '../core/memoryInvitations';
 import type {StreetPoint} from '../core/manaverseStreet';
 import type {ManaverseArea} from './ManaverseMap';
@@ -10,7 +10,7 @@ import {residentProfiles} from '../core/residentProfiles';
 import {useSceneTask} from './useSceneTask';
 
 type Offer={choice:MemoryInvitation;text:string};
-export type SmallFavor=Offer&{stage:'offered'|'helping'|'answering'|'completed';expires:number;answer?:string};
+export type SmallFavor=Offer&{stage:'offered'|'helping'|'answering'|'sharing'|'completed';expires:number;answer?:string};
 type Options={enabled:boolean;ready:boolean;timeZone:string;room:RefObject<RoomState>;lease:RefObject<AbortController|undefined>;root:RefObject<HTMLElement|null>;
  available?:AishiActivity;area?:ManaverseArea;point?:StreetPoint;walking:boolean;joining?:AishiActivity;allowOffers?:boolean;
  choose:(owner:MemoryInvitation['owner'],choices:MemoryInvitation[],signal:AbortSignal)=>Promise<Offer|undefined>;
@@ -30,40 +30,53 @@ export function useSmallFavors(options:Options){
  useSceneTask(options.enabled,options.ready,15_000,options.lease,async signal=>{
   const state=current.current,activity=state.available;
   if(state.allowOffers===false||!activity||active.current||state.joining||!available(activity)||Date.now()-lastOffer.current<SMALL_FAVOR_GAP)return;
-  const choice=smallFavorChoice(activity,state.room.current.sharedMemories??[]);
+  const choices=smallFavorChoices(activity,state.room.current.sharedMemories??[],Date.now(),state.room.current.personalGoals??[]);
   lastOffer.current=Date.now();
-  const offer=await state.choose(choice.owner,[choice],signal);
+  const offer=await state.choose(choices[0].owner,choices,signal);
   const latest=current.current;
-  if(signal.aborted||!offer||latest.allowOffers===false||offer.choice.id!==choice.id||offer.choice.owner!==choice.owner||!available(activity)||active.current||latest.joining||choice.memoryId&&!(latest.room.current.sharedMemories??[]).some(memory=>memory.id===choice.memoryId))return;
-  change({choice,text:offer.text,stage:'offered',expires:Date.now()+60_000});
+  const choice=offer&&choices.find(choice=>choice.id===offer.choice.id&&choice.owner===offer.choice.owner);
+  if(signal.aborted||!offer||!choice||latest.allowOffers===false||!available(activity)||active.current||latest.joining||choice.memoryId&&!(latest.room.current.sharedMemories??[]).some(memory=>memory.id===choice.memoryId))return;
+  change({choice,text:offer.text,stage:'offered',expires:Infinity});
  });
  const selected=favor?.choice.activity as AishiActivity|undefined;
  const valid=!!(favor&&selected&&favor.expires>Date.now()&&
   // Walking is expected after accepting; the answer still waits for arrival.
-  (favor.stage==='helping'?options.enabled&&options.available===selected&&options.area===aishiActivities[selected].area&&document.visibilityState==='visible'&&!roomSleepNight(new Date(),options.timeZone):available(selected,favor.stage==='answering'))&&
+  (favor.stage==='helping'?options.enabled&&options.available===selected&&options.area===aishiActivities[selected].area&&document.visibilityState==='visible'&&!roomSleepNight(new Date(),options.timeZone):available(selected,favor.stage==='answering'||favor.stage==='sharing'))&&
+  (favor.stage!=='sharing'||options.joining===selected)&&
   (!favor.choice.memoryId||(options.room.current.sharedMemories??[]).some(memory=>memory.id===favor.choice.memoryId)));
  useEffect(()=>{
   if(!favor)return;
   if(!valid){change(undefined);return;}
   if(favor.stage==='helping'){
-   if(options.joining===selected&&!options.walking&&available(selected!,true))change({...favor,stage:'answering'});
+   if(options.joining===selected&&!options.walking&&available(selected!,true))change({...favor,stage:favor.choice.favor==='reading-company'?'sharing':'answering'});
    else if(options.joining!==selected)change(undefined);
   }
  },[favor,valid,options.joining,options.walking,selected]);
  useEffect(()=>{
   if(!favor)return;
-  const timeout=window.setTimeout(()=>change(undefined),Math.max(0,favor.expires-Date.now()));
+  const timeout=Number.isFinite(favor.expires)?window.setTimeout(()=>change(undefined),Math.max(0,favor.expires-Date.now())):undefined;
   const hidden=()=>{if(document.visibilityState!=='visible')change(undefined);};
   document.addEventListener('visibilitychange',hidden);
   return ()=>{clearTimeout(timeout);document.removeEventListener('visibilitychange',hidden);};
  },[favor]);
+ useEffect(()=>{
+  if(favor?.stage!=='sharing'||!valid)return;
+  const timer=window.setTimeout(()=>{
+   const offer=active.current,state=current.current;
+   if(offer!==favor||offer.stage!=='sharing'||state.joining!=='read'||!available('read',true))return;
+   const result=smallFavorCompanyResult(offer.choice.favor!);if(!result)return;
+   change({...offer,stage:'completed',answer:result.label,expires:Date.now()+8000});
+   state.onComplete(`small-favor-reading-company-${Date.now()}`,smallFavors['reading-company'].title,result.outcome,result.owner);
+  },SMALL_FAVOR_COMPANY_MS);
+  return ()=>clearTimeout(timer);
+ },[favor,valid]);
  function accept(){
   const offer=active.current,activity=offer?.choice.activity as AishiActivity|undefined;
   if(!offer||offer.stage!=='offered'||!activity||offer.expires<=Date.now()||!available(activity)||current.current.joining)return;
   if(offer.choice.memoryId&&!(current.current.room.current.sharedMemories??[]).some(memory=>memory.id===offer.choice.memoryId))return;
   const point=current.current.point,target=aishiActivities[activity].point;
-  if(point&&Math.hypot(point.x-target.x,point.y-target.y)<.001){change({...offer,stage:'answering',expires:Date.now()+120_000});return;}
-  if(current.current.join(activity))change({...offer,stage:'helping',expires:Date.now()+120_000});
+  if(point&&Math.hypot(point.x-target.x,point.y-target.y)<.001&&offer.choice.favor!=='reading-company'){change({...offer,stage:'answering',expires:Infinity});return;}
+  if(current.current.join(activity))change({...offer,stage:'helping',expires:Infinity});
  }
  function answer(id:string){
   const offer=active.current,activity=offer?.choice.activity as AishiActivity|undefined;

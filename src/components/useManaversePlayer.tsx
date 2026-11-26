@@ -171,7 +171,16 @@ export function useManaversePlayer(area:ManaverseArea,setArea:(area:ManaverseAre
    id==='tinker'?'Aishi just joined you to fit gears at the Workshop workbench. Say a quick welcome as you tinker together.':
     id==='read'?'Aishi just joined you to read by the library window. Say a quick welcome without inventing the book or its contents.':
      'Aishi just joined you to sketch by the park pond. Say a quick welcome or offer a small sketching suggestion.'};
-  if(player?.area===activity.area&&joining.current!==id)return move(activity.point,undefined,undefined,id,activity);
+  if(player?.area===activity.area&&joining.current!==id){
+   if(!travelling.current&&Math.hypot(player.point.x-activity.point.x,player.point.y-activity.point.y)<.001){
+    stopJoining();joining.current=id;setJoining(id);setSpeech(undefined);
+    setPlayer({...player,facing:activity.facing});setNotice(activity.activity);setSharedScene(activity);
+    root.current?.focus({preventScroll:true});
+    joinTimer.current=window.setTimeout(()=>{if(joining.current!==id)return;completion.current(id);stopJoining();},15_000);
+    return true;
+   }
+   return move(activity.point,undefined,undefined,id,activity);
+  }
  }
  function go(destination:ManaverseArea){
   if(!player||destination===player.area)return;
@@ -201,7 +210,7 @@ export function useManaversePlayer(area:ManaverseArea,setArea:(area:ManaverseAre
  const avatar=player&&stage?createPortal(<div className="manaverse-player" data-room={player.area==='library'||player.area==='lyra-room'||player.area==='luna-home'||!!furniture[player.area]||isOfficeRoom(player.area)||isTownBuilding(player.area)}
   style={{left:`${player.point.x}%`,top:`${player.point.y}%`,zIndex:furniture[player.area]?sharedRoomActorDepth({x:player.point.x,y:player.point.y*6.98}):player.area==='cafe'?cafeActorDepth(player.point):player.area==='office'?officeActorDepth(player.point,officeLayout):player.area==='meeting-room'?meetingRoomActorDepth(player.point):isWalkableOfficeRoom(player.area)?officeRoomActorDepth(player.area,player.point):Math.round(player.point.y)}}>
   <div className="manaverse-player-sprite" role="img" aria-label="Aishi"
-   style={{backgroundImage:'url("./companion-room/aishi-sprites.png")',backgroundPosition:`${frame*100}% ${walking?100:0}%`,scale:`${player.facing} 1`}}/>
+   style={{backgroundImage:'url("./companion-room/aishi-sprites.webp")',backgroundPosition:`${frame*100}% ${walking?100:0}%`,scale:`${player.facing} 1`}}/>
  </div>,stage):null;
  const sceneLine=sharedScene;
  const sceneSpeaker=sceneLine&&stage?.querySelector(`.character-gesture:has(button[aria-label="Interact with ${sceneLine.speaker}"])`);

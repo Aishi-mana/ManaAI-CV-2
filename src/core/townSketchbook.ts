@@ -25,6 +25,7 @@ function presentation(action:string,text:string,people:Friend[]):Pick<TownSketch
  if(/^(?:aishi-group-(?:read|sketch)|(?:resident-)?park-meetup)$/.test(action))return {kind:action.includes('read')||/read together/.test(text)?'read':/sketch/.test(action+' '+text)?'sketch':'visit',area:'park'};
  if(action==='cafe-meetup')return {kind:'visit',area:'cafe'};
  if(action==='library-founding-story'||action==='luna-library-visit')return {kind:'visit',area:'library'};
+ if(action.startsWith('birthday-celebration-'))return {kind:'visit',area:'square'};
  if((action.startsWith('beanbag-chat-')||action.startsWith('quiet-company-')))return {kind:'visit',area:'living'};
  if(action==='host-visit')return {kind:'visit',area:people.includes('lyra')?'library':people.includes('luna')?'luna-home':undefined};
  if(action==='mana-keepsake'||action==='shared-keepsake')return {kind:'visit',area:'bedroom'};

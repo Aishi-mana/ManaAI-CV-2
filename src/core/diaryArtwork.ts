@@ -4,9 +4,9 @@ import {validImageData} from './savedImages';
 import type {ImageAttachment} from './vision';
 export interface DiaryIllustration extends ImageAttachment {prompt:string}
 const diaryCharacters=[
- {name:'Luna',path:'./companion-room/luna-visitor.png',look:'dark blue bob, lavender beret, cream cardigan and teal dress',crop:[.29,.06,.43,.94]},
- {name:'Lyra',path:'./companion-room/lyra-visitor-clean.png',look:'long pale blonde hair, purple eyes and a tan cardigan over a plaid skirt',crop:[.21,.06,.58,.94]},
- {name:'Aishi',path:'./companion-room/aishi-sprites.png',look:'silver-haired adult man in a black jacket, dark trousers and boots',crop:[.15,0,.21,.49]},
+ {name:'Luna',path:'./companion-room/luna-visitor.webp',look:'dark blue bob, lavender beret, cream cardigan and teal dress',crop:[.29,.06,.43,.94]},
+ {name:'Lyra',path:'./companion-room/lyra-visitor-clean.webp',look:'long pale blonde hair, purple eyes and a tan cardigan over a plaid skirt',crop:[.21,.06,.58,.94]},
+ {name:'Aishi',path:'./companion-room/aishi-sprites.webp',look:'silver-haired adult man in a black jacket, dark trousers and boots',crop:[.15,0,.21,.49]},
 ] as const;
 
 export function diaryArtworkRequest(entry:Pick<DiaryEntry,'content'|'mood'>):ChatPictureRequest {

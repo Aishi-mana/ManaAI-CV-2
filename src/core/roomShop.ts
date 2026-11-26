@@ -8,14 +8,14 @@ export const ROOM_SHOP_PRICE=40;
 export const ROOM_SHOP_CATEGORIES=['Seating','Tables','Storage','Plants'] as const;
 export type RoomShopCategory=typeof ROOM_SHOP_CATEGORIES[number];
 export const ROOM_DESIGNS=[
- {category:'Tables',name:'Moonstone side table',description:'a blue-gray wooden side table with a moon-shaped inlay',reference:'coffee_table.png'},
- {category:'Seating',name:'Peach reading stool',description:'a peach velvet reading stool with short walnut legs',reference:'beanie_bag.png'},
- {category:'Plants',name:'Mint planter',description:'a small leafy plant in a mint ceramic pot',reference:'plant.png'},
- {category:'Seating',name:'Lavender ottoman',description:'a lavender upholstered ottoman with a scalloped base',reference:'beanie_bag.png'},
- {category:'Tables',name:'Honey oak end table',description:'a honey oak end table with a curved shelf',reference:'coffee_table.png'},
- {category:'Plants',name:'Terracotta fern',description:'a compact fern in a patterned terracotta pot',reference:'plant.png'},
- {category:'Storage',name:'Cloud bookcase',description:'a compact ivory bookcase with two shelves and a cloud-shaped cutout',reference:'bookshelf.png'},
- {category:'Storage',name:'Lavender cabinet',description:'a low lavender storage cabinet with two paneled doors and brass knobs',reference:'bookshelf.png'},
+ {category:'Tables',name:'Moonstone side table',description:'a blue-gray wooden side table with a moon-shaped inlay',reference:'coffee_table.webp'},
+ {category:'Seating',name:'Peach reading stool',description:'a peach velvet reading stool with short walnut legs',reference:'beanie_bag.webp'},
+ {category:'Plants',name:'Mint planter',description:'a small leafy plant in a mint ceramic pot',reference:'plant.webp'},
+ {category:'Seating',name:'Lavender ottoman',description:'a lavender upholstered ottoman with a scalloped base',reference:'beanie_bag.webp'},
+ {category:'Tables',name:'Honey oak end table',description:'a honey oak end table with a curved shelf',reference:'coffee_table.webp'},
+ {category:'Plants',name:'Terracotta fern',description:'a compact fern in a patterned terracotta pot',reference:'plant.webp'},
+ {category:'Storage',name:'Cloud bookcase',description:'a compact ivory bookcase with two shelves and a cloud-shaped cutout',reference:'bookshelf.webp'},
+ {category:'Storage',name:'Lavender cabinet',description:'a low lavender storage cabinet with two paneled doors and brass knobs',reference:'bookshelf.webp'},
 ] as const satisfies readonly {category:RoomShopCategory;name:string;description:string;reference:string}[];
 export type RoomDesign=typeof ROOM_DESIGNS[number];
 export function shopPieceActivity(name:string):'water'|'read'|'sleep'|undefined{

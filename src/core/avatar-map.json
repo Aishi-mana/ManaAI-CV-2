@@ -1,5 +1,5 @@
 {
-  "_help": "Edit this file to change which eye/mouth image each emotion uses, which depth each accessory sits at, and the zoom presets. Names are file names without .png.",
+  "_help": "Edit this file to change which eye/mouth image each emotion uses, which depth each accessory sits at, and the zoom presets. Names are file names without the image extension (.webp or .png).",
   "emotions": {
     "neutral":     { "eyes": "eye_neutral",    "mouth": "mouth_neutral" },
     "happy":       { "eyes": "eye_happy",      "mouth": "mouth_smile" },

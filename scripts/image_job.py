@@ -61,6 +61,7 @@ def clothing_position_guide(body,clothing=None):
     from PIL import Image
     if clothing is None:
         path=Path(__file__).resolve().parent.parent/'assets/avatar/outfits/default/outfit.png'
+        if not path.is_file():path=path.with_suffix('.webp')
         with Image.open(path) as source:clothing=source.convert('RGBA')
     layer=clothing.convert('RGBA')
     if layer.size!=body.size:layer=layer.resize(body.size,Image.Resampling.LANCZOS)

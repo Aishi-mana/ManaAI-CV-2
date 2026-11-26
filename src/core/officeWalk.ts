@@ -122,7 +122,7 @@ export function isOfficeRoomFloor(room:WalkableOfficeRoom,point:StreetPoint){
  return insideOutline(point,roomFloors[room])&&!roomObstacles[room].some(outline=>insideOutline(point,outline));
 }
 
-// Measured on cafe-interior-wide.png in scene percentages.
+// Measured on cafe-interior-wide.webp in scene percentages.
 const cafeFloorOutline=[[2,61],[50,33.6],[98,61],[50,98.5]] as const;
 const cafeFurnitureFootprints=[
  [[14,51],[15,47],[19,45],[43,33],[49,34],[49,40.7],[27,53],[20,54]],

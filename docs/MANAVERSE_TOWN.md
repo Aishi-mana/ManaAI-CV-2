@@ -197,3 +197,33 @@ Existing paired encounters can occasionally ask about a friend's little project 
 ### Personal touches at home
 
 Each existing home keepsake spot displays its owner's latest completed personal project, derived from saved goals rather than copied into another save field. Incomplete or future completions do not qualify. The original activity keepsake remains saved and is used when there is no completed project. Sketch, notes and trinket icons serve as symbolic mementos of completed work sessions; they are not generated artifacts. Selecting one shows the project, owner and completion timestamp. When the owner is home and awake, the existing scene voice may supply a short reflection on demand. No background model loop, invented participant list, extra furniture collision or new display placement is added. Mana's display continues following her editable bedroom desk.
+
+### Small favors: quiet company and open-ended offers
+
+Small favors extend the existing optional sketch-focus, reading-pace and workbench-choice requests. Lyra can also ask Aishi for quiet reading company. The AI chooses between supported reading requests or declines to ask; it cannot invent tasks or rewards. A matching active personal project may ground an opinion request, without implying completion. Offers and accepted answers have no countdown: they remain valid only while the original activity and nearby characters are still available. The speech bubble fades normally while the panel remains usable.
+
+Quiet company uses the normal join route and animation. Completion needs twelve seconds at the shared reading spot; cancellation, departure, sleep, a missing host or leaving the shared activity cancels its timer. Only a completed break records the favor and reciprocal memory. It has no answer choices or claimed book contents. The existing twenty-minute offer spacing and evening/sleep rules still apply. Joining an activity at its exact existing spot now starts directly instead of rejecting a zero-length walk.
+
+### Character birthdays
+
+In Town Hall's annual calendar, select a date, choose a character birthday under Event type, and save. Each character has one birthday event; saving a different date or time replaces it. Default celebrations are 16:00–16:30, with at most one hour between 08:00 and 21:00. Dates repeat yearly; February 29 birthdays occur on February 28 in non-leap years. No birthday dates or ages are invented.
+
+Birthdays use the existing Town Square event gathering and route system. Weather shelter and existing travel rules remain authoritative. Shared birthday memories require the birthday owner and friend to actually be present together, independently of model availability. The existing shared-memory IDs deduplicate each pair and date. Birthday wishes use existing AI scene bubbles, one speaker at a time, only while both characters are present; the birthday owner can thank the company. No gifts, cake, age, or absent attendees are invented. Successful wishes are stored with the event's guestbook occurrence so reopening does not replay them. Failed/cancelled generation does not mark a wish as sent. Aishi may walk into the square normally; no participation is required. Wishes are visible when viewing the square, and completed celebrations remain in the guestbook and shared moments in the Town Sketchbook.
+
+### Birthday cards at home
+
+The existing single home display spot can show a birthday card after a completed birthday celebration. Guestbook occurrences now retain the guests who were actually present at the same time as the birthday owner; separate arrivals alone do not establish shared company. This survives saves and does not depend on AI availability. Older occurrences with a recorded friend's successful wish can also supply evidence of company.
+
+The card is derived from the saved celebration, showing its calendar date and recorded company, with a short optional AI reflection when its owner is home and awake. It is a symbolic keepsake, not a claim that anyone made, wrote or delivered a physical gift. The latest completed birthday or project takes the existing spot; original activity keepsakes and prior project/guestbook records remain saved. No furniture, collision area, background generation or new save store is added.
+
+### Keepsake Album
+
+The phone's Keepsake Album opens with a character grid. Selecting a character opens a separate page with dated expandable entries and filters for birthday cards, completed projects and activity mementos. Back returns to the character grid. The album uses retained completed project records, eligible birthday guestbook occurrences, current saved activity keepsakes and completed moments already curated by the Town Sketchbook. Reciprocal activity memories are merged and matching mementos deduplicated. Future or unfinished records do not create keepsakes.
+
+This is a read-only view of retained records, not a new archive store: it cannot recover history already removed by existing retention limits. The home display remains a single latest memento. Opening album entries does not call the AI, generate images, modify memory, or record new activities.
+
+### Recent-feature polish
+
+Phone detail pages keep their parent navigation (album → character, projects → character, sketchbook → day) and reset non-message page scroll when switching pages or characters. Heading focus avoids scrolling the underlying room. Tab and Shift+Tab stay within visible, enabled phone controls; Escape still closes and restores the launcher. Phone headers, app labels and project choices wrap within smaller widths. Album empty states distinguish an empty character album from a category with no matches.
+
+Speech priority now covers birthdays, project completions and favors as well as older ambient bubbles; phone overlays and open character chats suppress competing scene bubbles visually. Birthday attempts that find the AI busy can retry after two minutes through existing scene updates, while saved successful wishes are still excluded. No new AI loop or feature is added. Regression coverage includes recent phone back paths, focus wrapping and failed/successful birthday turn behavior.

@@ -2269,3 +2269,27 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .town-project-choice small { font-weight: normal; }
 .companion-room:has(.scene-project-line) .scene-ambient-line,
 .companion-room:has(.scene-project-line) .scene-activity-line { display: none; }
+.companion-room:has(.scene-birthday-line) .scene-ambient-line,
+.companion-room:has(.scene-birthday-line) .scene-festival-line,
+.companion-room:has(.scene-birthday-line) .manaverse-street-speech { visibility: hidden; }
+.activity-keepsake[data-kind="birthday-card"] .activity-keepsake-art { aspect-ratio: .8; rotate: -10deg; border: 2px solid #b58291; border-radius: 3px; background: linear-gradient(90deg,#e7becf 0 7%,#fff4e8 8%); box-shadow: inset 0 0 0 3px #f3dbe3; }
+.activity-keepsake[data-kind="birthday-card"] .activity-keepsake-art span { position: absolute; inset: 23%; background: #bd758b; clip-path: polygon(50% 0,62% 34%,100% 38%,72% 61%,81% 100%,50% 79%,19% 100%,28% 61%,0 38%,38% 34%); }
+.room-phone-app-icon[data-app="keepsake-album"] { background: linear-gradient(145deg,#bb869b,#795474); }
+.keepsake-album-entry { padding: .7rem 0; border-bottom: 1px solid var(--mist-deep); }
+.keepsake-album-entry summary { cursor: pointer; display: flex; gap: .8rem; align-items: center; }
+.keepsake-album-entry time { display: block; font-size: .85em; color: var(--ink-soft); margin-top: .3rem; }
+.keepsake-album-art.activity-keepsake { position: static; translate: none; flex: 0 0 44px; width: 44px; padding: 3px; cursor: inherit; }
+.room-phone-top, .room-phone-header, .room-phone-home { flex-shrink: 0; }
+.room-phone-header { min-width: 0; }
+.room-phone-header h2 { min-width: 0; overflow-wrap: anywhere; }
+.room-phone-apps { min-height: 0; overscroll-behavior: contain; }
+.room-phone-apps button { min-width: 0; overflow-wrap: anywhere; }
+.room-phone-apps button:focus-visible { outline: 2px solid var(--berry); outline-offset: 2px; }
+.town-project-person { min-width: 0; overflow-wrap: anywhere; }
+.town-project-choice { display: flex; align-items: center; justify-content: space-between; gap: .5rem; width: 100%; margin-bottom: .5rem; text-align: left; }
+.town-project-choice small { flex-shrink: 0; }
+.companion-room:has(.room-phone-overlay) :is(.manaverse-player-greeting,.manaverse-street-speech,.scene-ambient-line,.scene-conversation-line,.scene-pet-line),
+.companion-room:has(.companion-room-body:not([hidden]) .scene-open-chat) :is(.scene-birthday-line,.scene-project-line,.scene-favor-line),
+.companion-room:has(.scene-birthday-line) :is(.scene-project-line,.scene-favor-line,.scene-proximity-line,.scene-heart-line),
+.companion-room:has(.scene-favor-line) .scene-project-line,
+.companion-room:has(.scene-project-line) :is(.scene-proximity-line,.scene-heart-line) { visibility: hidden; }

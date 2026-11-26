@@ -1,9 +1,9 @@
 import {isRecord} from './validation';
-import {validTownEvent,type CustomTownEvent} from './townEvents';
+import {validTownEvent,birthdayOwner,type CustomTownEvent} from './townEvents';
 
 const guestNames=['Mana','Luna','Lyra'] as const;
 export type TownGuest=typeof guestNames[number];
-export type TownGuestbookVisit=CustomTownEvent&{guests:TownGuest[]};
+export type TownGuestbookVisit=CustomTownEvent&{guests:TownGuest[];wishedBy?:TownGuest[];celebratedWith?:TownGuest[]};
 
 export function validateTownGuestbook(raw:unknown):TownGuestbookVisit[]{
  if(!Array.isArray(raw))return [];
@@ -13,7 +13,11 @@ export function validateTownGuestbook(raw:unknown):TownGuestbookVisit[]{
   if(typeof id!=='string'||!id||typeof title!=='string'||typeof date!=='string'||typeof start!=='string'||typeof end!=='string'||!Array.isArray(guests))return [];
   const event={id,title,date,start,end};
   const visitors=guestNames.filter(guest=>guests.includes(guest));
-  return visitors.length&&validTownEvent(event)?[{...event,guests:visitors}]:[];
+  const wishes=Array.isArray(item.wishedBy)?item.wishedBy:[];
+  const wishedBy=birthdayOwner(event)?visitors.filter(guest=>wishes.includes(guest)):[];
+  const company=Array.isArray(item.celebratedWith)?item.celebratedWith:[];
+  const celebratedWith=birthdayOwner(event)?visitors.filter(guest=>company.includes(guest)):[];
+  return visitors.length&&validTownEvent(event)?[{...event,guests:visitors,...(wishedBy.length?{wishedBy}:{}),...(celebratedWith.length?{celebratedWith}:{})}]:[];
  });
 }
 
@@ -23,8 +27,10 @@ export function recordTownAttendance(visits:TownGuestbookVisit[],events:readonly
  for(const {id,title,date,start,end} of events){
   const visit=updated.find(entry=>entry.id===id&&entry.date===date);
   const guests=guestNames.filter(guest=>present.includes(guest)||visit?.guests.includes(guest));
-  if(visit?.guests.length===guests.length)continue;
-  updated=[...updated.filter(entry=>entry!==visit),{id,title,date,start,end,guests}];
+  const owner=birthdayOwner({id}),ownerName=owner==='mana'?'Mana':owner==='luna'?'Luna':'Lyra';
+  const celebratedWith=owner?guestNames.filter(guest=>visit?.celebratedWith?.includes(guest)||present.includes(ownerName)&&present.includes(guest)):[];
+  if(visit?.guests.length===guests.length&&(visit.celebratedWith?.length??0)===celebratedWith.length)continue;
+  updated=[...updated.filter(entry=>entry!==visit),{...visit,id,title,date,start,end,guests,...(celebratedWith.length?{celebratedWith}:{})}];
  }
  return updated;
 }

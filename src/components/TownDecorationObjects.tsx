@@ -2,7 +2,7 @@ import TownFireworks from './TownFireworks';
 import type {DecorationObject} from '../core/townDecorationLayout';
 
 export function DecorationArtwork({kind,animate=true}:{kind:DecorationObject['kind'];animate?:boolean}){
- if(kind==='christmas-tree')return <img className="town-christmas-tree" src="./companion-room/town-christmas-tree.png" alt="" draggable={false}/>;
+ if(kind==='christmas-tree')return <img className="town-christmas-tree" src="./companion-room/town-christmas-tree.webp" alt="" draggable={false}/>;
  if(kind==='garlands')return <div className="town-festive-garland">{Array.from({length:9},(_,index)=><span key={index}/>)}</div>;
  if(kind==='lights')return <div className="town-festive-glow"/>;
  if(kind==='golden-display')return <div className="town-new-year-display"><span/><span/><span/></div>;

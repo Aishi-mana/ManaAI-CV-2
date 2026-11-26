@@ -3784,6 +3784,134 @@ test('home project displays select one latest completed memento and retain real 
  assert.equal(history[0].id,'old-star');
 });
 
+test('birthdays repeat annually, use February 28 outside leap years and keep celebrations short',()=>{
+ const e=loader()('src/core/townEvents.ts');
+ const birthday={id:'birthday-luna',title:e.birthdayTitle('luna'),date:'2000-02-29',start:'16:00',end:'16:30'};
+ assert.equal(e.birthdayOwner(birthday),'luna');assert.equal(e.birthdayOwner({id:'invented'}),undefined);
+ const normal=e.townEventCalendar(new Date('2027-02-28T08:05:00Z'),'Asia/Singapore',[birthday]);
+ assert.equal(normal.active.find(event=>event.id===birthday.id).date,'2027-02-28');
+ const leap=e.townEventCalendar(new Date('2028-02-29T08:05:00Z'),'Asia/Singapore',[birthday]);
+ assert.equal(leap.active.find(event=>event.id===birthday.id).date,'2028-02-29');
+ assert.equal(e.validTownEvent({...birthday,birthdayFor:'luna'}),true);
+ assert.equal(e.validTownEvent({...birthday,birthdayFor:'luna',end:'18:00'}),false);
+ assert.equal(e.validTownEvent({...birthday,birthdayFor:'luna',start:'23:00',end:'23:30'}),false);
+ assert.equal(e.townEventCalendar(new Date('2027-02-28T08:31:00Z'),'Asia/Singapore',[birthday]).active.some(event=>event.id===birthday.id),false);
+});
+
+test('birthday wishes require actual attendance and retain sent wishes through saves and later arrivals',()=>{
+ const load=loader(),b=load('src/core/townBirthdays.ts'),g=load('src/core/townGuestbook.ts'),room=load('src/core/companionRoom.ts');
+ const event={id:'birthday-mana',title:'Mana’s birthday',date:'2026-11-26',start:'16:00',end:'16:30'};
+ let visits=g.recordTownAttendance([], [event],['Luna']);
+ assert.equal(b.recordBirthdayWish(visits,event,'luna'),visits,'birthday owner must also attend');
+ visits=g.recordTownAttendance(visits,[event],['Mana','Luna']);
+ visits=b.recordBirthdayWish(visits,event,'luna');
+ assert.equal(b.recordBirthdayWish(visits,event,'luna'),visits);
+ assert.equal(b.recordBirthdayWish(visits,event,'lyra'),visits,'absent guests cannot wish');
+ visits=g.recordTownAttendance(visits,[event],['Lyra']);
+ assert.equal(visits[0].wishedBy[0],'Luna');
+ const restored=room.validateRoom(JSON.parse(JSON.stringify({townGuestbook:visits})));
+ assert.equal(restored.townGuestbook[0].wishedBy[0],'Luna');
+ assert.match(b.birthdayWishPrompt(event,'luna'),/Do not invent an age, gift/);
+ assert.match(b.birthdayWishPrompt(event,'mana'),/thank-you/);
+ assert.equal(b.birthdayWishPrompt({...event,id:'ordinary-event'},'luna'),undefined);
+});
+
+test('birthday cards require company at the same time and appear after the celebration without displacing newer projects',()=>{
+ const load=loader(),k=load('src/core/activityKeepsakes.ts'),g=load('src/core/townGuestbook.ts'),room=load('src/core/companionRoom.ts'),p=load('src/core/townPersonalGoals.ts');
+ const event={id:'birthday-mana',title:'Mana’s birthday',date:'2026-11-26',start:'16:00',end:'16:30'};
+ let visits=g.recordTownAttendance([], [event],['Luna']);
+ visits=g.recordTownAttendance(visits,[event],['Mana']);
+ const now=Date.parse('2026-11-26T09:00:00Z');
+ assert.equal(k.homeDisplayKeepsakes([],[],now,visits).length,0,'separate visits do not prove celebrating together');
+ visits=g.recordTownAttendance(visits,[event],['Mana','Luna']);
+ assert.equal(k.homeDisplayKeepsakes([],[],Date.parse('2026-11-26T08:15:00Z'),visits).length,0);
+ const restored=room.validateRoom(JSON.parse(JSON.stringify({townGuestbook:visits})));
+ const cards=k.homeDisplayKeepsakes([],[],now,restored.townGuestbook);
+ assert.equal(cards.length,1);assert.equal(cards[0].kind,'birthday-card');assert.equal(cards[0].birthday.date,'2026-11-26');
+ assert.equal(cards[0].participants.join(','),'mana,luna');assert.match(k.projectKeepsakeReflection(cards[0]),/Do not invent your age/);
+ let project=p.readTownGoal('{"choice":"shared-workbench","reason":"Try an idea together."}','mana',new Date('2026-11-26T08:31:00Z'));
+ project=p.progressTownGoals([project],'work','aishi-tinker','Worked together.',['mana','aishi'],new Date('2026-11-26T08:32:00Z'))[0];
+ assert.equal(k.homeDisplayKeepsakes([],[project],now,visits)[0].project.id,project.id);
+ assert.equal(k.homeDisplayKeepsakes([],[],now,[{...visits[0],date:'2026-11-27'}]).length,0);
+ const legacy={...visits[0],celebratedWith:undefined,wishedBy:['Luna']};
+ assert.equal(k.homeDisplayKeepsakes([],[],now,[legacy])[0].kind,'birthday-card');
+});
+
+test('keepsake album retains older completed projects and birthday cards from records without inventing unfinished entries',()=>{
+ const load=loader(),a=load('src/core/keepsakeAlbum.ts'),g=load('src/core/townPersonalGoals.ts'),m=load('src/core/residentRelationships.ts');
+ const now=Date.parse('2026-11-26T09:00:00Z');
+ const goal=g.readTownGoal('{"choice":"shared-workbench","reason":"Build with a friend."}','mana',new Date('2026-11-20T08:00:00Z'));
+ const done=g.progressTownGoals([goal],'work','aishi-tinker','Worked together.',['mana','aishi'],new Date('2026-11-20T08:10:00Z'))[0];
+ const later={...done,id:'later-project',completedAt:'2026-11-22T08:10:00Z'};
+ const birthday=date=>({id:'birthday-mana',title:'Mana’s birthday',date,start:'16:00',end:'16:30',guests:['Mana','Luna'],celebratedWith:['Mana','Luna']});
+ const memories=m.rememberSharedActivity([],'shared-2026-11-19-aishi-sketch','Sketching','Aishi and Luna sketched by the pond.',['aishi','luna'],new Date('2026-11-19T08:00:00Z'));
+ const entries=a.keepsakeAlbumEntries([],[done,later,{...goal,id:'unfinished'}],[birthday('2025-11-25'),birthday('2026-11-25'),birthday('2026-11-27')],[],memories,'Asia/Singapore',now);
+ assert.equal(entries.filter(entry=>entry.category==='project').length,2);
+ assert.equal(entries.filter(entry=>entry.category==='birthday').length,2);
+ assert.equal(entries.filter(entry=>entry.category==='activity').length,1,'mirrored memories merge into one memento');
+ assert.equal(entries[0].birthday.date,'2026-11-25');
+ assert.equal(entries.find(entry=>entry.category==='activity').owner,'luna');
+ assert.equal(a.keepsakeAlbumEntries([],[],[],[],[],'Asia/Singapore',now).length,0);
+});
+
+test('keepsake album starts with a character grid and filters the selected character’s details',()=>{
+ let filter='all',owner,opened;
+ const jsx=(type,props)=>({type,props});
+ const load=loader({react:{useState:()=>[filter,value=>filter=value]},'react/jsx-runtime':{jsx,jsxs:jsx,Fragment:'fragment'}});
+ const Album=load('src/components/KeepsakeAlbum.tsx').default;
+ const entry={id:'project',kind:'trinket',owner:'mana',participants:['mana'],at:'2026-11-20T08:00:00Z',moment:'Completed the sessions.',project:{id:'goal',title:'Workbench project',sessions:1},category:'project'};
+ const entries=[entry,{...entry,id:'card',kind:'birthday-card',category:'birthday',project:undefined,birthday:{title:'Birthday card',date:'2026-11-21'},participants:['mana','luna']}];
+ function render(){const nodes=[];function visit(node){if(Array.isArray(node)){node.forEach(visit);return;}if(!node||typeof node!=='object')return;nodes.push(node);visit(node.props?.children);}visit(Album({entries,owner,timeZone:'Asia/Singapore',onOpenOwner:id=>opened=id}));return nodes;}
+ let nodes=render();assert.equal(nodes.filter(node=>node.type==='button').length,3);assert.equal(nodes.filter(node=>node.type==='details').length,0);
+ nodes.find(node=>node.type==='button').props.onClick();assert.equal(opened,'mana');owner=opened;
+ nodes=render();assert.equal(nodes.filter(node=>node.type==='details').length,2);
+ nodes.find(node=>node.type==='select').props.onChange({target:{value:'birthday'}});
+ nodes=render();assert.equal(nodes.filter(node=>node.type==='details').length,1);
+});
+
+test('phone dialog keyboard focus wraps visible controls and skips hidden or disabled controls',()=>{
+ const {keepDialogFocus}=loader()('src/core/dialogFocus.ts');
+ let focused,prevented=0;
+ const control=(id,visible=true,tabIndex=0)=>({tabIndex,getClientRects:()=>visible?[{}]:[],focus:options=>{focused=id;assert.equal(options.preventScroll,true);}});
+ const first=control('first'),hidden=control('hidden',false),disabled=control('disabled',true,-1),last=control('last');
+ const dialog={querySelectorAll:()=>[first,hidden,disabled,last],ownerDocument:{activeElement:last}};
+ const event={key:'Tab',shiftKey:false,currentTarget:dialog,preventDefault:()=>prevented++};
+ keepDialogFocus(event);assert.equal(focused,'first');assert.equal(prevented,1);
+ dialog.ownerDocument.activeElement=first;keepDialogFocus({...event,shiftKey:true});assert.equal(focused,'last');
+ focused=undefined;keepDialogFocus(event);assert.equal(focused,undefined,'normal tab order remains native');
+ dialog.ownerDocument.activeElement={};keepDialogFocus(event);assert.equal(focused,'first','header focus enters the dialog controls');
+ keepDialogFocus({...event,key:'Escape'});assert.equal(prevented,3);
+});
+
+test('birthday wishes retry after a busy turn while successful wishes stay recorded',()=>{
+ let now=Date.parse('2026-11-26T08:00:00Z'),cursor=0,slots=[],pending=[],context,line,wishes=0;
+ const timers=new Map();let next=0;
+ const react={useState(initial){const id=cursor++;if(!Object.hasOwn(slots,id))slots[id]=initial;return [slots[id],v=>slots[id]=v];},useRef(current){const id=cursor++;return slots[id]??(slots[id]={current});},useEffect(fn,deps){const id=cursor++,old=slots[id];if(old&&deps.every((v,i)=>Object.is(v,old.deps[i])))return;slots[id]={deps};pending.push(()=>{old?.cleanup?.();slots[id].cleanup=fn();});}};
+ class ClockDate extends Date{static now(){return now;}}
+ const jsx=(type,props)=>({type,props});
+ const load=loader({react,'react/jsx-runtime':{jsx,jsxs:jsx},'react-dom':{createPortal:node=>node},'./SceneVoice':{SCENE_BUBBLE_MS:6000,useSceneLine:value=>{context=value;return value?line:undefined;}}},{Date:ClockDate,window:{setTimeout:fn=>{timers.set(++next,fn);return next;}},clearTimeout:id=>timers.delete(id)});
+ const Celebration=load('src/components/BirthdayCelebration.tsx').default;
+ const event={id:'birthday-mana',title:'Mana’s birthday',date:'2026-11-26',start:'16:00',end:'16:30'};
+ const props={events:[event],present:['mana','luna'],visits:[{...event,guests:['Mana','Luna']}],root:{querySelector:()=>({})},onWish:(event,speaker)=>{wishes++;props.visits=[{...props.visits[0],wishedBy:[...(props.visits[0].wishedBy??[]),speaker==='mana'?'Mana':'Luna']}];}};
+ function render(){cursor=0;pending=[];Celebration(props);pending.forEach(fn=>fn());}
+ function expire(){const fn=[...timers.values()][0];assert.ok(fn);fn();render();render();}
+ render();render();assert.ok(context);assert.equal(wishes,0);
+ expire();expire();assert.equal(context,undefined,'failed turns do not busy-loop');
+ now+=121_000;props.events=[event];render();render();assert.ok(context,'busy model can be tried again later');
+ line='Happy birthday, Mana!';render();assert.equal(wishes,1);
+ line=undefined;expire();render();assert.equal(wishes,1,'sent wish does not replay');
+ for(const slot of slots)slot?.cleanup?.();
+});
+
+test('avatar source lookups support bundled WebP and legacy PNG folders without mislabeling images',()=>{
+ const {avatarImageUrl}=loader()('src/core/avatar.ts');
+ const webp={urls:new Map([['eyes/eye_neutral.webp','blob:webp-eye']])};
+ assert.equal(avatarImageUrl(webp,'eyes/eye_neutral.png'),'blob:webp-eye');
+ assert.equal(avatarImageUrl(webp,'EYES\\eye_neutral.webp'),'blob:webp-eye');
+ assert.equal(avatarImageUrl({urls:new Map([['eyes/eye_neutral.png','blob:png-eye']])},'eyes/eye_neutral.webp'),'blob:png-eye');
+ assert.equal(avatarImageUrl(webp,'mouth/missing.png'),undefined);
+});
+
 test('the shared scene scheduler prevents overlapping tasks and cancels only its own work',async()=>{
  let tick,cleanup,finish,signal,started=0;
  const lease={current:undefined};
@@ -5534,6 +5662,15 @@ test('phone UI marks a viewed conversation read and keeps it read after remounti
  slots=[];render();assert.equal(nodes.find(node=>node.props?.className==='btn room-phone-button').props['data-unread'],false);
  props.messages.push({...props.messages[0],at:'2026-11-19T07:00:00.000Z',text:'Hello again!'});render();
  assert.equal(nodes.find(node=>node.props?.className==='btn room-phone-button').props['data-unread'],true);
+ const screen=()=>nodes.find(node=>node.props?.className==='room-phone-shell').props['data-screen'];
+ for(const [label,component,detail,parent] of [['Keepsake Album','KeepsakeAlbum','keepsake-owner','keepsake-album'],['Little Projects','TownProjects','town-project-detail','town-projects'],['Town Sketchbook','TownSketchbook','town-sketchbook-day','town-sketchbook']]){
+  nodes.find(node=>node.props?.['aria-label']===label).props.onClick({currentTarget:{focus(){}}});render();
+  const page=nodes.find(node=>typeof node.type==='function'&&node.type.name===component);
+  if(component==='TownSketchbook')page.props.onOpenDay('2026-11-26');else page.props.onOpenOwner('luna');
+  render();assert.equal(screen(),detail);
+  nodes.find(node=>node.props?.['aria-label']==='Back').props.onClick();render();assert.equal(screen(),parent);
+  nodes.find(node=>node.props?.['aria-label']==='Back').props.onClick();render();assert.equal(screen(),'home');
+ }
 });
 
 test('a due home visit routes Mana out of the workshop and resumes the current schedule after acceptance',()=>{
@@ -6241,6 +6378,29 @@ test('small favors walk before answering, record only a chosen answer once, and 
  ui.dismiss();render();sleeping=true;instant+=21*60_000;await run(new AbortController().signal);assert.equal(offered,2);
  sleeping=false;options.available=undefined;render();await run(new AbortController().signal);assert.equal(offered,2);
  for(const slot of slots)slot?.cleanup?.();assert.equal(listeners.size,0);
+});
+
+test('quiet reading favors wait for arrival and sustained company, cancel safely, and have no offer deadline',async()=>{
+ let instant=Date.parse('2026-11-26T04:00:00Z'),cursor=0,run,pending=[],slots=[],records=0,nextTimer=0;
+ const timers=new Map();
+ class ClockDate extends Date{constructor(...args){super(...(args.length?args:[instant]));}static now(){return instant;}}
+ const react={useState(initial){const id=cursor++;if(!Object.hasOwn(slots,id))slots[id]=initial;return [slots[id],v=>slots[id]=v];},useRef(current){const id=cursor++;return slots[id]??(slots[id]={current});},useEffect(fn,deps){const id=cursor++,old=slots[id];if(old&&deps.every((v,i)=>Object.is(v,old.deps[i])))return;slots[id]={deps};pending.push(()=>{old?.cleanup?.();slots[id].cleanup=fn();});}};
+ const actor={dataset:{},closest:()=>null,querySelector:()=>({getAttribute:()=>null})};
+ const load=loader({react,'./useSceneTask':{useSceneTask:(enabled,ready,ms,lease,fn)=>run=fn},'../core/companionRoom':{roomSleepNight:()=>false}},{Date:ClockDate,document:{visibilityState:'visible',addEventListener(){},removeEventListener(){}},window:{setTimeout:(fn,ms)=>{timers.set(++nextTimer,{fn,ms});return nextTimer;}},clearTimeout:id=>timers.delete(id)});
+ const hook=load('src/components/useSmallFavors.ts').useSmallFavors;
+ const options={enabled:true,ready:true,timeZone:'Asia/Singapore',room:{current:{sharedMemories:[]}},lease:{current:undefined},root:{current:{querySelector:s=>s.includes('scene-open-chat')?null:actor}},available:'read',area:'library',point:{x:45,y:64},walking:false,joining:undefined,choose:async(owner,choices)=>({choice:choices.find(c=>c.favor==='reading-company'),text:'Would you keep me company while I read?'}),join:()=>{options.walking=true;options.joining='read';return true;},onComplete:()=>records++};
+ function render(){cursor=0;pending=[];const value=hook(options);pending.forEach(fn=>fn());return value;}
+ let ui=render();instant+=60_000;await run(new AbortController().signal);ui=render();
+ assert.equal(ui.favor.choice.favor,'reading-company');assert.equal(ui.favor.expires,Infinity);
+ instant+=5*60_000;ui=render();assert.equal(ui.favor.stage,'offered');
+ ui.accept();render();ui=render();assert.equal(ui.favor.stage,'helping');assert.equal(records,0);
+ options.point={x:39,y:62};options.walking=false;render();ui=render();assert.equal(ui.favor.stage,'sharing');
+ const completion=[...timers.values()].find(t=>t.ms===12_000).fn;
+ ui.dismiss();render();completion();assert.equal(records,0,'dismissed favor cannot complete through an old timer');
+ options.joining=undefined;instant+=21*60_000;render();await run(new AbortController().signal);ui=render();ui.accept();render();options.walking=false;render();render();
+ const done=[...timers.values()].find(t=>t.ms===12_000).fn;done();done();ui=render();assert.equal(records,1);assert.equal(ui.favor.stage,'completed');
+ const core=load('src/core/smallFavors.ts');assert.equal(core.smallFavorAnswer('reading-company','slow'),undefined);
+ for(const slot of slots)slot?.cleanup?.();
 });
 
 test('small favor AI replies are discarded when the host leaves, Aishi moves away, or a cited memory is forgotten',async()=>{

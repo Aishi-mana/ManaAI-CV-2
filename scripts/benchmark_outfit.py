@@ -15,13 +15,13 @@ def run(root, output):
     avatar = Path(__file__).resolve().parents[1] / 'assets/avatar'
     source = root / 'image.png'
     approved = root / 'collar-shoulder-restored/clothing.png'
-    with Image.open(avatar/'base/body.png') as im:
+    with Image.open(avatar/'base/body.webp') as im:
         size = im.size
     with Image.open(source) as im:
         rgb = np.array(im.convert('RGB'))
     data = np.load(root/'parsed/parsing.npz', allow_pickle=False)
     candidate, report = extract_aligned(rgb, data['labels'], data['probabilities'], size)
-    body=np.array(Image.open(avatar/'base/body.png').convert('RGBA'))
+    body=np.array(Image.open(avatar/'base/body.webp').convert('RGBA'))
     candidate, report['shoe_fit'] = fit_closed_shoes(candidate, body)
     Image.fromarray(candidate).save(output/'candidate.png')
     accepted = np.array(Image.open(approved).convert('RGBA'))
@@ -36,9 +36,9 @@ def run(root, output):
         'note': 'Visual review still required; overlap does not measure garment detail or fit on a new source.'}
     def preview(outfit):
         canvas = Image.new('RGBA', size, 'white')
-        for file in ['hairstyles/default/hair_back.png', 'base/body.png', None,
+        for file in ['hairstyles/default/hair_back.webp', 'base/body.webp', None,
                      'mouth/mouth_neutral.png', 'eyes/eye_neutral.png',
-                     'hairstyles/default/hair_front.png', 'hairstyles/default/hair_ahoge.png',
+                     'hairstyles/default/hair_front.webp', 'hairstyles/default/hair_ahoge.webp',
                      'accessories/cross_hairclip.png', 'accessories/cat_ear_headset.png']:
             canvas.alpha_composite(Image.fromarray(outfit) if file is None else Image.open(avatar/file).convert('RGBA'))
         return canvas.convert('RGB')

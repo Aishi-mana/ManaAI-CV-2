@@ -1,3 +1,8 @@
+import KeepsakeAlbum from './KeepsakeAlbum';
+import {keepDialogFocus} from '../core/dialogFocus';
+import {keepsakeAlbumEntries} from '../core/keepsakeAlbum';
+import type {ActivityKeepsake} from '../core/activityKeepsakes';
+import type {TownGuestbookVisit} from '../core/townGuestbook';
 import TownToday from './TownToday';
 import TownWeatherControls from './TownWeather';
 import type {TownTodayState} from '../core/townToday';
@@ -27,6 +32,7 @@ const phoneApps=[
  {id:'map',label:'Map',art:<path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15m6-12v15"/>},
  {id:'stories',label:'Home Stories',art:<path d="M5 3h11a3 3 0 0 1 3 3v15H7a2 2 0 0 1-2-2zm0 15a2 2 0 0 1 2-2h12M9 7h6m-6 4h6"/>},
  {id:'town-sketchbook',label:'Town Sketchbook',art:<><path d="M5 4h25v32H5zM10 4v32" transform="scale(.6) translate(4 1)"/><path d="m10 15 6-6 3 3-6 6-4 1z"/></>},
+ {id:'keepsake-album',label:'Keepsake Album',art:<><path d="M4 3h16v18H4zM7 3v18"/><path d="m14 7 1 3 3 .2-2.3 2 1 3-2.7-1.7-2.7 1.7 1-3-2.3-2 3-.2z"/></>},
  {id:'town-projects',label:'Little Projects',art:<><path d="M5 4h14v17H5zM9 2v4h6V2"/><path d="m8 11 2 2 5-5m-7 9h8"/></>},
  {id:'memories',label:'Memories',art:<><path d="M5 3h11a3 3 0 0 1 3 3v15H7a2 2 0 0 1-2-2zm0 15a2 2 0 0 1 2-2h12"/><path d="m9 8 2 2 4-4"/></>},
  {id:'today',label:'Today',art:<><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></>},
@@ -35,9 +41,9 @@ const phoneApps=[
 
 type PhoneApp=typeof phoneApps[number];
 const memoryCharacters=[
- {id:'mana',name:'Mana',avatar:'./companion-room/mana_idle_1.png'},
+ {id:'mana',name:'Mana',avatar:'./companion-room/mana_idle_1.webp'},
  ...(Object.keys(ROOM_CONTACTS) as RoomContact[]).map(id=>({id,...ROOM_CONTACTS[id]})),
- {id:'pet-bot',name:'Pet Bot',avatar:ROOM_ART+'pet_bot.png'},
+ {id:'pet-bot',name:'Pet Bot',avatar:ROOM_ART+'pet_bot.webp'},
 ] satisfies {id:TownCharacter|'pet-bot';name:string;avatar:string}[];
 
 function PhoneAppIcon({app,unread}:{app:PhoneApp;unread:boolean}){
@@ -46,7 +52,8 @@ function PhoneAppIcon({app,unread}:{app:PhoneApp;unread:boolean}){
  </span>;
 }
 
-export default function RoomPhone({onStartTownProject,preferenceSummaries=[],visible,sleeping,messages,onSend,readMessages,onReadMessages,timeZone,events,projects,meetup,meetupPlace,area,characters,onChooseArea,onMapOpenChange,diving,pondSketch,libraryStory,manaKeepsake,sharedKeepsake,coreMemories,onForgetMemory,sharedMemories,onForgetSharedMemory,petBotMemories,onForgetPetMemory,manaMemories,onForgetManaMemory,petBotFriends,onForgetPetFriend,personalGoals,today}:{
+export default function RoomPhone({activityKeepsakes=[],birthdayVisits=[],onStartTownProject,preferenceSummaries=[],visible,sleeping,messages,onSend,readMessages,onReadMessages,timeZone,events,projects,meetup,meetupPlace,area,characters,onChooseArea,onMapOpenChange,diving,pondSketch,libraryStory,manaKeepsake,sharedKeepsake,coreMemories,onForgetMemory,sharedMemories,onForgetSharedMemory,petBotMemories,onForgetPetMemory,manaMemories,onForgetManaMemory,petBotFriends,onForgetPetFriend,personalGoals,today}:{
+ activityKeepsakes?:ActivityKeepsake[];birthdayVisits?:TownGuestbookVisit[];
  onStartTownProject?:(owner:TownCharacter,choice:TownGoalId)=>boolean;
  preferenceSummaries?:{owner:TownCharacter;likes:string[];reason?:string}[];
  readMessages:PhoneReadState;onReadMessages:(read:PhoneReadState)=>void;
@@ -69,7 +76,9 @@ export default function RoomPhone({onStartTownProject,preferenceSummaries=[],vis
  pondSketch?:PondSketchGoal;libraryStory?:LibraryStory;manaKeepsake?:ManaKeepsake;sharedKeepsake?:ManaKeepsake;
 }){
  const [open,setOpen]=useState(false);
- const [screen,setScreen]=useState<'home'|'thread'|'memory-details'|'town-sketchbook-day'|'town-project-detail'|PhoneApp['id']>('home');
+ const [screen,setScreen]=useState<'home'|'thread'|'memory-details'|'town-sketchbook-day'|'town-project-detail'|'keepsake-owner'|PhoneApp['id']>('home');
+ const [albumOwner,setAlbumOwner]=useState<TownCharacter>('mana');
+ const album=useMemo(()=>open&&(screen==='keepsake-album'||screen==='keepsake-owner')?keepsakeAlbumEntries(activityKeepsakes,personalGoals,birthdayVisits,events,sharedMemories,timeZone):[],[open,screen,activityKeepsakes,personalGoals,birthdayVisits,events,sharedMemories,timeZone]);
  const [projectOwner,setProjectOwner]=useState<TownCharacter>('mana');
  const [sketchbookDay,setSketchbookDay]=useState<string>();
  const [shortcutsOpen,setShortcutsOpen]=useState(false);
@@ -82,6 +91,7 @@ export default function RoomPhone({onStartTownProject,preferenceSummaries=[],vis
  },[open,screen]);
  const stories=useMemo(()=>open&&screen==='stories'?homeStoryDays(events,projects,timeZone):[],[open,screen,events,projects,timeZone]);
  const heading=useRef<HTMLHeadingElement>(null);
+ const shell=useRef<HTMLDivElement>(null);
  const button=useRef<HTMLButtonElement>(null);
  const launcher=useRef<HTMLButtonElement|null>(null);
  const end=useRef<HTMLDivElement>(null);
@@ -109,8 +119,10 @@ export default function RoomPhone({onStartTownProject,preferenceSummaries=[],vis
   if(open&&screen==='thread'&&visible&&incomingKey&&readMessages[contact]!==incomingKey)onReadMessages({[contact]:incomingKey});
  },[open,screen,visible,contact,incomingKey,readMessages,onReadMessages]);
  useEffect(()=>{
-  if(open)heading.current?.focus();
- },[open,screen]);
+  if(!open)return;
+  heading.current?.focus({preventScroll:true});
+  if(screen!=='thread')shell.current?.querySelectorAll<HTMLElement>('.room-phone-list, .room-phone-apps').forEach(page=>{page.scrollTop=0;});
+ },[open,screen,memoryOwner,albumOwner,projectOwner,sketchbookDay]);
  useEffect(()=>{
   if(open&&end.current?.parentElement)end.current.parentElement.scrollTop=end.current.parentElement.scrollHeight;
  },[open,screen,contact,latest]);
@@ -138,9 +150,9 @@ export default function RoomPhone({onStartTownProject,preferenceSummaries=[],vis
  };
  const close=()=>{setOpen(false);launcher.current?.focus();};
  const room=open&&visible?button.current?.closest('.companion-room'):null;
- const back=()=>setScreen(screen==='thread'?'messages':screen==='memory-details'?'memories':screen==='town-sketchbook-day'?'town-sketchbook':screen==='town-project-detail'?'town-projects':'home');
+ const back=()=>setScreen(screen==='thread'?'messages':screen==='memory-details'?'memories':screen==='town-sketchbook-day'?'town-sketchbook':screen==='town-project-detail'?'town-projects':screen==='keepsake-owner'?'keepsake-album':'home');
  const memoryName=memoryCharacters.find(character=>character.id===memoryOwner)!.name;
- const title={home:'Mana’s phone',weather:'Town weather',contacts:'Contacts',messages:'Messages',thread:profile.name,map:'Manaverse Map',stories:'Home Stories',plans:'Plans',today:'Today around town',memories:'Memories','memory-details':`${memoryName}’s memories`,'town-sketchbook':'Town Sketchbook','town-sketchbook-day':'A day in town','town-projects':'Little Projects','town-project-detail':`${projectOwner==='mana'?'Mana':ROOM_CONTACTS[projectOwner].name}’s projects`}[screen];
+ const title={home:'Mana’s phone','keepsake-album':'Keepsake Album','keepsake-owner':`${albumOwner==='mana'?'Mana':ROOM_CONTACTS[albumOwner].name}’s keepsakes`,weather:'Town weather',contacts:'Contacts',messages:'Messages',thread:profile.name,map:'Manaverse Map',stories:'Home Stories',plans:'Plans',today:'Today around town',memories:'Memories','memory-details':`${memoryName}’s memories`,'town-sketchbook':'Town Sketchbook','town-sketchbook-day':'A day in town','town-projects':'Little Projects','town-project-detail':`${projectOwner==='mana'?'Mana':ROOM_CONTACTS[projectOwner].name}’s projects`}[screen];
  const visitStatus=(visit:PhoneMessage,confirmed=false)=>{
   if(!visit.scheduledFor)return sleeping?'Waiting until Mana wakes up':confirmed?'Confirmed':'Proposed';
   const time=clock.format(new Date(visit.scheduledFor));
@@ -175,9 +187,9 @@ export default function RoomPhone({onStartTownProject,preferenceSummaries=[],vis
   </button>}
   {room&&createPortal(<div className="room-phone-overlay"
    onClick={event=>{if(event.target===event.currentTarget)close();}}>
-   <section className="room-phone" id="room-phone" role="dialog" aria-labelledby="room-phone-title"
-    onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();close();}}}>
-   <div className="room-phone-shell" data-screen={screen}>
+   <section className="room-phone" id="room-phone" role="dialog" aria-modal="true" aria-labelledby="room-phone-title"
+    onKeyDown={event=>{keepDialogFocus(event);if(event.key==='Escape'){event.preventDefault();event.stopPropagation();close();}}}>
+   <div ref={shell} className="room-phone-shell" data-screen={screen}>
     <div className="room-phone-top">
      <span>{homeTime.format(new Date())}</span>
      <span className="room-phone-camera" aria-hidden="true"/>
@@ -204,6 +216,7 @@ export default function RoomPhone({onStartTownProject,preferenceSummaries=[],vis
     {(screen==='town-sketchbook'||screen==='town-sketchbook-day')&&<TownSketchbook events={events} memories={sharedMemories} timeZone={timeZone}
      date={screen==='town-sketchbook-day'?sketchbookDay:undefined} onOpenDay={date=>{setSketchbookDay(date);setScreen('town-sketchbook-day');}}
      onViewPlace={destination=>{onChooseArea(destination);close();}}/>}
+    {(screen==='keepsake-album'||screen==='keepsake-owner')&&<KeepsakeAlbum key={screen==='keepsake-owner'?albumOwner:'grid'} entries={album} owner={screen==='keepsake-owner'?albumOwner:undefined} timeZone={timeZone} onOpenOwner={owner=>{setAlbumOwner(owner);setScreen('keepsake-owner');}}/>}
     {(screen==='town-projects'||screen==='town-project-detail')&&<TownProjects goals={personalGoals} owner={screen==='town-project-detail'?projectOwner:undefined} timeZone={timeZone}
      onOpenOwner={owner=>{setProjectOwner(owner);setScreen('town-project-detail');}} onStart={onStartTownProject}/>}
     {screen==='map'&&<ManaverseMap diving={diving} area={area} characters={characters}

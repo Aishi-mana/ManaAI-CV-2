@@ -36,9 +36,10 @@ src-tauri/gen
 # Local portable backup archives.
 /Mana-portable-backup*.zip
 
-# Your artwork. Delete this line if you WANT the avatar PNGs in the (public) repo.
-/assets/
-/public/
+# Bundled WebP artwork is part of the app. Personal voice/training assets stay local.
+/assets/*
+!/assets/avatar/
+/work/webp-migration/
 
 # Claude's versions.
 /appsteps/

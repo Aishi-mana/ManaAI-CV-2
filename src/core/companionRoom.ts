@@ -166,22 +166,22 @@ export interface RoomObject {id:string;image:string;x:number;y:number;width:numb
 export type RoomCatalogPiece=RoomObject&{name:string;footprint:Footprint};
 // The artwork is laid out in the same 799 × 698 coordinates as walking.
 export const ROOM_OBJECTS:readonly RoomObject[]=[
- {id:'rug',image:'rug.png',x:307,y:384,width:307},
- {id:'window',image:'window.png',x:159,y:75,width:153},
- {id:'sign',image:'mana_sign.png',x:326,y:54,width:68},
- {id:'top-shelf',image:'top_shelf.png',x:406,y:55,width:113},
- {id:'photo-board',image:'photo_frame.png',x:539,y:137,width:63},
- {id:'desk',image:'desk.png',x:334,y:151,width:189,footprint:{left:347,right:523,top:270,bottom:319}},
- {id:'table',image:'coffee_table.png',x:403,y:415,width:124,footprint:{left:391,right:533,top:439,bottom:525}},
- {id:'chair',image:'beanie_bag.png',x:576,y:295,width:113,footprint:{left:568,right:695,top:356,bottom:412}},
- {id:'plant',image:'plant.png',x:428,y:565,width:65,footprint:{left:438,right:481,top:607,bottom:637}},
- {id:'bed',image:'bed.png',x:18,y:310,width:244,footprint:{left:22,right:257,top:394,bottom:502}},
- {id:'bookshelf',image:'bookshelf.png',x:690,y:207,width:100,footprint:{left:695,right:783,top:416,bottom:448}},
+ {id:'rug',image:'rug.webp',x:307,y:384,width:307},
+ {id:'window',image:'window.webp',x:159,y:75,width:153},
+ {id:'sign',image:'mana_sign.webp',x:326,y:54,width:68},
+ {id:'top-shelf',image:'top_shelf.webp',x:406,y:55,width:113},
+ {id:'photo-board',image:'photo_frame.webp',x:539,y:137,width:63},
+ {id:'desk',image:'desk.webp',x:334,y:151,width:189,footprint:{left:347,right:523,top:270,bottom:319}},
+ {id:'table',image:'coffee_table.webp',x:403,y:415,width:124,footprint:{left:391,right:533,top:439,bottom:525}},
+ {id:'chair',image:'beanie_bag.webp',x:576,y:295,width:113,footprint:{left:568,right:695,top:356,bottom:412}},
+ {id:'plant',image:'plant.webp',x:428,y:565,width:65,footprint:{left:438,right:481,top:607,bottom:637}},
+ {id:'bed',image:'bed.webp',x:18,y:310,width:244,footprint:{left:22,right:257,top:394,bottom:502}},
+ {id:'bookshelf',image:'bookshelf.webp',x:690,y:207,width:100,footprint:{left:695,right:783,top:416,bottom:448}},
 ];
 export const ROOM_CATALOG=[
- {id:'reading-seat',name:'Rose beanbag',image:'beanie_bag.png',x:590,y:365,width:113,footprint:{left:582,right:709,top:426,bottom:482}},
- {id:'side-table',name:'Side table',image:'coffee_table.png',x:259,y:375,width:124,footprint:{left:247,right:389,top:399,bottom:485}},
- {id:'small-plant',name:'Small potted plant',image:'plant.png',x:171,y:414,width:42,footprint:{left:175,right:210,top:440,bottom:462}},
+ {id:'reading-seat',name:'Rose beanbag',image:'beanie_bag.webp',x:590,y:365,width:113,footprint:{left:582,right:709,top:426,bottom:482}},
+ {id:'side-table',name:'Side table',image:'coffee_table.webp',x:259,y:375,width:124,footprint:{left:247,right:389,top:399,bottom:485}},
+ {id:'small-plant',name:'Small potted plant',image:'plant.webp',x:171,y:414,width:42,footprint:{left:175,right:210,top:440,bottom:462}},
 ] as const satisfies readonly RoomCatalogPiece[];
 export function roomCatalog(shop?:RoomShop):RoomCatalogPiece[]{
  const generated=(shop?.pieces??[]).filter(piece=>piece.owned).map(piece=>{

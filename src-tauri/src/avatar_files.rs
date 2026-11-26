@@ -189,9 +189,9 @@ mod tests {
         let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../assets/avatar");
         let files = scan(&dir).unwrap();
         for required in [
-            "base/body.png",
-            "outfits/default/outfit.png",
-            "hairstyles/default/hair_front.png",
+            "base/body.webp",
+            "outfits/default/outfit.webp",
+            "hairstyles/default/hair_front.webp",
         ] {
             assert!(files.contains(&required.to_string()));
         }

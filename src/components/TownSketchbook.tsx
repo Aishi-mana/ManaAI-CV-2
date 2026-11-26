@@ -6,7 +6,7 @@ import {friendName,type Friend} from '../core/friendshipHabits';
 import {residentProfiles} from '../core/residentProfiles';
 import {manaversePlaces,type ManaverseArea} from './ManaverseMap';
 
-const portrait=(person:Friend)=>person==='mana'?'./companion-room/mana_idle_1.png':person==='aishi'?'./companion-room/aishi-sprites.png':residentProfiles[person].avatar;
+const portrait=(person:Friend)=>person==='mana'?'./companion-room/mana_idle_1.webp':person==='aishi'?'./companion-room/aishi-sprites.webp':residentProfiles[person].avatar;
 function People({people}:{people:Friend[]}){
  return <span className="town-sketchbook-people" aria-label={people.map(friendName).join(', ')}>
   {people.map(person=><span key={person} aria-hidden="true" className="town-sketchbook-portrait" data-person={person} style={{backgroundImage:`url("${portrait(person)}")`}}/>)}

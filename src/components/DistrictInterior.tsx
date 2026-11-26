@@ -202,25 +202,25 @@ export default function DistrictInterior({
     if(!event.currentTarget.hasPointerCapture(event.pointerId))drag.current=undefined;
    }}>
   <div ref={scene} className={`district-interior district-interior-${building}`}>
-   <img className="district-interior-shell" src={`./companion-room/cartoon/${interior}.png`} alt="" draggable={false}
+   <img className="district-interior-shell" src={`./companion-room/cartoon/${interior}.webp`} alt="" draggable={false}
     onLoad={centerOnMana}/>
    {building==='meeting-room'&&(['table','console','plant'] as const).map(piece=>
     <img key={piece} className={`meeting-room-foreground meeting-room-foreground-${piece}`}
-     src={`./companion-room/cartoon/${interior}.png`} alt="" aria-hidden="true" draggable={false}/>)}
+     src={`./companion-room/cartoon/${interior}.webp`} alt="" aria-hidden="true" draggable={false}/>)}
 
    {building==='rest-area'&&(['table','vase'] as const).map(piece=>
     <img key={piece} className={`meeting-room-foreground rest-area-foreground-${piece}`}
-     src={`./companion-room/cartoon/${interior}.png`} alt="" aria-hidden="true" draggable={false}/>)}
+     src={`./companion-room/cartoon/${interior}.webp`} alt="" aria-hidden="true" draggable={false}/>)}
    {building==='aishi-office'&&<img className="meeting-room-foreground aishi-office-foreground-vase"
-    src={`./companion-room/cartoon/${interior}.png`} alt="" aria-hidden="true" draggable={false}/>}
+    src={`./companion-room/cartoon/${interior}.webp`} alt="" aria-hidden="true" draggable={false}/>}
    {building==='cafe'&&<>
     <div className="cafe-lights" aria-hidden="true"/>
     {(['left-chair','table','right-chair'] as const).map(piece=>
      <img key={piece} className={`cafe-foreground cafe-foreground-${piece}`}
-      src={`./companion-room/cartoon/${interior}.png`} alt="" draggable={false}/>)}
+      src={`./companion-room/cartoon/${interior}.webp`} alt="" draggable={false}/>)}
    </>}
    {building==='office'&&<div className="district-interior-piece office-sofa" style={floorPosition(layout.sofa)}>
-    <img src="./companion-room/cartoon/workforce-sofa.png" alt="Navy sofa" draggable={false}/>
+    <img src="./companion-room/cartoon/workforce-sofa.webp" alt="Navy sofa" draggable={false}/>
     {furnitureHandle('sofa','Move sofa')}
    </div>}
    {building==='office'&&(['Mana','Lyra'] as const).map((owner,index)=>{
@@ -228,7 +228,7 @@ export default function DistrictInterior({
     const position=floorPosition(layout[id]);
     return <figure className="office-desk-bank" key={owner}
      style={{...position,zIndex:position.zIndex-15}}>
-     <img src="./companion-room/cartoon/workforce-desk-bank.png" alt={`Five connected workstations, including ${owner}’s desk`} draggable={false}/>
+     <img src="./companion-room/cartoon/workforce-desk-bank.webp" alt={`Five connected workstations, including ${owner}’s desk`} draggable={false}/>
      <figcaption>{owner}</figcaption>
      {furnitureHandle(id,`Move the workstation row with ${owner}’s desk`)}
     </figure>;

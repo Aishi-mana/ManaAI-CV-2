@@ -91,7 +91,7 @@ export default function ManaversePark({petBot,walker,residents,chat,follow,onPan
       ?doingActivity&&(chat.activity==='stars'?(contact==='luna'?'window':'think'):bench?.pose)
       :bench?.pose;
      return <CharacterGesture character={contact} onDrop={!chat&&!walker.walking&&!bench?resident.drop:undefined} key={contact} className="manaverse-street-actor manaverse-park-actor" style={{left:`${point.x}%`,top:`${point.y}%`,zIndex:Math.round(point.y)}}>
-      {pose?<img className={together?'park-shared-pose':undefined} src={`./companion-room/${contact}-${pose}.png`}
+      {pose?<img className={together?'park-shared-pose':undefined} src={`./companion-room/${contact}-${pose}.webp`}
        style={together?{scale:`${facingPartner(contact,point,walker.facing)} 1`}:undefined} alt={together?name:bench?.label}/>:
        <ResidentSprite resident={contact} walking={walker.walking} facing={facingPartner(contact,point,walker.facing)} visible/>}
       {bench&&!together&&<span className="manaverse-park-activity">{name} · {contact==='luna'?'Sketching':'Reading'}</span>}

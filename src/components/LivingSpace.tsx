@@ -373,9 +373,9 @@ export default function LivingSpace({petBot,renderSpeech,position,onPosition,onB
  return <div className="companion-room-body living-space" hidden={!shown}>
   <SceneViewport>
   <div className="companion-room-scene" role="group" aria-label="Living space floor">
-   <img className="companion-room-art" src={ROOM_ART+'roombg.png'} alt="" draggable={false}/>
-   <img className="companion-room-art companion-room-wall-finish" data-finish="Warm cream" src={ROOM_ART+'roombg.png'} alt="" draggable={false}/>
-   <img className="companion-room-art companion-room-floor-finish" data-finish="Honey oak" src={ROOM_ART+'roombg.png'} alt="" draggable={false}/>
+   <img className="companion-room-art" src={ROOM_ART+'roombg.webp'} alt="" draggable={false}/>
+   <img className="companion-room-art companion-room-wall-finish" data-finish="Warm cream" src={ROOM_ART+'roombg.webp'} alt="" draggable={false}/>
+   <img className="companion-room-art companion-room-floor-finish" data-finish="Honey oak" src={ROOM_ART+'roombg.webp'} alt="" draggable={false}/>
    <button className="living-bedroom-door" type="button" aria-label="Return to Mana’s bedroom" onClick={event=>{
     event.stopPropagation();
     onBedroom();

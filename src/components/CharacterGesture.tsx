@@ -37,7 +37,7 @@ export default function CharacterGesture({character,className,style,children,onD
   const timer=window.setInterval(()=>setFrame(value=>value%6+1),150);
   return ()=>clearInterval(timer);
  },[manaHeld]);
- const pose=character==='mana'?`./companion-room/mana_drag_${frame}.png`:residentProfiles[character].drag;
+ const pose=character==='mana'?`./companion-room/mana_drag_${frame}.webp`:residentProfiles[character].drag;
  return <div className={`${className} character-gesture`} style={style} data-asleep={asleep||undefined}>
   <button type="button" className="character-gesture-hit" aria-label={`Interact with ${name}`} data-held={!!held}
    onPointerDown={event=>{

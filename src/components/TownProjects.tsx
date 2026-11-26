@@ -8,7 +8,7 @@ export default function TownProjects({goals,owner,timeZone,onOpenOwner,onStart}:
   {owners.map(id=>{
    const project=goals.find(goal=>goal.owner===id&&!goal.completedAt),latest=goals.filter(goal=>goal.owner===id).slice(-1)[0];
    return <button className="town-project-person" type="button" key={id} onClick={()=>onOpenOwner(id)}>
-    <img src={id==='mana'?'./companion-room/mana_idle_1.png':residentProfiles[id].avatar} alt=""/>
+    <img src={id==='mana'?'./companion-room/mana_idle_1.webp':residentProfiles[id].avatar} alt=""/>
     <strong>{name(id)}</strong><span>{project?townGoalChoice(project).title:latest?'Taking a little break':'Choose a project'}</span>
     {project&&<progress value={project.evidence.length} max={townGoalChoice(project).target} aria-label={`${name(id)}’s project progress`}/>}
    </button>;
