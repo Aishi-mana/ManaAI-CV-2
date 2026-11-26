@@ -181,7 +181,7 @@ export default function ResidentRoom({eveningCompleted,onEveningComplete,prefere
   <SceneViewport>
   <div className={`district-interior resident-interior ${artwork}`}>
    <img className="district-interior-shell" src={ROOM_ART+(isLyra?artwork:'luna-home-daylight')+'.png'} alt="" draggable={false}/>
-   {keepsake&&shown&&!upstairs&&<ActivityKeepsake key={keepsake.id} keepsake={keepsake} timeZone={timeZone}
+   {keepsake&&shown&&!upstairs&&<ActivityKeepsake key={keepsake.id} keepsake={keepsake} timeZone={timeZone} reflect={!night&&!away&&!outdoors&&!leavingHome}
     style={{left:isLyra?'16%':'49%',top:isLyra?'58%':'49%',width:isLyra?'2.5%':'4%',zIndex:60}}/>}
    {!away&&!outdoors&&residentFloor===floor&&<CharacterGesture character={resident} asleep={inBed} onDrop={!activity&&(!isLyra||!walking)?point=>{
     if(!isResidentFloor(floor,point)||isLyra&&moving.current)return;

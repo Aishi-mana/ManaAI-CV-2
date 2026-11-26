@@ -17,7 +17,7 @@ import {townProjectCompletionPrompt,type TownPersonalGoal} from '../core/townPer
 import {officeWorkApproach} from '../core/officeWalk';
 import {meetPetBotFriend,petBotFriendContext} from '../core/petBot';
 import ActivityKeepsake from './ActivityKeepsake';
-import {recordActivityKeepsake} from '../core/activityKeepsakes';
+import {recordActivityKeepsake,homeDisplayKeepsakes} from '../core/activityKeepsakes';
 import {type MemoryInvitation} from '../core/memoryInvitations';
 import {journalClock} from '../core/clock';
 import {rememberSharedActivity,type SharedMemory} from '../core/residentRelationships';
@@ -492,6 +492,7 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
    setProjectReaction({area,owner:goal.owner,context});
   }
  }});
+ const displayKeepsakes=homeDisplayKeepsakes(activityKeepsakes,personalGoals.goals);
  const coreForPreferences=(owner:SharedMemory['owner'])=>owner==='mana'?manaPreferenceMemories(memories):current.current[residentProfiles[owner].memory.coreKey]??[];
  const freeTimePreferences=useActivityPreferences(current,visible&&!editing&&!sleeping,manaSpeechReady,timeZone,invitationRequest,coreForPreferences,onChooseActivityPreference);
  function onActivity(action:string,title:string,outcome:string,participants?:readonly SharedMemory['with'][]){
@@ -1774,7 +1775,7 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
    exit={()=>enterView(isOfficeRoom(building)?officeRooms[building].parent:townBuildingStreet(building))} noticePlans={{decorationSettings:townDecorations,onDecorationChange:changeTownDecorations,messages:phoneMessages,meetup,meetupPlace,meetupStarted:!!parkChat?.planned||manaArea==='cafe'&&cafePartnerPresent,sleeping,timeZone,townEventClock:calendar.clock,customTownEvents,onAddTownEvent:addTownEvent,guestbookEntries}}/>)}
   {area==='park'&&<ManaversePark petBot={botRoom==='outside'&&outdoorPet.area==='park'?outdoorPet:undefined} onManaDrop={!meetup&&!hostVisit&&!park.moving?park.drop:undefined} walker={park.walker} residents={[lunaPark,lyraPark]} chat={parkChat} follow={followMana} onPan={()=>setFollowMana(false)}
    exit={()=>enterView('street')}/>}
-  <ResidentRoom onActivityDone={(resident,pose)=>personalGoals.record(`home-${resident}-${Date.now()}`,`home-${pose}`,`${residentProfiles[resident].name} completed a ${pose} session at home.`,[resident])} eveningCompleted={eveningDates.lyra} onEveningComplete={finishEvening} preferences={freeTimePreferences.preferences} coreMemories={coreForPreferences('lyra')} preferredPose={personalGoals.preferred('lyra')} keepsake={activityKeepsakes.find(keepsake=>keepsake.owner==='lyra')} resident="lyra" sharingActivity={aishiJoining==='read'&&!groupJoining} onActivityStatus={setLyraHomeActivity} shown={area==='library'||area==='lyra-room'} upstairs={area==='lyra-room'} onStairs={()=>enterView(area==='lyra-room'?'library':'lyra-room')} away={awayVisitor==='lyra'} outdoors={!!lyraOuting&&!lyraOuting.homeExit} leavingHome={!!lyraOuting?.homeExit||visitorPreparing==='lyra'} onResidentExit={()=>visitorPreparing==='lyra'?setVisitorAtDoor('lyra'):leaveLyraHome()} timeZone={timeZone} manaPresent={manaArea==='library'} lunaVisiting={!!lunaOuting?.inLibrary} lunaLeaving={lunaOuting?.libraryLeaving} onLunaExit={()=>{
+  <ResidentRoom onActivityDone={(resident,pose)=>personalGoals.record(`home-${resident}-${Date.now()}`,`home-${pose}`,`${residentProfiles[resident].name} completed a ${pose} session at home.`,[resident])} eveningCompleted={eveningDates.lyra} onEveningComplete={finishEvening} preferences={freeTimePreferences.preferences} coreMemories={coreForPreferences('lyra')} preferredPose={personalGoals.preferred('lyra')} keepsake={displayKeepsakes.find(keepsake=>keepsake.owner==='lyra')} resident="lyra" sharingActivity={aishiJoining==='read'&&!groupJoining} onActivityStatus={setLyraHomeActivity} shown={area==='library'||area==='lyra-room'} upstairs={area==='lyra-room'} onStairs={()=>enterView(area==='lyra-room'?'library':'lyra-room')} away={awayVisitor==='lyra'} outdoors={!!lyraOuting&&!lyraOuting.homeExit} leavingHome={!!lyraOuting?.homeExit||visitorPreparing==='lyra'} onResidentExit={()=>visitorPreparing==='lyra'?setVisitorAtDoor('lyra'):leaveLyraHome()} timeZone={timeZone} manaPresent={manaArea==='library'} lunaVisiting={!!lunaOuting?.inLibrary} lunaLeaving={lunaOuting?.libraryLeaving} onLunaExit={()=>{
     if(!lyraOuting&&awayVisitor!=='lyra')rememberTogether('luna-library-visit','Library visit','Luna visited Lyra at the library.',['luna','lyra']);
     leaveLunaLibrary();
    }}
@@ -1782,7 +1783,7 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
    storyLine={hostMeeting&&hostVisit?.kind==='library-story-invite'?libraryStoryText:undefined}
    manaLeaving={residentExit==='library'} onManaExit={()=>finishResidentExit('library')}
    onStreet={()=>enterView('street')}/>
-  <ResidentRoom onActivityDone={(resident,pose)=>personalGoals.record(`home-${resident}-${Date.now()}`,`home-${pose}`,`${residentProfiles[resident].name} completed a ${pose} session at home.`,[resident])} eveningCompleted={eveningDates.luna} onEveningComplete={finishEvening} preferences={freeTimePreferences.preferences} coreMemories={coreForPreferences('luna')} preferredPose={personalGoals.preferred('luna')} keepsake={activityKeepsakes.find(keepsake=>keepsake.owner==='luna')} resident="luna" chat={residentChat('luna')} onActivityStatus={setLunaHomeActivity} shown={area==='luna-home'} away={awayVisitor==='luna'} outdoors={!!lunaOuting&&!lunaOuting.homeExit} leavingHome={!!lunaOuting?.homeExit||visitorPreparing==='luna'} onResidentExit={()=>visitorPreparing==='luna'?setVisitorAtDoor('luna'):leaveLunaHome()} timeZone={timeZone} manaPresent={manaArea==='luna-home'} manaLeaving={residentExit==='luna-home'} onManaExit={()=>finishResidentExit('luna-home')} onStreet={()=>enterView('street')}/>
+  <ResidentRoom onActivityDone={(resident,pose)=>personalGoals.record(`home-${resident}-${Date.now()}`,`home-${pose}`,`${residentProfiles[resident].name} completed a ${pose} session at home.`,[resident])} eveningCompleted={eveningDates.luna} onEveningComplete={finishEvening} preferences={freeTimePreferences.preferences} coreMemories={coreForPreferences('luna')} preferredPose={personalGoals.preferred('luna')} keepsake={displayKeepsakes.find(keepsake=>keepsake.owner==='luna')} resident="luna" chat={residentChat('luna')} onActivityStatus={setLunaHomeActivity} shown={area==='luna-home'} away={awayVisitor==='luna'} outdoors={!!lunaOuting&&!lunaOuting.homeExit} leavingHome={!!lunaOuting?.homeExit||visitorPreparing==='luna'} onResidentExit={()=>visitorPreparing==='luna'?setVisitorAtDoor('luna'):leaveLunaHome()} timeZone={timeZone} manaPresent={manaArea==='luna-home'} manaLeaving={residentExit==='luna-home'} onManaExit={()=>finishResidentExit('luna-home')} onStreet={()=>enterView('street')}/>
   <div className="companion-room-body" hidden={area!=='bedroom'}>
    <p id="room-controls">{editing?'Drag furniture or wall decorations, or focus a piece and use the arrow keys.':'Watch Mana go about her day.'}</p>
    <SceneViewport disabled={editing}>
@@ -1835,9 +1836,9 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
       <img src={roomPieceImage(object.image)} data-piece-color={colors?.[object.id]} style={orientation} alt="" draggable={false}/>
      </button>;
     })}
-    {!editing&&area==='bedroom'&&objects.some(object=>object.id==='desk')&&activityKeepsakes.filter(keepsake=>keepsake.owner==='mana').map(keepsake=>{
+    {!editing&&area==='bedroom'&&objects.some(object=>object.id==='desk')&&displayKeepsakes.filter(keepsake=>keepsake.owner==='mana').map(keepsake=>{
      const desk=objects.find(object=>object.id==='desk')!;
-     return <ActivityKeepsake key={keepsake.id} keepsake={keepsake} timeZone={timeZone} style={{
+     return <ActivityKeepsake key={keepsake.id} keepsake={keepsake} timeZone={timeZone} reflect={visible&&manaArea==='bedroom'&&!sleeping} style={{
       left:`${(desk.x+desk.width*(desk.mirrored ? .24 : .76))/799*100}%`,top:`${(desk.y+desk.width*.45)/698*100}%`,
       width:`${desk.width*.14/799*100}%`,zIndex:sharedRoomFurnitureDepth(desk)+1,
      }}/>;

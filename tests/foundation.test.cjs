@@ -3766,6 +3766,24 @@ test('project followups require shared project work, respect completion and leav
  assert.match(f.projectFollowupReplyPrompt('How is it going?',complete),/"completed":true/);
 });
 
+test('home project displays select one latest completed memento and retain real activity keepsakes as fallback',()=>{
+ const load=loader(),k=load('src/core/activityKeepsakes.ts'),g=load('src/core/townPersonalGoals.ts');
+ const now=Date.parse('2026-11-26T08:00:00Z');
+ const project=g.readTownGoal('{"choice":"shared-workbench","reason":"Make something with a friend."}','mana',new Date(now-3*60*60_000));
+ const history=k.recordActivityKeepsake([],'old-star','workshop-tinkering','Completed work.',['mana'],new Date(now-4*60*60_000));
+ assert.equal(k.homeDisplayKeepsakes(history,[project],now)[0].id,'old-star');
+ const completed=g.progressTownGoals([project],'work','aishi-tinker','Worked together.',['mana','lyra'],new Date(now-2*60*60_000))[0];
+ const next={...completed,id:'later',completedAt:new Date(now-60*60_000).toISOString()};
+ const displays=k.homeDisplayKeepsakes(history,[next,completed],now);
+ assert.equal(displays.length,1);assert.equal(displays[0].project.id,'later');
+ assert.equal(displays[0].at,next.completedAt);assert.equal(displays[0].participants.length,1);
+ assert.equal(k.homeDisplayKeepsakes(history,[{...next,completedAt:new Date(now+60_000).toISOString()}],now)[0].id,'old-star');
+ assert.equal(k.homeDisplayKeepsakes(history,[{...next,evidence:[]}],now)[0].id,'old-star');
+ assert.equal(k.projectKeepsakeReflection(history[0]),undefined);
+ assert.match(k.projectKeepsakeReflection(displays[0]),/symbolic memento/);
+ assert.equal(history[0].id,'old-star');
+});
+
 test('the shared scene scheduler prevents overlapping tasks and cancels only its own work',async()=>{
  let tick,cleanup,finish,signal,started=0;
  const lease={current:undefined};
@@ -5714,7 +5732,7 @@ test('snow controls and both flake layers use the shared outdoor weather rendere
 test('keepsake details stay inside their room and close back to the keepsake',()=>{
  const slots=[],room={id:'room'};let cursor=0,focuses=0,portals=0;const jsx=(type,props)=>({type,props});
  const react={useState(initial){const id=cursor++;if(!Object.hasOwn(slots,id))slots[id]=initial;return [slots[id],value=>slots[id]=typeof value==='function'?value(slots[id]):value];},useRef(initial){const id=cursor++;return slots[id]??(slots[id]={current:initial});},useEffect(){}};
- const load=loader({react,'react/jsx-runtime':{jsx,jsxs:jsx,Fragment:'fragment'},'react-dom':{createPortal:(node,target)=>{assert.equal(target,room);portals++;return node;}}});
+ const load=loader({react,'./SceneVoice':{useSceneLine:()=>undefined},'react/jsx-runtime':{jsx,jsxs:jsx,Fragment:'fragment'},'react-dom':{createPortal:(node,target)=>{assert.equal(target,room);portals++;return node;}}});
  const Keepsake=load('src/components/ActivityKeepsake.tsx').default;
  let nodes=[];function render(){cursor=0;nodes=[];const result=Keepsake({keepsake:{id:'star',kind:'trinket',owner:'mana',participants:['mana'],moment:'Mana made a wind-up star.',at:'2026-11-19T06:06:00.000Z'},timeZone:'Asia/Singapore'});
   function visit(node){if(Array.isArray(node)){node.forEach(visit);return;}if(!node||typeof node!=='object')return;nodes.push(node);visit(node.props?.children);}visit(result);

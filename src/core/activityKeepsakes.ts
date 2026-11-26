@@ -1,9 +1,27 @@
 import {isRecord} from './validation';
 import {residentIds} from './residentProfiles';
 import type {SharedMemory,TownCharacter} from './residentRelationships';
+import {townGoalChoice,type TownPersonalGoal} from './townPersonalGoals';
 
-export type ActivityKeepsake={id:string;kind:'sketch'|'bookmark'|'trinket';owner:TownCharacter;participants:SharedMemory['with'][];at:string;moment:string};
+export type ActivityKeepsake={id:string;kind:'sketch'|'bookmark'|'trinket';owner:TownCharacter;participants:SharedMemory['with'][];at:string;moment:string;project?:{id:string;title:string;sessions:number}};
 export const activityKeepsakeNames={sketch:'Pond sketch',bookmark:'Reading bookmark',trinket:'Workshop trinket'};
+
+export function homeDisplayKeepsakes(history:ActivityKeepsake[],goals:TownPersonalGoal[],now=Date.now()):ActivityKeepsake[]{
+ return (['mana',...residentIds] as TownCharacter[]).flatMap(owner=>{
+  const goal=goals.filter(goal=>goal.owner===owner&&goal.completedAt&&Date.parse(goal.completedAt)<=now&&goal.evidence.length===townGoalChoice(goal).target)
+   .sort((a,b)=>Date.parse(b.completedAt!)-Date.parse(a.completedAt!))[0];
+  if(!goal){const existing=history.find(keepsake=>keepsake.owner===owner);return existing?[existing]:[];}
+  const title=townGoalChoice(goal).title;
+  return [{id:`project-display-${goal.id}`,kind:owner==='mana'?'trinket' as const:owner==='luna'?'sketch' as const:'bookmark' as const,owner,
+   participants:[owner],at:goal.completedAt!,moment:`A small reminder of “${title}”. All ${goal.evidence.length} planned work sessions were completed.`,
+   project:{id:goal.id,title,sessions:goal.evidence.length}}];
+ });
+}
+
+export function projectKeepsakeReflection(keepsake:ActivityKeepsake){
+ if(!keepsake.project)return;
+ return `You are at home reflecting on the displayed reminder of your completed project: ${JSON.stringify(keepsake.project.title)}. Recorded completion: ${keepsake.at}; ${keepsake.project.sessions} work sessions. Say one short, warm thought in first person. The display is a symbolic memento, not proof that a generated picture, book, game or machine exists. Do not invent project details, other participants, gifts or dialogue. Do not propose another activity.`;
+}
 
 export function validateActivityKeepsakes(value:unknown):ActivityKeepsake[]{
  if(!Array.isArray(value))return [];
