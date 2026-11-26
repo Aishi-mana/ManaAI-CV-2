@@ -31,6 +31,7 @@ const dateLabel=(date:string)=>new Intl.DateTimeFormat(undefined,{dateStyle:'med
 
 export default function TownSketchbook({events,memories,timeZone,date,onOpenDay,onViewPlace}:{events:RecordedEvent[];memories:SharedMemory[];timeZone:string;date?:string;onOpenDay:(date:string)=>void;onViewPlace:(area:ManaverseArea)=>void}){
  const [person,setPerson]=useState<Friend|'all'>('all'),[query,setQuery]=useState('');
+ const [shown,setShown]=useState(30);
  const days=useMemo(()=>townSketchbookDays(events,memories,timeZone),[events,memories,timeZone]);
  const filtered=filterTownSketchbook(days,person,query),page=date?filtered.find(day=>day.date===date):undefined;
  return <div className="room-phone-list town-sketchbook">
@@ -49,12 +50,12 @@ export default function TownSketchbook({events,memories,timeZone,date,onOpenDay,
      {moment.area&&<button className="btn" type="button" onClick={()=>onViewPlace(moment.area!)}>View {manaversePlaces[moment.area]}</button>}
     </div>
    </article>):<p>No matching moments on this page. Try Everyone or clear your search.</p>}
-  </>:filtered.length?<div className="town-sketchbook-days">{filtered.map(day=>{
+  </>:filtered.length?<div className="town-sketchbook-days">{filtered.slice(0,shown).map(day=>{
    const cover=day.moments[0],people=sketchbookPeople.filter(person=>day.moments.some(moment=>moment.people.includes(person)));
    return <button className="town-sketchbook-day" type="button" key={day.date} aria-label={`Open town sketchbook for ${day.date}`} onClick={()=>onOpenDay(day.date)}>
     <div className="town-sketchbook-day-cover"><img loading="lazy" src={placeArt(cover.area)} alt=""/><Doodle kind={cover.kind}/></div>
     <time dateTime={day.date}>{dateLabel(day.date)}</time><People people={people}/><span>{day.moments.length} {day.moments.length===1?'moment':'moments'}</span>
    </button>;
-  })}</div>:<p>{days.length?'No matching moments. Try Everyone or clear your search.':'Your first pages will appear after a shared activity, small favor, workshop session, or evening wind-down.'}</p>}
+  })}{filtered.length>shown&&<button className="btn" type="button" onClick={()=>setShown(value=>value+30)}>Load more days</button>}</div>:<p>{days.length?'No matching moments. Try Everyone or clear your search.':'Your first pages will appear after a shared activity, small favor, workshop session, or evening wind-down.'}</p>}
  </div>;
 }

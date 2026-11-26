@@ -922,7 +922,7 @@ test('event history records transitions without backfill, duplicates or silent p
  const changes=e.changedEventSources([source],[{...source,outcome:'User-recorded goal status: completed'}]);assert.equal(changes.length,1);
  const history=e.appendEvents([],changes,new Date('2026-10-09T12:00:00Z'));e.saveEvents(history);assert.equal(e.loadEvents()[0].id,'goal-1');
  assert.equal(values.has('mana.memories.v1'),false);
- const full=Array.from({length:e.EVENT_LIMIT},(_,i)=>({...history[0],eventId:String(i)}));assert.equal(e.appendEvents(full,[source]).length,e.EVENT_LIMIT);assert.equal(e.appendEvents(full,[source])[0].eventId,'0');
+ const full=Array.from({length:500},(_,i)=>({...history[0],eventId:String(i)}));assert.equal(e.appendEvents(full,[source]).length,501);assert.equal(e.appendEvents(full,[source])[0].eventId,'0');
  assert.equal(e.validateEvents([history[0],history[0],{...history[0],eventId:'bad',recordedAt:'invalid'}]).length,1);
  const b=load('src/core/backup.ts');const backup=b.snapshotBackup();assert.equal(b.validateBackup(JSON.stringify(backup)).data['mana.events.v1'].length,1);
  delete backup.data['mana.events.v1'];assert.equal(b.validateBackup(JSON.stringify(backup)).data['mana.events.v1'].length,0);
@@ -3857,7 +3857,7 @@ test('keepsake album retains older completed projects and birthday cards from re
 test('keepsake album starts with a character grid and filters the selected character’s details',()=>{
  let filter='all',owner,opened;
  const jsx=(type,props)=>({type,props});
- const load=loader({react:{useState:()=>[filter,value=>filter=value]},'react/jsx-runtime':{jsx,jsxs:jsx,Fragment:'fragment'}});
+ const load=loader({react:{useState:initial=>typeof initial==='number'?[30,()=>{}]:[filter,value=>filter=value]},'react/jsx-runtime':{jsx,jsxs:jsx,Fragment:'fragment'}});
  const Album=load('src/components/KeepsakeAlbum.tsx').default;
  const entry={id:'project',kind:'trinket',owner:'mana',participants:['mana'],at:'2026-11-20T08:00:00Z',moment:'Completed the sessions.',project:{id:'goal',title:'Workbench project',sessions:1},category:'project'};
  const entries=[entry,{...entry,id:'card',kind:'birthday-card',category:'birthday',project:undefined,birthday:{title:'Birthday card',date:'2026-11-21'},participants:['mana','luna']}];
@@ -3910,6 +3910,132 @@ test('avatar source lookups support bundled WebP and legacy PNG folders without 
  assert.equal(avatarImageUrl(webp,'EYES\\eye_neutral.webp'),'blob:webp-eye');
  assert.equal(avatarImageUrl({urls:new Map([['eyes/eye_neutral.png','blob:png-eye']])},'eyes/eye_neutral.webp'),'blob:png-eye');
  assert.equal(avatarImageUrl(webp,'mouth/missing.png'),undefined);
+});
+
+test('long-term town history survives old limits, new entries, validation and portable backup without expanding AI context',()=>{
+ const values=new Map(),load=loader({'./persistence':{readStored:key=>values.get(key)??null,writeStored:(key,value)=>values.set(key,value)}});
+ const r=load('src/core/residentRelationships.ts'),g=load('src/core/townPersonalGoals.ts'),e=load('src/core/events.ts'),room=load('src/core/companionRoom.ts');
+ const memories=Array.from({length:180},(_,i)=>({id:`memory-${i}`,owner:'luna',with:'mana',at:new Date(Date.UTC(2025,0,i+1)).toISOString(),activity:'Shared reading',fact:`Recorded moment ${i}.`}));
+ const goals=Array.from({length:40},(_,i)=>({id:`goal-${i}`,owner:'luna',choice:'sketch-collection',reason:'Study the pond.',createdAt:new Date(Date.UTC(2025,0,i+1)).toISOString(),completedAt:new Date(Date.UTC(2025,0,i+4)).toISOString(),evidence:['a','b','c']}));
+ const state=room.validateRoom({sharedMemories:memories,personalGoals:goals});
+ assert.equal(state.sharedMemories.length,180);assert.equal(state.personalGoals.length,40);
+ const history=Array.from({length:700},(_,i)=>({eventId:`record-${i}`,id:`room-2025-01-01-action-${i}`,kind:'activity',title:'Completed moment',outcome:`Recorded action ${i}.`,recordedAt:'2025-01-01T08:00:00Z'}));
+ const appended=e.appendRoomEvent(history,'new-reading','Reading','Completed reading.','Asia/Singapore',new Date('2026-11-27T08:00:00Z'));
+ assert.equal(appended.length,701);assert.equal(appended[0].eventId,'record-0');
+ assert.equal(e.appendRoomEvent(appended,'new-reading','Reading','Completed reading.','Asia/Singapore',new Date('2026-11-27T08:01:00Z')),appended);
+ room.saveRoom(state);e.saveEvents(appended);
+ const backup=load('src/core/backup.ts'),restored=backup.validateBackup(JSON.stringify(backup.snapshotBackup()));
+ assert.equal(restored.data['mana.events.v1'].length,701);
+ assert.equal(restored.data[room.ROOM_KEY].sharedMemories.length,180);assert.equal(restored.data[room.ROOM_KEY].personalGoals.length,40);
+ const context=r.sharedMemoryContext(state.sharedMemories,'luna');
+ assert.ok(context.length<2000);assert.equal(context.includes('Recorded moment 0.'),false);assert.match(context,/Recorded moment 179/);
+ const forgotten=room.validateRoom({...state,sharedMemories:state.sharedMemories.filter(memory=>memory.id!=='memory-0')});
+ assert.equal(forgotten.sharedMemories.some(memory=>memory.id==='memory-0'),false);
+ assert.equal(g.canChooseTownGoal(goals,'luna',Date.parse('2026-11-27T08:00:00Z')),true);
+});
+
+test('diary cast references use full-proportion guests while preserving Mana’s current avatar',async()=>{
+ const sources=[],draws=[],labels=[];let canvas;
+ class Portrait{constructor(){this.naturalWidth=1024;this.naturalHeight=1536;}set src(value){this.path=value;sources.push(value);}async decode(){}}
+ const load=loader({}, {Image:Portrait,document:{createElement:()=>canvas={width:0,height:0,getContext:()=>({fillRect(){},drawImage:(...args)=>draws.push(args),fillText:name=>labels.push(name)}),toDataURL:()=> 'data:image/jpeg;base64,reference'}}});
+ const art=load('src/core/diaryArtwork.ts'),signal=new AbortController().signal,current='data:image/jpeg;base64,current-outfit';
+ assert.equal(await art.prepareDiaryCastReference(current,undefined,signal),current);
+ assert.equal(sources.length,0,'solo Mana keeps the existing current-avatar reference');
+ await art.prepareDiaryCastReference(current,['Mana','Luna','Aishi'],signal);
+ assert.equal(sources[0],current);assert.ok(sources[1].endsWith('/portraits/luna-fullbody-v1.webp'));assert.ok(sources[2].endsWith('/portraits/aishi-fullbody-v1.webp'));
+ assert.equal(sources.some(source=>source.includes('sprites')||source.includes('visitor')),false);
+ assert.equal(labels.join(','),'Mana,Luna,Aishi');assert.equal(draws.length,3);assert.equal(canvas.height,1024);
+ assert.equal(draws[2][3],1024);assert.equal(draws[2][4],1536,'full-body portraits are not cropped as sprite-sheet frames');
+ const request=art.diaryArtworkRequest({content:'Luna and I sketched by the pond.',mood:'calm'});
+ assert.match(request.prompt,/normal adult proportions, never chibi/);assert.ok(request.prompt.length<1500);
+});
+
+test('keepsake archive loads older entries without rendering the whole history at once',()=>{
+ let cursor=0,slots=[];const jsx=(type,props)=>({type,props});
+ const react={useState(initial){const id=cursor++;if(!Object.hasOwn(slots,id))slots[id]=initial;return [slots[id],value=>slots[id]=typeof value==='function'?value(slots[id]):value];}};
+ const Album=loader({react,'react/jsx-runtime':{jsx,jsxs:jsx,Fragment:'fragment'}})('src/components/KeepsakeAlbum.tsx').default;
+ const entries=Array.from({length:65},(_,i)=>({id:`keepsake-${i}`,kind:'trinket',owner:'mana',participants:['mana'],at:'2026-11-20T08:00:00Z',moment:`Completed activity ${i}.`,category:'activity'}));
+ function render(){cursor=0;const nodes=[];function visit(node){if(Array.isArray(node)){node.forEach(visit);return;}if(!node||typeof node!=='object')return;nodes.push(node);visit(node.props?.children);}visit(Album({entries,owner:'mana',timeZone:'Asia/Singapore',onOpenOwner(){}}));return nodes;}
+ let nodes=render();assert.equal(nodes.filter(node=>node.type==='details').length,30);
+ nodes.find(node=>node.type==='button'&&node.props.children==='Load more keepsakes').props.onClick();
+ nodes=render();assert.equal(nodes.filter(node=>node.type==='details').length,60);
+ nodes.find(node=>node.type==='button'&&node.props.children==='Load more keepsakes').props.onClick();
+ nodes=render();assert.equal(nodes.filter(node=>node.type==='details').length,65);
+ assert.equal(nodes.some(node=>node.type==='button'&&node.props.children==='Load more keepsakes'),false);
+});
+
+test('annual calendar edits retain identities and birthdays, and deletion does not rewrite past town records',()=>{
+ const load=loader(),e=load('src/core/townEvents.ts'),room=load('src/core/companionRoom.ts');
+ const original={id:'custom-festival',title:'New Year festival',date:'2000-01-01',start:'16:00',end:'18:00'};
+ const birthday={id:'birthday-luna',title:'Luna’s birthday',date:'2000-02-29',start:'16:00',end:'16:30'};
+ const history={...birthday,date:'2024-02-29',guests:['Luna','Mana'],celebratedWith:['Luna','Mana'],wishedBy:['Mana']};
+ const state=room.validateRoom({townEvents:[original,birthday],townGuestbook:[history]});
+ const edited=e.updateTownEvent(state.townEvents,original.id,{title:'New Year gathering',date:'2000-01-02',start:'17:00',end:'18:00'});
+ assert.equal(edited.length,2);assert.equal(edited[0].id,original.id);assert.equal(edited[0].title,'New Year gathering');
+ assert.equal(e.townEventCalendar(new Date('2028-01-02T09:05:00Z'),'Asia/Singapore',edited).active[0].id,original.id);
+ assert.equal(e.updateTownEvent(edited,'Town Market',original),edited);
+ assert.equal(e.deleteTownEvent(edited,'Town Market'),edited);
+ assert.equal(e.updateTownEvent(edited,original.id,{...original,end:'15:00'}),edited);
+ assert.equal(e.updateTownEvent(edited,original.id,{...birthday,birthdayFor:'luna'}),edited,'custom event cannot steal a birthday identity');
+ assert.equal(e.updateTownEvent(edited,birthday.id,{...birthday,birthdayFor:'lyra'}),edited);
+ assert.equal(e.updateTownEvent(edited,birthday.id,{...birthday,start:'22:00',end:'22:30'}),edited,'birthday wake-hour limits survive editing');
+ const moved=e.updateTownEvent(edited,birthday.id,{...birthday,date:'2000-03-03',title:'Ignored birthday rename'});
+ assert.equal(moved[1].title,'Luna’s birthday');assert.equal(e.birthdayOwner(moved[1]),'luna');
+ const removed=e.deleteTownEvent(moved,birthday.id);
+ const restored=room.validateRoom(JSON.parse(JSON.stringify({...state,townEvents:removed})));
+ assert.equal(restored.townEvents.length,1);assert.equal(restored.townGuestbook[0].date,'2024-02-29');assert.equal(restored.townGuestbook[0].wishedBy[0],'Mana');
+});
+
+test('calendar UI edits and cancels drafts, moves dates, and confirms deletion locally',()=>{
+ let cursor=0,slots=[],updated,deleted,props;
+ const jsx=(type,props)=>({type,props});
+ const react={useState(initial){const id=cursor++;if(!Object.hasOwn(slots,id))slots[id]=initial;return [slots[id],value=>slots[id]=typeof value==='function'?value(slots[id]):value];},useRef:current=>({current}),useEffect(){}};
+ const Grid=loader({react,'react/jsx-runtime':{jsx,jsxs:jsx,Fragment:'fragment'}})('src/components/TownEventGrid.tsx').default;
+ props={townEventClock:{date:'2026-11-27',time:'16:00'},customTownEvents:[{id:'party',title:'Town picnic',date:'2000-11-27',start:'16:00',end:'18:00'}],onAddTownEvent(){},onUpdateTownEvent:(id,draft)=>{updated={id,draft};return true;},onDeleteTownEvent:id=>{deleted=id;props.customTownEvents=[];return true;}};
+ function render(){cursor=0;const nodes=[];function visit(node){if(Array.isArray(node)){node.forEach(visit);return;}if(!node||typeof node!=='object')return;nodes.push(node);visit(node.props?.children);}visit(Grid(props));return nodes;}
+ let nodes=render();nodes.find(node=>node.props?.['aria-label']==='November 27 · 1 event').props.onClick();nodes=render();
+ nodes.find(node=>node.props?.['aria-label']==='Edit Town picnic').props.onClick();nodes=render();
+ nodes.find(node=>node.props?.['aria-label']==='Event month').props.onChange({target:{value:'12'}});nodes=render();
+ nodes.find(node=>node.type==='button'&&node.props.children==='Cancel editing').props.onClick();nodes=render();assert.equal(updated,undefined);
+ nodes.find(node=>node.props?.['aria-label']==='Edit Town picnic').props.onClick();nodes=render();
+ nodes.find(node=>node.props?.['aria-label']==='Event day').props.onChange({target:{value:'28'}});nodes=render();
+ nodes.find(node=>node.type==='form').props.onSubmit({preventDefault(){}});assert.equal(updated.id,'party');assert.equal(updated.draft.date,'2000-11-28');
+ nodes=render();nodes.find(node=>node.props?.['aria-label']==='November 27 · 1 event').props.onClick();nodes=render();
+ nodes.find(node=>node.props?.['aria-label']==='Delete Town picnic').props.onClick();nodes=render();assert.equal(deleted,undefined);
+ nodes.find(node=>node.type==='button'&&node.props.children==='Keep event').props.onClick();nodes=render();assert.equal(deleted,undefined);
+ nodes.find(node=>node.props?.['aria-label']==='Delete Town picnic').props.onClick();nodes=render();nodes.find(node=>node.type==='button'&&node.props.children==='Remove event').props.onClick();render();assert.equal(deleted,'party');
+ nodes=render();nodes.find(node=>node.props?.['aria-label']==='November 1 · 1 event').props.onClick();nodes=render();
+ assert.equal(nodes.some(node=>node.props?.['aria-label']==='Edit Town Market'||node.props?.['aria-label']==='Delete Town Market'),false,'town traditions remain read-only');
+});
+
+test('weekly town routines vary home days and weekends without changing bedtime or daily priorities',()=>{
+ const load=loader(),r=load('src/core/manaverseRoutine.ts');
+ const at=(date,time)=>r.manaRoutine({date,time});
+ assert.equal(at('2026-11-23','14:00').place,'bedroom','Monday home afternoon');
+ assert.equal(at('2026-11-25','14:00').place,'bedroom','Wednesday home afternoon');
+ assert.equal(at('2026-11-26','14:00').place,'workshop','Thursday workshop afternoon');
+ assert.equal(at('2026-11-28','08:00').place,'bedroom','Saturday has no office work');
+ assert.equal(at('2026-11-28','10:00').place,'park');
+ assert.equal(at('2026-11-29','18:00').place,'living');
+ assert.equal(r.residentOutingPlan('luna','15:30','2026-11-24'),undefined,'Luna stays home Tuesday afternoon');
+ assert.equal(r.residentOutingPlan('luna','15:30','2026-11-26'),'library');
+ assert.equal(r.residentOutingPlan('luna','13:45','2026-11-28'),'cafe');
+ assert.equal(r.residentOutingPlan('lyra','16:30','2026-11-25'),undefined,'Lyra has a quiet Wednesday at the library');
+ assert.equal(r.residentOutingPlan('lyra','12:45','2026-11-28'),'park');
+ assert.equal(r.residentOutingPlan('lyra','11:45','2026-11-29'),'cafe');
+ assert.equal(r.nextResidentStop('luna','19:00','2026-11-28').start,'11:00','next stop uses Sunday schedule');
+ assert.equal(r.nextManaStop('13:00','cafe','2026-11-28').place,'living');
+ assert.equal(r.manaRoutineDestination({date:'2026-11-28',time:'10:00'},[],true),'bedroom','night override still wins');
+ for(let day=23;day<=29;day++){
+  const date=`2026-11-${day}`,slots=r.manaDayForDate(date);
+  assert.equal(at(date,'22:00').place,'bedroom');assert.equal(at(date,'05:59').place,'bedroom');
+  assert.ok(slots.every((slot,i)=>!i||slot.start>slots[i-1].start));
+  for(const owner of ['luna','lyra']){
+   const outings=r.residentDayForDate(owner,date);
+   assert.ok(outings.every((slot,i)=>slot.start>= '06:00'&&slot.end<='21:45'&&slot.end>slot.start&&(!i||slot.start>=outings[i-1].end)));
+   const first=outings[0];assert.equal(r.residentOutingSlot(owner,{date,time:first.start}).key,`${date}T${first.start}:${first.place}`);
+  }
+ }
 });
 
 test('the shared scene scheduler prevents overlapping tasks and cancels only its own work',async()=>{

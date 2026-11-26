@@ -3,7 +3,6 @@ import {isRecord,nonEmptyString} from './validation';
 import {uid} from './types';
 import {journalClock} from './clock';
 
-export const EVENT_LIMIT=500;
 export const EVENT_KINDS=['goal','work','playtest','activity','portrait','diary','thought','archive'] as const;
 export type EventKind=typeof EVENT_KINDS[number];
 export interface EventSource {id:string;kind:EventKind;title:string;outcome:string}
@@ -14,7 +13,7 @@ export function validateEvents(value:unknown):RecordedEvent[]{
  return value.flatMap((e):RecordedEvent[]=>{
   if(!isRecord(e)||!nonEmptyString(e.eventId)||seen.has(e.eventId)||!nonEmptyString(e.id)||!EVENT_KINDS.includes(e.kind as EventKind)||!nonEmptyString(e.title)||!nonEmptyString(e.outcome)||typeof e.recordedAt!=='string'||!Number.isFinite(Date.parse(e.recordedAt)))return [];
   seen.add(e.eventId);return [{eventId:e.eventId,id:e.id,kind:e.kind as EventKind,title:e.title.slice(0,200),outcome:e.outcome.slice(0,300),recordedAt:e.recordedAt}];
- }).slice(0,EVENT_LIMIT);
+ });
 }
 export function loadEvents():RecordedEvent[]{try{return validateEvents(JSON.parse(readStored('mana.events.v1')??'[]'));}catch{return [];}}
 export const saveEvents=(events:RecordedEvent[])=>writeStored('mana.events.v1',JSON.stringify(validateEvents(events)));
@@ -25,13 +24,13 @@ export function changedEventSources(previous:EventSource[],next:EventSource[]):E
  return next.filter(e=>{const before=old.get(`${e.kind}:${e.id}`);return !before||before.outcome!==e.outcome;});
 }
 export function appendEvents(history:RecordedEvent[],sources:EventSource[],now=new Date()):RecordedEvent[]{
- return [...history,...sources.slice(0,Math.max(0,EVENT_LIMIT-history.length)).map(s=>({...s,eventId:uid(),recordedAt:now.toISOString()}))];
+ return [...history,...sources.map(s=>({...s,eventId:uid(),recordedAt:now.toISOString()}))];
 }
 
 export function appendRoomEvent(history:RecordedEvent[],action:string,title:string,outcome:string,timeZone:string,now=new Date()){
  const date=journalClock(now,timeZone).date;
  const id=`room-${date}-${action}`;
- if(history.length>=EVENT_LIMIT||history.some(event=>event.kind==='activity'&&event.id===id))return history;
+ if(history.some(event=>event.kind==='activity'&&event.id===id))return history;
  return appendEvents(history,[{id,kind:'activity',title:`Companion Room · ${title}`,outcome:outcome.slice(0,300)}],now);
 }
 

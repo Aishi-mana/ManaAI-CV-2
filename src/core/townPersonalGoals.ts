@@ -27,7 +27,7 @@ export function validateTownPersonalGoals(value:unknown):TownPersonalGoal[]{
  if(!Array.isArray(value))return [];
  const goals:TownPersonalGoal[]=[];
  const ids=new Set<string>();
- for(const item of value.slice(-24)){
+ for(const item of value){
   if(!isRecord(item)||typeof item.id!=='string'||ids.has(item.id)||!item.id||
    !Object.prototype.hasOwnProperty.call(townGoalChoices,String(item.owner))||typeof item.createdAt!=='string'||
    !Number.isFinite(Date.parse(item.createdAt))||typeof item.reason!=='string'||!item.reason.trim())continue;
@@ -47,12 +47,12 @@ export function validateTownPersonalGoals(value:unknown):TownPersonalGoal[]{
   ids.add(item.id);
   goals.push({id:item.id.slice(0,220),owner,choice:choice.id,reason:item.reason.trim().slice(0,180),createdAt:item.createdAt,evidence,...(completedAt?{completedAt}:{}),...(sessions.length?{sessions}:{}),...(item.startedBy==='aishi'?{startedBy:'aishi' as const}:{})});
  }
- return [...goals.filter(goal=>!goal.completedAt),...goals.filter(goal=>goal.completedAt).slice(-9)];
+ return [...goals.filter(goal=>!goal.completedAt),...goals.filter(goal=>goal.completedAt)];
 }
 export function canChooseTownGoal(goals:TownPersonalGoal[],owner:TownCharacter,now=Date.now()){
  const previous=goals.filter(goal=>goal.owner===owner);
  if(previous.some(goal=>!goal.completedAt))return false;
- const latest=previous[previous.length-1];
+ const latest=previous.slice().sort((a,b)=>Date.parse(b.completedAt!)-Date.parse(a.completedAt!))[0];
  return !latest||now-Date.parse(latest.completedAt!)>=24*60*60_000;
 }
 export function townGoalPrompt(owner:TownCharacter,memories:SharedMemory[]){

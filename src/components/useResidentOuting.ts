@@ -3,7 +3,7 @@ import {squareSpots,streetTripDuration,type StreetPoint,type StreetTrip} from '.
 import {manaversePassage} from '../core/manaversePassage';
 import {outdoorTrip} from '../core/manaverseNavigation';
 import {roomSleepNight} from '../core/companionRoom';
-import {residentOutingPlan} from '../core/manaverseRoutine';
+import {residentOutingSlot} from '../core/manaverseRoutine';
 import {residentProfiles,type ResidentId} from '../core/residentProfiles';
 
 type Outing={position:StreetPoint;trip?:StreetTrip;homeExit?:StreetTrip;returning?:boolean;goingToPark?:boolean;inPark?:boolean;goingToLibrary?:boolean;inLibrary?:boolean;libraryLeaving?:boolean;goingToSquare?:boolean;squareStops?:number;leavingSquare?:boolean;cafeStage?:'to-district'|'to-cafe'|'inside'|'leaving'|'from-cafe'};
@@ -24,8 +24,9 @@ export function useResidentOuting(resident:ResidentId,away:boolean,timeZone:stri
   if(previousShelter.current&&!sheltering)lastOuting.current='';
   previousShelter.current=sheltering;
  },[sheltering]);
- const plan=sheltering?undefined:residentOutingPlan(resident,clock.time);
- const planKey=plan?`${clock.date}:${plan}`:'';
+ const slot=sheltering?undefined:residentOutingSlot(resident,clock);
+ const plan=slot?.place;
+ const planKey=slot?.key??'';
  useEffect(()=>{
   if(away){
    setOuting(undefined);

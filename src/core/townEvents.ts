@@ -43,6 +43,19 @@ export function validateTownEvents(value:unknown):CustomTownEvent[]{
  return [...events.values()];
 }
 
+/** Modify only saved custom events. IDs and birthday identities stay stable. */
+export function updateTownEvent(events:CustomTownEvent[],id:string,draft:TownEventDraft):CustomTownEvent[]{
+ const previous=events.find(event=>event.id===id);if(!previous)return events;
+ const owner=birthdayOwner(previous);
+ if(draft.birthdayFor&&draft.birthdayFor!==owner)return events;
+ const next={id,title:owner?birthdayTitle(owner):draft.title.trim(),date:draft.date,start:draft.start,end:draft.end,...(owner?{birthdayFor:owner}:{})};
+ if(!validTownEvent(next))return events;
+ return events.map(event=>event.id===id?next:event);
+}
+export function deleteTownEvent(events:CustomTownEvent[],id:string):CustomTownEvent[]{
+ return events.some(event=>event.id===id)?events.filter(event=>event.id!==id):events;
+}
+
 export function townEventsForMonth(month:string,custom:readonly CustomTownEvent[],clock:{date:string;time:string}){
  const monthNumber=Number(month.slice(5));
  const recurring=schedule.filter(event=>!('month' in event)||event.month===monthNumber).map(event=>({

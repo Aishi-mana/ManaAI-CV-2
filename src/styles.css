@@ -2293,3 +2293,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .companion-room:has(.scene-birthday-line) :is(.scene-project-line,.scene-favor-line,.scene-proximity-line,.scene-heart-line),
 .companion-room:has(.scene-favor-line) .scene-project-line,
 .companion-room:has(.scene-project-line) :is(.scene-proximity-line,.scene-heart-line) { visibility: hidden; }
+.town-event-actions { display: flex; flex-wrap: wrap; gap: .4rem; margin: .4rem 0 .7rem; }
+.town-event-actions > [role="group"] { flex-basis: 100%; padding: .6rem; border: 1px solid var(--mist-deep); border-radius: 10px; }
+.town-event-actions .btn { padding: .3rem .65rem; }
+.town-event-details select { width: 100%; min-width: 0; font: inherit; }

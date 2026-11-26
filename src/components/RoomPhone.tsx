@@ -1,3 +1,4 @@
+import {townPortraits} from '../core/townPortraits';
 import KeepsakeAlbum from './KeepsakeAlbum';
 import {keepDialogFocus} from '../core/dialogFocus';
 import {keepsakeAlbumEntries} from '../core/keepsakeAlbum';
@@ -42,7 +43,7 @@ const phoneApps=[
 type PhoneApp=typeof phoneApps[number];
 const memoryCharacters=[
  {id:'mana',name:'Mana',avatar:'./companion-room/mana_idle_1.webp'},
- ...(Object.keys(ROOM_CONTACTS) as RoomContact[]).map(id=>({id,...ROOM_CONTACTS[id]})),
+ ...(Object.keys(ROOM_CONTACTS) as RoomContact[]).map(id=>({id,...ROOM_CONTACTS[id],avatar:townPortraits[id].path})),
  {id:'pet-bot',name:'Pet Bot',avatar:ROOM_ART+'pet_bot.webp'},
 ] satisfies {id:TownCharacter|'pet-bot';name:string;avatar:string}[];
 
@@ -97,7 +98,9 @@ export default function RoomPhone({activityKeepsakes=[],birthdayVisits=[],onStar
  const end=useRef<HTMLDivElement>(null);
  const send=useRef(onSend);
  send.current=onSend;
+ const [historyShown,setHistoryShown]=useState(40);
  const [memoryOwner,setMemoryOwner]=useState<TownCharacter|'pet-bot'>('mana');
+ useEffect(()=>{setHistoryShown(40);},[screen,memoryOwner]);
  const [contact,setContact]=useState<RoomContact>('luna');
  const profile=ROOM_CONTACTS[contact];
  const thread=messages.filter(message=>message.contact===contact);
@@ -208,10 +211,11 @@ export default function RoomPhone({activityKeepsakes=[],birthdayVisits=[],onStar
     </nav>}
     {screen==='stories'&&<div className="room-phone-list room-phone-stories">
      {stories.length===0?<p>Completed room activities and published games will appear here.</p>:
-      stories.map(({date,entries})=><details key={date}>
+      stories.slice(0,historyShown).map(({date,entries})=><details key={date}>
        <summary><time dateTime={date}>{date}</time> · {entries.length} {entries.length===1?'moment':'moments'}</summary>
        <ul>{entries.map((entry,index)=><li key={index}>{entry}</li>)}</ul>
       </details>)}
+     {stories.length>historyShown&&<button className="btn" type="button" onClick={()=>setHistoryShown(value=>value+40)}>Load older story days</button>}
     </div>}
     {(screen==='town-sketchbook'||screen==='town-sketchbook-day')&&<TownSketchbook events={events} memories={sharedMemories} timeZone={timeZone}
      date={screen==='town-sketchbook-day'?sketchbookDay:undefined} onOpenDay={date=>{setSketchbookDay(date);setScreen('town-sketchbook-day');}}
@@ -284,7 +288,7 @@ export default function RoomPhone({activityKeepsakes=[],birthdayVisits=[],onStar
       const preview=[...messages].reverse().find(message=>message.contact===id);
       const newMessage=unreadContacts.includes(id);
       return <button key={id} className="room-phone-row" onClick={()=>{setContact(id);setScreen('thread');}}>
-       <img src={person.avatar} alt=""/>
+       <img src={townPortraits[id].path} alt=""/>
        <span><strong>{person.name}</strong><small>{screen==='contacts'?person.description:preview?(preview.text??'Waiting for AI message…'):'No messages yet'}</small></span>
        {screen==='messages'&&newMessage&&<span className="room-phone-new" aria-label="Unread"/>}
       </button>;
@@ -327,10 +331,11 @@ export default function RoomPhone({activityKeepsakes=[],birthdayVisits=[],onStar
      {memoryOwner!=='pet-bot'&&<section className="room-phone-memory-facts">
       <h3>Shared activities</h3>
       {sharedMemories.some(memory=>memory.owner===memoryOwner)?
-       <ul>{sharedMemories.filter(memory=>memory.owner===memoryOwner).slice().reverse().map(memory=><li key={memory.id}>
+       <ul>{sharedMemories.filter(memory=>memory.owner===memoryOwner).slice().reverse().slice(0,historyShown).map(memory=><li key={memory.id}>
         <span>{memory.fact}<br/><small>{clock.format(new Date(memory.at))}</small></span>
         <button type="button" className="btn" aria-label={`Forget: ${memory.fact}`} onClick={()=>onForgetSharedMemory(memory.id)}>Forget</button>
        </li>)}</ul>:<p>No shared activities remembered yet.</p>}
+      {sharedMemories.filter(memory=>memory.owner===memoryOwner).length>historyShown&&<button className="btn" type="button" onClick={()=>setHistoryShown(value=>value+40)}>Load older shared memories</button>}
      </section>}
     </div>}
     {screen==='thread'&&<>

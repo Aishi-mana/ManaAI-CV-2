@@ -17,7 +17,7 @@ export function validateSharedMemories(value:unknown):SharedMemory[]{
   seen.add(item.id);
   return [{id:item.id.slice(0,220),owner:item.owner as TownCharacter,with:item.with as SharedMemory['with'],
    at:item.at,activity:item.activity.slice(0,100),fact:item.fact.trim().slice(0,300),...(typeof item.lastRecallOfferedAt==='string'&&Number.isFinite(Date.parse(item.lastRecallOfferedAt))?{lastRecallOfferedAt:item.lastRecallOfferedAt}:{})}];
- }).slice(-64);
+ });
 }
 export function rememberSharedActivity(history:SharedMemory[],eventId:string,activity:string,outcome:string,participants:readonly SharedMemory['with'][],now=new Date()){
  const people=[...new Set(participants)];

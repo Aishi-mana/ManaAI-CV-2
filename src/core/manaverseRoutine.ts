@@ -13,9 +13,42 @@ const manaDay=[
  {start:'22:00',place:'bedroom'},
 ] as const;
 
+type ManaDay=readonly {start:string;place:(typeof manaDay)[number]['place']}[];
+type ResidentDay=readonly {start:string;end:string;place:'park'|'cafe'|'library'}[];
+const weekendMana:Record<0|6,ManaDay>={
+ 6:[{start:'00:00',place:'bedroom'},{start:'06:00',place:'living'},{start:'08:00',place:'bedroom'},{start:'10:00',place:'park'},{start:'12:00',place:'cafe'},{start:'14:00',place:'living'},{start:'16:00',place:'park'},{start:'18:00',place:'square'},{start:'20:00',place:'bedroom'},{start:'22:00',place:'bedroom'}],
+ 0:[{start:'00:00',place:'bedroom'},{start:'06:00',place:'living'},{start:'08:00',place:'bedroom'},{start:'10:00',place:'living'},{start:'12:00',place:'cafe'},{start:'14:00',place:'park'},{start:'16:00',place:'bedroom'},{start:'18:00',place:'living'},{start:'20:00',place:'bedroom'},{start:'22:00',place:'bedroom'}],
+};
+function weekday(date:string){return new Date(date+'T12:00:00Z').getUTCDay();}
+function followingDate(date:string){const next=new Date(date+'T12:00:00Z');next.setUTCDate(next.getUTCDate()+1);return next.toISOString().slice(0,10);}
+export function manaDayForDate(date?:string):ManaDay{
+ if(!date)return manaDay;
+ const day=weekday(date);
+ if(day===0||day===6)return weekendMana[day];
+ return day===1||day===3?manaDay.map(slot=>slot.start==='14:00'?{...slot,place:'bedroom' as const}:slot):manaDay;
+}
+export function residentDayForDate(resident:ResidentId,date?:string):ResidentDay{
+ const ordinary=residentProfiles[resident].outings;if(!date)return ordinary;
+ const day=weekday(date);
+ if(resident==='luna'){
+  if(day===6)return [{start:'09:30',end:'11:00',place:'park'},{start:'13:30',end:'14:30',place:'cafe'},{start:'16:00',end:'17:30',place:'library'}];
+  if(day===0)return [{start:'11:00',end:'12:30',place:'park'}];
+  if(day===2||day===3)return ordinary.filter(slot=>slot.place==='park');
+ }else{
+  if(day===6)return [{start:'12:30',end:'13:30',place:'park'},{start:'14:30',end:'15:30',place:'cafe'}];
+  if(day===0)return [{start:'11:30',end:'12:30',place:'cafe'}];
+  if(day===1||day===3)return ordinary.filter(slot=>slot.place==='cafe');
+ }
+ return ordinary;
+}
+export function residentOutingSlot(resident:ResidentId,clock:{date:string;time:string}){
+ const slot=residentDayForDate(resident,clock.date).find(slot=>clock.time>=slot.start&&clock.time<slot.end);
+ return slot?{...slot,key:`${clock.date}T${slot.start}:${slot.place}`}:undefined;
+}
+
 export function manaRoutine({date,time}:{date:string;time:string}){
- const elapsed=manaDay.filter(entry=>entry.start<=time);
- const slot=elapsed[elapsed.length-1]??manaDay[0];
+ const day=manaDayForDate(date),elapsed=day.filter(entry=>entry.start<=time);
+ const slot=elapsed[elapsed.length-1]??day[0];
  return {...slot,key:`${date}T${slot.start}`};
 }
 
@@ -34,15 +67,14 @@ export function homeActivityCycleKey({place,destination,slot,night=false,busy=fa
  return `${slot}:${place}:${cooldownUntil??'first'}`;
 }
 
-export function nextManaStop(time:string,place:string){
- return manaDay.find(slot=>slot.start>time&&slot.place!==place)??manaDay.find(slot=>slot.place!==place);
+export function nextManaStop(time:string,place:string,date?:string){
+ return manaDayForDate(date).find(slot=>slot.start>time&&slot.place!==place)??manaDayForDate(date?followingDate(date):undefined).find(slot=>slot.place!==place);
 }
 
-export function residentOutingPlan(resident:ResidentId,time:string){
- return residentProfiles[resident].outings.find(slot=>time>=slot.start&&time<slot.end)?.place;
+export function residentOutingPlan(resident:ResidentId,time:string,date?:string){
+ return residentDayForDate(resident,date).find(slot=>time>=slot.start&&time<slot.end)?.place;
 }
 
-export function nextResidentStop(resident:ResidentId,time:string){
- const {outings}=residentProfiles[resident];
- return outings.find(slot=>slot.start>time)??outings[0];
+export function nextResidentStop(resident:ResidentId,time:string,date?:string){
+ return residentDayForDate(resident,date).find(slot=>slot.start>time)??residentDayForDate(resident,date?followingDate(date):undefined)[0];
 }

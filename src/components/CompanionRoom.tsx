@@ -52,7 +52,7 @@ import MapTransferArrow from './MapTransferArrow';
 import SceneViewport,{ScenePanContext,SceneZoomControls} from './SceneViewport';
 import {manaRoutine,manaRoutineDestination,nextManaStop,nextResidentStop,homeActivityCycleKey} from '../core/manaverseRoutine';
 import {recordTownAttendance,townGuestbookEntries,type TownGuest} from '../core/townGuestbook';
-import {townEventCalendar,validTownEvent,birthdayTitle,birthdayOwner,type TownEventDraft} from '../core/townEvents';
+import {townEventCalendar,validTownEvent,birthdayTitle,birthdayOwner,updateTownEvent,deleteTownEvent,type TownEventDraft} from '../core/townEvents';
 import BirthdayCelebration from './BirthdayCelebration';
 import {recordBirthdayWish,birthdayGuest} from '../core/townBirthdays';
 import RoomPhone from './RoomPhone';
@@ -196,6 +196,16 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
   setCustomTownEvents(events);
  }
  const [officeLayout,setOfficeLayout]=useState(room.officeLayout);
+ function editTownEvent(id:string,draft:TownEventDraft){
+  const previous=current.current.townEvents??[],events=updateTownEvent(previous,id,draft);
+  if(events===previous)return false;
+  current.current={...current.current,townEvents:events};saveRoom(current.current);setCustomTownEvents(events);return true;
+ }
+ function removeTownEvent(id:string){
+  const previous=current.current.townEvents??[],events=deleteTownEvent(previous,id);
+  if(events===previous)return false;
+  current.current={...current.current,townEvents:events};saveRoom(current.current);setCustomTownEvents(events);return true;
+ }
  function saveKeepsake(keepsake:ManaKeepsake){
   if(keepsake.shared){
    current.current={...current.current,sharedKeepsake:keepsake};
@@ -1368,7 +1378,7 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
    outing.goingToSquare?'square':outing.cafeStage==='to-cafe'?'cafe':undefined);
   const next=sheltering?(outing&&!outing.inLibrary&&outing.cafeStage!=='inside'?{place:home}:undefined):friendMeetup&&location!=='park'?{place:'park' as const}:travellingTo?{place:travellingTo}:
    townGathering&&location!=='square'?{place:'square' as const}:
-   townGathering?undefined:outing||awayVisitor===contact?{place:home}:nextResidentStop(contact,calendar.clock.time);
+   townGathering?undefined:outing||awayVisitor===contact?{place:home}:nextResidentStop(contact,calendar.clock.time,calendar.clock.date);
   return {location,activity,next};
  }
  const manaDoor=manaStreetTrip?.door==='square-from-district'?'square':manaStreetTrip?.door;
@@ -1380,7 +1390,7 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
  const livingHomeChoice=useMemo(()=>livingHomeCycle?chooseRoomActivity(current.current,new Date(),timeZone,Math.random(),coreForPreferences('mana'),['water','read','sleep']):undefined,[livingHomeCycle]);
  const manaNext=sheltering?(manaDoor?{place:manaDoor}:manaArea!==weatherTarget?{place:weatherTarget}:undefined):townGathering?(manaArea==='square'?undefined:{place:'square' as const}):
   manaDoor?{place:manaDoor}:manaArea!==routine.place&&!meetup&&!hostVisit?{place:routine.place}:
-  !meetup&&!hostVisit?nextManaStop(calendar.clock.time,manaArea):undefined;
+  !meetup&&!hostVisit?nextManaStop(calendar.clock.time,manaArea,calendar.clock.date):undefined;
  const officeWorking=manaArea==='office'&&!officeTrip&&!!officeWorkTarget&&
   Math.hypot(officePosition.x-officeWorkTarget.x,officePosition.y-officeWorkTarget.y)<.1;
  const manaActivity=sleeping?'Mana is asleep.':manaStreetTrip||officeTrip?'Mana is walking.':
@@ -1787,7 +1797,7 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
    officePosition={officePosition} officeTrip={officeTrip?.room===building?officeTrip:undefined}
    follow={followMana} onPan={()=>setFollowMana(false)} openOfficeRoom={enterView}
    cafeResidents={cafeResidents} cafeLeaving={cafeLeaving} onCafeExit={contact=>contact==='luna'?leaveLunaCafe():leaveLyraCafe()} cafeEncounter={cafeEncounter} cafeChat={manaArea==='cafe'&&cafePartnerPresent?cafePartner:undefined}
-   exit={()=>enterView(isOfficeRoom(building)?officeRooms[building].parent:townBuildingStreet(building))} noticePlans={{decorationSettings:townDecorations,onDecorationChange:changeTownDecorations,messages:phoneMessages,meetup,meetupPlace,meetupStarted:!!parkChat?.planned||manaArea==='cafe'&&cafePartnerPresent,sleeping,timeZone,townEventClock:calendar.clock,customTownEvents,onAddTownEvent:addTownEvent,guestbookEntries}}/>)}
+   exit={()=>enterView(isOfficeRoom(building)?officeRooms[building].parent:townBuildingStreet(building))} noticePlans={{decorationSettings:townDecorations,onDecorationChange:changeTownDecorations,messages:phoneMessages,meetup,meetupPlace,meetupStarted:!!parkChat?.planned||manaArea==='cafe'&&cafePartnerPresent,sleeping,timeZone,townEventClock:calendar.clock,customTownEvents,onAddTownEvent:addTownEvent,onUpdateTownEvent:editTownEvent,onDeleteTownEvent:removeTownEvent,guestbookEntries}}/>)}
   {area==='park'&&<ManaversePark petBot={botRoom==='outside'&&outdoorPet.area==='park'?outdoorPet:undefined} onManaDrop={!meetup&&!hostVisit&&!park.moving?park.drop:undefined} walker={park.walker} residents={[lunaPark,lyraPark]} chat={parkChat} follow={followMana} onPan={()=>setFollowMana(false)}
    exit={()=>enterView('street')}/>}
   <ResidentRoom onActivityDone={(resident,pose)=>personalGoals.record(`home-${resident}-${Date.now()}`,`home-${pose}`,`${residentProfiles[resident].name} completed a ${pose} session at home.`,[resident])} eveningCompleted={eveningDates.lyra} onEveningComplete={finishEvening} preferences={freeTimePreferences.preferences} coreMemories={coreForPreferences('lyra')} preferredPose={personalGoals.preferred('lyra')} keepsake={displayKeepsakes.find(keepsake=>keepsake.owner==='lyra')} resident="lyra" sharingActivity={aishiJoining==='read'&&!groupJoining} onActivityStatus={setLyraHomeActivity} shown={area==='library'||area==='lyra-room'} upstairs={area==='lyra-room'} onStairs={()=>enterView(area==='lyra-room'?'library':'lyra-room')} away={awayVisitor==='lyra'} outdoors={!!lyraOuting&&!lyraOuting.homeExit} leavingHome={!!lyraOuting?.homeExit||visitorPreparing==='lyra'} onResidentExit={()=>visitorPreparing==='lyra'?setVisitorAtDoor('lyra'):leaveLyraHome()} timeZone={timeZone} manaPresent={manaArea==='library'} lunaVisiting={!!lunaOuting?.inLibrary} lunaLeaving={lunaOuting?.libraryLeaving} onLunaExit={()=>{

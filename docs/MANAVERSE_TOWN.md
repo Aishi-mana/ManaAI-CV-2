@@ -220,7 +220,7 @@ The card is derived from the saved celebration, showing its calendar date and re
 
 The phone's Keepsake Album opens with a character grid. Selecting a character opens a separate page with dated expandable entries and filters for birthday cards, completed projects and activity mementos. Back returns to the character grid. The album uses retained completed project records, eligible birthday guestbook occurrences, current saved activity keepsakes and completed moments already curated by the Town Sketchbook. Reciprocal activity memories are merged and matching mementos deduplicated. Future or unfinished records do not create keepsakes.
 
-This is a read-only view of retained records, not a new archive store: it cannot recover history already removed by existing retention limits. The home display remains a single latest memento. Opening album entries does not call the AI, generate images, modify memory, or record new activities.
+This is a read-only view of saved records, not a second archive store. The later long-term history update removes the former retention limits; it cannot recover history already removed by an older version. The home display remains a single latest memento. Opening album entries does not call the AI, generate images, modify memory, or record new activities.
 
 ### Recent-feature polish
 
@@ -237,3 +237,29 @@ Every converted file was decoded and compared against the original in RGBA, incl
 Frontend URLs and dynamic frame URLs were updated. Hair generation accepts both bundled WebP layers and legacy PNG avatar folders, and native generation still receives PNG snapshots produced by the existing canvas boundary. Avatar resource tests require the new WebP layer names. The image worker's default garment guide supports either format. No format-wide replacement was applied to generated PNG outputs or private saved artwork.
 
 Git now includes `public/` and `assets/avatar/`. Personal voice/training material, `data/`, `exports/`, model weights, build output and migration scratch files remain ignored. The conversion work does not push a commit or upload personal files. Existing PNG copies in generated avatar resources were verified against the migration manifest and removed to prevent shipping both formats. App icons remain in native PNG/ICO formats required by the desktop tooling.
+
+### Long-term town history
+
+Shared activity memories and completed personal projects are no longer truncated at 64 memories, nine completed goals, or the last 24 goal inputs. Recorded events continue beyond the former 500-record stop instead of refusing new entries. Existing record IDs, data validation, deduplication, explicit forgetting/deletion and save/backup formats remain authoritative. This preserves surviving history and future records; it does not manufacture already-deleted older memories or backfill activities from the clock. Core fact memory limits remain intentional and separate.
+
+The event-history drawer loads 100 entries at a time, the Keepsake Album and Sketchbook grids load 30 at a time, and phone shared-memory/Story views load 40 at a time. Load-more buttons expose older records without rendering the entire history. The AI continues receiving bounded relevant selections (for example, five shared memories and two project summaries), not the full archive. Regression coverage uses 180 shared memories, 40 completed projects and 701 events through validation and JSON backup restoration, and checks preserved deletion and bounded prompt context.
+
+### Full-proportion diary identity portraits
+
+Luna, Lyra and Aishi have separate 1024×1536 full-body cel-shaded anime reference portraits under `public/companion-room/portraits/`, saved as lossless WebP with generated alpha preserved. They retain their established hair, eyes, outfits and accessories with adult proportions. `townPortraits.ts` is the canonical reference catalogue; phone contact, memory, project and keepsake character grids use the new guest portraits. In-world movement sprites and map markers remain separate.
+
+Mana has no replacement portrait. Diary references still prepare her current full-body avatar and equipped outfit through the existing `prepareAvatarReference` path. Solo Mana references return that prepared image unchanged; group composites add only the named guests' full portraits, without the old chibi crop rectangles or sprite-sheet frames. Diary prompts request cel shading and normal adult proportions. Existing diary illustrations are not regenerated automatically. The unused generated Mana image was removed from bundled assets per the user's correction.
+
+### Calendar management
+
+Selecting a calendar date lists its scheduled events. Custom events and character birthdays have Edit and Delete controls; built-in town traditions are read-only. Edit loads the saved event into the same form, with month/day controls for moving its annual date, title changes for custom events and time changes for either type. Saving retains the original event ID. Birthday identity and title remain fixed to the chosen character, with waking-hour/one-hour limits and the existing February 29 fallback. Cancel editing restores the original selected date without saving.
+
+Delete uses an inline Remove event / Keep event confirmation and removes that custom annual recurrence from room state. Past guestbook attendance, birthday cards, project records and shared memories are untouched. Updates use the existing calendar state, so active gatherings respond through the existing route controllers rather than a new travel path. No additional AI requests or personal-data store is introduced. Changes persist with ordinary room saves and backups.
+
+### Weekly routine variations
+
+The town's configured local calendar date selects deterministic weekday/weekend routines; no daily AI planning call or random rescheduling is introduced. Mana keeps ordinary office/café/workshop days on Tuesday, Thursday and Friday, with home afternoons on Monday and Wednesday. Weekends replace office hours with home and park time; Saturday includes a living-space afternoon, while Sunday has a quieter home evening.
+
+Luna keeps park mornings but stays home on Tuesday/Wednesday afternoons. Saturday adds a later park start, café break and library visit; Sunday has one park outing. Lyra has quieter library afternoons on Monday/Wednesday, park then café outings on Saturday, and a single late-morning café break on Sunday. Existing home activities fill the remaining home stays. Sleep/wind-down times are unchanged.
+
+Outing keys include date, starting time and destination so separate visits to one place are distinct. Today/Map next-stop previews use the same dated schedules, including the following day's pattern. Weather shelter, actual accepted visits, gatherings, birthdays and bedtime continue through their existing priority gates and shared door-to-door movement controllers; weekly variations do not create teleports or extra memories. Tests cover all seven days, sorted/non-overlapping slots, weekend previews, boundaries and night overrides.

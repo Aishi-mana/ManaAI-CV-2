@@ -787,9 +787,10 @@ playtest results, activity sessions/status changes, diaries, simulated thoughts 
 chat archives. Each record has a timestamp, source category/ID and brief outcome.
 Existing records are not backfilled. Search/filter, individual deletion and clearing
 are available; source deletion does not erase the history snapshot. History is
-included in backup/restore (older backups restore empty history). The 500-record
-limit stops new recording without pruning; remove records to make room. This
-foundation does not feed model context or automatically change memories/identity.
+included in backup/restore (older backups restore empty history). New records keep
+being saved beyond the former 500-record limit; older history is available through
+Load older records. Model context selects only a small relevant subset, and saving
+history does not automatically change core memories or identity.
 
 The [legacy Python comparison](docs/Legacy-comparison.md) maps the old vision and
 roadmap to current features. V1 foundation completion remains scoped to this app;
