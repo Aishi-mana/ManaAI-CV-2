@@ -4,6 +4,7 @@ import type {TownTodayState} from '../core/townToday';
 import {latestPhoneIncoming,phoneMessageReadKey,unreadPhoneContacts,type PhoneReadState} from '../core/phoneReadState';
 import TownPersonalGoals from './TownPersonalGoals';
 import FriendshipHabits from './FriendshipHabits';
+import TownSketchbook from './TownSketchbook';
 import type {TownPersonalGoal} from '../core/townPersonalGoals';
 import type {PetBotFriends} from '../core/petBot';
 import type {SharedMemory,TownCharacter} from '../core/residentRelationships';
@@ -24,6 +25,7 @@ const phoneApps=[
  {id:'messages',label:'Messages',art:<><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8m-8 3h6"/></>},
  {id:'map',label:'Map',art:<path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15m6-12v15"/>},
  {id:'stories',label:'Home Stories',art:<path d="M5 3h11a3 3 0 0 1 3 3v15H7a2 2 0 0 1-2-2zm0 15a2 2 0 0 1 2-2h12M9 7h6m-6 4h6"/>},
+ {id:'town-sketchbook',label:'Town Sketchbook',art:<><path d="M5 4h25v32H5zM10 4v32" transform="scale(.6) translate(4 1)"/><path d="m10 15 6-6 3 3-6 6-4 1z"/></>},
  {id:'memories',label:'Memories',art:<><path d="M5 3h11a3 3 0 0 1 3 3v15H7a2 2 0 0 1-2-2zm0 15a2 2 0 0 1 2-2h12"/><path d="m9 8 2 2 4-4"/></>},
  {id:'today',label:'Today',art:<><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></>},
  {id:'plans',label:'Plans',art:<><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4m8-4v4M4 10h16m-11 5 2 2 4-4"/></>},
@@ -64,7 +66,8 @@ export default function RoomPhone({preferenceSummaries=[],visible,sleeping,messa
  pondSketch?:PondSketchGoal;libraryStory?:LibraryStory;manaKeepsake?:ManaKeepsake;sharedKeepsake?:ManaKeepsake;
 }){
  const [open,setOpen]=useState(false);
- const [screen,setScreen]=useState<'home'|'thread'|'memory-details'|PhoneApp['id']>('home');
+ const [screen,setScreen]=useState<'home'|'thread'|'memory-details'|'town-sketchbook-day'|PhoneApp['id']>('home');
+ const [sketchbookDay,setSketchbookDay]=useState<string>();
  const [shortcutsOpen,setShortcutsOpen]=useState(false);
  const [now,setNow]=useState(Date.now);
  useEffect(()=>{
@@ -131,9 +134,9 @@ export default function RoomPhone({preferenceSummaries=[],visible,sleeping,messa
  };
  const close=()=>{setOpen(false);launcher.current?.focus();};
  const room=open&&visible?button.current?.closest('.companion-room'):null;
- const back=()=>setScreen(screen==='thread'?'messages':screen==='memory-details'?'memories':'home');
+ const back=()=>setScreen(screen==='thread'?'messages':screen==='memory-details'?'memories':screen==='town-sketchbook-day'?'town-sketchbook':'home');
  const memoryName=memoryCharacters.find(character=>character.id===memoryOwner)!.name;
- const title={home:'Mana’s phone',weather:'Town weather',contacts:'Contacts',messages:'Messages',thread:profile.name,map:'Manaverse Map',stories:'Home Stories',plans:'Plans',today:'Today around town',memories:'Memories','memory-details':`${memoryName}’s memories`}[screen];
+ const title={home:'Mana’s phone',weather:'Town weather',contacts:'Contacts',messages:'Messages',thread:profile.name,map:'Manaverse Map',stories:'Home Stories',plans:'Plans',today:'Today around town',memories:'Memories','memory-details':`${memoryName}’s memories`,'town-sketchbook':'Town Sketchbook','town-sketchbook-day':'A day in town'}[screen];
  const visitStatus=(visit:PhoneMessage,confirmed=false)=>{
   if(!visit.scheduledFor)return sleeping?'Waiting until Mana wakes up':confirmed?'Confirmed':'Proposed';
   const time=clock.format(new Date(visit.scheduledFor));
@@ -194,6 +197,9 @@ export default function RoomPhone({preferenceSummaries=[],visible,sleeping,messa
        <ul>{entries.map((entry,index)=><li key={index}>{entry}</li>)}</ul>
       </details>)}
     </div>}
+    {(screen==='town-sketchbook'||screen==='town-sketchbook-day')&&<TownSketchbook events={events} memories={sharedMemories} timeZone={timeZone}
+     date={screen==='town-sketchbook-day'?sketchbookDay:undefined} onOpenDay={date=>{setSketchbookDay(date);setScreen('town-sketchbook-day');}}
+     onViewPlace={destination=>{onChooseArea(destination);close();}}/>}
     {screen==='map'&&<ManaverseMap diving={diving} area={area} characters={characters}
      onChoose={destination=>{onChooseArea(destination);close();}}/>}
     {screen==='weather'&&<div className="room-phone-list"><TownWeatherControls/></div>}

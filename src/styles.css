@@ -2231,3 +2231,25 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .small-favor-panel { max-width: 32rem; margin: .5rem auto; padding: .7rem 1rem; border: 1px solid var(--mist-deep); border-radius: 14px; background: var(--milk); }
 .small-favor-panel p { margin: .4rem 0; }
 .small-favor-panel .btn { margin: .25rem; }
+.room-phone-app-icon[data-app="town-sketchbook"] { background: linear-gradient(145deg,#be9461,#815d41); }
+.town-sketchbook { background: #fffaf1; }
+.town-sketchbook-intro { color: #78664f; font-style: italic; margin: .4rem 0 .8rem; }
+.town-sketchbook-filters { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .9rem; }
+.town-sketchbook-filters label { display: flex; flex: 1 1 130px; flex-direction: column; gap: .25rem; font-size: .8rem; }
+.town-sketchbook-filters :is(input,select) { min-width: 0; width: 100%; padding: .45rem; border: 1px solid #ddcbb1; border-radius: 8px; background: #fffdf8; color: var(--ink); }
+.town-sketchbook-days { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .7rem; padding-bottom: .6rem; }
+.town-sketchbook-day { overflow: hidden; min-width: 0; padding: 0 0 .65rem; display: flex; flex-direction: column; align-items: center; gap: .4rem; color: var(--ink); background: #fffdf8; border: 1px solid #dccaaf; border-radius: 12px; box-shadow: 1px 3px 0 #eadcc8; cursor: pointer; font: inherit; font-size: .85rem; }
+.town-sketchbook-day:hover { border-color: var(--berry); }
+.town-sketchbook-day-cover,.town-sketchbook-place-art { position: relative; width: 100%; aspect-ratio: 1.55; overflow: hidden; background: #e8e0cb; }
+.town-sketchbook :is(.town-sketchbook-day-cover,.town-sketchbook-place-art)>img { width: 100%; height: 100%; object-fit: cover; opacity: .83; }
+.town-sketchbook-doodle { width: 38px; height: 38px; padding: 5px; background: #fffbf0ed; border-radius: 50%; color: #865a55; position: absolute; right: .4rem; bottom: .4rem; rotate: -8deg; }
+.town-sketchbook-people { display: inline-flex; justify-content: center; padding: 0 .3rem; }
+.town-sketchbook-portrait { width: 30px; height: 30px; border: 2px solid #fffaf1; border-radius: 50%; background-color: #e9e1f4; background-size: cover; background-position: center top; margin-left: -4px; }
+.town-sketchbook-portrait[data-person="aishi"] { background-size: 520%; background-position: 19.5% 1%; }
+.town-sketchbook-moment { overflow: hidden; margin: 0 0 1rem; border: 1px solid #ddcbb1; border-radius: 12px; background: #fffdf8; }
+.town-sketchbook-moment .town-sketchbook-place-art { aspect-ratio: 2.8; }
+.town-sketchbook-place-art>span { position: absolute; left: .5rem; bottom: .5rem; background: #fffaf1ed; color: #6d5344; border-radius: 6px; padding: .2rem .4rem; font-size: .75rem; }
+.town-sketchbook-moment-body { padding: .7rem; }
+.town-sketchbook-moment h4 { margin: .4rem 0; }
+.town-sketchbook-byline { font-size: .75rem; color: #78664f; }
+.town-sketchbook-moment-body p { line-height: 1.5; overflow-wrap: anywhere; }

@@ -6215,3 +6215,46 @@ test('resident wind-down walks before completing a tidy, records it once, and do
   for(const slot of slots)slot?.cleanup?.();
  }
 });
+
+test('town sketchbook merges mirrored memories and their event into one dated moment',()=>{
+ const load=loader(),b=load('src/core/townSketchbook.ts'),s=load('src/core/residentRelationships.ts'),e=load('src/core/events.ts'),at=new Date('2026-11-26T16:30:00Z');
+ const memories=s.rememberSharedActivity([],'shared-2026-11-27-aishi-group-read','Group reading','Aishi, Luna and Lyra read together.',['aishi','luna','lyra'],at);
+ const events=e.appendRoomEvent([],'aishi-group-read','Group reading','Aishi, Luna and Lyra read together.','Asia/Singapore',at),snapshot=JSON.stringify({events,memories});
+ const days=b.townSketchbookDays(events,memories,'Asia/Singapore',at.getTime()+1000);
+ assert.equal(days.length,1);assert.equal(days[0].date,'2026-11-27');assert.equal(days[0].moments.length,1);assert.equal(days[0].moments[0].text,events[0].outcome);
+ assert.deepEqual(Array.from(days[0].moments[0].people),['luna','lyra','aishi']);assert.equal(days[0].moments[0].area,'park');assert.equal(days[0].moments[0].kind,'read');
+ assert.equal(b.townSketchbookDays(events,memories,'UTC',at.getTime()+1000)[0].date,'2026-11-26');assert.equal(JSON.stringify({events,memories}),snapshot);
+});
+
+test('town sketchbook excludes proposals, failures, future entries and unrelated background activity',()=>{
+ const load=loader(),b=load('src/core/townSketchbook.ts'),e=load('src/core/events.ts'),now=new Date('2026-11-26T04:00:00Z');
+ let events=[];for(const action of ['visit-request','host-cancelled','aishi-read-cancelled','water','wake','read'])events=e.appendRoomEvent(events,action,'Activity','A recorded background action.','Asia/Singapore',now);
+ events=e.appendRoomEvent(events,'workshop-tinkering','Workshop','Mana made a little wind-up star at the Workshop.','Asia/Singapore',now);
+ const future=e.appendRoomEvent([],'aishi-read','Reading','Aishi and Lyra read together.','Asia/Singapore',new Date('2026-12-01T04:00:00Z'));
+ const result=b.townSketchbookDays([...events,...future],[],'Asia/Singapore',now.getTime());
+ assert.equal(result.length,1);assert.equal(result[0].moments.length,1);assert.equal(result[0].moments[0].kind,'tinker');assert.deepEqual(Array.from(result[0].moments[0].people),['mana']);
+ assert.equal(b.townSketchbookDays([],[],'Asia/Singapore',now.getTime()).length,0);
+});
+
+test('town sketchbook uses recorded participants instead of inventing attendees from quoted names',()=>{
+ const load=loader(),b=load('src/core/townSketchbook.ts'),e=load('src/core/events.ts'),now=new Date('2026-11-26T04:00:00Z');
+ let events=e.appendRoomEvent([],'library-founding-story','The framed note','The note reads: Aishi wrote Wanna get crazy? Lyra replied Let us go.','Asia/Singapore',now);
+ events=e.appendRoomEvent(events,'small-favor-reading-pace-123','Small favor','Aishi gave Lyra feedback on their reading pace: “A little slower”.','Asia/Singapore',new Date(now.getTime()+1000));
+ const entries=b.townSketchbookDays(events,[],'Asia/Singapore',now.getTime()+2000)[0].moments;
+ const story=entries.find(entry=>entry.title==='The framed note'),favor=entries.find(entry=>entry.kind==='favor');
+ assert.deepEqual(Array.from(story.people),['mana','lyra']);assert.equal(story.area,'library');assert.deepEqual(Array.from(favor.people),['lyra','aishi']);assert.match(favor.text,/A little slower/);assert.equal(favor.area,'library');
+});
+
+test('town sketchbook filters characters and text, opens a day and uses normal place navigation',()=>{
+ let slots=[],cursor=0,opened,viewed;const jsx=(type,props)=>({type,props});
+ const react={useMemo:fn=>fn(),useState(initial){const id=cursor++;if(!Object.hasOwn(slots,id))slots[id]=initial;return [slots[id],value=>slots[id]=value];}};
+ class BookDate extends Date{static now(){return Date.parse('2026-11-27T04:00:00Z');}}
+ const load=loader({react,'react/jsx-runtime':{jsx,jsxs:jsx},'./ManaverseMap':{manaversePlaces:{workshop:'Workshop',library:'Library'}}},{Date:BookDate});
+ const e=load('src/core/events.ts'),at=new Date('2026-11-26T04:00:00Z');let events=e.appendRoomEvent([],'aishi-read','Read with Lyra','Aishi and Lyra read together.','Asia/Singapore',at);
+ events=e.appendRoomEvent(events,'workshop-tinkering','Workshop','Mana made a wind-up star.','Asia/Singapore',new Date(at.getTime()+1000));
+ const Book=load('src/components/TownSketchbook.tsx').default,props={events,memories:[],timeZone:'Asia/Singapore',onOpenDay:date=>opened=date,onViewPlace:area=>viewed=area};
+ function render(){cursor=0;const nodes=[];function visit(node){if(Array.isArray(node)){node.forEach(visit);return;}if(!node||typeof node!=='object')return;nodes.push(node);visit(node.props?.children);}visit(Book(props));return nodes;}
+ let nodes=render();nodes.find(node=>node.props?.['aria-label']==='Open town sketchbook for 2026-11-26').props.onClick();assert.equal(opened,'2026-11-26');props.date=opened;nodes=render();assert.equal(nodes.filter(node=>node.props?.className==='town-sketchbook-moment').length,2);
+ nodes.find(node=>node.props?.['aria-label']==='Sketchbook character').props.onChange({target:{value:'lyra'}});nodes=render();assert.equal(nodes.filter(node=>node.props?.className==='town-sketchbook-moment').length,1);nodes.find(node=>node.type==='button'&&node.props?.children?.includes('Library')).props.onClick();assert.equal(viewed,'library');
+ nodes.find(node=>node.props?.['aria-label']==='Find a sketchbook moment').props.onChange({target:{value:'never recorded'}});nodes=render();assert.equal(nodes.filter(node=>node.props?.className==='town-sketchbook-moment').length,0);
+});
