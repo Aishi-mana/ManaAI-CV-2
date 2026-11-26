@@ -177,8 +177,8 @@ export default function DistrictInterior({
  const manaSpeaking=!!cafeEncounter&&cafeBeat===2;
  const guestSpeaker=cafeChat??(cafeBeat===1||cafeBeat===3?cafeEncounter:undefined);
  const cafeLine=useSceneLine(shown&&building==='cafe'&&manaPresent?(guestSpeaker?
-  `NPC conversation: You are speaking to Mana at the Coffee Shop window. ${cafeChat?'You are sharing a quiet break.':cafeBeat===1?'Ask if you may join her.':'You just joined her at the table. Make a short remark.'}`:
-  manaSpeaking?`NPC conversation: You are by the Coffee Shop window. ${cafeEncounter==='luna'?'Luna':'Lyra'} is joining you at the table. Welcome her briefly.`:undefined):undefined,guestSpeaker??'mana');
+  `NPC conversation: Shared-moment partner: mana. You are speaking to Mana at the Coffee Shop window. ${cafeChat?'You are sharing a quiet break.':cafeBeat===1?'Ask if you may join her.':'You just joined her at the table. Make a short remark.'}`:
+  manaSpeaking?`NPC conversation: Shared-moment partner: ${cafeEncounter}. You are by the Coffee Shop window. ${cafeEncounter==='luna'?'Luna':'Lyra'} is joining you at the table. Welcome her briefly.`:undefined):undefined,guestSpeaker??'mana');
  const speakerSpot=cafeChat?cafeFloor.windowGuest:cafeEncounter&&cafeBeat?(manaSpeaking?cafeFloor.windowMana:cafeFloor.windowGuest):undefined;
  const interior=illustratedInteriors[building];
  return <div className="companion-room-body manaverse-outside" hidden={!shown}>

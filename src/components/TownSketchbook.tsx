@@ -16,12 +16,12 @@ function placeArt(area?:ManaverseArea){
  const map=area==='park'?'park-small-pond':area==='square'||area==='town-hall'?'square':['cafe','workshop','office','district'].includes(area??'')?'second-street':'street';
  return `./companion-room/manaverse-${map}.webp`;
 }
-const kindLabels={sketch:'By the pond',read:'A quiet chapter',tinker:'At the workbench',favor:'A little help',evening:'Winding down',visit:'Time together'};
+const kindLabels={sketch:'By the pond',read:'A quiet chapter',tinker:'At the workbench',favor:'A little help',evening:'Winding down',visit:'Time together',project:'A little project'};
 function Doodle({kind}:{kind:TownSketchMoment['kind']}){
  return <svg viewBox="0 0 40 40" className="town-sketchbook-doodle" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
   {kind==='read'?<><path d="M20 12Q12 7 5 11v21q8-4 15 0 7-4 15 0V11q-7-4-15 1v20"/><path d="m10 17 6 1m8 0 6-1"/></>:
    kind==='sketch'?<><path d="m9 27 17-17 5 5-17 17-7 2zM23 13l5 5M9 27l5 5"/><path d="M5 37h30"/></>:
-   kind==='tinker'?<><circle cx="20" cy="20" r="9"/><circle cx="20" cy="20" r="3"/>{[0,45,90,135,180,225,270,315].map(angle=><path key={angle} d="M20 5v5" transform={`rotate(${angle} 20 20)`}/>)}</>:
+   kind==='tinker'||kind==='project'?<><circle cx="20" cy="20" r="9"/><circle cx="20" cy="20" r="3"/>{[0,45,90,135,180,225,270,315].map(angle=><path key={angle} d="M20 5v5" transform={`rotate(${angle} 20 20)`}/>)}</>:
    kind==='evening'?<><path d="M26 6a14 14 0 1 0 8 24A15 15 0 0 1 26 6Z"/><path d="m9 5 1 3 3 1-3 1-1 3-1-3-3-1 3-1z"/></>:
    kind==='favor'?<><path d="m7 22 9 9 18-19M8 8v6m-3-3h6"/></>:
     <><path d="M8 15h21v10a9 9 0 0 1-18 0V15M29 17h3a5 5 0 0 1 0 10h-3M6 36h28M15 4v5m8-5v5"/></>}

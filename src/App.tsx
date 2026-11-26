@@ -11,7 +11,9 @@ import {residentProfiles,residentPrompt} from './core/residentProfiles';
 import {phoneMessagePrompt,readPhoneText,ROOM_CONTACTS} from './core/roomPhone';
 import {petBotMessages} from './core/petBot';
 import {readRememberingReply} from './core/sceneMemory';
-import {favoriteRoomActivity,loadRoom,ROOM_ACTIVITY_FURNITURE} from './core/companionRoom';
+import {favoriteRoomActivity,loadRoom,saveRoom,ROOM_ACTIVITY_FURNITURE} from './core/companionRoom';
+import {recallPartner,chooseSharedMoment,sharedMomentRecallPrompt} from './core/sharedMomentRecall';
+import {projectForSharedMoment,projectFollowupAllowed,projectFollowupPrompt,projectFollowupReplyPrompt} from './core/projectFollowups';
 import { canRecoverStarCollector, developmentAttempts, developmentDue, developmentRequest, GAME_DEV_LIMIT, genreGameDescription, loadGameDev, newDevProject, playSlot, saveGameDev, type GameDevState } from "./core/gameDev";
 import { STAR_COLLECTOR_MARKER, STAR_COLLECTOR_REQUEST, STAR_COLLECTOR_STARTER } from "./core/starCollectorCheck";
 import { canRouteToWeb, shouldSearchWeb, webSearchCommand } from "./core/webSearch";
@@ -140,6 +142,7 @@ const STATUS_LABEL = {
 } as const;
 
 export default function App() {
+  const projectFollowupTurn=useRef<{speaker:SceneSpeaker;partner:SceneSpeaker;projectId:string;line:string;at:number}|undefined>(undefined);
   const [showSinging,setShowSinging]=useState(false);
   const [coverHandoff,setCoverHandoff]=useState<CoverHandoff|null>(null);
   const [translationHandoff,setTranslationHandoff]=useState<TranslationHandoff|null>(null);
@@ -422,6 +425,12 @@ export default function App() {
     setReflecting(true);
     try{
       const privateScene=context.startsWith('NPC conversation:');
+      const partner=channel==='scene'&&!message?recallPartner(context):undefined;
+      const sceneRoom=loadRoom();
+      const pending=projectFollowupTurn.current;
+      const replyProject=partner&&pending&&pending.speaker===partner&&pending.partner===speaker&&Date.now()-pending.at<120_000&&projectFollowupAllowed(context)?sceneRoom.personalGoals?.find(goal=>goal.id===pending.projectId&&goal.owner===speaker):undefined;
+      const recall=partner&&!replyProject?chooseSharedMoment(sceneRoom.sharedMemories??[],speaker,partner):undefined;
+      const followup=recall&&projectFollowupAllowed(context)?projectForSharedMoment(sceneRoom.personalGoals??[],recall):undefined;
       const quickGreeting=channel==='scene'&&!message&&context.startsWith('Quick greeting:');
       const guide=(privateScene?'':identityContext(identity,settings.charName,settings.userName)
         +memoryContext(memories,context,'',settings.charName,settings.userName)+episodeContext(episodes,context)
@@ -448,8 +457,11 @@ export default function App() {
       if(!quickGreeting&&channel!=='invitation'){
         const room=loadRoom();
         const preferenceCore=speaker==='mana'?manaPreferenceMemories(memories):room[residentProfiles[speaker].memory.coreKey]??[];
-        system+=sharedMemoryContext(room.sharedMemories??[],speaker)+townGoalContext(room.personalGoals??[],speaker)+activityPreferenceContext(speaker,room.activityPreferences??{},preferenceCore)+friendshipHabitContext(speaker,room.sharedMemories??[]);
+        system+=(privateScene?'':sharedMemoryContext(room.sharedMemories??[],speaker))+townGoalContext(room.personalGoals??[],speaker)+activityPreferenceContext(speaker,room.activityPreferences??{},preferenceCore)+friendshipHabitContext(speaker,room.sharedMemories??[]);
       }
+      if(replyProject&&pending)system+=projectFollowupReplyPrompt(pending.line,replyProject);
+      else if(followup)system+=projectFollowupPrompt(followup);
+      else if(recall)system+=sharedMomentRecallPrompt(recall);
       await streamChat({port:llama.port,temperature:.65,maxTokens:message?160:channel!=='scene'?180:70,signal:controller.signal,
         messages:[{role:'system',content:system},{role:'user',content:message??(channel==='phone'?'Write the phone text for this event.':privateScene?'Write the next spoken line to the named character.':'Say one short line for your in-world speech bubble.')}],
         onToken:token=>{text+=token;}});
@@ -457,7 +469,14 @@ export default function App() {
       if(message||channel!=='scene')return text;
       const line=cleanReply(text,speaker==='mana'?settings.charName:residentProfiles[speaker].name).text.trim().slice(0,200);
       if(quickGreeting&&/\b(?:new game|game (?:I|we) (?:made|built)|(?:made|built|created|finished|making|building)\b[^.!?]{0,30}\bgame)\b/i.test(line))return '';
-      return privateScene&&/\b(?:Aishi|avatar|new character)\b/i.test(line)?'':line;
+      if(privateScene&&/\b(?:Aishi|avatar|new character)\b/i.test(line))return '';
+      if(line&&replyProject)projectFollowupTurn.current=undefined;
+      else if(line&&followup&&partner&&line.includes('?'))projectFollowupTurn.current={speaker,partner,projectId:followup.id,line,at:Date.now()};
+      if(recall&&line){
+        const room=loadRoom();
+        saveRoom({...room,sharedMemories:room.sharedMemories?.map(memory=>memory.id===recall.id?{...memory,lastRecallOfferedAt:new Date().toISOString()}:memory)});
+      }
+      return line;
     }finally{
       signal.removeEventListener('abort',stop);
       if(abortRef.current===controller)abortRef.current=null;

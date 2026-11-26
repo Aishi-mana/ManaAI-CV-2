@@ -119,8 +119,9 @@ function ParkConversation({chat,walker,residents}:{chat:ParkChat;walker?:ParkWal
  const activity=chat.planned?parkActivities[chat.activity]:undefined;
  const partner=reply?chat.first:chat.second;
  const nameOfPartner=partner==='mana'?'Mana':partner==='luna'?'Luna':'Lyra';
- const generated=useSceneLine(chat.planned&&chat.lines?undefined:`NPC conversation: You are at the park pond speaking to ${nameOfPartner}. ${activity?`Your shared activity is ${activity.label}.`:!chat.planned&&chat.sketch?'One of you has been sketching.':'You just crossed paths.'} ${reply?'Respond to the encounter':'Say a greeting that fits'}.`,id);
- const line=chat.planned&&chat.lines?(reply?chat.lines.second:chat.lines.first):generated;
+ const quietReading=chat.planned&&chat.activity==='read';
+ const generated=useSceneLine(quietReading&&reply||chat.planned&&chat.lines?undefined:`NPC conversation: Shared-moment partner: ${partner}. You are at the park pond speaking to ${nameOfPartner}. ${activity?`Your shared activity is ${activity.label}.`:!chat.planned&&chat.sketch?'One of you has been sketching.':'You just crossed paths.'} ${reply?'Respond to the encounter':'Say a greeting that fits'}.`,id);
+ const line=quietReading&&reply?undefined:chat.planned&&chat.lines?(reply?chat.lines.second:chat.lines.first):generated;
  const resident=residents.find(person=>person?.contact===id);
  const point=id==='mana'?walker?.point:resident?.bench?.point??resident?.walker.point;
  if(!point)return null;

@@ -2,6 +2,7 @@ import MapTransferArrow from './MapTransferArrow';
 import SceneViewport from './SceneViewport';
 import CharacterGesture from './CharacterGesture';
 import {useSceneLine} from './SceneVoice';
+import {chooseQuietCompany,quietCompanyPrompt,QUIET_COMPANY_MS} from '../core/quietCompanionship';
 import {useEffect,useRef,useState,type CSSProperties,type ReactNode} from 'react';
 import {ROOM_CONTACTS,type RoomContact} from '../core/roomPhone';
 import {homeThresholds,streetDoors,streetTripDuration,type StreetTrip} from '../core/manaverseStreet';
@@ -170,8 +171,8 @@ function useLivingVisitor(manaPresent:boolean,sleeping:boolean,memories:Partial<
  return {
   streetTrip,phase,contact,name:ROOM_CONTACTS[contact].name,feet:roomPoint(feet),facing,speaking,lastMemory,meeting,
   finishMeeting:()=>setMeeting(false),
-  completeMeeting:()=>{
-   remember.current(contact,'beanbag-chat');
+  completeMeeting:(quiet=false)=>{
+   remember.current(contact,quiet?'quiet-company':'beanbag-chat');
    setMeeting(false);
   },
   walking,departHome:()=>beginStreetTrip(contact,true),
@@ -219,6 +220,7 @@ export default function LivingSpace({petBot,renderSpeech,position,onPosition,onB
  const [facing,setFacing]=useState(1);
  const [activity,setActivity]=useState<Interaction>();
  const [chatLine,setChatLine]=useState< 'guest'|'mana'>();
+ const [quietCompany,setQuietCompany]=useState(false);
  const current=useRef(position);
  const animation=useRef(0);
  const lastScheduledActivity=useRef<string|undefined>(undefined);
@@ -230,7 +232,7 @@ export default function LivingSpace({petBot,renderSpeech,position,onPosition,onB
  finishMeeting.current=visitor.finishMeeting;
  const completeMeeting=useRef(visitor.completeMeeting);
  completeMeeting.current=visitor.completeMeeting;
- const meeting=visitor.meeting&&present&&!returning&&visitor.phase==='visiting';
+ const meeting=visitor.meeting&&present&&!sleeping&&!returning&&visitor.phase==='visiting';
  const inviteFromPhone=useRef(visitor.invite);
  inviteFromPhone.current=visitor.invite;
  const handledPhoneVisit=useRef<typeof phoneVisit>(undefined);
@@ -255,8 +257,9 @@ export default function LivingSpace({petBot,renderSpeech,position,onPosition,onB
 
  useEffect(()=>{
   if(!meeting)return;
+  setQuietCompany(chooseQuietCompany());
   startMeeting.current();
-  const timeout=window.setTimeout(()=>finishMeeting.current(),16000);
+  const timeout=window.setTimeout(()=>finishMeeting.current(),40_000);
   return ()=>{clearTimeout(timeout);setChatLine(undefined);};
  },[meeting]);
 
@@ -264,10 +267,10 @@ export default function LivingSpace({petBot,renderSpeech,position,onPosition,onB
  useEffect(()=>{
   if(!meeting||!lunaAtBeanbag||activity!==VISITOR_CHAT)return;
   setChatLine('guest');
-  const reply=window.setTimeout(()=>setChatLine('mana'),2600);
-  const done=window.setTimeout(()=>completeMeeting.current(),5400);
+  const reply=window.setTimeout(()=>setChatLine(quietCompany?undefined:'mana'),quietCompany?7000:2600);
+  const done=window.setTimeout(()=>completeMeeting.current(quietCompany),quietCompany?QUIET_COMPANY_MS:5400);
   return ()=>{clearTimeout(reply);clearTimeout(done);setChatLine(undefined);};
- },[meeting,lunaAtBeanbag,activity]);
+ },[meeting,lunaAtBeanbag,activity,quietCompany]);
 
  useEffect(()=>{
   if(!meeting&&activity===VISITOR_CHAT)setActivity(undefined);
@@ -358,14 +361,14 @@ export default function LivingSpace({petBot,renderSpeech,position,onPosition,onB
  const guestSpeaking=chatLine==='guest'||!chatLine&&visitor.speaking;
  const rememberedVisit=visitor.lastMemory==='beanbag-chat'?'You have chatted by the beanbag before.':
   visitor.lastMemory==='while-mana-slept'?'On a previous visit, Mana was sleeping.':'';
- const speech=useSceneLine(shown&&present?(guestSpeaking?
-  chatLine==='guest'?`NPC conversation: Only you and Mana are talking by her beanbag. Speak directly to Mana about the visit.`:
+ const speech=useSceneLine(shown&&present&&(!quietCompany||!meeting||chatLine==='guest')?(quietCompany&&meeting?quietCompanyPrompt('mana'):guestSpeaking?
+  chatLine==='guest'?`NPC conversation: Shared-moment partner: mana. Only you and Mana are talking by her beanbag. Speak directly to Mana about the visit.`:
    visitor.phase==='leaving'?'NPC conversation: Your visit to Mana’s living space is ending. Say a brief goodbye to Mana.':
-    `NPC conversation: You just arrived at Mana’s living space for a visit. Greet Mana gently. ${rememberedVisit}`:
-   chatLine==='mana'?`NPC conversation: Only you and ${visitor.name} are talking by the beanbag in your living space. Speak directly to ${visitor.name} about the visit.`:undefined):undefined,guestSpeaking?visitor.contact:'mana');
+    `NPC conversation: Shared-moment partner: mana. You just arrived at Mana’s living space for a visit. Greet Mana gently. ${rememberedVisit}`:
+   chatLine==='mana'?`NPC conversation: Shared-moment partner: ${visitor.contact}. Only you and ${visitor.name} are talking by the beanbag in your living space. Speak directly to ${visitor.name} about the visit.`:undefined):undefined,guestSpeaking?visitor.contact:'mana');
  const speaker=chatLine==='mana'?point:visitor.feet;
  const activityStatus=returning?(streetExit?'Mana is walking to the street.':'Mana is walking to the bedroom door.'):
-  walking?'Mana is walking around the living space.':activity===VISITOR_CHAT?`Mana is chatting with ${visitor.name} by the beanbag.`:activity?.status??'Mana is spending time at home.';
+  walking?'Mana is walking around the living space.':activity===VISITOR_CHAT?quietCompany?`Mana and ${visitor.name} are enjoying a quiet break together.`:`Mana is chatting with ${visitor.name} by the beanbag.`:activity?.status??'Mana is spending time at home.';
  useEffect(()=>{if(present)onActivityStatus(activityStatus);},[present,activityStatus,onActivityStatus]);
  return <div className="companion-room-body living-space" hidden={!shown}>
   <SceneViewport>

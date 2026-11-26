@@ -13,7 +13,7 @@ import SmallFavorPanel from './SmallFavorPanel';
 import {manaPreferenceMemories,type ActivityPreference} from '../core/activityPreferences';
 import {chooseFriendshipPair} from '../core/friendshipHabits';
 import {eveningWindDown,eveningGoodnightPrompt,EVENING_TIDY_MS} from '../core/eveningWindDown';
-import type {TownPersonalGoal} from '../core/townPersonalGoals';
+import {townProjectCompletionPrompt,type TownPersonalGoal} from '../core/townPersonalGoals';
 import {officeWorkApproach} from '../core/officeWalk';
 import {meetPetBotFriend,petBotFriendContext} from '../core/petBot';
 import ActivityKeepsake from './ActivityKeepsake';
@@ -462,6 +462,7 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
  const [resting,setResting]=useState<string|null>(room.sleep?'bed':null);
  const [memory,setMemory]=useState<{title:string;content:string}|null>(null);
  const [activityReaction,setActivityReaction]=useState<{area:ManaverseArea;context:string}>();
+ const [projectReaction,setProjectReaction]=useState<{area:ManaverseArea;owner:TownPersonalGoal['owner'];context:string}>();
  const [effectSummary,setEffectSummary]=useState<string[]>([]);
  const effectStats=roomEffectStats(current.current);
  const [station,setStation]=useState<'desk'|'table'|null>(null);
@@ -483,7 +484,14 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
   saveRoom(current.current);
   setSharedMemories(next);
  }
- const personalGoals=useTownPersonalGoals(current,visible&&!editing&&!sleeping,manaSpeechReady,invitationRequest,onChoosePersonalGoal);
+ const personalGoals=useTownPersonalGoals(current,visible&&!editing&&!sleeping,manaSpeechReady,invitationRequest,onChoosePersonalGoal,{timeZone,onMilestone:milestone=>recordActivity(milestone.action,milestone.title,milestone.outcome),onCompleted:goal=>{
+  const name=goal.owner==='mana'?'Mana':residentProfiles[goal.owner].name;
+  const context=townProjectCompletionPrompt(goal);
+  if(context&&dive.active&&visible&&!editing&&!sleeping&&dive.root.current?.querySelector(`.companion-room-body:not([hidden]) .character-gesture:has(button[aria-label="Interact with ${name}"])`)){
+   setActivityReaction(undefined);
+   setProjectReaction({area,owner:goal.owner,context});
+  }
+ }});
  const coreForPreferences=(owner:SharedMemory['owner'])=>owner==='mana'?manaPreferenceMemories(memories):current.current[residentProfiles[owner].memory.coreKey]??[];
  const freeTimePreferences=useActivityPreferences(current,visible&&!editing&&!sleeping,manaSpeechReady,timeZone,invitationRequest,coreForPreferences,onChooseActivityPreference);
  function onActivity(action:string,title:string,outcome:string,participants?:readonly SharedMemory['with'][]){
@@ -501,7 +509,7 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
    setActivityReaction({area,context:`React naturally to the activity you just completed. Recorded outcome: ${outcome} (event time ${Date.now()})`});
   }
  }
- const activityLine=useSceneLine(visible&&!sleeping&&!editing&&activityReaction?.area===area&&manaArea===area?`${townWeatherContext(weather)}\n${activityReaction.context}`:undefined);
+ const activityLine=useSceneLine(!projectReaction&&visible&&!sleeping&&!editing&&activityReaction?.area===area&&manaArea===area?`${townWeatherContext(weather)}\n${activityReaction.context}`:undefined);
  const [energy,setEnergy]=useState(room.energy??100);
  const [favorite,setFavorite]=useState(()=>favoriteRoomActivity(room));
  const [idleCycle,setIdleCycle]=useState(0);
@@ -536,6 +544,13 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
   return 'street';
  }
  const enterView=dive.active?dive.go:viewRoom;
+ const projectLine=useSceneLine(projectReaction&&projectReaction.area===area&&dive.active&&visible&&!editing&&!sleeping?projectReaction.context:undefined,projectReaction?.owner??'mana');
+ useEffect(()=>{
+  if(!projectReaction)return;
+  if(projectReaction.area!==area||!dive.active||!visible||editing||sleeping){setProjectReaction(undefined);return;}
+  const timer=window.setTimeout(()=>setProjectReaction(undefined),30_000);
+  return ()=>window.clearTimeout(timer);
+ },[projectReaction,area,dive.active,visible,editing,sleeping]);
  function changeZoom(next:number){
   if(next===zoom)return;
   const viewport=dive.root.current?.querySelector<HTMLElement>('.companion-room-body:not([hidden]) :is(.scene-viewport,.interior-viewport,.manaverse-park-view)');
@@ -1477,6 +1492,7 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
  const petCueHere=area==='living'&&petBotListening&&petBotCue;
  const sceneLine=petCueHere?(petBotCueLine??(petCueHere==='invite'?'Mana is inviting Pet Bot for a walk.':'Mana is asking Pet Bot to roam at home.')):activityLine;
  const activitySpeaker=sceneLine&&manaSpeechRoom!==area?dive.root.current?.querySelector('.companion-room-body:not([hidden]) .character-gesture:has(button[aria-label="Interact with Mana"])'):undefined;
+ const projectSpeaker=projectLine&&projectReaction?.area===area?dive.root.current?.querySelector(`.companion-room-body:not([hidden]) .character-gesture:has(button[aria-label="Interact with ${projectReaction.owner==='mana'?'Mana':residentProfiles[projectReaction.owner].name}"])`):undefined;
  const toggleManaSpeech=(place:'bedroom'|'living')=>setManaSpeechRoom(previous=>previous===place?undefined:place);
  const manaSpeech=(place:'bedroom'|'living',x:number,y:number,context:string,fallback?:string)=><ManaRoomSpeech
   open={manaSpeechRoom===place} onClose={()=>setManaSpeechRoom(undefined)} ready={manaSpeechReady}
@@ -1510,7 +1526,8 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
    }}>Edit room</button>}
   </header>
   {dive.avatar}
-  {activitySpeaker&&createPortal(<p className="manaverse-player-greeting scene-activity-line" role="status">{sceneLine}</p>,activitySpeaker)}
+  {!projectLine&&activitySpeaker&&createPortal(<p className="manaverse-player-greeting scene-activity-line" role="status">{sceneLine}</p>,activitySpeaker)}
+  {projectSpeaker&&createPortal(<p className="manaverse-player-greeting scene-project-line" role="status">{projectLine}</p>,projectSpeaker)}
   <WeatherReactions root={dive.root} area={area} characters={mapCharacters} timeZone={timeZone}
    active={visible&&!editing&&!mapOpen&&!manaSpeechRoom&&!sceneLine&&!meetup&&!friendMeetup&&!hostMeeting&&!petBotListening}/>
   {invitationSpeaker&&aishiInvitation&&createPortal(<p className="manaverse-player-greeting scene-invitation-line" role="status">{aishiInvitation.text}</p>,invitationSpeaker)}
@@ -1526,7 +1543,7 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
   </div>}
   <div className="companion-room-status-bar" hidden={editing}>
    {statsPanel}
-   <RoomPhone preferenceSummaries={freeTimePreferences.summaries} today={{
+   <RoomPhone onStartTownProject={personalGoals.start} preferenceSummaries={freeTimePreferences.summaries} today={{
     characters:mapCharacters,activeEvents:calendar.active,goals:personalGoals.goals,
     meetup:meetup?{contact:meetup,place:meetupPlace}:undefined,
     friends:friendMeetup?{host:friendMeetup.host,activity:friendMeetup.activity,ready:!!friendChat,joining:!!groupJoining}:undefined,
@@ -1710,10 +1727,16 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
    shown={area==='living'} present={manaArea==='living'} onBedroom={()=>enterView('bedroom')} onStreet={()=>enterView('street')}
    sleeping={sleeping} memories={{luna:current.current.lunaVisitMemories?.[0],lyra:current.current.lyraVisitMemories?.[0]}} onRemember={(contact,memory)=>{
     if(memory==='beanbag-chat')rememberTogether('beanbag-chat-'+contact,'Beanbag chat',`Mana and ${residentProfiles[contact].name} chatted by the beanbag.`,['mana',contact]);
+    if(memory==='quiet-company'){
+     const outcome=`Mana and ${residentProfiles[contact].name} spent a quiet break together by the beanbag.`;
+     rememberTogether('quiet-company-'+contact,'Quiet companionship',outcome,['mana',contact]);
+     recordActivity('quiet-company-'+contact,'Quiet companionship',outcome);
+    }
     const key=residentProfiles[contact].memory.visitKey;
     const memories=[memory,...(current.current[key]??[])].slice(0,LUNA_VISIT_MEMORY_LIMIT);
     current.current={...current.current,[key]:memories};
-    addPhoneMessage(phoneMessage(contact,memory==='beanbag-chat'?'chat-followup':'sleep-followup'));
+    saveRoom(current.current);
+    if(memory!=='quiet-company')addPhoneMessage(phoneMessage(contact,memory==='beanbag-chat'?'chat-followup':'sleep-followup'));
    }}
    returning={returning||leavingForStreet} streetExit={leavingForStreet} onReturn={arrived=>{
     setReturning(false);
@@ -1857,6 +1880,7 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
   </div>
  </section></ScenePanContext.Provider></CharacterNightLighting.Provider></TownWeatherProvider>;
 }
+
 
 
 

@@ -65,7 +65,7 @@ function StreetConversation({encounter}:{encounter:Encounter}){
  const point=reply?encounter.b:encounter.a;
  const partner=reply?encounter.first:encounter.second;
  const name=partner==='mana'?'Mana':partner==='lyra'?'Lyra':'Luna';
- const line=useSceneLine(`NPC conversation: You just crossed paths with ${name} on the street. ${reply?'Return the greeting':'Give a brief greeting'} to ${name}.`,speaker);
+ const line=useSceneLine(`NPC conversation: Shared-moment partner: ${partner}. You just crossed paths with ${name} on the street. ${reply?'Return the greeting':'Give a brief greeting'} to ${name}.`,speaker);
  if(!line)return null;
  return <p className="manaverse-street-speech" role="status" style={{left:`${Math.min(77,Math.max(23,point.x))}%`,top:`${point.y-17}%`}}>
   <strong>{speaker==='mana'?'Mana':speaker==='luna'?'Luna':'Lyra'}</strong> {line}

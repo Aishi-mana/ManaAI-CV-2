@@ -4,6 +4,7 @@ export function residentScenePrompt(name:string,personality:string,context:strin
  const memories=events.filter(event=>event.activity.toLowerCase().split(/[^a-z]+/).includes(name.toLowerCase())).slice(-5);
  const visitFacts=[
   ...(visits.includes('beanbag-chat')?['You have chatted with Mana by her beanbag.']:[]),
+  ...(visits.includes('quiet-company')?['You have spent a quiet break with Mana by her beanbag.']:[]),
   ...(visits.includes('while-mana-slept')?['You once stopped by while Mana slept and let her rest.']:[]),
  ];
  return `You are ${name}. ${personality} Give one short line in first person, with no speaker label. Only use a memory if it fits the current scene. Treat the saved facts and scene as evidence. Never invent dialogue, actions, or past encounters.

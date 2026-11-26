@@ -2253,3 +2253,19 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .town-sketchbook-moment h4 { margin: .4rem 0; }
 .town-sketchbook-byline { font-size: .75rem; color: #78664f; }
 .town-sketchbook-moment-body p { line-height: 1.5; overflow-wrap: anywhere; }
+.room-phone-app-icon[data-app="town-projects"] { background: linear-gradient(145deg,#77896a,#4b6552); }
+.town-project-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .65rem; }
+.town-project-person { display: flex; flex-direction: column; align-items: center; gap: .45rem; padding: .7rem; border: 1px solid var(--mist-deep); border-radius: 14px; background: var(--milk); color: var(--ink); cursor: pointer; font: inherit; min-width: 0; }
+.town-project-person img { width: 64px; height: 80px; object-fit: contain; }
+.town-project-person span { font-size: .8rem; text-align: center; }
+.town-projects progress { width: 100%; accent-color: var(--berry); }
+.town-project-card { padding: .7rem; margin-bottom: .7rem; border: 1px solid var(--mist-deep); border-radius: 12px; }
+.town-project-card h3 { margin-top: 0; }
+.town-project-stages { list-style: none; padding: 0; }
+.town-project-stages li { padding: .45rem 0; border-bottom: 1px solid var(--mist); }
+.town-project-stages li[data-done="true"]>span { color: #4d7855; }
+.town-project-stages time { display: block; margin-left: 1.2rem; font-size: .75rem; color: #786d84; }
+.town-project-choice { display: flex; flex-direction: column; width: 100%; margin: .4rem 0; }
+.town-project-choice small { font-weight: normal; }
+.companion-room:has(.scene-project-line) .scene-ambient-line,
+.companion-room:has(.scene-project-line) .scene-activity-line { display: none; }

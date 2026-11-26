@@ -24,7 +24,7 @@ import {validateCoreMemories} from './sceneMemory';
 export const ROOM_KEY='mana.companion_room.v1';
 export const ROOM_ART='./companion-room/cartoon/';
 export interface RoomPosition {u:number;v:number}
-export type LunaVisitMemory='beanbag-chat'|'while-mana-slept';
+export type LunaVisitMemory='beanbag-chat'|'while-mana-slept'|'quiet-company';
 export const LUNA_VISIT_MEMORY_LIMIT=8;
 const ROOM_ACTIVITIES=['water','read','play','sleep','bed','think','window','remember'] as const;
 export type RoomActivity=typeof ROOM_ACTIVITIES[number];
@@ -409,7 +409,7 @@ export function validateRoom(value:unknown):RoomState {
   if(core.length)residentMemories[coreKey]=core;
   const storedVisits=rawRoom[visitKey];
   const visits=Array.isArray(storedVisits)
-   ?storedVisits.slice(0,LUNA_VISIT_MEMORY_LIMIT).filter((memory):memory is LunaVisitMemory=>memory==='beanbag-chat'||memory==='while-mana-slept')
+   ?storedVisits.slice(0,LUNA_VISIT_MEMORY_LIMIT).filter((memory):memory is LunaVisitMemory=>memory==='beanbag-chat'||memory==='while-mana-slept'||memory==='quiet-company')
    :[];
   if(visits.length)residentMemories[visitKey]=visits;
  }
@@ -489,7 +489,17 @@ export function loadRoom():RoomState {
  catch{return validateRoom(null);}
 }
 export function saveRoom(state:RoomState){
- writeStored(ROOM_KEY,JSON.stringify(validateRoom(state)));
+ const next=validateRoom(state);
+ // Speech may finish while a scene still holds an earlier snapshot. Retain only
+ // recall timing for memories that snapshot still contains; never restore deleted memories.
+ try{
+  const previous=validateSharedMemories(JSON.parse(readStored(ROOM_KEY)??'null')?.sharedMemories);
+  next.sharedMemories=next.sharedMemories?.map(memory=>{
+   const stamp=previous.find(old=>old.id===memory.id)?.lastRecallOfferedAt;
+   return stamp&&Date.parse(stamp)>Date.parse(memory.lastRecallOfferedAt??'1970-01-01')?{...memory,lastRecallOfferedAt:stamp}:memory;
+  });
+ }catch{/* A damaged earlier save must not prevent saving current state. */}
+ writeStored(ROOM_KEY,JSON.stringify(next));
 }
 
 

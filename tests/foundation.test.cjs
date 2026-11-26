@@ -3651,18 +3651,119 @@ test('personal goals count only matching completed sessions and preserve progres
  assert.equal(goals.progressTownGoals(state,'home-read','home-read','Lyra read alone.',['lyra'],now),state);
  state=goals.progressTownGoals(state,'group-1','aishi-group-read','Aishi, Luna and Lyra read together.',['aishi','luna','lyra'],now);
  assert.equal(state[1].evidence.length,1);
- state=goals.progressTownGoals(state,'home-2','home-sketch','Luna completed a sketch.',['luna'],now);
- state=goals.progressTownGoals(state,'home-3','home-sketch','Luna completed a sketch.',['luna'],now);
- assert.equal(state[0].completedAt,now.toISOString());
+ assert.equal(goals.progressTownGoals(state,'same-day','home-sketch','Done.',['luna'],now),state);
+ state=goals.progressTownGoals(state,'home-2','home-sketch','Luna completed a sketch.',['luna'],new Date('2026-11-20T08:00:00Z'));
+ state=goals.progressTownGoals(state,'home-3','home-sketch','Luna completed a sketch.',['luna'],new Date('2026-11-21T08:00:00Z'));
+ assert.equal(state[0].completedAt,'2026-11-21T08:00:00.000Z');
  const restored=room.validateRoom(JSON.parse(JSON.stringify({personalGoals:state}))).personalGoals;
  assert.equal(restored.find(goal=>goal.owner==='luna').evidence.length,3);
  assert.equal(restored.find(goal=>goal.owner==='lyra').evidence.length,1);
  assert.equal(goals.canChooseTownGoal(restored,'lyra',now.getTime()+48*60*60_000),false);
  assert.equal(goals.canChooseTownGoal(restored,'luna',now.getTime()),false);
- assert.equal(goals.canChooseTownGoal(restored,'luna',now.getTime()+24*60*60_000),true);
+ assert.equal(goals.canChooseTownGoal(restored,'luna',Date.parse('2026-11-22T08:00:00Z')),true);
  assert.match(goals.townGoalContext(restored,'luna'),/Collect three sketches/);
  assert.equal(goals.townGoalContext(restored,'mana'),'');
  assert.equal(room.validateRoom({}).personalGoals,undefined);
+});
+
+test('little projects use town days and preserve real session dates without inventing legacy dates',()=>{
+ const g=loader()('src/core/townPersonalGoals.ts'),now=new Date('2026-11-19T15:59:00Z');
+ const project=g.startTownProject([],'lyra','bottle-catalogue',now);
+ assert.equal(project.startedBy,'aishi');assert.equal(project.evidence.length,0);
+ assert.equal(g.startTownProject([project],'lyra','reading-notes',now),undefined);
+ assert.equal(g.startTownProject([],'luna','bottle-catalogue',now),undefined);
+ let state=[project];
+ assert.equal(g.progressTownGoals(state,'frame','home-frame','Done',['lyra'],now),state);
+ state=g.progressTownGoals(state,'one','home-bottle','Done',['lyra'],now);
+ assert.equal(g.progressTownGoals(state,'repeat','home-bottle','Done',['lyra'],now),state);
+ state=g.progressTownGoals(state,'two','home-bottle','Done',['lyra'],new Date('2026-11-19T16:01:00Z'));
+ assert.equal(state[0].evidence.length,2);
+ assert.equal(g.progressTownGoals(state,'one','home-bottle','Done',['lyra'],new Date('2026-11-21T08:00:00Z')),state);
+ const restored=g.validateTownPersonalGoals(JSON.parse(JSON.stringify(state)))[0];
+ assert.equal(restored.sessions.length,2);assert.equal(restored.startedBy,'aishi');
+ assert.match(g.townProjectNextStep(restored),/session 3/);
+ const forged=g.validateTownPersonalGoals([{...restored,sessions:[...restored.sessions,{eventId:'invented',at:now.toISOString(),action:'home-bottle'}]}])[0];
+ assert.equal(forged.sessions.length,2);
+ const legacy=g.validateTownPersonalGoals([{...restored,sessions:undefined}])[0];
+ assert.equal(legacy.evidence.length,2);assert.equal(g.townProjectStages(legacy)[0].at,undefined);
+ assert.match(g.townProjectMilestone(restored,'home-bottle').outcome,/2 of 3/);
+});
+
+test('project completion is announced once after saving, never on load or repeated activity',()=>{
+ let milestones=0,completed=0,saved=0;
+ const react={useRef:current=>({current}),useState:initial=>[typeof initial==='function'?initial():initial,()=>{}]};
+ const load=loader({react,'./useSceneTask':{useSceneTask:()=>{}},'../core/companionRoom':{saveRoom:()=>saved++,roomSleepNight:()=>false}});
+ const g=load('src/core/townPersonalGoals.ts');
+ const project=g.readTownGoal('{"choice":"shared-workbench","reason":"I want to build with a friend."}','mana',new Date(Date.now()-60_000));
+ const room={current:{personalGoals:[project]}};
+ const api=load('src/components/useTownPersonalGoals.ts').useTownPersonalGoals(room,true,true,{current:undefined},async()=>undefined,{onMilestone:()=>milestones++,onCompleted:goal=>{
+  completed++;assert.equal(saved,1);assert.ok(room.current.personalGoals[0].completedAt);
+  assert.match(g.townProjectCompletionPrompt(goal),/Aishi is here/);
+ }});
+ assert.equal(completed,0);assert.equal(g.townProjectCompletionPrompt(project),undefined);
+ api.record('completed-work','aishi-tinker','Finished the session.',['mana','aishi']);
+ assert.equal(completed,1);assert.equal(milestones,1);
+ api.record('completed-work','aishi-tinker','Finished the session.',['mana','aishi']);
+ assert.equal(completed,1);assert.equal(saved,1);
+});
+
+test('shared moment recall uses the present friend, past facts and reciprocal cooldowns',()=>{
+ const load=loader(),r=load('src/core/sharedMomentRecall.ts'),m=load('src/core/residentRelationships.ts');
+ const now=Date.parse('2026-11-26T08:00:00Z');
+ const history=m.rememberSharedActivity([],'pond','Sketching','Mana and Luna sketched by the pond.',['mana','luna'],new Date(now-2*60*60_000));
+ assert.equal(r.recallPartner('NPC conversation: Shared-moment partner: luna. Hello.'),'luna');
+ assert.equal(r.recallPartner('Quick greeting: Shared-moment partner: luna.'),undefined);
+ const chosen=r.chooseSharedMoment(history,'mana','luna',now,()=>0);
+ assert.ok(chosen);assert.equal(r.chooseSharedMoment(history,'mana','lyra',now,()=>0),undefined);
+ assert.equal(r.chooseSharedMoment(history,'mana','luna',now,()=>.9),undefined);
+ assert.equal(r.chooseSharedMoment(history,'mana','luna',now-3*60*60_000,()=>0),undefined);
+ const offered=m.validateSharedMemories(history.map(memory=>memory.id===chosen.id?{...memory,lastRecallOfferedAt:new Date(now).toISOString()}:memory));
+ assert.equal(r.chooseSharedMoment(offered,'luna','mana',now+60_000,()=>0),undefined);
+ assert.match(r.sharedMomentRecallPrompt(chosen),/do not imply/i);
+ assert.ok(r.chooseSharedMoment(offered,'luna','mana',now+7*60*60_000,()=>0));
+});
+
+test('recall spacing survives stale scene saves without restoring forgotten memories',()=>{
+ const values=new Map(),load=loader({'./persistence':{readStored:key=>values.get(key)??null,writeStored:(key,value)=>values.set(key,value)}});
+ const room=load('src/core/companionRoom.ts'),m=load('src/core/residentRelationships.ts');
+ const sharedMemories=m.rememberSharedActivity([],'pond','Sketching','Sketched together.',['mana','luna'],new Date('2026-11-25T08:00:00Z'));
+ const stale=room.validateRoom({sharedMemories});
+ room.saveRoom({...stale,sharedMemories:sharedMemories.map(memory=>({...memory,lastRecallOfferedAt:'2026-11-26T08:00:00Z'}))});
+ room.saveRoom(stale);
+ assert.equal(room.loadRoom().sharedMemories[0].lastRecallOfferedAt,'2026-11-26T08:00:00Z');
+ room.saveRoom({...stale,sharedMemories:[]});
+ assert.equal(room.loadRoom().sharedMemories,undefined);
+});
+
+test('quiet company has a silent interval and survives saved visit memories',()=>{
+ const load=loader(),quiet=load('src/core/quietCompanionship.ts'),room=load('src/core/companionRoom.ts'),scene=load('src/core/sceneMemory.ts');
+ assert.equal(quiet.chooseQuietCompany(()=>.1),true);assert.equal(quiet.chooseQuietCompany(()=>.9),false);
+ assert.ok(quiet.QUIET_COMPANY_MS>7000);
+ assert.match(quiet.quietCompanyPrompt('mana'),/Silence will follow/);
+ const restored=room.validateRoom(JSON.parse(JSON.stringify({lunaVisitMemories:['quiet-company']})));
+ assert.equal(restored.lunaVisitMemories[0],'quiet-company');
+ assert.match(scene.residentScenePrompt('Luna','Gentle','At home',restored.lunaVisitMemories,[],[],false),/quiet break with Mana/);
+});
+
+test('project followups require shared project work, respect completion and leave quiet scenes alone',()=>{
+ const load=loader(),f=load('src/core/projectFollowups.ts'),g=load('src/core/townPersonalGoals.ts');
+ const now=Date.parse('2026-11-26T08:00:00Z'),at=new Date(now-60*60_000);
+ let goal=g.readTownGoal('{"choice":"sketch-collection","reason":"Study ripples."}','luna',new Date(now-2*60*60_000));
+ const memory={id:'shared',owner:'mana',with:'luna',at:at.toISOString(),activity:'Sketching',fact:'We sketched by the pond.'};
+ assert.equal(f.projectForSharedMoment([goal],memory,now),undefined);
+ goal=g.progressTownGoals([goal],'session','aishi-group-sketch','Finished',['mana','luna','aishi'],at)[0];
+ assert.equal(f.projectForSharedMoment([goal],memory,now).id,goal.id);
+ assert.equal(f.projectForSharedMoment([goal],{...memory,with:'lyra'},now),undefined);
+ assert.equal(f.projectForSharedMoment([goal],{...memory,activity:'Quiet company',fact:'Rested together.'},now),undefined);
+ assert.equal(f.projectForSharedMoment([goal],{...memory,at:new Date(now+60_000).toISOString()},now),undefined);
+ assert.equal(f.projectFollowupAllowed('Taking a quiet break. Silence will follow.'),false);
+ assert.equal(f.projectFollowupAllowed('Your shared activity is Reading by the pond.'),false);
+ assert.equal(f.projectFollowupAllowed('You just crossed paths.'),true);
+ assert.match(f.projectFollowupPrompt(goal),/still in progress/);
+ const complete={...goal,evidence:['one','two','three'],completedAt:new Date(now-30*60_000).toISOString()};
+ assert.match(f.projectFollowupPrompt(complete),/how it felt to finish/);
+ assert.equal(f.projectForSharedMoment([complete],memory,now+8*24*60*60_000),undefined);
+ assert.match(f.projectFollowupReplyPrompt('How is it going?',complete),/"completed":true/);
 });
 
 test('the shared scene scheduler prevents overlapping tasks and cancels only its own work',async()=>{

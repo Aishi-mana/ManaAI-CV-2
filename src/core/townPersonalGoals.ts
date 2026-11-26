@@ -1,19 +1,24 @@
 import {isRecord} from './validation';
 import {residentProfiles} from './residentProfiles';
 import type {SharedMemory,TownCharacter} from './residentRelationships';
+import {journalClock} from './clock';
 
 export const townGoalChoices={
  luna:[{id:'sketch-collection',title:'Collect three sketches',target:3,activity:'sketch'},
   {id:'sketch-with-friends',title:'Share two sketching afternoons',target:2,activity:'shared-sketch'}],
  lyra:[{id:'reading-notes',title:'Make notes from three reading sessions',target:3,activity:'read'},
-  {id:'reading-afternoon',title:'Share two reading sessions',target:2,activity:'shared-read'}],
+  {id:'reading-afternoon',title:'Share two reading sessions',target:2,activity:'shared-read'},
+  {id:'bottle-catalogue',title:'Organize the bottle collection',target:3,activity:'bottle'}],
  mana:[{id:'wind-up-collection',title:'Make three workshop trinkets',target:3,activity:'tinker'},
   {id:'shared-workbench',title:'Build something together at the workshop',target:1,activity:'shared-tinker'}],
 } as const;
 type Choice=(typeof townGoalChoices)[TownCharacter][number];
+export type TownGoalId=Choice['id'];
+export type TownProjectSession={eventId:string;at:string;action:string};
 export interface TownPersonalGoal {
  id:string;owner:TownCharacter;choice:Choice['id'];reason:string;createdAt:string;
  evidence:string[];completedAt?:string;
+ sessions?:TownProjectSession[];startedBy?:'aishi';
 }
 export function townGoalChoice(goal:TownPersonalGoal){
  return townGoalChoices[goal.owner].find(choice=>choice.id===goal.choice)!;
@@ -34,8 +39,13 @@ export function validateTownPersonalGoals(value:unknown):TownPersonalGoal[]{
    Number.isFinite(Date.parse(item.completedAt))&&Date.parse(item.completedAt)>=Date.parse(item.createdAt)?item.completedAt:undefined;
   if(evidence.length===choice.target&&!completedAt)continue;
   if(!completedAt&&goals.some(goal=>goal.owner===owner&&!goal.completedAt))continue;
+  const sessionIds=new Set<string>();
+  const sessions:TownProjectSession[]=Array.isArray(item.sessions)?item.sessions.flatMap(session=>{
+   if(!isRecord(session)||typeof session.eventId!=='string'||!evidence.includes(session.eventId)||sessionIds.has(session.eventId)||typeof session.at!=='string'||!Number.isFinite(Date.parse(session.at))||Date.parse(session.at)<Date.parse(item.createdAt as string)||completedAt&&Date.parse(session.at)>Date.parse(completedAt)||typeof session.action!=='string'||!session.action||session.action.length>100)return [];
+   sessionIds.add(session.eventId);return [{eventId:session.eventId,at:session.at,action:session.action}];
+  }):[];
   ids.add(item.id);
-  goals.push({id:item.id.slice(0,220),owner,choice:choice.id,reason:item.reason.trim().slice(0,180),createdAt:item.createdAt,evidence,...(completedAt?{completedAt}:{})});
+  goals.push({id:item.id.slice(0,220),owner,choice:choice.id,reason:item.reason.trim().slice(0,180),createdAt:item.createdAt,evidence,...(completedAt?{completedAt}:{}),...(sessions.length?{sessions}:{}),...(item.startedBy==='aishi'?{startedBy:'aishi' as const}:{})});
  }
  return [...goals.filter(goal=>!goal.completedAt),...goals.filter(goal=>goal.completedAt).slice(-9)];
 }
@@ -57,7 +67,7 @@ export function readTownGoal(raw:string,owner:TownCharacter,now=new Date()):Town
   return {id:`goal-${owner}-${now.toISOString()}`,owner,choice:data.choice as Choice['id'],reason:data.reason.trim(),createdAt:now.toISOString(),evidence:[]};
  }catch{return;}
 }
-export function progressTownGoals(goals:TownPersonalGoal[],eventId:string,action:string,outcome:string,participants:readonly SharedMemory['with'][],now=new Date()):TownPersonalGoal[]{
+export function progressTownGoals(goals:TownPersonalGoal[],eventId:string,action:string,outcome:string,participants:readonly SharedMemory['with'][],now=new Date(),timeZone='Asia/Singapore'):TownPersonalGoal[]{
  const sketch=action==='home-sketch'||action==='aishi-sketch'||action==='aishi-group-sketch'||/^(?:resident-)?park-meetup$/.test(action)&&outcome.includes('sketched');
  const read=action==='home-read'||action==='aishi-read'||action==='aishi-group-read'||/^(?:resident-)?park-meetup$/.test(action)&&outcome.includes('read together');
  const tinker=action==='workshop-tinkering'||action==='aishi-tinker';
@@ -66,14 +76,39 @@ export function progressTownGoals(goals:TownPersonalGoal[],eventId:string,action
   if(goal.completedAt||!participants.includes(goal.owner)||goal.evidence.includes(eventId)||now.getTime()<Date.parse(goal.createdAt))return goal;
   const choice=townGoalChoice(goal);
   const activity=choice.activity.replace('shared-','');
-  if(choice.activity.startsWith('shared-')&&participants.length<2||!(activity==='sketch'&&sketch||activity==='read'&&read||activity==='tinker'&&tinker))return goal;
+  if(choice.activity.startsWith('shared-')&&participants.length<2||!(activity==='sketch'&&sketch||activity==='read'&&read||activity==='tinker'&&tinker||activity==='bottle'&&action==='home-bottle'))return goal;
+  const day=journalClock(now,timeZone).date;
+  if(goal.sessions?.some(session=>journalClock(new Date(session.at),timeZone).date===day))return goal;
   changed=true;
   const evidence=[...goal.evidence,eventId];
-  return {...goal,evidence,...(evidence.length>=choice.target?{completedAt:now.toISOString()}:{})};
+  return {...goal,evidence,sessions:[...(goal.sessions??[]),{eventId,at:now.toISOString(),action}],...(evidence.length>=choice.target?{completedAt:now.toISOString()}:{})};
  });
  return changed?next:goals;
 }
 export function townGoalContext(goals:TownPersonalGoal[],owner:TownCharacter){
  const current=goals.filter(goal=>goal.owner===owner).sort((a,b)=>Date.parse(b.createdAt)-Date.parse(a.createdAt)).slice(0,2);
- return current.length?`\nYour personal goals (recorded state): ${JSON.stringify(current.map(goal=>({title:townGoalChoice(goal).title,reason:goal.reason,progress:goal.evidence.length,target:townGoalChoice(goal).target,completed:!!goal.completedAt})))}. Mention a goal only when asked or directly relevant to the activity. Do not claim unrecorded progress.\n`:'';
+ return current.length?`\nYour personal goals and ongoing projects (recorded state): ${JSON.stringify(current.map(goal=>({title:townGoalChoice(goal).title,reason:goal.reason,progress:goal.evidence.length,target:townGoalChoice(goal).target,completed:!!goal.completedAt,startedBy:goal.startedBy==='aishi'?'Aishi':'you',nextStep:townProjectNextStep(goal)})))}. Mention a project only when asked or directly relevant. After a matching activity you may briefly reflect on the actual progress and next step. Counted sessions do not prove a book was written, a picture was generated, or a complex machine/game was finished. Do not claim unrecorded progress or change your schedule to pursue a project.\n`:'';
+}
+
+export function townProjectStages(goal:TownPersonalGoal){
+ const choice=townGoalChoice(goal),activity=choice.activity.replace('shared-','');
+ const label=activity==='sketch'?'Sketching':activity==='read'?'Reading':activity==='bottle'?'Bottle-sorting':'Workbench';
+ return Array.from({length:choice.target},(_,index)=>({label:`${choice.activity.startsWith('shared-')?'Shared ':''}${label.toLowerCase()} session ${index+1}`,done:index<goal.evidence.length,at:goal.sessions?.find(session=>session.eventId===goal.evidence[index])?.at}));
+}
+export function townProjectNextStep(goal:TownPersonalGoal){
+ return goal.completedAt?'Completed':townProjectStages(goal).find(stage=>!stage.done)?.label??'Completed';
+}
+export function startTownProject(goals:TownPersonalGoal[],owner:TownCharacter,choice:TownGoalId,now=new Date()){
+ if(!canChooseTownGoal(goals,owner,now.getTime()))return;
+ const project=readTownGoal(JSON.stringify({choice,reason:'A project chosen by Aishi.'}),owner,now);
+ return project?{...project,startedBy:'aishi' as const}:undefined;
+}
+export function townProjectMilestone(goal:TownPersonalGoal,sourceAction:string){
+ const name=goal.owner==='mana'?'Mana':residentProfiles[goal.owner].name,choice=townGoalChoice(goal);
+ return {action:`town-project-${goal.owner}-${sourceAction}-${goal.evidence.length}`,title:`${name}’s little project`,outcome:`${name}’s project “${choice.title}”: ${goal.evidence.length} of ${choice.target} work sessions completed.${goal.completedAt?' The project’s planned sessions are complete.':` Next: ${townProjectNextStep(goal)}.`}`};
+}
+
+export function townProjectCompletionPrompt(goal:TownPersonalGoal){
+ if(!goal.completedAt)return;
+ return `You have just finished the planned sessions for your little project: ${townGoalChoice(goal).title}. Recorded progress: ${goal.evidence.length} completed sessions. Aishi is here. Tell Aishi in one warm, short sentence how you feel about finishing. Speak directly as yourself, without narration or stage directions. Only refer to the recorded work; do not invent an illustration, physical gift, working machine, game, or other artifact to show or give. You are taking a break before another project; do not promise a new activity or change your schedule. Completion record: ${goal.id}, ${goal.completedAt}.`;
 }

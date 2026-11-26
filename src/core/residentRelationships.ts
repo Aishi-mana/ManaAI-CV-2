@@ -3,7 +3,7 @@ import {residentIds,residentProfiles,type ResidentId} from './residentProfiles';
 
 export type TownCharacter='mana'|ResidentId;
 export interface SharedMemory {
- id:string;owner:TownCharacter;with:TownCharacter|'aishi';at:string;activity:string;fact:string;
+ id:string;owner:TownCharacter;with:TownCharacter|'aishi';at:string;activity:string;fact:string;lastRecallOfferedAt?:string;
 }
 export function validateSharedMemories(value:unknown):SharedMemory[]{
  if(!Array.isArray(value))return [];
@@ -16,7 +16,7 @@ export function validateSharedMemories(value:unknown):SharedMemory[]{
    typeof item.activity!=='string'||!item.activity.trim()||typeof item.fact!=='string'||!item.fact.trim())return [];
   seen.add(item.id);
   return [{id:item.id.slice(0,220),owner:item.owner as TownCharacter,with:item.with as SharedMemory['with'],
-   at:item.at,activity:item.activity.slice(0,100),fact:item.fact.trim().slice(0,300)}];
+   at:item.at,activity:item.activity.slice(0,100),fact:item.fact.trim().slice(0,300),...(typeof item.lastRecallOfferedAt==='string'&&Number.isFinite(Date.parse(item.lastRecallOfferedAt))?{lastRecallOfferedAt:item.lastRecallOfferedAt}:{})}];
  }).slice(-64);
 }
 export function rememberSharedActivity(history:SharedMemory[],eventId:string,activity:string,outcome:string,participants:readonly SharedMemory['with'][],now=new Date()){
