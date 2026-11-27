@@ -14,7 +14,7 @@ import {petBotMessages} from './core/petBot';
 import {readRememberingReply} from './core/sceneMemory';
 import {favoriteRoomActivity,loadRoom,saveRoom,ROOM_ACTIVITY_FURNITURE} from './core/companionRoom';
 import {recallPartner,chooseSharedMoment,sharedMomentRecallPrompt} from './core/sharedMomentRecall';
-import {projectForSharedMoment,projectFollowupAllowed,projectFollowupPrompt,projectFollowupReplyPrompt} from './core/projectFollowups';
+import {PROJECT_NEWS_EVENT,projectForSharedMoment,projectFollowupAllowed,projectFollowupPrompt,projectFollowupReplyPrompt,rememberProjectReply} from './core/projectFollowups';
 import { canRecoverStarCollector, developmentAttempts, developmentDue, developmentRequest, GAME_DEV_LIMIT, genreGameDescription, loadGameDev, newDevProject, playSlot, saveGameDev, type GameDevState } from "./core/gameDev";
 import { STAR_COLLECTOR_MARKER, STAR_COLLECTOR_REQUEST, STAR_COLLECTOR_STARTER } from "./core/starCollectorCheck";
 import { canRouteToWeb, shouldSearchWeb, webSearchCommand } from "./core/webSearch";
@@ -461,7 +461,7 @@ export default function App() {
         system+=(privateScene?'':sharedMemoryContext(room.sharedMemories??[],speaker))+townGoalContext(room.personalGoals??[],speaker,new Date(),journalRef.current.timeZone)+activityPreferenceContext(speaker,room.activityPreferences??{},preferenceCore)+friendshipHabitContext(speaker,room.sharedMemories??[]);
       }
       if(replyProject&&pending)system+=projectFollowupReplyPrompt(pending.line,replyProject);
-      else if(followup)system+=projectFollowupPrompt(followup);
+      else if(followup)system+=projectFollowupPrompt(followup,recall);
       else if(recall)system+=sharedMomentRecallPrompt(recall);
       await streamChat({port:llama.port,temperature:.65,maxTokens:message?160:channel!=='scene'?180:70,signal:controller.signal,
         messages:[{role:'system',content:system},{role:'user',content:message??(channel==='phone'?'Write the phone text for this event.':privateScene?'Write the next spoken line to the named character.':'Say one short line for your in-world speech bubble.')}],
@@ -471,8 +471,13 @@ export default function App() {
       const line=cleanReply(text,speaker==='mana'?settings.charName:residentProfiles[speaker].name).text.trim().slice(0,200);
       if(quickGreeting&&/\b(?:new game|game (?:I|we) (?:made|built)|(?:made|built|created|finished|making|building)\b[^.!?]{0,30}\bgame)\b/i.test(line))return '';
       if(privateScene&&/\b(?:Aishi|avatar|new character)\b/i.test(line))return '';
-      if(line&&replyProject)projectFollowupTurn.current=undefined;
-      else if(line&&followup&&partner&&line.includes('?'))projectFollowupTurn.current={speaker,partner,projectId:followup.id,line,at:Date.now()};
+      if(line&&replyProject&&partner){
+        const room=loadRoom();
+        saveRoom({...room,sharedMemories:rememberProjectReply(room.sharedMemories??[],replyProject,partner,line)});
+        window.dispatchEvent(new Event(PROJECT_NEWS_EVENT));
+        projectFollowupTurn.current=undefined;
+      }
+      else if(line&&followup&&partner)projectFollowupTurn.current={speaker,partner,projectId:followup.id,line,at:Date.now()};
       if(recall&&line){
         const room=loadRoom();
         saveRoom({...room,sharedMemories:room.sharedMemories?.map(memory=>memory.id===recall.id?{...memory,lastRecallOfferedAt:new Date().toISOString()}:memory)});

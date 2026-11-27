@@ -10,6 +10,7 @@ import {DEFAULT_TOWN_WEATHER,townWeather,townWeatherContext,weatherNeedsShelter,
 import type {PhoneReadState} from '../core/phoneReadState';
 import {useWorkshopActivity,WORKSHOP_WORK_POINT} from './useWorkshopActivity';
 import {useTownPersonalGoals} from './useTownPersonalGoals';
+import {PROJECT_NEWS_EVENT} from '../core/projectFollowups';
 import {useActivityPreferences} from './useActivityPreferences';
 import {useSmallFavors} from './useSmallFavors';
 import SmallFavorPanel from './SmallFavorPanel';
@@ -145,6 +146,12 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
   aishiJoining,setAishiJoining,parkChat,setParkChat}=social;
  const [activityKeepsakes,setActivityKeepsakes]=useState(()=>room.activityKeepsakes??[]);
  const [sharedMemories,setSharedMemories]=useState(()=>room.sharedMemories??[]);
+ useEffect(()=>{
+  // AI replies finish outside this scene; synchronize before another scene save.
+  const sync=()=>{const next=loadRoom().sharedMemories??[];current.current={...current.current,sharedMemories:next};setSharedMemories(next);};
+  window.addEventListener(PROJECT_NEWS_EVENT,sync);
+  return ()=>window.removeEventListener(PROJECT_NEWS_EVENT,sync);
+ },[]);
  const [residentMemories,setResidentMemories]=useState<Partial<Record<RoomContact,string[]>>>(()=>
   Object.fromEntries(residentIds.map(id=>[id,room[residentProfiles[id].memory.coreKey]??[]])));
  const [livingGuest,setLivingGuest]=useState<RoomContact|null>(null);

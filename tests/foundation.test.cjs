@@ -3789,11 +3789,37 @@ test('project followups require shared project work, respect completion and leav
  assert.equal(f.projectFollowupAllowed('Taking a quiet break. Silence will follow.'),false);
  assert.equal(f.projectFollowupAllowed('Your shared activity is Reading by the pond.'),false);
  assert.equal(f.projectFollowupAllowed('You just crossed paths.'),true);
- assert.match(f.projectFollowupPrompt(goal),/still in progress/);
+ assert.equal(f.projectFollowupPrompt(goal),'');
+ assert.match(f.projectFollowupPrompt(goal,memory),/You do not know about other sessions or the current total/);
  const complete={...goal,evidence:['one','two','three'],completedAt:new Date(now-30*60_000).toISOString()};
- assert.match(f.projectFollowupPrompt(complete),/how it felt to finish/);
+ assert.doesNotMatch(f.projectFollowupPrompt(complete,memory),/You were present for the recorded final work session/);
+ assert.match(f.projectFollowupPrompt(complete,{...memory,at:complete.completedAt}),/briefly congratulate/);
  assert.equal(f.projectForSharedMoment([complete],memory,now+8*24*60*60_000),undefined);
  assert.match(f.projectFollowupReplyPrompt('How is it going?',complete),/"completed":true/);
+});
+
+test('friends remember actual project replies without inventing work or knowing unseen progress',()=>{
+ const load=loader(),f=load('src/core/projectFollowups.ts'),g=load('src/core/townPersonalGoals.ts'),r=load('src/core/residentRelationships.ts'),recall=load('src/core/sharedMomentRecall.ts');
+ const now=new Date('2026-11-28T08:00:00Z');
+ const goal=g.readTownGoal('{"choice":"sketch-collection","reason":"Study ripples."}','luna',new Date(now.getTime()-3600000));
+ const line='I enjoyed working on the pond sketches.';
+ const memories=f.rememberProjectReply([],goal,'lyra',line,now);
+ assert.equal(memories.length,1);assert.equal(memories[0].owner,'lyra');assert.equal(memories[0].with,'luna');assert.ok(memories[0].fact.includes(line));
+ assert.equal(f.rememberProjectReply(memories,goal,'lyra',line,now),memories);
+ assert.equal(f.rememberProjectReply(memories,goal,'luna',line,now),memories);
+ assert.equal(f.rememberProjectReply(memories,goal,'mana','',now),memories);
+ assert.equal(goal.evidence.length,0,'remembering dialogue does not advance a project');
+ assert.equal(r.validateSharedMemories(memories).length,1,'news survives normal memory validation');
+ assert.equal(f.projectForSharedMoment([goal],memories[0],now.getTime()).id,goal.id);
+ assert.equal(f.projectForSharedMoment([{...goal,id:'other'}],memories[0],now.getTime()),undefined);
+ assert.equal(recall.chooseSharedMoment(memories,'lyra','luna',now.getTime()+3600000,()=>0),undefined,'news respects the existing pair cooldown');
+ const chosen=recall.chooseSharedMoment(memories,'lyra','luna',now.getTime()+25*3600000,()=>0);
+ assert.equal(chosen.id,memories[0].id);
+ assert.equal(recall.chooseSharedMoment(memories,'mana','luna',now.getTime()+25*3600000,()=>0),undefined,'absent friends do not learn the news');
+ const later={...goal,evidence:['a','b','c'],completedAt:new Date(now.getTime()+3600000).toISOString()};
+ const prompt=f.projectFollowupPrompt(later,chosen);
+ assert.match(prompt,/previously told you/);assert.match(prompt,/Do not assume any later progress/);
+ assert.doesNotMatch(prompt,/3 of 3|"completed":true|You were present for the recorded final/);
 });
 
 test('home project displays select one latest completed memento and retain real activity keepsakes as fallback',()=>{
