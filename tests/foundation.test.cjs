@@ -3947,7 +3947,9 @@ test('diary cast references use full-proportion guests while preserving Mana’s
  assert.equal(labels.join(','),'Mana,Luna,Aishi');assert.equal(draws.length,3);assert.equal(canvas.height,1024);
  assert.equal(draws[2][3],1024);assert.equal(draws[2][4],1536,'full-body portraits are not cropped as sprite-sheet frames');
  const request=art.diaryArtworkRequest({content:'Luna and I sketched by the pond.',mood:'calm'});
- assert.match(request.prompt,/normal adult proportions, never chibi/);assert.ok(request.prompt.length<1500);
+ assert.match(request.prompt,/Preserve Mana's current avatar/);assert.match(request.prompt,/Each guest keeps their own full-body reference proportions/);assert.doesNotMatch(request.prompt,/normal adult proportions, never chibi/);assert.ok(request.prompt.length<1500);
+ const group=load('src/core/imageGeneration.ts').qwenArtworkPrompt(request.prompt,true,'avatar',request.referenceCast);assert.match(group,/never transfer their taller proportions to Mana/);assert.match(group,/short limbs matching that panel/);
+ const solo=art.diaryArtworkRequest({content:'I watered my plants.',mood:'calm'});assert.match(solo.prompt,/Preserve Mana's current avatar/);assert.doesNotMatch(solo.prompt,/normal adult proportions/);
 });
 
 test('keepsake archive loads older entries without rendering the whole history at once',()=>{
