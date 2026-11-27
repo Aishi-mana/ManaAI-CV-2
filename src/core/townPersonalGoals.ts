@@ -85,9 +85,23 @@ export function progressTownGoals(goals:TownPersonalGoal[],eventId:string,action
  });
  return changed?next:goals;
 }
-export function townGoalContext(goals:TownPersonalGoal[],owner:TownCharacter){
+/** A daily step in an existing AI-chosen project, never a separate schedule or fabricated memory. */
+export function townDailyIntention(goals:TownPersonalGoal[],owner:TownCharacter,now=new Date(),timeZone='Asia/Singapore'){
+ const day=journalClock(now,timeZone).date;
+ const goal=goals.filter(goal=>goal.owner===owner&&Date.parse(goal.createdAt)<=now.getTime()&&(!goal.completedAt||Date.parse(goal.completedAt)<=now.getTime()&&journalClock(new Date(goal.completedAt),timeZone).date===day)).sort((a,b)=>Date.parse(b.createdAt)-Date.parse(a.createdAt))[0];
+ if(!goal)return;
+ const sessions=(goal.sessions??[]).filter(session=>Date.parse(session.at)<=now.getTime());
+ const done=!!goal.completedAt||sessions.some(session=>journalClock(new Date(session.at),timeZone).date===day);
+ const previous=sessions.filter(session=>journalClock(new Date(session.at),timeZone).date<day).sort((a,b)=>Date.parse(b.at)-Date.parse(a.at))[0];
+ let since=journalClock(new Date(goal.createdAt),timeZone).date;
+ if(previous){const next=new Date(`${journalClock(new Date(previous.at),timeZone).date}T12:00:00Z`);next.setUTCDate(next.getUTCDate()+1);since=next.toISOString().slice(0,10);}
+ const activity=townGoalChoice(goal).activity;
+ const title=({sketch:'Spend some time sketching','shared-sketch':'Sketch with someone',read:'Spend some time reading','shared-read':'Read with someone',bottle:'Sort a little of the bottle collection',tinker:'Spend some time at the workbench','shared-tinker':'Make something at the workbench together'} as Record<string,string>)[activity];
+ return {owner,projectId:goal.id,day,title,reason:goal.reason,project:townGoalChoice(goal).title,done,carriedFrom:!done&&since<day?since:undefined};
+}
+export function townGoalContext(goals:TownPersonalGoal[],owner:TownCharacter,now=new Date(),timeZone='Asia/Singapore'){
  const current=goals.filter(goal=>goal.owner===owner).sort((a,b)=>Date.parse(b.createdAt)-Date.parse(a.createdAt)).slice(0,2);
- return current.length?`\nYour personal goals and ongoing projects (recorded state): ${JSON.stringify(current.map(goal=>({title:townGoalChoice(goal).title,reason:goal.reason,progress:goal.evidence.length,target:townGoalChoice(goal).target,completed:!!goal.completedAt,startedBy:goal.startedBy==='aishi'?'Aishi':'you',nextStep:townProjectNextStep(goal)})))}. Mention a project only when asked or directly relevant. After a matching activity you may briefly reflect on the actual progress and next step. Counted sessions do not prove a book was written, a picture was generated, or a complex machine/game was finished. Do not claim unrecorded progress or change your schedule to pursue a project.\n`:'';
+ return current.length?`\nYour daily intention: ${JSON.stringify(townDailyIntention(goals,owner,now,timeZone)??null)}. This is a small step in your existing project, not another commitment. An unfinished step carries forward gently, without guilt or a deadline. You may mention it naturally when relevant, without repeating it in every greeting. Only done=true means a matching session actually finished today. It does not mean the whole project is finished. Keep your existing schedule, bedtime, shelter and visits; never teleport or invent an activity to fulfil an intention.\nYour personal goals and ongoing projects (recorded state): ${JSON.stringify(current.map(goal=>({title:townGoalChoice(goal).title,reason:goal.reason,progress:goal.evidence.length,target:townGoalChoice(goal).target,completed:!!goal.completedAt,startedBy:goal.startedBy==='aishi'?'Aishi':'you',nextStep:townProjectNextStep(goal)})))}. Mention a project only when asked or directly relevant. After a matching activity you may briefly reflect on the actual progress and next step. Counted sessions do not prove a book was written, a picture was generated, or a complex machine/game was finished. Do not claim unrecorded progress or change your schedule to pursue a project.\n`:'';
 }
 
 export function townProjectStages(goal:TownPersonalGoal){

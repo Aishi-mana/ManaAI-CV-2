@@ -458,7 +458,7 @@ export default function App() {
       if(!quickGreeting&&channel!=='invitation'){
         const room=loadRoom();
         const preferenceCore=speaker==='mana'?manaPreferenceMemories(memories):room[residentProfiles[speaker].memory.coreKey]??[];
-        system+=(privateScene?'':sharedMemoryContext(room.sharedMemories??[],speaker))+townGoalContext(room.personalGoals??[],speaker)+activityPreferenceContext(speaker,room.activityPreferences??{},preferenceCore)+friendshipHabitContext(speaker,room.sharedMemories??[]);
+        system+=(privateScene?'':sharedMemoryContext(room.sharedMemories??[],speaker))+townGoalContext(room.personalGoals??[],speaker,new Date(),journalRef.current.timeZone)+activityPreferenceContext(speaker,room.activityPreferences??{},preferenceCore)+friendshipHabitContext(speaker,room.sharedMemories??[]);
       }
       if(replyProject&&pending)system+=projectFollowupReplyPrompt(pending.line,replyProject);
       else if(followup)system+=projectFollowupPrompt(followup);
@@ -2019,7 +2019,7 @@ export default function App() {
       + clockContext(new Date(now), journalRef.current.timeZone, history, companion.state.lastConversationAt)
       + internalStateContext(stateForReply)
       + memoryContext(memories, text, recentUserText, settings.charName, settings.userName, replyMemories)
-      + (lessonFocus||social?'':episodeContext(episodes,text)+roomEventContext(events,journalRef.current.timeZone,text,!!room)+sharedMemoryContext(loadRoom().sharedMemories??[],'mana')+townGoalContext(loadRoom().personalGoals??[],'mana'))
+      + (lessonFocus||social?'':episodeContext(episodes,text)+roomEventContext(events,journalRef.current.timeZone,text,!!room)+sharedMemoryContext(loadRoom().sharedMemories??[],'mana')+townGoalContext(loadRoom().personalGoals??[],'mana',new Date(),journalRef.current.timeZone))
       + narrativeGuide
       + (social?socialReplyContext(social):'')
       + (room?`\nThe user is speaking to your mini avatar in Manaverse. Current scene: ${room.context}. Answer in one or two short sentences for a speech bubble. Use your normal shared memories and do not invent what happened in the room.`:'');

@@ -266,3 +266,6 @@ Outing keys include date, starting time and destination so separate visits to on
 
 ### Aishi-led hangouts
 In Dive in mode, walk near an awake character to invite them to a park break, reading by the pond, or a café break. Their AI can accept or decline. Accepted invitations guide Aishi and the invited character through their own normal walking routes and shared doors. The activity waits for both to arrive; only a completed shared break enters their memories, sketchbook, and relevant personal goals. Cancelled invitations, late replies, and interrupted activities create no completed memories. Bedtime, evening wind-down, town gatherings, and sheltering take priority.
+
+### Daily intentions
+The phone's Today and Plans pages show a small daily step from each character's existing ongoing project, including their saved reason. These are views of the same project records, not a separate planner or schedule. A real matching completed session marks the step done for the local calendar day. Unfinished steps carry forward; finishing a daily step does not finish a multi-session project. No missed-day sessions, memories, or artifacts are invented. Dialogue receives this state and may mention it when relevant, without extra AI requests. Existing schedules and project activity preferences remain in charge.

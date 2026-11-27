@@ -3635,6 +3635,36 @@ test('user-confirmed avatar image labels survive backups without inferring ident
  const {depictsAvatar,...unlabeled}=loaded[0];images.saveSavedImages([unlabeled]);assert.equal(images.loadSavedImages()[0].depictsAvatar,undefined);
 });
 
+test('daily intentions reuse projects, carry unfinished steps and require real matching sessions',()=>{
+ const load=loader(),g=load('src/core/townPersonalGoals.ts'),room=load('src/core/companionRoom.ts');
+ const zone='Asia/Singapore',start=new Date('2026-11-28T08:00:00Z');
+ const goal=g.readTownGoal(JSON.stringify({choice:'sketch-collection',reason:'I want to study the pond.'}),'luna',start);
+ let goals=[goal];
+ assert.equal(g.townDailyIntention(goals,'mana',start,zone),undefined);
+ assert.equal(g.townDailyIntention(goals,'luna',new Date('2026-11-27T08:00:00Z'),zone),undefined);
+ assert.equal(g.townDailyIntention(goals,'luna',start,zone).done,false);
+ assert.equal(g.townDailyIntention(goals,'luna',start,zone).carriedFrom,undefined);
+ const tomorrow=new Date('2026-11-28T16:01:00Z');
+ assert.equal(g.townDailyIntention(goals,'luna',tomorrow,zone).carriedFrom,'2026-11-28');
+ assert.equal(g.townDailyIntention(goals,'luna',tomorrow,'UTC').carriedFrom,undefined);
+ assert.equal(g.progressTownGoals(goals,'proposed','invitation','I will sketch.',['luna'],tomorrow,zone),goals);
+ assert.equal(g.progressTownGoals(goals,'wrong-owner','home-sketch','Done.',['lyra'],tomorrow,zone),goals);
+ goals=g.progressTownGoals(goals,'actual-session','home-sketch','Finished.',['luna'],tomorrow,zone);
+ assert.equal(g.townDailyIntention(goals,'luna',tomorrow,zone).done,true);
+ assert.equal(goals[0].completedAt,undefined,'a daily session is not the whole project');
+ const restored=room.validateRoom({layout:2,position:{x:50,y:80},personalGoals:goals});
+ assert.equal(g.townDailyIntention(restored.personalGoals,'luna',tomorrow,zone).done,true);
+ const later=new Date('2026-12-01T08:00:00Z');
+ assert.equal(g.townDailyIntention(goals,'luna',later,zone).carriedFrom,'2026-11-30');
+ assert.equal(g.townDailyIntention(goals,'luna',later,zone).projectId,goal.id);
+ goals=g.progressTownGoals(goals,'second','home-sketch','Finished.',['luna'],later,zone);
+ const last=new Date('2026-12-02T08:00:00Z');
+ goals=g.progressTownGoals(goals,'third','home-sketch','Finished.',['luna'],last,zone);
+ assert.equal(g.townDailyIntention(goals,'luna',last,zone).done,true);
+ assert.equal(g.townDailyIntention(goals,'luna',new Date('2026-12-03T08:00:00Z'),zone),undefined);
+ assert.match(g.townGoalContext(goals,'luna',last,zone),/Only done=true means a matching session actually finished today/);
+});
+
 test('personal goals count only matching completed sessions and preserve progress across room saves',()=>{
  const load=loader(),goals=load('src/core/townPersonalGoals.ts'),room=load('src/core/companionRoom.ts');
  const now=new Date('2026-11-19T08:00:00Z');
