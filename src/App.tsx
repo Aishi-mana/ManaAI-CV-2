@@ -1,3 +1,4 @@
+import {aishiHangoutPrompt} from './core/aishiHangouts';
 import {townGoalPrompt,readTownGoal,townGoalContext} from './core/townPersonalGoals';
 import {activityPreferencePrompt,readActivityPreference,activityPreferenceContext,manaPreferenceMemories} from './core/activityPreferences';
 import {friendshipHabitContext} from './core/friendshipHabits';
@@ -2259,6 +2260,10 @@ export default function App() {
        onChooseActivityPreference={async(owner,memories,signal)=>{
         const raw=await speakInRoom(activityPreferencePrompt(owner,memories),signal,owner,undefined,'invitation');
         return readActivityPreference(raw,owner,memories);
+       }}
+       onAskAishiHangout={async(owner,kind,context,signal)=>{
+        const raw=await speakInRoom(aishiHangoutPrompt(owner,kind,context,loadRoom().sharedMemories??[]),signal,owner,undefined,'invitation');
+        return readGroupJoinReply(raw);
        }}
        onAskGroupToJoin={async(host,activity,memories,signal)=>{
         const raw=await speakInRoom(groupJoinPrompt(host,activity,memories),signal,host,undefined,'invitation');

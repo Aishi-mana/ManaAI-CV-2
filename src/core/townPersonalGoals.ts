@@ -69,7 +69,7 @@ export function readTownGoal(raw:string,owner:TownCharacter,now=new Date()):Town
 }
 export function progressTownGoals(goals:TownPersonalGoal[],eventId:string,action:string,outcome:string,participants:readonly SharedMemory['with'][],now=new Date(),timeZone='Asia/Singapore'):TownPersonalGoal[]{
  const sketch=action==='home-sketch'||action==='aishi-sketch'||action==='aishi-group-sketch'||/^(?:resident-)?park-meetup$/.test(action)&&outcome.includes('sketched');
- const read=action==='home-read'||action==='aishi-read'||action==='aishi-group-read'||/^(?:resident-)?park-meetup$/.test(action)&&outcome.includes('read together');
+ const read=action==='home-read'||action==='aishi-read'||action==='aishi-group-read'||/^aishi-hangout-read-(?:mana|luna|lyra)-/.test(action)||/^(?:resident-)?park-meetup$/.test(action)&&outcome.includes('read together');
  const tinker=action==='workshop-tinkering'||action==='aishi-tinker';
  let changed=false;
  const next=goals.map(goal=>{

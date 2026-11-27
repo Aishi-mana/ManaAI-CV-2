@@ -4038,6 +4038,44 @@ test('weekly town routines vary home days and weekends without changing bedtime 
  }
 });
 
+test('Aishi hangout routes use adjacent shared doors and prompts treat acceptance only as a proposal',()=>{
+ const load=loader(),h=load('src/core/aishiHangouts.ts'),p=load('src/core/manaversePassage.ts');
+ let area='lyra-room';const route=[];
+ while(area!=='cafe'&&route.length<10){const next=h.hangoutNextDoor(area,'cafe');assert.ok(p.manaversePassage(area,next));route.push(next);area=next;}
+ assert.equal(route.join(','),'library,street,square,district,cafe');assert.equal(h.hangoutNextDoor('park','park'),undefined);
+ assert.match(h.aishiHangoutPrompt('luna','read','Luna is free.',[]),/Acceptance is only a plan/);
+ assert.match(h.aishiHangoutPrompt('lyra','cafe','Lyra is at home.',[]),/Politely decline if busy/);
+ const done=h.completedAishiHangout({id:'one',owner:'luna',kind:'read',phase:'sharing',reply:'Yes.'});
+ assert.match(done.outcome,/Aishi and Luna read together/);assert.match(done.action,/^aishi-hangout-read-luna-/);
+ const book=load('src/core/townSketchbook.ts');
+ const moments=book.townSketchbookDays([{id:`room-2026-11-28-${done.action}`,eventId:'event-one',kind:'activity',title:done.title,outcome:done.outcome,recordedAt:'2026-11-28T04:00:00Z'}],[],'Asia/Singapore',Date.parse('2026-11-28T05:00:00Z'));
+ assert.equal(moments[0].moments[0].people.join(','),'luna,aishi');assert.equal(moments[0].moments[0].area,'park');
+});
+
+test('Aishi hangouts wait for both arrivals, complete once, and discard late or cancelled AI replies',async()=>{
+ let cursor=0,slots=[],effects=[],pulse,ready=false,completed=[],scene,answer={accepted:true,text:'I would like that.'},resolve;
+ const react={useState(initial){const id=cursor++;if(!Object.hasOwn(slots,id))slots[id]=typeof initial==='function'?initial():initial;return [slots[id],value=>slots[id]=typeof value==='function'?value(slots[id]):value];},useRef(current){const id=cursor++;return slots[id]??(slots[id]={current});},useEffect(fn,deps){const id=cursor++,old=slots[id];if(old&&deps.every((value,i)=>Object.is(value,old.deps[i])))return;slots[id]={deps};effects.push(()=>{old?.cleanup?.();slots[id].cleanup=fn();});}};
+ const actor={dataset:{},style:{left:'70%',top:'30%'},getBoundingClientRect:()=>({left:120,width:60,height:100,bottom:200}),querySelector:()=>({getAttribute:()=>null})};
+ const root={querySelector:selector=>selector.includes('manaverse-player')?{getBoundingClientRect:()=>({left:100,width:60,height:100,bottom:200})}:selector.includes('Interact with Luna')?actor:null};
+ const doc={visibilityState:'visible'};
+ const load=loader({react,'../core/companionRoom':{roomSleepNight:()=>false},'../core/eveningWindDown':{eveningWindDown:()=>undefined}},{document:doc,window:{setInterval:fn=>{pulse=fn;return 1;}},clearInterval(){}});
+ const {useAishiHangouts,nearbyHangoutCharacters}=load('src/components/useAishiHangouts.ts');
+ const options={enabled:true,ready:true,busy:false,sheltering:false,timeZone:'Asia/Singapore',root:{current:root},lease:{current:undefined},hangout:undefined,setHangout:value=>options.hangout=value,area:'luna-home',point:{x:50,y:80},walking:false,joining:false,ownerReady:()=>ready,context:()=> 'Luna is free.',ask:async()=>answer,go:next=>{options.area=next;options.walking=true;},join:value=>{scene=value;options.joining=true;options.walking=true;return true;},stop:()=>options.joining=false,onComplete:value=>completed.push(value)};
+ function render(){cursor=0;effects=[];const ui=useAishiHangouts(options);effects.forEach(fn=>fn());return ui;}
+ function tick(){pulse();return render();}
+ let ui=render();assert.equal(nearbyHangoutCharacters(root).join(','),'luna');
+ answer={accepted:false,text:'I need to finish something first.'};await ui.invite('luna','read');render();assert.equal(options.hangout,undefined);assert.equal(completed.length,0);
+ options.ask=()=>new Promise(done=>resolve=done);ui=render();const late=ui.invite('luna','read');render();options.walking=true;tick();resolve({accepted:true,text:'Yes.'});await late;render();assert.equal(options.hangout,undefined);
+ options.walking=false;options.ask=async()=>({accepted:true,text:'Let’s go.'});ui=render();await ui.invite('luna','read');render();assert.equal(completed.length,0);
+ for(let i=0;i<8&&options.area!=='park';i++){options.walking=false;tick();}
+ options.walking=false;render();assert.equal(options.area,'park');assert.equal(scene,undefined,'Aishi arriving alone is not a completed meeting');
+ options.point={x:70,y:35};ready=true;for(let i=0;i<4&&!scene;i++)tick();assert.ok(scene);assert.equal(options.hangout.phase,'sharing');assert.equal(completed.length,0,'starting the shared session is not completion');
+ options.walking=false;render();scene.onComplete();scene.onComplete();render();assert.equal(completed.length,1);assert.equal(completed[0].owner,'luna');
+ options.joining=false;ui=render();await ui.invite('luna','cafe');render();assert.ok(options.hangout);ui=render();ui.cancel();render();scene.onComplete();assert.equal(completed.length,1,'old completion after cancellation is ignored');
+ options.sheltering=true;ui=render();await ui.invite('luna','park');assert.equal(options.hangout,undefined);
+ for(const slot of slots)slot?.cleanup?.();
+});
+
 test('the shared scene scheduler prevents overlapping tasks and cancels only its own work',async()=>{
  let tick,cleanup,finish,signal,started=0;
  const lease={current:undefined};

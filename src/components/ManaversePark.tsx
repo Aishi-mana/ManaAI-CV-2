@@ -18,7 +18,7 @@ import {parkActivities,type ParkChat} from './useParkChat';
 export type ParkWalker={point:ParkPoint;frame:number;facing:number;walking:boolean};
 type ParkResident={contact:RoomContact;walker:ParkWalker;drop?:(point:ParkPoint)=>void;bench?:{point:ParkPoint;pose:string;label:string}};
 
-export default function ManaversePark({petBot,walker,residents,chat,follow,onPan,exit,onManaDrop}:{petBot?:OutdoorPetPosition;onManaDrop?:(point:ParkPoint)=>void;walker?:ParkWalker;residents:(ParkResident|undefined)[];chat?:ParkChat;follow:boolean;onPan:()=>void;exit:()=>void}){
+export default function ManaversePark({aishiReading,petBot,walker,residents,chat,follow,onPan,exit,onManaDrop}:{aishiReading?:'mana'|'luna'|'lyra';petBot?:OutdoorPetPosition;onManaDrop?:(point:ParkPoint)=>void;walker?:ParkWalker;residents:(ParkResident|undefined)[];chat?:ParkChat;follow:boolean;onPan:()=>void;exit:()=>void}){
  const view=useRef<HTMLDivElement>(null);
  const map=useRef<HTMLDivElement>(null);
  const drag=useRef<{id:number;x:number;y:number;left:number;top:number;moved:boolean}|undefined>(undefined);
@@ -89,17 +89,17 @@ export default function ManaversePark({petBot,walker,residents,chat,follow,onPan
      const together=chat?.planned&&(chat.first===contact||chat.second===contact);
      const pose=together
       ?doingActivity&&(chat.activity==='stars'?(contact==='luna'?'window':'think'):bench?.pose)
-      :bench?.pose;
+      :aishiReading===contact&&contact==='luna'?undefined:bench?.pose;
      return <CharacterGesture character={contact} onDrop={!chat&&!walker.walking&&!bench?resident.drop:undefined} key={contact} className="manaverse-street-actor manaverse-park-actor" style={{left:`${point.x}%`,top:`${point.y}%`,zIndex:Math.round(point.y)}}>
       {pose?<img className={together?'park-shared-pose':undefined} src={`./companion-room/${contact}-${pose}.webp`}
        style={together?{scale:`${facingPartner(contact,point,walker.facing)} 1`}:undefined} alt={together?name:bench?.label}/>:
        <ResidentSprite resident={contact} walking={walker.walking} facing={facingPartner(contact,point,walker.facing)} visible/>}
-      {bench&&!together&&<span className="manaverse-park-activity">{name} · {contact==='luna'?'Sketching':'Reading'}</span>}
+      {bench&&!together&&<span className="manaverse-park-activity">{name} · {aishiReading===contact?'Reading together':contact==='luna'?'Sketching':'Reading'}</span>}
      {doingActivity&&chat?.first===contact&&<span className="manaverse-park-activity">{shared.label}</span>}
      </CharacterGesture>;
     })}
     {walker&&<CharacterGesture character="mana" onDrop={!chat&&!walker.walking?onManaDrop:undefined} className="manaverse-street-actor manaverse-park-actor" style={{left:`${walker.point.x}%`,top:`${walker.point.y}%`,zIndex:Math.round(walker.point.y)}}>
-     <ManaSprite walking={walker.walking&&!(doingActivity&&chat?.second==='mana')} pose={doingActivity&&chat?.second==='mana'?shared.manaPose:'idle'} facing={facingPartner('mana',walker.point,walker.facing)}/>
+     <ManaSprite walking={walker.walking&&!(doingActivity&&chat?.second==='mana')} pose={aishiReading==='mana'?'read':doingActivity&&chat?.second==='mana'?shared.manaPose:'idle'} facing={facingPartner('mana',walker.point,walker.facing)}/>
      {doingActivity&&chat?.second==='mana'&&<span className="manaverse-park-activity">{shared.label}</span>}
     </CharacterGesture>}
     {chat&&!doingActivity&&<ParkConversation chat={chat} walker={walker} residents={residents}/>}

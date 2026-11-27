@@ -65,7 +65,7 @@ export function recordActivityKeepsake(history:ActivityKeepsake[],eventId:string
  let owner:TownCharacter|undefined;
  if((action==='aishi-sketch'||action==='aishi-group-sketch'||(action==='park-meetup'||action==='resident-park-meetup')&&moment.includes('sketched'))&&participants.includes('luna')){
   kind='sketch';owner='luna';
- }else if((action==='aishi-read'||action==='aishi-group-read'||(action==='park-meetup'||action==='resident-park-meetup')&&moment.includes('read together'))&&participants.includes('lyra')){
+ }else if((action==='aishi-read'||action==='aishi-group-read'||action.startsWith('aishi-hangout-read-')||(action==='park-meetup'||action==='resident-park-meetup')&&moment.includes('read together'))&&participants.includes('lyra')){
   kind='bookmark';owner='lyra';
  }else if((action==='aishi-tinker'||action==='workshop-tinkering')&&participants.includes('mana')){
   kind='trinket';owner='mana';

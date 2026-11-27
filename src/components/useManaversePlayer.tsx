@@ -18,7 +18,7 @@ const {livingToStreet}=homeThresholds;
 const sceneSpeakers={Mana:'mana',Luna:'luna',Lyra:'lyra'} as const;
 type Name=keyof typeof sceneSpeakers;
 type Player={area:ManaverseArea;point:StreetPoint;facing:number};
-export type JoinedActivityScene={area:ManaverseArea;point:StreetPoint;facing:number;speaker:Name;activity:string;context?:string};
+export type JoinedActivityScene={area:ManaverseArea;point:StreetPoint;facing:number;speaker:Name;activity:string;context?:string;onComplete?:()=>void};
 
 export function useManaversePlayer(area:ManaverseArea,setArea:(area:ManaverseArea)=>void,furniture:Partial<Record<ManaverseArea,readonly RoomObject[]>>,officeLayout:OfficeLayout|undefined,setJoining:(id:AishiActivity|undefined)=>void,onActivityComplete:(id:AishiActivity)=>void){
  const root=useRef<HTMLElement>(null);
@@ -153,7 +153,7 @@ export function useManaversePlayer(area:ManaverseArea,setArea:(area:ManaverseAre
      setSharedScene(sharedActivity);
      joinTimer.current=window.setTimeout(()=>{
       if(joining.current!==activity)return;
-      completion.current(activity);
+      if(sharedActivity?.onComplete)sharedActivity.onComplete();else completion.current(activity);
       stopJoining();
      },15_000);
     }else setPlayer({...player!,point,facing});
@@ -167,7 +167,7 @@ export function useManaversePlayer(area:ManaverseArea,setArea:(area:ManaverseAre
   return true;
  }
  function joinActivity(id:AishiActivity,override?:JoinedActivityScene){
-  const activity=override??{...aishiActivities[id],context:
+  const activity:JoinedActivityScene=override??{...aishiActivities[id],context:
    id==='tinker'?'Aishi just joined you to fit gears at the Workshop workbench. Say a quick welcome as you tinker together.':
     id==='read'?'Aishi just joined you to read by the library window. Say a quick welcome without inventing the book or its contents.':
      'Aishi just joined you to sketch by the park pond. Say a quick welcome or offer a small sketching suggestion.'};
@@ -176,7 +176,7 @@ export function useManaversePlayer(area:ManaverseArea,setArea:(area:ManaverseAre
     stopJoining();joining.current=id;setJoining(id);setSpeech(undefined);
     setPlayer({...player,facing:activity.facing});setNotice(activity.activity);setSharedScene(activity);
     root.current?.focus({preventScroll:true});
-    joinTimer.current=window.setTimeout(()=>{if(joining.current!==id)return;completion.current(id);stopJoining();},15_000);
+    joinTimer.current=window.setTimeout(()=>{if(joining.current!==id)return;if(activity.onComplete)activity.onComplete();else completion.current(id);stopJoining();},15_000);
     return true;
    }
    return move(activity.point,undefined,undefined,id,activity);

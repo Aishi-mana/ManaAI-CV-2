@@ -2297,3 +2297,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .town-event-actions > [role="group"] { flex-basis: 100%; padding: .6rem; border: 1px solid var(--mist-deep); border-radius: 10px; }
 .town-event-actions .btn { padding: .3rem .65rem; }
 .town-event-details select { width: 100%; min-width: 0; font: inherit; }
+.aishi-hangout-panel { max-width: 32rem; margin: .5rem auto; padding: .7rem 1rem; border: 1px solid var(--mist-deep); border-radius: 14px; background: var(--milk); text-align: left; }
+.aishi-hangout-panel label { display: grid; gap: .3rem; margin: .5rem 0; }
+.aishi-hangout-panel select { font: inherit; color: var(--ink); background: var(--milk); max-width: 100%; }
+.aishi-hangout-panel small { display: block; margin-top: .4rem; }
+.aishi-hangout-panel p { margin: .4rem 0; }
+.aishi-hangout-choices { display: flex; flex-wrap: wrap; gap: .4rem; margin: .4rem 0; }

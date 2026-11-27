@@ -13,6 +13,7 @@ const blocked=(id:string,title:string)=>/cancel|declin|invit|request|while-mana-
 function actionFor(id:string){return /^(?:room|shared)-\d{4}-\d{2}-\d{2}-(.+)$/.exec(id)?.[1]??id;}
 function eveningOwner(action:string){return (['mana',...residentIds] as SharedMemory['owner'][]).find(owner=>action===`evening-wind-down-${owner}`||action.startsWith(`evening-wind-down-${owner}-`));}
 function presentation(action:string,text:string,people:Friend[]):Pick<TownSketchMoment,'kind'|'area'>{
+ if(action.startsWith('aishi-hangout-'))return {kind:action.startsWith('aishi-hangout-read-')?'read':'visit',area:action.startsWith('aishi-hangout-cafe-')?'cafe':'park'};
  if(action.startsWith('town-project-')){
   const area=action.includes('park-')||action.includes('group-sketch')||action.includes('group-read')||action.includes('aishi-sketch')?'park':action.includes('workshop-tinkering')||action.includes('aishi-tinker')?'workshop':people[0]==='mana'?'bedroom':people[0]&&people[0]!=='aishi'?residentProfiles[people[0]].home:undefined;
   return {kind:'project',area};
@@ -32,6 +33,7 @@ function presentation(action:string,text:string,people:Friend[]):Pick<TownSketch
  return {kind:'visit'};
 }
 function eventPeople(action:string,text:string):Friend[]{
+ const invited=/^aishi-hangout-(?:park|read|cafe)-(mana|luna|lyra)-/.exec(action);if(invited)return ['aishi',invited[1] as SharedMemory['owner']];
  if(action.startsWith('town-project-')){const owner=(['mana',...residentIds] as SharedMemory['owner'][]).find(owner=>action.startsWith(`town-project-${owner}-`));return owner?[owner]:[];}
  if(action==='aishi-group-read'||action==='aishi-group-sketch')return ['aishi','luna','lyra'];
  if(action==='aishi-read')return ['aishi','lyra'];
@@ -51,7 +53,7 @@ function eventPeople(action:string,text:string):Friend[]{
  return ['mana'];
 }
 function includedEvent(action:string){
- return /^(?:aishi-(?:group-)?(?:read|sketch|tinker)|(?:resident-)?park-meetup|cafe-meetup|host-visit|library-founding-story|luna-library-visit|(?:beanbag-chat|quiet-company)-(?:luna|lyra)|workshop-tinkering|(?:mana|shared)-keepsake|small-favor-.+|evening-wind-down-.+|town-project-.+)$/.test(action);
+ return /^(?:aishi-(?:group-)?(?:read|sketch|tinker)|(?:resident-)?park-meetup|cafe-meetup|host-visit|library-founding-story|luna-library-visit|(?:beanbag-chat|quiet-company)-(?:luna|lyra)|workshop-tinkering|(?:mana|shared)-keepsake|small-favor-.+|evening-wind-down-.+|town-project-.+|aishi-hangout-(?:park|read|cafe)-(?:mana|luna|lyra)-.+)$/.test(action);
 }
 export function townSketchbookDays(events:readonly RecordedEvent[],memories:readonly SharedMemory[],timeZone:string,now=Date.now()):TownSketchDay[]{
  const moments=new Map<string,TownSketchMoment>();
