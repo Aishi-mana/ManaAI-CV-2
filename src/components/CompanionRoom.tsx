@@ -10,6 +10,8 @@ import {DEFAULT_TOWN_WEATHER,townWeather,townWeatherContext,weatherNeedsShelter,
 import type {PhoneReadState} from '../core/phoneReadState';
 import {useWorkshopActivity,WORKSHOP_WORK_POINT} from './useWorkshopActivity';
 import {useTownPersonalGoals} from './useTownPersonalGoals';
+import {useCharacterHangoutInvitations} from './useCharacterHangoutInvitations';
+import type {CharacterHangoutOffer} from '../core/aishiHangouts';
 import {PROJECT_NEWS_EVENT} from '../core/projectFollowups';
 import {useActivityPreferences} from './useActivityPreferences';
 import {useSmallFavors} from './useSmallFavors';
@@ -146,6 +148,7 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
   aishiJoining,setAishiJoining,parkChat,setParkChat}=social;
  const [activityKeepsakes,setActivityKeepsakes]=useState(()=>room.activityKeepsakes??[]);
  const [sharedMemories,setSharedMemories]=useState(()=>room.sharedMemories??[]);
+ const [nearbyHangoutOffer,setNearbyHangoutOffer]=useState<CharacterHangoutOffer>();
  useEffect(()=>{
   // AI replies finish outside this scene; synchronize before another scene save.
   const sync=()=>{const next=loadRoom().sharedMemories??[];current.current={...current.current,sharedMemories:next};setSharedMemories(next);};
@@ -1427,19 +1430,32 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
   ask:onAskAishiHangout,go:dive.go,join:scene=>dive.joinActivity('read',scene),stop:dive.stopJoining,
   onComplete:hangout=>{const result=completedAishiHangout(hangout);onActivity(result.action,result.title,result.outcome,['aishi',hangout.owner]);}
  });
- const smallFavor=useSmallFavors({room:current,lease:invitationRequest,root:dive.root,timeZone,ready:manaSpeechReady,allowOffers:!aishiHangout&&!eveningWindDown(new Date(),timeZone),
-  enabled:!aishiHangout&&visible&&!editing&&!sleeping&&!bedtime()&&!townGathering&&!friendMeetup&&!meetup&&!hostVisit&&!aishiInvitation&&!manaSpeechRoom,
+ const smallFavor=useSmallFavors({room:current,lease:invitationRequest,root:dive.root,timeZone,ready:manaSpeechReady,allowOffers:!nearbyHangoutOffer&&!aishiHangout&&!eveningWindDown(new Date(),timeZone),
+  enabled:!nearbyHangoutOffer&&!aishiHangout&&visible&&!editing&&!sleeping&&!bedtime()&&!townGathering&&!friendMeetup&&!meetup&&!hostVisit&&!aishiInvitation&&!manaSpeechRoom,
   available:availableJoin,area:dive.playerArea,point:dive.playerPoint,walking:dive.walking,joining:aishiJoining,
   choose:onChooseInvitation,join:activity=>dive.joinActivity(activity),onComplete:(action,title,outcome,owner)=>{
    rememberTogether(action,title,outcome,['aishi',owner]);recordActivity(action,title,outcome);
   }});
+ const characterInvitations=useCharacterHangoutInvitations({
+  enabled:visible&&!editing&&!sleeping&&dive.active&&!sheltering&&!projectReaction&&!activityReaction&&!aishiHangout&&!aishiJoining&&!hangouts.pending&&!smallFavor.favor&&!townGathering&&!meetup&&!friendMeetup&&!hostVisit&&!hostPlan&&!invitation&&!visitorPreparing&&!awayVisitor&&!aishiInvitation&&!manaSpeechRoom,
+  ready:manaSpeechReady,timeZone,walking:dive.walking,room:current,root:dive.root,lease:invitationRequest,
+  offer:nearbyHangoutOffer,setOffer:setNearbyHangoutOffer,
+    free:owner=>{
+   if(owner==='mana')return !manaStreetTrip&&!officeTrip&&!officeWorking&&!workshopWorking&&!active&&!(manaArea==='park'&&park.moving);
+   const outing=owner==='luna'?lunaOuting:lyraOuting,visitor=owner==='luna'?lunaPark:lyraPark;
+   return !outing?.trip&&!outing?.homeExit&&!outing?.libraryLeaving&&(!outing?.inPark||!!visitor?.bench)&&(!outing?.cafeStage||outing.cafeStage==='inside');
+  },
+  context:owner=>`Current town time: ${calendar.clock.date} ${calendar.clock.time}. Current location: ${owner==='mana'?manaArea:residentMapArea(owner,owner==='luna'?lunaOuting:lyraOuting)}. Existing schedules, work, visits, bedtime and shelter take priority.`,
+  choose:onChooseInvitation,start:hangouts.acceptOffer
+ });
  const {groupJoinPoint,askToJoinGroup,groupReplySpeaker,invitationSpeaker}=useSocialActivities({
-  smallFavorActive:!!smallFavor.favor,favorCooldownUntil:smallFavor.cooldownUntil,windDown:!!aishiHangout||!!eveningWindDown(new Date(),timeZone),
+  smallFavorActive:!!smallFavor.favor,favorCooldownUntil:smallFavor.cooldownUntil,windDown:!!nearbyHangoutOffer||!!aishiHangout||!!eveningWindDown(new Date(),timeZone),
   state:social,room:current,visible,editing,sleeping,night:!!bedtime(),manaSpeechReady,lighting,sheltering,
   hasTownEvent:calendar.active.length>0,townGathering,visitorAvailable,awayVisitor,visitorPreparing,
   hostPlan:!!hostPlan,invitation:!!invitation,cafeEncounter,friendChat,dive,availableJoin,sharedMemories,
   personalGoals,onChooseInvitation,onAskGroupToJoin,startMeetup,
  });
+ const characterInvitationSpeaker=nearbyHangoutOffer?dive.root.current?.querySelector(`.companion-room-body:not([hidden]) .character-gesture:has(button[aria-label="Interact with ${hangoutName(nearbyHangoutOffer.owner)}"])`):undefined;
  const botRoom=petBotLocation.room;
  useEffect(()=>{
   if(!livingGuest){metDuringVisit.current=undefined;return;}
@@ -1568,8 +1584,8 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
    }}>Edit room</button>}
   </header>
   {dive.avatar}
-  {!projectLine&&activitySpeaker&&createPortal(<p className="manaverse-player-greeting scene-activity-line" role="status">{sceneLine}</p>,activitySpeaker)}
-  {projectSpeaker&&createPortal(<p className="manaverse-player-greeting scene-project-line" role="status">{projectLine}</p>,projectSpeaker)}
+  {!nearbyHangoutOffer&&!projectLine&&activitySpeaker&&createPortal(<p className="manaverse-player-greeting scene-activity-line" role="status">{sceneLine}</p>,activitySpeaker)}
+  {!nearbyHangoutOffer&&projectSpeaker&&createPortal(<p className="manaverse-player-greeting scene-project-line" role="status">{projectLine}</p>,projectSpeaker)}
   {visible&&!editing&&!sleeping&&!sheltering&&area==='square'&&<BirthdayCelebration events={calendar.active} visits={guestbookVisits} root={dive.root.current}
    present={([...manaAtGathering?['mana' as const]:[],...lunaAtGathering?['luna' as const]:[],...lyraAtGathering?['lyra' as const]:[]])}
    onWish={(event,speaker)=>{
@@ -1578,11 +1594,12 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
     current.current={...current.current,townGuestbook:updated};saveRoom(current.current);setGuestbookVisits(updated);
    }}/>} 
   <WeatherReactions root={dive.root} area={area} characters={mapCharacters} timeZone={timeZone}
-   active={visible&&!editing&&!mapOpen&&!manaSpeechRoom&&!sceneLine&&!meetup&&!friendMeetup&&!hostMeeting&&!petBotListening}/>
+   active={visible&&!nearbyHangoutOffer&&!editing&&!mapOpen&&!manaSpeechRoom&&!sceneLine&&!meetup&&!friendMeetup&&!hostMeeting&&!petBotListening}/>
+  {characterInvitationSpeaker&&nearbyHangoutOffer&&createPortal(<p className="manaverse-player-greeting scene-invitation-line" role="status">{nearbyHangoutOffer.text}</p>,characterInvitationSpeaker)}
   {invitationSpeaker&&aishiInvitation&&createPortal(<p className="manaverse-player-greeting scene-invitation-line" role="status">{aishiInvitation.text}</p>,invitationSpeaker)}
   {groupReplySpeaker&&groupJoinReply&&createPortal(<p className="manaverse-player-greeting scene-invitation-line" role="status">{groupJoinReply.text}</p>,groupReplySpeaker)}
   {dive.active&&<div className="manaverse-player-activity-controls">
-   <AishiHangoutPanel hangout={aishiHangout} nearby={hangouts.nearby} pending={hangouts.pending} message={hangouts.message} ready={manaSpeechReady} onInvite={(owner,kind)=>void hangouts.invite(owner,kind)} onCancel={()=>hangouts.cancel()}/>
+   <AishiHangoutPanel offer={nearbyHangoutOffer} onAccept={characterInvitations.accept} onDecline={characterInvitations.decline} hangout={aishiHangout} nearby={hangouts.nearby} pending={hangouts.pending} message={hangouts.message} ready={manaSpeechReady} onInvite={(owner,kind)=>void hangouts.invite(owner,kind)} onCancel={()=>hangouts.cancel()}/>
    <SmallFavorPanel favor={smallFavor.favor} speaker={smallFavor.speaker} onAccept={smallFavor.accept} onAnswer={smallFavor.answer} onDismiss={smallFavor.dismiss}/>
    {groupJoinError&&groupJoinPoint&&<p role="status">{groupJoinError}</p>}
    {(groupJoinPoint||groupJoinPending)&&!aishiJoining&&<button type="button" className="btn" disabled={groupJoinPending||!manaSpeechReady} onClick={()=>void askToJoinGroup()}>{groupJoinPending?'Asking…':'Ask to join'}</button>}

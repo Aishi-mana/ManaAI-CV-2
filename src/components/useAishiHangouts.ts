@@ -58,6 +58,12 @@ export function useAishiHangouts(options:Options){
   }catch(error){if(!controller.signal.aborted)setMessage('The invitation could not finish. You can try again.');}
   finally{if(request.current===controller){request.current=undefined;setPending(undefined);}if(latest.current.lease.current===controller)latest.current.lease.current=undefined;}
  }
+ function acceptOffer(owner:TownCharacter,kind:AishiHangoutKind,text:string){
+  const state=latest.current;
+  if(!allowed()||state.sheltering||active.current||request.current||state.walking||state.joining||!nearbyHangoutCharacters(state.root.current).includes(owner))return false;
+  const next:AishiHangout={id:String(Date.now()),owner,kind,phase:'travelling',reply:text};
+  active.current=next;state.setHangout(next);stable.current=undefined;attempts.current={key:'',count:0};setMessage(`${hangoutName(owner)}: ${text}`);return true;
+ }
  useEffect(()=>{
   const hangout=options.hangout,state=latest.current;if(!hangout||!allowed()||state.sheltering)return;
   if(hangout.phase==='sharing'){if(!state.joining||!state.ownerReady(hangout.owner,aishiHangoutKinds[hangout.kind].area)||!state.walking&&!nearbyHangoutCharacters(state.root.current).includes(hangout.owner))cancel('The shared break ended before it was completed.');return;}
@@ -82,5 +88,5 @@ export function useAishiHangouts(options:Options){
   }});
   if(joined){const next={...hangout,phase:'sharing' as const};active.current=next;state.setHangout(next);}
  },[tick,options.hangout,options.area,options.walking,options.joining]);
- return {nearby:allowed()&&!options.hangout&&!options.walking&&!options.joining?nearby:[],pending,message,invite,cancel};
+ return {nearby:allowed()&&!options.hangout&&!options.walking&&!options.joining?nearby:[],pending,message,invite,cancel,acceptOffer};
 }

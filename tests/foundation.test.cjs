@@ -4131,7 +4131,31 @@ test('Aishi hangouts wait for both arrivals, complete once, and discard late or 
  options.walking=false;render();scene.onComplete();scene.onComplete();render();assert.equal(completed.length,1);assert.equal(completed[0].owner,'luna');
  options.joining=false;ui=render();await ui.invite('luna','cafe');render();assert.ok(options.hangout);ui=render();ui.cancel();render();scene.onComplete();assert.equal(completed.length,1,'old completion after cancellation is ignored');
  options.sheltering=true;ui=render();await ui.invite('luna','park');assert.equal(options.hangout,undefined);
+ assert.equal(ui.acceptOffer('luna','park','Join me?'),false);
+ options.sheltering=false;options.walking=false;ui=render();assert.equal(ui.acceptOffer('luna','park','Join me?'),true);assert.equal(completed.length,1,'accepting a character invitation is only a travel plan');assert.equal(ui.acceptOffer('luna','cafe','Another plan?'),false);ui=render();ui.cancel();
  for(const slot of slots)slot?.cleanup?.();
+});
+
+test('nearby character hangout offers wait for consent, persist cooldown and discard stale proposals',async()=>{
+ let cursor=0,slots=[],effects=[],run,checks=[],nearby=true,night=false,windDown=false,calls=0,starts=0,saves=0,resolve;
+ const react={useRef(current){const id=cursor++;return slots[id]??(slots[id]={current});},useEffect(fn,deps){const id=cursor++,old=slots[id];if(old&&deps.every((v,i)=>Object.is(v,old.deps[i])))return;slots[id]={deps};effects.push(()=>{old?.cleanup?.();slots[id].cleanup=fn();});}};
+ const doc={visibilityState:'visible'};
+ const load=loader({react,'./useSceneTask':{useSceneTask:(enabled,ready,ms,lease,fn)=>run=enabled&&ready?fn:undefined},'./useAishiHangouts':{nearbyHangoutCharacters:()=>nearby?['luna']:[]},'../core/companionRoom':{saveRoom:()=>saves++,roomSleepNight:()=>night},'../core/eveningWindDown':{eveningWindDown:()=>windDown}},{document:doc,window:{setInterval:fn=>{checks.push(fn);return checks.length;}},clearInterval(){}});
+ const useOffers=load('src/components/useCharacterHangoutInvitations.ts').useCharacterHangoutInvitations;
+ const options={enabled:true,ready:true,timeZone:'Asia/Singapore',walking:false,room:{current:{}},root:{current:{querySelector:()=>null}},lease:{current:undefined},offer:undefined,setOffer:offer=>options.offer=offer,free:()=>true,context:()=> 'Luna is free.',choose:async(owner,choices)=>{calls++;return {choice:choices[0],text:'Would you like a quiet park break, Aishi?'};},start:()=>{starts++;return true;}};
+ function render(){cursor=0;effects=[];const ui=useOffers(options);effects.forEach(fn=>fn());return ui;}
+ const signal=new AbortController().signal;
+ let ui=render();await run(signal);render();assert.ok(options.offer);assert.equal(starts,0,'an AI proposal does not start travel');assert.equal(saves,1);
+ ui=render();ui.decline();render();await run(signal);assert.equal(calls,1,'declining respects saved cooldown');assert.equal(starts,0);
+ slots=[];ui=render();await run(signal);assert.equal(calls,1,'reopening does not reset the cooldown');
+ options.room.current.hangoutInvitedAt=undefined;options.choose=()=>new Promise(done=>resolve=done);render();const late=run(signal);nearby=false;resolve({choice:{id:'nearby-hangout-luna-park'},text:'Join me?'});await late;render();assert.equal(options.offer,undefined,'walking away discards a late AI proposal');
+ nearby=true;options.room.current.hangoutInvitedAt=undefined;options.choose=async(owner,choices)=>({choice:choices[0],text:'Join me by the pond?'});render();await run(signal);ui=render();assert.ok(options.offer);assert.equal(ui.accept(),true);render();assert.equal(starts,1);assert.equal(options.offer,undefined);assert.equal(ui.accept(),false);
+ options.room.current.hangoutInvitedAt=undefined;render();await run(signal);ui=render();options.offer.expires=Date.now()-1;assert.equal(ui.accept(),false);assert.equal(starts,1);
+ options.room.current.hangoutInvitedAt=undefined;night=true;render();await run(signal);assert.equal(options.offer,undefined);
+ night=false;windDown=true;await run(signal);assert.equal(options.offer,undefined);windDown=false;
+ options.free=()=>false;await run(signal);assert.equal(options.offer,undefined);options.free=()=>true;
+ options.room.current.hangoutInvitedAt=undefined;render();await run(signal);ui=render();nearby=false;checks.at(-1)();render();assert.equal(options.offer,undefined,'an unanswered offer disappears when Aishi leaves');
+ const core=loader()('src/core/companionRoom.ts');assert.ok(core.validateRoom({hangoutInvitedAt:new Date().toISOString()}).hangoutInvitedAt);assert.equal(core.validateRoom({hangoutInvitedAt:'bad'}).hangoutInvitedAt,undefined);
 });
 
 test('the shared scene scheduler prevents overlapping tasks and cancels only its own work',async()=>{

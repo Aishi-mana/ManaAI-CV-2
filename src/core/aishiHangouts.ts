@@ -2,6 +2,16 @@ import {manaverseDoorways} from './manaversePassage';
 import {residentProfiles} from './residentProfiles';
 import {sharedMemoryContext,type SharedMemory,type TownCharacter} from './residentRelationships';
 import type {ManaverseArea} from '../components/ManaverseMap';
+import type {MemoryInvitation} from './memoryInvitations';
+export type CharacterHangoutOffer={owner:TownCharacter;kind:AishiHangoutKind;text:string;expires:number};
+export const CHARACTER_HANGOUT_GAP=30*60_000;
+export function characterHangoutChoices(owner:TownCharacter,context:string):MemoryInvitation[]{
+ const kinds:AishiHangoutKind[]=owner==='lyra'?['read','cafe','park']:owner==='mana'?['cafe','park','read']:['park','cafe','read'];
+ return kinds.map(kind=>({id:`nearby-hangout-${owner}-${kind}`,owner,recipient:'aishi',activity:kind==='cafe'?'cafe':'park',...(kind==='read'?{parkActivity:'read' as const}:{}),fact:`Aishi is nearby. You can invite Aishi to ${aishiHangoutKinds[kind].label}. This is only an optional proposal. Both must walk normally after Aishi accepts. Do not claim acceptance, arrival, completion, or a past shared activity. Decline if your current plans leave no free time. Current facts: ${context}`}));
+}
+export function characterHangoutKind(owner:TownCharacter,id:string):AishiHangoutKind|undefined{
+ return (Object.keys(aishiHangoutKinds) as AishiHangoutKind[]).find(kind=>id===`nearby-hangout-${owner}-${kind}`);
+}
 export const aishiHangoutKinds={park:{label:'Visit the park',area:'park',outcome:'spent a quiet break together by the park pond'},read:{label:'Read by the pond',area:'park',outcome:'read together by the park pond'},cafe:{label:'Take a café break',area:'cafe',outcome:'shared a quiet break at the Coffee Shop'}} as const;
 export type AishiHangoutKind=keyof typeof aishiHangoutKinds;
 export type AishiHangout={id:string;owner:TownCharacter;kind:AishiHangoutKind;phase:'travelling'|'sharing';reply:string};
