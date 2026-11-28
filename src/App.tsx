@@ -1,5 +1,6 @@
 import {aishiCheckInPrompt,aishiPhonePrompt,readAishiPhoneReply} from './core/aishiPhone';
 import {mergeManaPhoneFact} from './core/aishiPhoneMemories';
+import {choosePersonalFact,personalFactDialoguePrompt} from './core/personalFactDialogue';
 import {aishiHangoutPrompt} from './core/aishiHangouts';
 import {townGoalPrompt,readTownGoal,townGoalContext} from './core/townPersonalGoals';
 import {activityPreferencePrompt,readActivityPreference,activityPreferenceContext,manaPreferenceMemories} from './core/activityPreferences';
@@ -145,6 +146,7 @@ const STATUS_LABEL = {
 } as const;
 
 export default function App() {
+  const personalFactAttempts=useRef<Partial<Record<SceneSpeaker,number>>>({});
   const projectFollowupTurn=useRef<{speaker:SceneSpeaker;partner:SceneSpeaker;projectId:string;line:string;at:number}|undefined>(undefined);
   const [showSinging,setShowSinging]=useState(false);
   const [coverHandoff,setCoverHandoff]=useState<CoverHandoff|null>(null);
@@ -418,6 +420,13 @@ export default function App() {
     }
   }
 
+  function personalCue(speaker:SceneSpeaker,context:string,addressingAishi:boolean,message?:string){
+    const room=loadRoom(),core=speaker==='mana'?memories.filter(memory=>memory.category==='user').map(memory=>memory.content):room[residentProfiles[speaker].memory.coreKey]??[];
+    const fact=choosePersonalFact(speaker,room.aishiPhone?.facts??[],core,context+(message?'\nAishi says: '+message:''),{addressingAishi,message,lastAttempt:personalFactAttempts.current[speaker]});
+    if(!fact)return '';
+    personalFactAttempts.current[speaker]=Date.now();
+    return personalFactDialoguePrompt(fact);
+  }
   async function speakInRoom(context:string,signal:AbortSignal,speaker:SceneSpeaker='mana',message?:string,channel:'scene'|'phone'|'invitation'='scene'){
     if(llama.status!=='ready'||abortRef.current||busy||reflecting||mediaOccupied()||storage.error)return '';
     signal.throwIfAborted();
@@ -465,6 +474,7 @@ export default function App() {
       if(replyProject&&pending)system+=projectFollowupReplyPrompt(pending.line,replyProject);
       else if(followup)system+=projectFollowupPrompt(followup,recall);
       else if(recall)system+=sharedMomentRecallPrompt(recall);
+      if(channel==='scene'&&!privateScene&&!quickGreeting)system+=personalCue(speaker,context,!!message||/\bAishi (?:has arrived|just joined|is here|is present)\b/i.test(context),message);
       await streamChat({port:llama.port,temperature:.65,maxTokens:message?160:channel!=='scene'?180:70,signal:controller.signal,
         messages:[{role:'system',content:system},{role:'user',content:message??(channel==='phone'?'Write the phone text for this event.':privateScene?'Write the next spoken line to the named character.':'Say one short line for your in-world speech bubble.')}],
         onToken:token=>{text+=token;}});
@@ -2029,7 +2039,8 @@ export default function App() {
       + (lessonFocus||social?'':episodeContext(episodes,text)+roomEventContext(events,journalRef.current.timeZone,text,!!room)+sharedMemoryContext(loadRoom().sharedMemories??[],'mana')+townGoalContext(loadRoom().personalGoals??[],'mana',new Date(),journalRef.current.timeZone))
       + narrativeGuide
       + (social?socialReplyContext(social):'')
-      + (room?`\nThe user is speaking to your mini avatar in Manaverse. Current scene: ${room.context}. Answer in one or two short sentences for a speech bubble. Use your normal shared memories and do not invent what happened in the room.`:'');
+      + (room?`\nThe user is speaking to your mini avatar in Manaverse. Current scene: ${room.context}. Answer in one or two short sentences for a speech bubble. Use your normal shared memories and do not invent what happened in the room.`:'')
+      + (room&&!social&&!lessonFocus?personalCue('mana',room.context,true,text):'');
     const lookPlan=planLookComment(lookComments.current,cfg,wardrobe,text,Date.now(),Math.random(),!!imageReport||!!lessonFocus||!!pauseMinutes||!!pendingOpening||!!returningFromPause||!!unlocked.length||!!social);
     const practiceContext=imageReport||social?'':skillsContext(practice,text);
 
@@ -2287,7 +2298,8 @@ export default function App() {
        }}
        onAishiPhoneReply={async(contact,history,context,signal)=>{
         const room=loadRoom(),core=contact==='mana'?memories.filter(memory=>memory.category==='user').map(memory=>memory.content):room[residentProfiles[contact].memory.coreKey]??[];
-        const raw=await speakInRoom(aishiPhonePrompt(contact,history,context,room.sharedMemories??[],core),signal,contact,undefined,'invitation');
+        const last=history.filter(message=>message.contact===contact&&message.from==='aishi').slice(-1)[0];
+        const raw=await speakInRoom(aishiPhonePrompt(contact,history,context,room.sharedMemories??[],core)+personalCue(contact,context,true,last?.text),signal,contact,undefined,'invitation');
         return readAishiPhoneReply(raw);
        }}
        onRememberManaPhoneFact={(fact,sourceId)=>setMemories(previous=>mergeManaPhoneFact(previous,fact,sourceId))}

@@ -4229,6 +4229,28 @@ test('phone core facts use only clear user statements and merge into existing ch
  assert.match(p.aishiPhonePrompt('luna',[],'At home.',[],restored.lunaCoreMemories),/Aishi's favorite snack is mochi/);
 });
 
+test('personal dialogue cues use one relevant fact actually known to the speaker without changing activities',()=>{
+ const load=loader(),d=load('src/core/personalFactDialogue.ts'),m=load('src/core/aishiPhoneMemories.ts');
+ const facts=[{sourceId:'snack',contact:'luna',fact:'Favorite snack is mochi.'},{sourceId:'project',contact:'luna',fact:'Working on a puzzle game.'},{sourceId:'private-mana',contact:'mana',fact:'Likes coffee.'}];
+ const core=facts.filter(f=>f.contact==='luna').map(f=>m.residentPhoneFact(f.fact)),now=Date.parse('2026-11-28T08:00:00Z');
+ const choose=(context,extra={})=>d.choosePersonalFact('luna',facts,core,context,{addressingAishi:true,now,...extra});
+ assert.equal(choose('At the café with Aishi.').sourceId,'snack');
+ assert.equal(choose('Talking about projects at the workshop.').sourceId,'project');
+ assert.equal(choose('At the café.',{addressingAishi:false}),undefined);
+ assert.equal(choose('NPC conversation: Luna and Lyra at the café.'),undefined);
+ assert.equal(choose('Quick greeting: Aishi entered the café.'),undefined);
+ assert.equal(choose('At the café.',{message:'Hi~'}),undefined);
+ assert.equal(choose('A quiet break at the café. Silence will follow.'),undefined);
+ assert.equal(choose('At the café.',{lastAttempt:now-30*60000}),undefined);
+ assert.equal(choose('At the café.',{lastAttempt:now-61*60000}).sourceId,'snack');
+ assert.equal(d.choosePersonalFact('luna',facts,[], 'At the café.',{addressingAishi:true,now}),undefined,'forgotten or evicted core facts cannot be resurfaced by old provenance');
+ assert.equal(d.choosePersonalFact('lyra',facts,core,'At the café.',{addressingAishi:true,now}),undefined,'another character does not acquire the fact');
+ assert.equal(d.choosePersonalFact('luna',facts.map(f=>({...f,forgotten:true})),core,'At the café.',{addressingAishi:true,now}),undefined);
+ assert.equal(d.choosePersonalFact('mana',facts,['Likes coffee.'],'At the café.',{addressingAishi:true,now}).sourceId,'private-mana');
+ const prompt=d.personalFactDialoguePrompt(facts[1]);assert.match(prompt,/may gently ask how it is going/);assert.match(prompt,/do not claim progress or completion/);assert.match(prompt,/not an order or request/);assert.match(prompt,/never evidence of an activity or a new memory/);
+ assert.equal(facts.length,3);assert.equal(core.length,2,'selecting a cue does not change stored memories or projects');
+});
+
 test('Aishi check-in policy blocks unread, recent and unanswered messages and grounds news in own real sessions',()=>{
  const load=loader(),p=load('src/core/aishiPhone.ts'),g=load('src/core/townPersonalGoals.ts'),r=load('src/core/companionRoom.ts');
  const now=Date.parse('2026-11-28T08:00:00Z'),empty={messages:[],read:{}};
