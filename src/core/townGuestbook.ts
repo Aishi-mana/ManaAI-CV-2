@@ -1,8 +1,9 @@
+import {townCharacterIds,townCharacterName,type TownCharacterName} from './townCharacters';
 import {isRecord} from './validation';
 import {validTownEvent,birthdayOwner,type CustomTownEvent} from './townEvents';
 
-const guestNames=['Mana','Luna','Lyra'] as const;
-export type TownGuest=typeof guestNames[number];
+export type TownGuest=TownCharacterName;
+const guestNames:TownGuest[]=townCharacterIds.map(townCharacterName);
 export type TownGuestbookVisit=CustomTownEvent&{guests:TownGuest[];wishedBy?:TownGuest[];celebratedWith?:TownGuest[]};
 
 export function validateTownGuestbook(raw:unknown):TownGuestbookVisit[]{
@@ -27,8 +28,8 @@ export function recordTownAttendance(visits:TownGuestbookVisit[],events:readonly
  for(const {id,title,date,start,end} of events){
   const visit=updated.find(entry=>entry.id===id&&entry.date===date);
   const guests=guestNames.filter(guest=>present.includes(guest)||visit?.guests.includes(guest));
-  const owner=birthdayOwner({id}),ownerName=owner==='mana'?'Mana':owner==='luna'?'Luna':'Lyra';
-  const celebratedWith=owner?guestNames.filter(guest=>visit?.celebratedWith?.includes(guest)||present.includes(ownerName)&&present.includes(guest)):[];
+  const owner=birthdayOwner({id});
+  const celebratedWith=owner?guestNames.filter(guest=>visit?.celebratedWith?.includes(guest)||present.includes(townCharacterName(owner))&&present.includes(guest)):[];
   if(visit?.guests.length===guests.length&&(visit.celebratedWith?.length??0)===celebratedWith.length)continue;
   updated=[...updated.filter(entry=>entry!==visit),{...visit,id,title,date,start,end,guests,...(celebratedWith.length?{celebratedWith}:{})}];
  }

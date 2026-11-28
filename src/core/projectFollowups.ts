@@ -1,3 +1,4 @@
+import {townCharacterName} from './townCharacters';
 import type {SharedMemory} from './residentRelationships';
 import {townGoalChoice,type TownPersonalGoal} from './townPersonalGoals';
 export const PROJECT_NEWS_EVENT='mana:project-news';
@@ -37,7 +38,7 @@ export function rememberProjectReply(memories:SharedMemory[],goal:TownPersonalGo
  if(listener===goal.owner||!line.trim()||line.length>200||Date.parse(goal.createdAt)>now.getTime())return memories;
  const id=`project-news:${goal.id}:${listener}:${now.toISOString()}`;
  if(memories.some(memory=>memory.id===id))return memories;
- const name=goal.owner==='mana'?'Mana':goal.owner==='luna'?'Luna':'Lyra';
+ const name=townCharacterName(goal.owner);
  return [...memories,{id,owner:listener,with:goal.owner,at:now.toISOString(),activity:`project-update:${goal.id}`,fact:`${name} told me about their project: ${line.trim()}`.slice(0,300),lastRecallOfferedAt:now.toISOString()}];
 }
 

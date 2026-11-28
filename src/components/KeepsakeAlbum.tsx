@@ -1,17 +1,17 @@
-import {townPortraits} from '../core/townPortraits';
+import {townActors,townCharacterIds,townCharacterName} from '../core/townCharacters';
 import {useState} from 'react';
 import {albumKeepsakeTitle,type KeepsakeAlbumEntry} from '../core/keepsakeAlbum';
-import {residentIds,residentProfiles} from '../core/residentProfiles';
+
 import type {TownCharacter} from '../core/residentRelationships';
 
-const name=(owner:TownCharacter)=>owner==='mana'?'Mana':residentProfiles[owner].name;
+const name=(owner:TownCharacter)=>townCharacterName(owner);
 export default function KeepsakeAlbum({entries,owner,timeZone,onOpenOwner}:{entries:KeepsakeAlbumEntry[];owner?:TownCharacter;timeZone:string;onOpenOwner:(owner:TownCharacter)=>void}){
  const [filter,setFilter]=useState<'all'|KeepsakeAlbumEntry['category']>('all');
  const [shown,setShown]=useState(30);
- const owners:TownCharacter[]=['mana',...residentIds];
+ const owners:TownCharacter[]=[...townCharacterIds];
  if(!owner)return <div className="room-phone-list"><p>Birthday cards, finished projects, and activity mementos from saved moments.</p><div className="town-project-grid">
   {owners.map(person=><button type="button" className="town-project-person" key={person} onClick={()=>onOpenOwner(person)}>
-   <img src={person==='mana'?'./companion-room/mana_idle_1.webp':townPortraits[person].path} alt=""/><strong>{name(person)}</strong><span>{entries.filter(entry=>entry.owner===person).length} keepsakes</span>
+   <img src={townActors[person].portrait} alt=""/><strong>{name(person)}</strong><span>{entries.filter(entry=>entry.owner===person).length} keepsakes</span>
   </button>)}
  </div><p className="hint-soft">Saved keepsakes stay here as the town grows. The home display keeps its newest memento.</p></div>;
  const selected=entries.filter(entry=>entry.owner===owner&&(filter==='all'||entry.category===filter));

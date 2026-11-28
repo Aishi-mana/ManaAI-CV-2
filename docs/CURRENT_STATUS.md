@@ -198,8 +198,8 @@ Cross-checked 2026-11-06; user test results updated 2026-11-07 against source, s
 ### Later milestones
 
 - General UI icon/tooltip/accessibility and consistent disabled/progress/Stop presentation remain ongoing, not globally complete.
-- **V2 Companion Room:** persistent navigable room, interactive furniture/objects, activities, animations and daily routines are still future scope.
-- **V3 Manaverse:** multiple independent characters, relationships/communication, shared places and persistent autonomous world events remain future scope.
+- **V2 Companion Room (updated 2026-11-29):** implemented navigable home, editing, objects, activities, animation, daily routines and Pet Bot. See [Manaverse town](MANAVERSE_TOWN.md) for the current character requirements and validation scope.
+- **V3 Manaverse (updated 2026-11-29):** the current cast, connected locations, AI dialogue, individual memories, shared activities, separate player phone, invitations, calendar events, weather and saved history are implemented. Broader agency/relationships, real project outputs, Community Garden, resident-organized events and bounded offline progression remain future scope.
 
 ## Validation and follow-up
 

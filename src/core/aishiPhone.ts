@@ -1,10 +1,11 @@
+import {townCharacterIds} from './townCharacters';
 import {isRecord} from './validation';
 import {hangoutName,aishiHangoutKinds,type AishiHangoutKind,type CharacterHangoutOffer} from './aishiHangouts';
 import {residentProfiles} from './residentProfiles';
 import {sharedMemoryContext,type SharedMemory,type TownCharacter} from './residentRelationships';
 import {townGoalChoice,type TownPersonalGoal} from './townPersonalGoals';
 import {phoneFact,type PhoneFact} from './aishiPhoneMemories';
-export const aishiContacts=['mana','luna','lyra'] as const;
+export const aishiContacts=townCharacterIds;
 export type AishiPhoneMessage={id:string;contact:TownCharacter;from:'aishi'|'contact';at:string;text:string;replyTo?:string;checkIn?:true;hangoutRequest?:{kind:AishiHangoutKind;expires:number;status:'pending'|'accepted'|'declined'|'expired';hangoutId?:string};invitation?:{kind:AishiHangoutKind;expires:number;status:'pending'|'accepted'|'declined'|'expired'}};
 export type AishiPhoneState={messages:AishiPhoneMessage[];read:Partial<Record<TownCharacter,string>>;facts?:PhoneFact[];checkInAttemptAt?:string;checkInContact?:TownCharacter};
 export function validateAishiPhone(value:unknown):AishiPhoneState{

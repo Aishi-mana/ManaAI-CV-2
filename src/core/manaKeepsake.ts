@@ -1,3 +1,4 @@
+import {townCharacterName} from './townCharacters';
 import type {RecordedEvent} from './events';
 import {phoneMessage,type RoomContact} from './roomPhone';
 
@@ -36,7 +37,7 @@ export function chooseManaKeepsake(events:readonly RecordedEvent[],random=Math.r
 }
 
 export function sharedKeepsakeExchange(shared:NonNullable<ManaKeepsake['shared']>,moment:string,at=new Date().toISOString()){
- const name=shared.contact==='luna'?'Luna':'Lyra';
+ const name=townCharacterName(shared.contact);
  const place=shared.place==='park'?'our time at the pond':'my visit to your place';
  const detail=shared.place==='park'
   ?moment.includes('sketched')?'sketching the ripples on the pond'

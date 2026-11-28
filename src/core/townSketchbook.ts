@@ -1,17 +1,18 @@
+import {townCharacterIds,trackedTownIds} from './townCharacters';
 import {journalClock} from './clock';
 import type {RecordedEvent} from './events';
 import type {SharedMemory} from './residentRelationships';
-import {residentIds,residentProfiles} from './residentProfiles';
+import {residentProfiles} from './residentProfiles';
 import type {Friend} from './friendshipHabits';
 import {friendName} from './friendshipHabits';
 import type {ManaverseArea} from '../components/ManaverseMap';
 
 export type TownSketchMoment={id:string;at:string;date:string;title:string;text:string;people:Friend[];kind:'sketch'|'read'|'tinker'|'favor'|'evening'|'visit'|'project';area?:ManaverseArea};
 export type TownSketchDay={date:string;moments:TownSketchMoment[]};
-export const sketchbookPeople:Friend[]=['mana',...residentIds,'aishi'];
+export const sketchbookPeople:readonly Friend[]=trackedTownIds;
 const blocked=(id:string,title:string)=>/cancel|declin|invit|request|while-mana-slept|sleep-followup/i.test(`${id} ${title}`);
 function actionFor(id:string){return /^(?:room|shared)-\d{4}-\d{2}-\d{2}-(.+)$/.exec(id)?.[1]??id;}
-function eveningOwner(action:string){return (['mana',...residentIds] as SharedMemory['owner'][]).find(owner=>action===`evening-wind-down-${owner}`||action.startsWith(`evening-wind-down-${owner}-`));}
+function eveningOwner(action:string){return townCharacterIds.find(owner=>action===`evening-wind-down-${owner}`||action.startsWith(`evening-wind-down-${owner}-`));}
 function presentation(action:string,text:string,people:Friend[]):Pick<TownSketchMoment,'kind'|'area'>{
  if(action.startsWith('aishi-hangout-'))return {kind:action.startsWith('aishi-hangout-read-')?'read':'visit',area:action.startsWith('aishi-hangout-cafe-')?'cafe':'park'};
  if(action.startsWith('town-project-')){
@@ -34,7 +35,7 @@ function presentation(action:string,text:string,people:Friend[]):Pick<TownSketch
 }
 function eventPeople(action:string,text:string):Friend[]{
  const invited=/^aishi-hangout-(?:park|read|cafe)-(mana|luna|lyra)-/.exec(action);if(invited)return ['aishi',invited[1] as SharedMemory['owner']];
- if(action.startsWith('town-project-')){const owner=(['mana',...residentIds] as SharedMemory['owner'][]).find(owner=>action.startsWith(`town-project-${owner}-`));return owner?[owner]:[];}
+ if(action.startsWith('town-project-')){const owner=townCharacterIds.find(owner=>action.startsWith(`town-project-${owner}-`));return owner?[owner]:[];}
  if(action==='aishi-group-read'||action==='aishi-group-sketch')return ['aishi','luna','lyra'];
  if(action==='aishi-read')return ['aishi','lyra'];
  if(action==='aishi-sketch')return ['aishi','luna'];

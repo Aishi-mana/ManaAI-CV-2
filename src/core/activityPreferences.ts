@@ -1,9 +1,10 @@
+import {townCharacterIds} from './townCharacters';
 import {isRecord} from './validation';
 import {residentProfiles,type ResidentActivity,type ResidentId} from './residentProfiles';
 import type {TownCharacter} from './residentRelationships';
 import type {Memory} from './character';
 
-export const preferenceOwners:TownCharacter[]=['mana',...Object.keys(residentProfiles) as ResidentId[]];
+export const preferenceOwners:TownCharacter[]=[...townCharacterIds];
 const manaOptions=[{id:'think',label:'Tinkering and ideas'},{id:'play',label:'Games'},{id:'read',label:'Reading'},{id:'window',label:'Quiet window breaks'},{id:'remember',label:'Revisiting memories'}];
 export function preferenceOptions(owner:TownCharacter){
  return owner==='mana'?manaOptions:residentProfiles[owner].activities.map(activity=>({id:activity.pose,label:({sketch:'Sketching',write:'Writing stories',window:'Window breaks',read:'Reading',bottle:'Sorting bottles',think:'Quiet reflection'} as Record<string,string>)[activity.pose]??activity.pose}));

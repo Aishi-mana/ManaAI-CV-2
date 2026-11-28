@@ -5,7 +5,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 const ts = require("typescript");
 
-/** Manaverse PNGs are deliberately local until WebP conversion.
+/** Check bundled artwork, including WebP and compatible legacy paths.
  * Validate present assets; CI must not fail solely because artwork is untracked.
  * Run MANA_REQUIRE_LOCAL_ART=1 npm test on the laptop to require every file.
  */
@@ -19,6 +19,21 @@ function verifyOptionalLocalArt(relativePath) {
   const stats=fs.statSync(file);
   assert.ok(stats.isFile()&&stats.size>0,'Local artwork is empty or unreadable: '+relativePath);
 }
+
+test('the town cast contract covers identities, contacts, memories, birthdays, projects and connected homes',()=>{
+ const load=loader(),cast=load('src/core/townCharacters.ts'),profiles=load('src/core/residentProfiles.ts'),phone=load('src/core/aishiPhone.ts'),goals=load('src/core/townPersonalGoals.ts'),calendar=load('src/core/townEvents.ts'),relationships=load('src/core/residentRelationships.ts'),room=load('src/core/companionRoom.ts'),routes=load('src/core/aishiHangouts.ts'),doors=load('src/core/manaversePassage.ts');
+ assert.equal(cast.townCharacterIds.join(','),'mana,luna,lyra');assert.equal(cast.townActorIds.join(','),'mana,luna,lyra,aishi,pet-bot');assert.equal(phone.aishiContacts.join(','),cast.townCharacterIds.join(','));
+ assert.equal(Object.keys(goals.townGoalChoices).sort().join(','),[...cast.townCharacterIds].sort().join(','),'every AI resident needs supported project choices');
+ for(const id of cast.townActorIds){const actor=cast.townActors[id];assert.ok(actor.name);verifyOptionalLocalArt(actor.portrait);verifyOptionalLocalArt(actor.mapImage);}
+ for(const owner of cast.townCharacterIds){
+  assert.ok(cast.isTownCharacter(owner));assert.equal(cast.townActors[owner].control,'scheduled-ai');
+  const birthday={id:`birthday-${owner}`,birthdayFor:owner,title:calendar.birthdayTitle(owner),date:'2000-11-29',start:'12:00',end:'13:00'};assert.ok(calendar.validTownEvent(birthday));assert.equal(calendar.birthdayOwner(birthday),owner);
+  const memory={id:`contract-${owner}`,owner,with:'aishi',at:'2026-11-29T08:00:00.000Z',activity:'Reading',fact:'A real completed shared session.'};assert.equal(relationships.validateSharedMemories([memory]).length,1);
+  for(const destination of ['park','cafe']){let area=cast.townActors[owner].home,hops=0;while(area!==destination&&hops++<24){const next=routes.hangoutNextDoor(area,destination);assert.ok(doors.manaversePassage(area,next),`${owner}: shared passage ${area} → ${next}`);area=next;}assert.equal(area,destination);}
+ }
+ for(const id of profiles.residentIds){const profile=profiles.residentProfiles[id];assert.ok(profile.voice&&profile.activities.length);assert.equal(cast.townActors[id].memory,'resident-core');const restored=room.validateRoom({[profile.memory.coreKey]:['Aishi likes tea.']});assert.equal(restored[profile.memory.coreKey][0],'Aishi likes tea.');for(const art of [profile.avatar,profile.blink,profile.step,profile.drag,`./companion-room/${id}-${profile.sleep.activity.pose}.webp`])verifyOptionalLocalArt(art);if(profile.upstairs)assert.ok(doors.manaversePassage(profile.home,profile.upstairs));}
+ assert.equal(cast.townActors.mana.memory,'app');assert.equal(cast.townActors.aishi.control,'player');assert.equal(cast.townActors.aishi.home,undefined);assert.equal(cast.townActors['pet-bot'].control,'home-and-approved-follow');assert.equal(cast.townActors['pet-bot'].memory,'pet-core');assert.equal(cast.isTownCharacter('aishi'),false);assert.equal(cast.isTownCharacter('pet-bot'),false);assert.equal(cast.isTownCharacter('unknown'),false);
+});
 
 test('Second Street links the square and all three door approaches on walkable ground',()=>{
  const {districtBuildings,districtEntry,districtPoint,isDistrictFloor,isSquareFloor,squareDistrictExit,streetPositionAt,streetTravelMs}=loader()('src/core/manaverseStreet.ts');

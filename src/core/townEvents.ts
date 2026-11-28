@@ -1,5 +1,6 @@
+import {townCharacterIds,townCharacterName,isTownCharacter} from './townCharacters';
 import {journalClock} from './clock';
-import {residentIds,residentProfiles} from './residentProfiles';
+
 import type {TownCharacter} from './residentRelationships';
 
 const schedule=[
@@ -14,14 +15,14 @@ export type TownEventDraft={title:string;date:string;start:string;end:string;bir
 export type CustomTownEvent=TownEventDraft&{id:string};
 const timePattern=/^(?:[01]\d|2[0-3]):[0-5]\d$/;
 export function birthdayOwner(event:{id:string}):TownCharacter|undefined{
- return (['mana',...residentIds] as TownCharacter[]).find(owner=>event.id===`birthday-${owner}`);
+ return townCharacterIds.find(owner=>event.id===`birthday-${owner}`);
 }
-export function birthdayTitle(owner:TownCharacter){return `${owner==='mana'?'Mana':residentProfiles[owner].name}’s birthday`;}
+export function birthdayTitle(owner:TownCharacter){return `${townCharacterName(owner)}’s birthday`;}
 
 export function validTownEvent(event:TownEventDraft){
  const date=new Date(event.date+'T12:00:00Z');
  if(event.birthdayFor){
-  if(!(['mana',...residentIds] as string[]).includes(event.birthdayFor)||event.start<'08:00'||event.end>'21:00')return false;
+  if(!isTownCharacter(event.birthdayFor)||event.start<'08:00'||event.end>'21:00')return false;
   const minutes=(time:string)=>Number(time.slice(0,2))*60+Number(time.slice(3));
   if(minutes(event.end)-minutes(event.start)>60)return false;
  }

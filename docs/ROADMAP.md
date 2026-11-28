@@ -84,7 +84,7 @@ requests may still need less selected evidence or shorter user input.
 - [ ] Broader vision, wardrobe fit and visual consistency, memory retrieval, and game and coding capabilities, including the first successful autonomous game build.
 - [ ] Portability for additional local runtimes and their dependencies.
 
-Hands-free testing is closed at the user's request. V2 Companion Room and V3 Manaverse are later milestones.
+Hands-free testing is closed at the user's request. V2 Companion Room and the bounded current-cast V3 Manaverse are implemented; see MANAVERSE_TOWN.md for current scope and remaining expansion work.
 
 ## V1 — Foundation
 
@@ -368,7 +368,7 @@ The room is available from More → Companion Room. It uses legacy room art and 
 - [x] Home Stories groups recorded room activities and game releases by day in Mana’s phone.
 - [x] Miniature Mana avatar
 - [x] Click and keyboard walking around room furniture
-- [x] Mana walks for 20 seconds, then either heads straight to a furniture activity (25%) or idles for 15 seconds before walking again (75%). Activities run for two minutes and trigger a saved five-minute cooldown for automatic choices. Furniture can still be selected manually during cooldown.
+- [x] Home free-time activity cycles follow the current town stay, preferences, energy and cooldowns. Scheduled departures, visits, sleep and shelter take priority; earlier standalone roaming probabilities are historical behavior.
 - [x] Click miniature Mana for a reaction or drag her around the floor. Dragging pauses and resumes her current action.
 - [x] First interactive room activities with legacy sprites. Water the plant, read at the bookshelf, play at the table, and nap in the chair.
 - [x] Restore legacy desk thinking, window watching, and remembering at the photo board.
@@ -399,6 +399,8 @@ The room is available from More → Companion Room. It uses legacy room art and 
 
 ## V3 — Manaverse
 
+Consolidated 2026-11-29 against the current implementation. Checked items describe the supported current cast, not a fully emergent society or closed-app simulation. See [character requirements and current gaps](MANAVERSE_TOWN.md#shared-character-foundation).
+
 - [x] A southeast bedroom exit and a living space door connect the rooms. Mana roams and can use the living room plant, bookshelf, and beanbag. Each area saves her position separately.
 - [x] Mana can choose to change rooms. The camera can browse independently or follow her, and resumes following after 30 seconds of inactivity.
 - [x] Invite Luna to the living space. She uses her own locally generated sprite, roams independently, and returns to the door when the visit ends.
@@ -421,30 +423,34 @@ The room is available from More → Companion Room. It uses legacy room art and 
 - [x] Plans can schedule, reschedule, or cancel home and library visits. If the time passes while either character is unavailable, the visit waits until both are free.
 - [x] Planned park meetups use activity poses and dialogue for sketching with Luna, reading with Lyra, or stargazing after dark before bedtime. Completed activities appear in Home Stories.
 - [x] Plan the first town expansion and show its landmarks on the phone map. See [Manaverse town layout](MANAVERSE_TOWN.md).
-- [ ] Build the route from Manaverse Street through Town Square to a second street, then open the AI Workforce Office, Coffee Shop, and Workshop along it.
+- [x] Build the route from Manaverse Street through Town Square to a second street, then open the AI Workforce Office, Coffee Shop, and Workshop along it.
 - [ ] Open the Community Garden from the park.
-- [ ] Illustrate the neighborhood map once these routes and entrances are in place.
+- [x] Illustrate the neighborhood map once these routes and entrances are in place.
 - [x] Luna sketches and Lyra reads by the pond. Characters can stop for chance chats, and Mana can arrange a bench meetup through her phone.
-- [ ] Add AI visitors to the living space, with their own identities, memories, and relationships as outlined in the legacy Manaverse roadmap.
-- [ ] Multiple AI characters
-- [ ] Independent character identities
-- [ ] Independent personalities
-- [ ] Independent memories
-- [ ] Independent avatars
+- [x] Add AI visitors to the living space, with their own identities, memories, and relationships as outlined in the legacy Manaverse roadmap.
+- [x] Multiple AI characters
+- [x] Independent character identities
+- [x] Independent personalities
+- [x] Independent memories
+- [x] Independent avatars
 - [x] Luna’s first persistent goal is to finish a pond sketch with Mana. She sends an invitation, records the outcome in Plans, and follows up on a later day if the meetup is deferred.
 - [x] Lyra drafts the story behind the framed note, invites Mana to the library, and keeps her draft if the visit is deferred. The finished story appears in Home Stories.
 - [x] Mana chooses a recent Home Stories moment and pursues a persistent goal to pin it to her photo board. Plans shows her progress.
 - [x] Mana can save one shared keepsake alongside her solo keepsake. She asks Luna or Lyra about a recorded park meetup or visit, then uses their reply in the caption.
-- [ ] Character activities
-- [ ] Relationships
-- [ ] AI-to-AI communication
-- [ ] Friendships
-- [ ] Persistent world state
-- [ ] Autonomous world events
-- [ ] Multiple locations
-- [ ] Social interactions
-- [ ] Shared activities
+- [x] Character activities
+- [x] Relationships
+- [x] AI-to-AI communication
+- [x] Friendships
+- [x] Persistent world state
+- [x] Calendar-driven gatherings, birthdays, annual/custom events and seasonal weather.
+- [ ] Resident-organized new event proposals and confirmed calendar plans.
+- [x] Multiple locations
+- [x] Social interactions
+- [x] Shared activities
 - [ ] Emergent AI society/world
+- [ ] Actual reviewable outputs from the supported little projects, beyond session records and symbolic keepsakes.
+- [ ] Broader supported personal planning and deeper experience-driven relationships.
+- [ ] Bounded, explicitly recorded offline progression; no invented closed-app conversations.
 
 ---
 

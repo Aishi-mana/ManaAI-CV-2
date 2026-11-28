@@ -1,10 +1,11 @@
+import {trackedTownIds,townActors} from './townCharacters';
 import {residentIds,residentProfiles} from './residentProfiles';
 import type {SharedMemory,TownCharacter} from './residentRelationships';
 
 export type Friend=TownCharacter|'aishi';
 export type FriendshipPair={first:TownCharacter;second:TownCharacter};
-const people:Friend[]=['mana',...residentIds,'aishi'];
-export const friendName=(person:Friend)=>person==='mana'?'Mana':person==='aishi'?'Aishi':residentProfiles[person].name;
+const people:readonly Friend[]=trackedTownIds;
+export const friendName=(person:Friend)=>townActors[person].name;
 export function sharedFriendMoments(memories:readonly SharedMemory[],first:Friend,second:Friend,now=Date.now()){
  const events=new Map<string,{id:string;at:number;activity:string}>();
  if(first===second)return [];

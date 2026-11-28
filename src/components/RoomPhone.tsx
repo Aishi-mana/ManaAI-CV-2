@@ -1,3 +1,4 @@
+import {townActors,townActorIds} from '../core/townCharacters';
 import {townPortraits} from '../core/townPortraits';
 import KeepsakeAlbum from './KeepsakeAlbum';
 import {keepDialogFocus} from '../core/dialogFocus';
@@ -17,7 +18,6 @@ import type {TownPersonalGoal,TownGoalId} from '../core/townPersonalGoals';
 import type {PetBotFriends} from '../core/petBot';
 import type {SharedMemory,TownCharacter} from '../core/residentRelationships';
 import type {Memory} from '../core/character';
-import {ROOM_ART} from '../core/companionRoom';
 import {homeStoryDays,type RecordedEvent} from '../core/events';
 import {type PondSketchGoal} from '../core/pondSketch';
 import type {LibraryStory} from '../core/libraryStory';
@@ -42,11 +42,7 @@ const phoneApps=[
 ] as const;
 
 type PhoneApp=typeof phoneApps[number];
-const memoryCharacters=[
- {id:'mana',name:'Mana',avatar:'./companion-room/mana_idle_1.webp'},
- ...(Object.keys(ROOM_CONTACTS) as RoomContact[]).map(id=>({id,...ROOM_CONTACTS[id],avatar:townPortraits[id].path})),
- {id:'pet-bot',name:'Pet Bot',avatar:ROOM_ART+'pet_bot.webp'},
-] satisfies {id:TownCharacter|'pet-bot';name:string;avatar:string}[];
+const memoryCharacters=townActorIds.filter(id=>id!=='aishi').map(id=>({id,name:townActors[id].name,avatar:townActors[id].portrait}));
 
 function PhoneAppIcon({app,unread}:{app:PhoneApp;unread:boolean}){
  return <span className="room-phone-app-icon" data-app={app.id} data-unread={app.id==='messages'&&unread} aria-hidden="true">
@@ -291,7 +287,7 @@ export default function RoomPhone({activityKeepsakes=[],birthdayVisits=[],onStar
       const preview=[...messages].reverse().find(message=>message.contact===id);
       const newMessage=unreadContacts.includes(id);
       return <button key={id} className="room-phone-row" onClick={()=>{setContact(id);setScreen('thread');}}>
-       <img src={townPortraits[id].path} alt=""/>
+       <img src={townActors[id].portrait} alt=""/>
        <span><strong>{person.name}</strong><small>{screen==='contacts'?person.description:preview?(preview.text??'Waiting for AI message…'):'No messages yet'}</small></span>
        {screen==='messages'&&newMessage&&<span className="room-phone-new" aria-label="Unread"/>}
       </button>;

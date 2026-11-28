@@ -1,15 +1,15 @@
-import {townPortraits} from '../core/townPortraits';
-import {residentIds,residentProfiles} from '../core/residentProfiles';
+import {townActors,townCharacterIds,townCharacterName} from '../core/townCharacters';
+
 import {townGoalChoices,townGoalChoice,townProjectStages,townProjectNextStep,canChooseTownGoal,type TownPersonalGoal,type TownGoalId} from '../core/townPersonalGoals';
 import type {TownCharacter} from '../core/residentRelationships';
 
 export default function TownProjects({goals,owner,timeZone,onOpenOwner,onStart}:{goals:TownPersonalGoal[];owner?:TownCharacter;timeZone:string;onOpenOwner:(owner:TownCharacter)=>void;onStart?:(owner:TownCharacter,choice:TownGoalId)=>boolean}){
- const owners:TownCharacter[]=['mana',...residentIds],name=(id:TownCharacter)=>id==='mana'?'Mana':residentProfiles[id].name;
+ const owners:TownCharacter[]=[...townCharacterIds],name=(id:TownCharacter)=>townCharacterName(id);
  if(!owner)return <div className="room-phone-list town-projects"><p>Little projects, one real work session at a time.</p><div className="town-project-grid">
   {owners.map(id=>{
    const project=goals.find(goal=>goal.owner===id&&!goal.completedAt),latest=goals.filter(goal=>goal.owner===id).slice(-1)[0];
    return <button className="town-project-person" type="button" key={id} onClick={()=>onOpenOwner(id)}>
-    <img src={id==='mana'?'./companion-room/mana_idle_1.webp':townPortraits[id].path} alt=""/>
+    <img src={townActors[id].portrait} alt=""/>
     <strong>{name(id)}</strong><span>{project?townGoalChoice(project).title:latest?'Taking a little break':'Choose a project'}</span>
     {project&&<progress value={project.evidence.length} max={townGoalChoice(project).target} aria-label={`${name(id)}’s project progress`}/>}
    </button>;

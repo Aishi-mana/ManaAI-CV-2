@@ -1,3 +1,4 @@
+import {townCharacterIds} from '../core/townCharacters';
 import {uid} from '../core/types';
 import {useEffect,useRef,useState,type RefObject} from 'react';
 import {roomSleepNight} from '../core/companionRoom';
@@ -18,7 +19,7 @@ function actor(root:HTMLElement|null,owner:TownCharacter){return root?.querySele
 export function nearbyHangoutCharacters(root:HTMLElement|null):TownCharacter[]{
  const player=root?.querySelector<HTMLElement>('.companion-room-body:not([hidden]) .manaverse-player');if(!player)return [];
  const p=player.getBoundingClientRect();if(!p.width||!p.height)return [];
- return (['mana','luna','lyra'] as TownCharacter[]).filter(owner=>{
+ return townCharacterIds.filter(owner=>{
   const npc=actor(root,owner);if(!npc||npc.dataset.asleep==='true'||npc.querySelector('button')?.getAttribute('data-held')==='true')return false;
   const n=npc.getBoundingClientRect();return !!n.width&&!!n.height&&Math.hypot(n.left+n.width/2-p.left-p.width/2,n.bottom-p.bottom)<=Math.max(p.height,n.height)*1.6;
  });

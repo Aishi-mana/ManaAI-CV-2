@@ -1,5 +1,5 @@
 import {isRecord} from './validation';
-import {residentIds} from './residentProfiles';
+import {townCharacterIds,townCharacterName,trackedTownIds} from './townCharacters';
 import type {SharedMemory,TownCharacter} from './residentRelationships';
 import {townGoalChoice,type TownPersonalGoal} from './townPersonalGoals';
 import {birthdayOwner} from './townEvents';
@@ -11,20 +11,20 @@ export const activityKeepsakeNames={sketch:'Pond sketch',bookmark:'Reading bookm
 
 export function homeDisplayKeepsakes(history:ActivityKeepsake[],goals:TownPersonalGoal[],now=Date.now(),birthdays:TownGuestbookVisit[]=[],timeZone='Asia/Singapore'):ActivityKeepsake[]{
  const clock=journalClock(new Date(now),timeZone);
- return (['mana',...residentIds] as TownCharacter[]).flatMap(owner=>{
+ return townCharacterIds.flatMap(owner=>{
   const goal=goals.filter(goal=>goal.owner===owner&&goal.completedAt&&Date.parse(goal.completedAt)<=now&&goal.evidence.length===townGoalChoice(goal).target)
    .sort((a,b)=>Date.parse(b.completedAt!)-Date.parse(a.completedAt!))[0];
   const baseAt=goal?.completedAt??history.find(keepsake=>keepsake.owner===owner)?.at;
   const base=baseAt?journalClock(new Date(baseAt),timeZone):undefined;
-  const ownerName=owner==='mana'?'Mana':owner==='luna'?'Luna':'Lyra';
+  const ownerName=townCharacterName(owner);
   const birthday=birthdays.filter(visit=>birthdayOwner(visit)===owner&&
-   (visit.celebratedWith?visit.celebratedWith.includes(ownerName)&&visit.celebratedWith.length>1:visit.wishedBy?.some(guest=>guest!==ownerName))&&
+   (visit.celebratedWith?visit.celebratedWith.some(name=>name===ownerName)&&visit.celebratedWith.length>1:visit.wishedBy?.some(guest=>guest!==ownerName))&&
    (visit.date<clock.date||visit.date===clock.date&&visit.end<=clock.time)&&
    (!base||visit.date>base.date||visit.date===base.date&&visit.end>=base.time)).sort((a,b)=>b.date.localeCompare(a.date))[0];
   if(birthday){
-   const name=owner==='mana'?'Mana':owner==='luna'?'Luna':'Lyra';
+   const name=townCharacterName(owner);
    const company=birthday.celebratedWith??(birthday.wishedBy?.some(guest=>guest!==name)?[name,...birthday.wishedBy]:[]);
-   const people=(['mana',...residentIds] as TownCharacter[]).filter(person=>company.includes(person==='mana'?'Mana':person==='luna'?'Luna':'Lyra'));
+   const people=townCharacterIds.filter(person=>company.includes(townCharacterName(person)));
    if(people.includes(owner)&&people.length>1)return [{id:`birthday-display-${birthday.id}-${birthday.date}`,kind:'birthday-card',owner,participants:people,at:`${birthday.date}T12:00:00Z`,moment:'A birthday card remembering the friends who celebrated together in Town Square.',birthday:{date:birthday.date,title:`${name}’s birthday card`}}];
   }
   if(!goal){const existing=history.find(keepsake=>keepsake.owner===owner);return existing?[existing]:[];}
@@ -43,7 +43,7 @@ export function projectKeepsakeReflection(keepsake:ActivityKeepsake){
 
 export function validateActivityKeepsakes(value:unknown):ActivityKeepsake[]{
  if(!Array.isArray(value))return [];
- const people:string[]=['mana',...residentIds,'aishi'];
+ const people:readonly string[]=trackedTownIds;
  const valid:ActivityKeepsake[]=[];
  for(const item of value.slice(-32)){
   if(!isRecord(item)||typeof item.id!=='string'||!item.id||typeof item.at!=='string'||!Number.isFinite(Date.parse(item.at))||

@@ -1,5 +1,43 @@
 # Manaverse town layout
 
+Current-cast foundation reviewed 2026-11-29. The design remains a hybrid: existing schedules and routes control movement, the shared local model supplies dialogue and supported choices, and recorded completions supply history. Saved state is not a closed-app simulation.
+
+## Shared character foundation
+
+`src/core/townCharacters.ts` owns cast identity, names, display/map artwork, home references, control roles and memory scopes. Resident-specific voices, poses, activities, sleep placement and outings remain in `residentProfiles.ts`; existing controllers remain authoritative. Contacts, shared-memory validation, map tracking, core-memory grids, preferences, birthdays, daily intentions, project-owner selection and keepsake-owner lists derive their cast from this foundation.
+
+| Actor | Control and movement | Memory and communication |
+| --- | --- | --- |
+| Mana | Scheduled AI companion; existing home, town and work controllers | Shared app memory, town memories, own phone and Aishi contact |
+| Luna and Lyra | Scheduled AI residents; individual activities, sleep and doorway travel | Separate resident core facts and shared-event memories; phone/scene AI |
+| Aishi | User-controlled player; normal shared doors and hangout routing | Separate saved phone and dated threads; no autonomous NPC routine or invented AI identity |
+| Pet Bot | Independent home roaming; approved following; nightly return and charging | Pet-specific core facts/chat; no ordinary resident phone, birthday or project registration |
+
+### Requirements for a complete AI resident
+
+1. Register an identity, voice, home, display portrait and world animation assets. Diary portraits and in-world sprites are separate; Mana continues using her equipped avatar for diary identity.
+2. Connect the home and all intended destinations through the existing shared passage/navigation system. Use its arrival, depth and movement-speed rules; no separate teleport or spawn path.
+3. Provide routines, supported activities, idle/walk/held/sleep behavior and interruptions for weather, appointments, bedtime and wind-down. Complete controller-specific integration before exposing a new resident in live scenes.
+4. Keep core facts, shared events and phone text distinct. Persist/read/forget through the existing validators; an invitation, inferred preference, AI line or loaded save never proves an activity happened.
+5. Support the character's actual phone role, contact-specific context, read markers, cooldowns, late-reply cancellation and private audience rules. Aishi's interface does not expose Mana's inbox.
+6. Register supported project choices and their real completion events, birthdays, relevant keepsakes and map status. Session-count projects remain session records until a later feature supplies real artifacts.
+7. Pass the cast contract and applicable travel, activity, sleep, interruption, phone, memory and restore regressions. Adding a profile alone is not a complete character implementation.
+
+### Current audit and boundaries
+
+The existing three AI characters have connected homes and park/café routes, individual memory stores and supported projects. Their identities now share one cast source across the common surfaces above. Aishi and Pet Bot retain their deliberate role exceptions. Automated contract checks cover identities, contact/goal coverage, memory validation, birthdays, home connectivity, stairs and local artwork; the broader suite covers movement, interruptions, phones and activity completion.
+
+Special home/outing controllers, group activities, project/action identifiers and some scene orchestration still contain character-specific adapters. These require an explicit onboarding review and behavioral tests when adding a resident; this refactor does not claim arbitrary actors are plug-and-play. The Community Garden, actual little-project creations, broader personal agency/relationships, resident-organized events and bounded offline progression remain the next gaps.
+
+### Live acceptance checklist
+
+- Check each current map's default scale, pan/zoom, markers, door highlights and entry/exit positions.
+- Invite remotely from another map; observe both independent routes and shared arrival before completion. Cancel or interrupt a second invitation and verify no completed moment is created.
+- Cross bedtime and shelter transitions: residents finish appropriate travel, use their home/sleep routes, and Pet Bot returns to charge. Morning resumes normal schedules.
+- Switch watching/Dive in with each phone open; verify inbox ownership, persisted read markers, late replies, dated reply anchors and personal-fact forgetting.
+- Reopen during a pending or accepted plan; history must not restart a meeting. Restore a backup and verify actor-specific memories and artwork references.
+- Check model-busy and long-session behavior separately. Automated results are not a claim that every live scene or all-day transition is issue-free.
+
 ```mermaid
 flowchart LR
     Home["Mana’s home"] --- Street["Manaverse Street"]
@@ -25,7 +63,7 @@ Give the AI Workforce Office, Coffee Shop, and Workshop their own entrances on t
 
 The legacy roadmap also lists visitor houses. Keep room for them in a later residential expansion as more residents arrive. Lyra’s library keeps the founding note from Aishi’s Future Vision.
 
-Town Square connects Manaverse Street to Second Street. Mana, Luna, and Lyra can walk the square and stop to chat. On Second Street, Mana can walk to each of the three doors and enter. The interiors use existing room pieces while their activities are in development. All four new locations are camera destinations in the phone map.
+Town Square connects Manaverse Street to Second Street. Mana, Luna, and Lyra can walk the square and stop to chat. On Second Street, Mana can walk to each of the three doors and enter. The interiors and activities are implemented for the current cast; shared doorway points remain authoritative. All four new locations are camera destinations in the phone map.
 
 Town Hall uses the blue door on the right side of Town Square. It is also a camera destination in the phone map. Its notice board shows active park meetups and upcoming home or hosted visits from Mana’s plans.
 
@@ -248,7 +286,7 @@ The event-history drawer loads 100 entries at a time, the Keepsake Album and Ske
 
 Luna, Lyra and Aishi have separate 1024×1536 full-body cel-shaded anime reference portraits under `public/companion-room/portraits/`, saved as lossless WebP with generated alpha preserved. They retain their established hair, eyes, outfits and accessories with adult proportions. `townPortraits.ts` is the canonical reference catalogue; phone contact, memory, project and keepsake character grids use the new guest portraits. In-world movement sprites and map markers remain separate.
 
-Mana has no replacement portrait. Diary references still prepare her current full-body avatar and equipped outfit through the existing `prepareAvatarReference` path. Solo Mana references return that prepared image unchanged; group composites add only the named guests' full portraits, without the old chibi crop rectangles or sprite-sheet frames. Diary prompts request cel shading and normal adult proportions. Existing diary illustrations are not regenerated automatically. The unused generated Mana image was removed from bundled assets per the user's correction.
+Mana has no replacement portrait. Diary references still prepare her current full-body avatar and equipped outfit through the existing `prepareAvatarReference` path. Solo Mana references return that prepared image unchanged; group composites add only the named guests' full portraits, without the old chibi crop rectangles or sprite-sheet frames. Diary prompts request cel shading while preserving each reference's own proportions. Mana retains her current avatar's compact proportions; the guests retain their full-body reference proportions. Existing diary illustrations are not regenerated automatically. The unused generated Mana image was removed from bundled assets per the user's correction.
 
 ### Calendar management
 

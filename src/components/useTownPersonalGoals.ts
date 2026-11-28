@@ -1,3 +1,4 @@
+import {townCharacterIds} from '../core/townCharacters';
 import {useRef,useState,type RefObject} from 'react';
 import {saveRoom,roomSleepNight,type RoomState} from '../core/companionRoom';
 import {canChooseTownGoal,progressTownGoals,townGoalChoice,validateTownPersonalGoals,startTownProject,townProjectMilestone,type TownPersonalGoal,type TownGoalId} from '../core/townPersonalGoals';
@@ -13,7 +14,7 @@ export function useTownPersonalGoals(room:RefObject<RoomState>,enabled:boolean,r
  useSceneTask(enabled,ready,60_000,lease,async signal=>{
   const zone=options.timeZone??'Asia/Singapore';
   if(roomSleepNight(new Date(),zone)||eveningWindDown(new Date(),zone))return;
-  const owner=(['luna','lyra','mana'] as const).find(owner=>canChooseTownGoal(room.current.personalGoals??[],owner)&&Date.now()-(attempts.current[owner]??0)>30*60_000);
+  const owner=[...townCharacterIds.filter(id=>id!=='mana'),'mana' as const].find(owner=>canChooseTownGoal(room.current.personalGoals??[],owner)&&Date.now()-(attempts.current[owner]??0)>30*60_000);
   if(!owner)return;
   attempts.current[owner]=Date.now();
   const goal=await choose(owner,room.current.sharedMemories??[],signal);

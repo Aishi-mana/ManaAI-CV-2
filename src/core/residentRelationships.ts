@@ -1,13 +1,14 @@
 import {isRecord} from './validation';
-import {residentIds,residentProfiles,type ResidentId} from './residentProfiles';
+import {residentProfiles} from './residentProfiles';
+import {townCharacterIds,type TownCharacter} from './townCharacters';
 
-export type TownCharacter='mana'|ResidentId;
+export type {TownCharacter} from './townCharacters';
 export interface SharedMemory {
  id:string;owner:TownCharacter;with:TownCharacter|'aishi';at:string;activity:string;fact:string;lastRecallOfferedAt?:string;
 }
 export function validateSharedMemories(value:unknown):SharedMemory[]{
  if(!Array.isArray(value))return [];
- const characters:string[]=['mana',...residentIds];
+ const characters:readonly string[]=townCharacterIds;
  const seen=new Set<string>();
  return value.flatMap((item):SharedMemory[]=>{
   if(!isRecord(item)||typeof item.id!=='string'||!item.id||seen.has(item.id)||

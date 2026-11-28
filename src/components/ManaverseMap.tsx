@@ -1,7 +1,8 @@
+import {townActors,trackedTownIds,type TownCharacter} from '../core/townCharacters';
 import {useId,useRef,useState,type CSSProperties} from 'react';
 import SceneViewport,{ScenePanContext,SceneZoomControls} from './SceneViewport';
 import {districtBuildings,officeRooms,townHall} from '../core/manaverseStreet';
-import {ROOM_CONTACTS} from '../core/roomPhone';
+
 
 export const manaversePlaces={
  bedroom:'Mana’s Companion Room',
@@ -25,12 +26,7 @@ export const manaversePlaces={
 };
 
 export type ManaverseArea=keyof typeof manaversePlaces;
-const characterPortraits={
- mana:{name:'Mana',image:'./companion-room/mana_idle_1.webp'},
- luna:{name:'Luna',image:ROOM_CONTACTS.luna.avatar},
- lyra:{name:'Lyra',image:ROOM_CONTACTS.lyra.avatar},
- aishi:{name:'Aishi',image:'./companion-room/aishi-sprites.webp'},
-};
+const characterPortraits=Object.fromEntries(trackedTownIds.map(id=>[id,{name:townActors[id].name,image:townActors[id].mapImage}])) as Record<TownCharacter|'aishi',{name:string;image:string}>;
 type MapCharacter={location:ManaverseArea;activity?:string;next?:{place:ManaverseArea;start?:string}};
 type CharacterId=keyof typeof characterPortraits;
 export type MapCharacters=Partial<Record<CharacterId,MapCharacter>>;
