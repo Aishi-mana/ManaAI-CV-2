@@ -1,3 +1,5 @@
+import CharacterGatheringList from './CharacterGatheringList';
+import type {CharacterGathering} from '../core/characterGatherings';
 import {townActors,townActorIds} from '../core/townCharacters';
 import {townPortraits} from '../core/townPortraits';
 import KeepsakeAlbum from './KeepsakeAlbum';
@@ -50,12 +52,13 @@ function PhoneAppIcon({app,unread}:{app:PhoneApp;unread:boolean}){
  </span>;
 }
 
-export default function RoomPhone({activityKeepsakes=[],birthdayVisits=[],onStartTownProject,preferenceSummaries=[],backgroundActive,visible,sleeping,messages,onSend,readMessages,onReadMessages,timeZone,events,projects,meetup,meetupPlace,area,characters,onChooseArea,onMapOpenChange,diving,pondSketch,libraryStory,manaKeepsake,sharedKeepsake,coreMemories,onForgetMemory,sharedMemories,onForgetSharedMemory,petBotMemories,onForgetPetMemory,manaMemories,onForgetManaMemory,petBotFriends,onForgetPetFriend,personalGoals,today}:{
+export default function RoomPhone({characterGatherings=[],activityKeepsakes=[],birthdayVisits=[],onStartTownProject,preferenceSummaries=[],backgroundActive,visible,sleeping,messages,onSend,readMessages,onReadMessages,timeZone,events,projects,meetup,meetupPlace,area,characters,onChooseArea,onMapOpenChange,diving,pondSketch,libraryStory,manaKeepsake,sharedKeepsake,coreMemories,onForgetMemory,sharedMemories,onForgetSharedMemory,petBotMemories,onForgetPetMemory,manaMemories,onForgetManaMemory,petBotFriends,onForgetPetFriend,personalGoals,today}:{
  backgroundActive?:boolean;activityKeepsakes?:ActivityKeepsake[];birthdayVisits?:TownGuestbookVisit[];
  onStartTownProject?:(owner:TownCharacter,choice:TownGoalId)=>boolean;
  preferenceSummaries?:{owner:TownCharacter;likes:string[];reason?:string;forNow?:string;choiceReason?:string}[];
  readMessages:PhoneReadState;onReadMessages:(read:PhoneReadState)=>void;
  today:TownTodayState;
+ characterGatherings?:readonly CharacterGathering[];
  personalGoals:TownPersonalGoal[];
  petBotFriends:PetBotFriends;
  onForgetPetFriend:(contact:RoomContact)=>void;
@@ -228,6 +231,7 @@ export default function RoomPhone({activityKeepsakes=[],birthdayVisits=[],onStar
      onView={destination=>{onChooseArea(destination);close();}}/>}
     {screen==='plans'&&<div className="room-phone-list room-phone-plans">
      <TownDailyIntentions goals={personalGoals} timeZone={timeZone} now={now}/>
+     <CharacterGatheringList plans={characterGatherings} timeZone={timeZone}/>
      <FriendshipHabits memories={sharedMemories} timeZone={timeZone}/>
      <TownPersonalGoals goals={personalGoals}/>
      {!!preferenceSummaries.length&&<section aria-label="Free-time preferences"><h3>Free-time preferences</h3>

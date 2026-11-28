@@ -443,7 +443,8 @@ Consolidated 2026-11-29 against the current implementation. Checked items descri
 - [x] Friendships
 - [x] Persistent world state
 - [x] Calendar-driven gatherings, birthdays, annual/custom events and seasonal weather.
-- [ ] Resident-organized new event proposals and confirmed calendar plans.
+- [x] First resident-organized proposals and confirmed one-time calendar plans: AI host plus invited friend, existing park/café routes, decline/miss/interruption handling (2026-11-29).
+- [ ] Larger resident-organized gatherings and additional group venues.
 - [x] Multiple locations
 - [x] Social interactions
 - [x] Shared activities

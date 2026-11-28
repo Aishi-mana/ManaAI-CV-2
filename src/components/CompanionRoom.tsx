@@ -1,3 +1,6 @@
+import {characterGatheringReserved} from '../core/characterGatherings';
+import {townCharacterName} from '../core/townCharacters';
+import {useCharacterGatherings} from './useCharacterGatherings';
 import {useFreeTimeChoices} from './useFreeTimeChoices';
 import {freeTimeLabels,type FreeTimeContext,type FreeTimeChoice} from '../core/freeTimeChoices';
 import type {ProjectCreation} from '../core/projectCreations';
@@ -130,8 +133,9 @@ function activityTarget(activity:Activity,objects:readonly RoomObject[]){
  return roomPosition(placed.mirrored?placed.x+placed.width-(point.x-original.x):point.x+dx,point.y+dy,objects);
 }
 
-export default function CompanionRoom({episodes,memories,visible,timeZone,onActivity:recordActivity,projects,onOpenGameDev,events,onEditingChange,canGenerateFurniture,beforeFurnitureGeneration,petBotReady,onPetBotReply,manaSpeechReady,onManaThought,onManaRoomChat,onResidentRoomChat,onPhoneText,onAishiPhoneReply,onAishiPhoneCheckIn,onRememberManaPhoneFact,onForgetManaMemory,onChooseInvitation,onAskGroupToJoin,onAskAishiHangout,onChoosePersonalGoal,onCreateProject,onChooseFreeTime,onChooseActivityPreference}:{
+export default function CompanionRoom({episodes,memories,visible,timeZone,onActivity:recordActivity,projects,onOpenGameDev,events,onEditingChange,canGenerateFurniture,beforeFurnitureGeneration,petBotReady,onPetBotReply,manaSpeechReady,onManaThought,onManaRoomChat,onResidentRoomChat,onPhoneText,onAishiPhoneReply,onAishiPhoneCheckIn,onRememberManaPhoneFact,onForgetManaMemory,onChooseInvitation,onAskGroupToJoin,onAskAishiHangout,onChoosePersonalGoal,onCreateProject,onChooseFreeTime,onGatheringDecision,onChooseActivityPreference}:{
  onChooseActivityPreference:(owner:SharedMemory['owner'],memories:string[],signal:AbortSignal)=>Promise<ActivityPreference|undefined>;
+ onGatheringDecision:(owner:TownPersonalGoal['owner'],prompt:string,signal:AbortSignal)=>Promise<string>;
  onChooseFreeTime:(owner:TownPersonalGoal['owner'],context:FreeTimeContext,signal:AbortSignal)=>Promise<FreeTimeChoice|undefined>;
  onCreateProject:(goal:TownPersonalGoal,signal:AbortSignal)=>Promise<ProjectCreation|undefined>;
  onChoosePersonalGoal:(owner:MemoryInvitation['owner'],memories:SharedMemory[],signal:AbortSignal)=>Promise<TownPersonalGoal|undefined>;
@@ -556,7 +560,7 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
   return original?{...result,choice:original}:undefined;
  }
  function onActivity(action:string,title:string,outcome:string,participants?:readonly SharedMemory['with'][]){
-  if(participants)rememberTogether(action,title,outcome,participants);
+  if(participants){gatherings.record(action,outcome,participants);rememberTogether(action,title,outcome,participants);}
   const previousKeepsakes=current.current.activityKeepsakes??[];
   const nextKeepsakes=recordActivityKeepsake(previousKeepsakes,`keepsake-${journalClock(new Date(),timeZone).date}-${action}`,action,outcome,participants??['mana']);
   if(nextKeepsakes!==previousKeepsakes){
@@ -967,7 +971,7 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
   const schedule=()=>{
    clearTimeout(timer);
    if(document.visibilityState==='visible')timer=window.setTimeout(()=>{
-    if(!phoneCanSend(new Date(),timeZone,!!current.current.sleep)||eveningWindDown(new Date(),timeZone)){timer=window.setTimeout(schedule,60_000);return;}
+    if(!phoneCanSend(new Date(),timeZone,!!current.current.sleep)||eveningWindDown(new Date(),timeZone)||characterGatheringReserved(current.current.characterGatherings??[])){timer=window.setTimeout(schedule,60_000);return;}
     const messages=current.current.phoneMessages??[];
     const lastHostInvite=[...messages].reverse().find(message=>message.kind==='host-invite'||message.kind==='library-story-invite');
     const inviteToTheirPlace=!lastHostInvite||lastHostInvite.at<=(lastInvitationAt??'');
@@ -1479,7 +1483,7 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
  }
  const aishiPhone=useAishiPhone({room:current,enabled:visible&&!editing&&dive.active,ready:manaSpeechReady&&phoneCanSend(new Date(),timeZone),canReply:()=>phoneCanSend(new Date(),timeZone),reply:onAishiPhoneReply,onFact:rememberPhoneFact,onForgetFact:forgetPhoneFact,
   invite:(contact,kind,signal)=>hangouts.invite(contact,kind,true,signal),startInvite:hangouts.startPhoneHangout,
-  proactive:{enabled:!sleeping&&!sheltering&&!eveningWindDown(new Date(),timeZone)&&!nearbyHangoutOffer&&!aishiHangout&&!aishiJoining&&!hangouts.pending&&!smallFavor.favor&&!townGathering&&!meetup&&!friendMeetup&&!hostVisit&&!hostPlan&&!invitation&&!visitorPreparing&&!awayVisitor&&!aishiInvitation&&!manaSpeechRoom,lease:invitationRequest,free:freeForAishiCheckIn,write:onAishiPhoneCheckIn},
+  proactive:{enabled:!characterGatheringReserved(current.current.characterGatherings??[])&&!sleeping&&!sheltering&&!eveningWindDown(new Date(),timeZone)&&!nearbyHangoutOffer&&!aishiHangout&&!aishiJoining&&!hangouts.pending&&!smallFavor.favor&&!townGathering&&!meetup&&!friendMeetup&&!hostVisit&&!hostPlan&&!invitation&&!visitorPreparing&&!awayVisitor&&!aishiInvitation&&!manaSpeechRoom,lease:invitationRequest,free:freeForAishiCheckIn,write:onAishiPhoneCheckIn},
   context:contact=>`Town time: ${calendar.clock.date} ${calendar.clock.time}. Your current location: ${contact==='mana'?manaArea:residentMapArea(contact,contact==='luna'?lunaOuting:lyraOuting)}. Current activity: ${contact==='mana'?manaActivity:residentMapActivity(contact,contact==='luna'?lunaOuting:lyraOuting).activity}. Aishi is texting remotely; no physical meeting is implied.`
  });
  const phoneFacts=(aishiPhone.state.facts??[]).filter(fact=>!fact.forgotten&&(fact.contact==='mana'?memories.some(memory=>memory.category==='user'&&phoneFactKey(memory.content)===phoneFactKey(fact.fact)):(residentMemories[fact.contact]??[]).some(memory=>phoneFactKey(memory)===phoneFactKey(residentPhoneFact(fact.fact))))).filter((fact,index,all)=>all.findIndex(other=>other.contact===fact.contact&&phoneFactKey(other.fact)===phoneFactKey(fact.fact))===index);
@@ -1491,7 +1495,7 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
   previousAishiOffer.current=nearbyHangoutOffer;
  },[nearbyHangoutOffer]);
  const characterInvitations=useCharacterHangoutInvitations({
-  enabled:visible&&!editing&&!sleeping&&dive.active&&!sheltering&&!projectReaction&&!activityReaction&&!aishiHangout&&!aishiJoining&&!hangouts.pending&&!smallFavor.favor&&!townGathering&&!meetup&&!friendMeetup&&!hostVisit&&!hostPlan&&!invitation&&!visitorPreparing&&!awayVisitor&&!aishiInvitation&&!manaSpeechRoom,
+  enabled:!characterGatheringReserved(current.current.characterGatherings??[])&&visible&&!editing&&!sleeping&&dive.active&&!sheltering&&!projectReaction&&!activityReaction&&!aishiHangout&&!aishiJoining&&!hangouts.pending&&!smallFavor.favor&&!townGathering&&!meetup&&!friendMeetup&&!hostVisit&&!hostPlan&&!invitation&&!visitorPreparing&&!awayVisitor&&!aishiInvitation&&!manaSpeechRoom,
   ready:manaSpeechReady,timeZone,walking:dive.walking,room:current,root:dive.root,lease:invitationRequest,
   offer:nearbyHangoutOffer,setOffer:setNearbyHangoutOffer,
   free:owner=>freeForAishiCheckIn(owner)&&freeTime.socialAllowed(owner),
@@ -1512,6 +1516,16 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
   hasTownEvent:calendar.active.length>0,townGathering,visitorAvailable,awayVisitor,visitorPreparing,
   hostPlan:!!hostPlan,invitation:!!invitation,cafeEncounter,friendChat,dive,availableJoin,sharedMemories,
   personalGoals,onChooseInvitation:chooseFreeTimeInvitation,onAskGroupToJoin,startMeetup,socialAllowed:freeTime.socialAllowed,
+ });
+ const gatherings=useCharacterGatherings({room:current,enabled:visible&&!editing&&!sleeping&&!bedtime(),ready:manaSpeechReady,busy:!!meetup||!!friendMeetup||!!hostVisit||!!hostPlan||!!invitation||!!visitorPreparing||!!awayVisitor||!!townGathering||!!aishiJoining||!!aishiHangout||!!nearbyHangoutOffer||!!cafeEncounter||!visitorAvailable,sheltering,timeZone,events:customTownEvents,lease:invitationRequest,socialAllowed:freeTime.socialAllowed,free:freeForAishiCheckIn,decide:onGatheringDecision,
+  start:plan=>{
+   if(plan.host==='mana'||plan.guest==='mana'){
+    const contact=(plan.host==='mana'?plan.guest:plan.host) as RoomContact;
+    const choice:MemoryInvitation={id:plan.id,owner:contact,recipient:'mana',activity:plan.kind==='cafe'?'cafe':'park',...(plan.kind!=='cafe'?{parkActivity:plan.kind}:{}),fact:`A dated gathering organized by ${townCharacterName(plan.host)}. Both participants agreed to this one-time plan.`};
+    return !!startMeetup(contact,plan.kind==='cafe'?'cafe':'park',false,{choice,text:plan.host===contact?plan.message:plan.reply},false);
+   }
+   setFriendMeetup({host:plan.host as RoomContact,activity:plan.kind==='sketch'?'sketch':'read',text:plan.message,reply:plan.reply,at:Date.now()});return true;
+  },running:plan=>plan.host==='mana'||plan.guest==='mana'?meetup===(plan.host==='mana'?plan.guest:plan.host)&&meetupPlace===(plan.kind==='cafe'?'cafe':'park'):friendMeetup?.host===plan.host&&friendMeetup.activity===plan.kind,cancel:plan=>{if(plan.host==='mana'||plan.guest==='mana'){if(meetup===(plan.host==='mana'?plan.guest:plan.host))cancelMeetup('The gathering ended before a shared activity finished.');}else setFriendMeetup(undefined);}
  });
  const characterInvitationSpeaker=nearbyHangoutOffer?dive.root.current?.querySelector(`.companion-room-body:not([hidden]) .character-gesture:has(button[aria-label="Interact with ${hangoutName(nearbyHangoutOffer.owner)}"])`):undefined;
  const botRoom=petBotLocation.room;
@@ -1669,9 +1683,9 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
   <div className="companion-room-status-bar" hidden={editing}>
    {statsPanel}
    <AishiPhone onInvite={aishiPhone.invite} invitingId={aishiPhone.invitingId} inviteReady={hangouts.canInvitePhone()} facts={phoneFacts} onForgetFact={aishiPhone.forgetFact} visible={visible&&!editing&&dive.active} state={aishiPhone.state} ready={manaSpeechReady&&phoneCanSend(new Date(),timeZone)} busy={aishiPhone.busy} status={aishiPhone.status} timeZone={timeZone}
-    characters={mapCharacters} area={dive.playerArea??area} calendar={{townEventClock:calendar.clock,customTownEvents,onAddTownEvent:addTownEvent,onUpdateTownEvent:editTownEvent,onDeleteTownEvent:removeTownEvent}} memories={sharedMemories}
+    characters={mapCharacters} area={dive.playerArea??area} calendar={{characterGatherings:gatherings.plans,gatheringTimeZone:timeZone,townEventClock:calendar.clock,customTownEvents,onAddTownEvent:addTownEvent,onUpdateTownEvent:editTownEvent,onDeleteTownEvent:removeTownEvent}} memories={sharedMemories}
     offer={nearbyHangoutOffer} hangout={aishiHangout} onAccept={acceptCharacterInvitation} onDecline={declineCharacterInvitation} onEnd={()=>hangouts.cancel()} onMapOpenChange={setMapOpen} onChooseArea={enterView} onSend={aishiPhone.send} onRead={aishiPhone.markRead}/>
-   <RoomPhone activityKeepsakes={activityKeepsakes} birthdayVisits={guestbookVisits} onStartTownProject={personalGoals.start} preferenceSummaries={freeTimePreferences.summaries.map(summary=>{const choice=freeTime.get(summary.owner);return {...summary,...(choice?{forNow:freeTimeLabels[choice.mode],choiceReason:choice.reason}:{})};})} today={{
+   <RoomPhone characterGatherings={gatherings.plans} activityKeepsakes={activityKeepsakes} birthdayVisits={guestbookVisits} onStartTownProject={personalGoals.start} preferenceSummaries={freeTimePreferences.summaries.map(summary=>{const choice=freeTime.get(summary.owner);return {...summary,...(choice?{forNow:freeTimeLabels[choice.mode],choiceReason:choice.reason}:{})};})} today={{
     characters:mapCharacters,activeEvents:calendar.active,goals:personalGoals.goals,
     meetup:meetup?{contact:meetup,place:meetupPlace}:undefined,
     friends:friendMeetup?{host:friendMeetup.host,activity:friendMeetup.activity,ready:!!friendChat,joining:!!groupJoining}:undefined,
@@ -1899,7 +1913,7 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
    officePosition={officePosition} officeTrip={officeTrip?.room===building?officeTrip:undefined}
    follow={followMana} onPan={()=>setFollowMana(false)} openOfficeRoom={enterView}
    cafeResidents={cafeResidents} cafeLeaving={cafeLeaving} onCafeExit={contact=>contact==='luna'?leaveLunaCafe():leaveLyraCafe()} cafeEncounter={cafeEncounter} cafeChat={manaArea==='cafe'&&cafePartnerPresent?cafePartner:undefined}
-   exit={()=>enterView(isOfficeRoom(building)?officeRooms[building].parent:townBuildingStreet(building))} noticePlans={{decorationSettings:townDecorations,onDecorationChange:changeTownDecorations,messages:phoneMessages,meetup,meetupPlace,meetupStarted:!!parkChat?.planned||manaArea==='cafe'&&cafePartnerPresent,sleeping,timeZone,townEventClock:calendar.clock,customTownEvents,onAddTownEvent:addTownEvent,onUpdateTownEvent:editTownEvent,onDeleteTownEvent:removeTownEvent,guestbookEntries}}/>)}
+   exit={()=>enterView(isOfficeRoom(building)?officeRooms[building].parent:townBuildingStreet(building))} noticePlans={{decorationSettings:townDecorations,onDecorationChange:changeTownDecorations,messages:phoneMessages,meetup,meetupPlace,meetupStarted:!!parkChat?.planned||manaArea==='cafe'&&cafePartnerPresent,sleeping,timeZone,characterGatherings:gatherings.plans,gatheringTimeZone:timeZone,townEventClock:calendar.clock,customTownEvents,onAddTownEvent:addTownEvent,onUpdateTownEvent:editTownEvent,onDeleteTownEvent:removeTownEvent,guestbookEntries}}/>)}
   {area==='park'&&<ManaversePark aishiReading={aishiHangout?.phase==='sharing'&&aishiHangout.kind==='read'?aishiHangout.owner:undefined} petBot={botRoom==='outside'&&outdoorPet.area==='park'?outdoorPet:undefined} onManaDrop={!meetup&&!hostVisit&&!park.moving?park.drop:undefined} walker={park.walker} residents={[lunaPark,lyraPark]} chat={parkChat} follow={followMana} onPan={()=>setFollowMana(false)}
    exit={()=>enterView('street')}/>}
   <ResidentRoom onActivityDone={(resident,pose)=>personalGoals.record(`home-${resident}-${Date.now()}`,`home-${pose}`,`${residentProfiles[resident].name} completed a ${pose} session at home.`,[resident])} eveningCompleted={eveningDates.lyra} onEveningComplete={finishEvening} preferences={freeTimePreferences.preferences} coreMemories={coreForPreferences('lyra')} preferredPose={personalGoals.preferred('lyra')} freeTimeMode={freeTime.get('lyra')?.mode} keepsake={displayKeepsakes.find(keepsake=>keepsake.owner==='lyra')} resident="lyra" sharingActivity={aishiJoining==='read'&&!groupJoining&&!aishiHangout} onActivityStatus={setLyraHomeActivity} shown={area==='library'||area==='lyra-room'} upstairs={area==='lyra-room'} onStairs={()=>enterView(area==='lyra-room'?'library':'lyra-room')} away={awayVisitor==='lyra'} outdoors={!!lyraOuting&&!lyraOuting.homeExit} leavingHome={!!lyraOuting?.homeExit||visitorPreparing==='lyra'} onResidentExit={()=>visitorPreparing==='lyra'?setVisitorAtDoor('lyra'):leaveLyraHome()} timeZone={timeZone} manaPresent={manaArea==='library'} lunaVisiting={!!lunaOuting?.inLibrary} lunaLeaving={lunaOuting?.libraryLeaving} onLunaExit={()=>{

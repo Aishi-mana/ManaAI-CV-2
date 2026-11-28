@@ -1,9 +1,13 @@
+import CharacterGatheringList from './CharacterGatheringList';
+import type {CharacterGathering} from '../core/characterGatherings';
+import {journalClock} from '../core/clock';
 import {useEffect,useRef,useState} from 'react';
 import {townEventsForMonth,validTownEvent,birthdayTitle,birthdayOwner,type CustomTownEvent,type TownEventCalendar,type TownEventDraft} from '../core/townEvents';
 import {residentIds,residentProfiles} from '../core/residentProfiles';
 import type {TownCharacter} from '../core/residentRelationships';
 
 export type TownEventGridProps={
+ characterGatherings?:readonly CharacterGathering[];gatheringTimeZone?:string;
  townEventClock:TownEventCalendar['clock'];
  customTownEvents:readonly CustomTownEvent[];
  onAddTownEvent:(draft:TownEventDraft)=>void;
@@ -14,7 +18,7 @@ export type TownEventGridProps={
 const monthLabel=new Intl.DateTimeFormat(undefined,{month:'long',timeZone:'UTC'});
 const dateLabel=new Intl.DateTimeFormat(undefined,{month:'long',day:'numeric',timeZone:'UTC'});
 
-export default function TownEventGrid({townEventClock,customTownEvents,onAddTownEvent,onUpdateTownEvent,onDeleteTownEvent}:TownEventGridProps){
+export default function TownEventGrid({characterGatherings=[],gatheringTimeZone='Asia/Singapore',townEventClock,customTownEvents,onAddTownEvent,onUpdateTownEvent,onDeleteTownEvent}:TownEventGridProps){
  // A leap year supplies month lengths for this annual calendar.
  const [month,setMonth]=useState('2000-'+townEventClock.date.slice(5,7));
  const [draft,setDraft]=useState<TownEventDraft>();
@@ -26,6 +30,7 @@ export default function TownEventGrid({townEventClock,customTownEvents,onAddTown
  const days=new Date(Date.UTC(first.getUTCFullYear(),first.getUTCMonth()+1,0)).getUTCDate();
  const events=townEventsForMonth(month,customTownEvents,townEventClock);
  const selected=draft?events.filter(event=>event.date===draft.date):[];
+ const datedGatherings=characterGatherings.filter(plan=>{const date=journalClock(new Date(plan.startsAt),gatheringTimeZone).date;return date.slice(0,4)===townEventClock.date.slice(0,4)||date>townEventClock.date;});
  useEffect(()=>{if(draft?.date)titleField.current?.focus();},[draft?.date]);
 
  function changeMonth(amount:number){
@@ -47,18 +52,22 @@ export default function TownEventGrid({townEventClock,customTownEvents,onAddTown
     const day=index+1;
     const date=`${month}-${String(day).padStart(2,'0')}`;
     const dayEvents=events.filter(event=>event.date===date);
-    const description=dayEvents.length?` · ${dayEvents.length} ${dayEvents.length===1?'event':'events'}`:'';
+    const dated=datedGatherings.filter(plan=>journalClock(new Date(plan.startsAt),gatheringTimeZone).date.slice(5)===date.slice(5));
+    const count=dayEvents.length+dated.length;
+    const description=count?` · ${count} ${count===1?'event':'events'}`:'';
     return <button key={date} type="button" className="btn town-event-date"
      aria-label={dateLabel.format(new Date(date+'T12:00:00Z'))+description}
      aria-current={date.slice(5)===townEventClock.date.slice(5)?'date':undefined} aria-pressed={date===draft?.date}
      onClick={()=>{setFeedback('');setEditing(undefined);setDeleting(undefined);setDraft({date,title:'',start:'16:00',end:'18:00'});}}>
      <span>{day}</span>
+     {dated.length>0&&<small>◦ {dated[0].title}</small>}
      {dayEvents.length>0&&<small aria-hidden="true">{dayEvents.some(event=>event.active)?'● ':''}{dayEvents[0].title}</small>}
     </button>;
    })}
   </div>
   {draft&&<section className="town-event-details" aria-label="Selected date">
    <h5>{dateLabel.format(new Date(draft.date+'T12:00:00Z'))}</h5>
+   {!!characterGatherings.length&&<CharacterGatheringList plans={datedGatherings.filter(plan=>journalClock(new Date(plan.startsAt),gatheringTimeZone).date.slice(5)===draft.date.slice(5))} timeZone={gatheringTimeZone}/>}
    {selected.length>0&&<ul>{selected.map(event=><li key={event.id}>
     <strong>{event.title}{event.active?' · Happening now':''}</strong> <time>{event.start}–{event.end}</time>
     {customTownEvents.some(saved=>saved.id===event.id)?<div className="town-event-actions">

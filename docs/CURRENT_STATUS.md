@@ -6,6 +6,8 @@ Manaverse free-time update — 2026-11-29: Mana, Luna and Lyra can make temporar
 
 Manaverse friendship update — 2026-11-29: pair-specific familiar activities now gently influence existing optional invitations; known friends receive bounded catch-up weighting after time apart. Repeated quiet company can slightly increase quiet breaks during existing Mana home visits. Phone Plans shows often-shared activities and the last shared date. Habits derive from retained memories, with no new save schema or AI loop. Checks: 718 frontend tests passed, two optional skips; desktop build passed. Live acceptance remains pending.
 
+Manaverse hosted gatherings — 2026-11-29: an AI host can propose a supported park/café meetup with one friend, who accepts or declines before a dated plan is posted. Accepted plans appear on the notice board, calendar dates and phone Plans; existing routes handle travel and only actual shared completion marks success. One-time plans persist separately from annual events. Larger groups remain future work. Checks: 723 frontend tests passed, two optional skips; desktop build passed. Live AI planning/route/date-view acceptance remains pending.
+
 ## At a glance — 2026-11-12
 
 **V1.x is the current milestone. Cover work is closed at the user's request.** Create Cover and Edit Tracks share the source-guided Rock, Jazz, Pop and Country backing options. The current workflow includes selectable leads, Follow guitar, Follow piano, Follow keys, Follow vocal melody, independent Follow bass groove, whole-song previews up to six minutes, and a five-part preview mixer with explicit save. **Open in Edit Tracks** opens the saved cover with New accompaniment expanded. The previous Style suggestions menu only displayed replacement hints.

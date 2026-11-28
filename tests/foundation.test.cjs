@@ -226,6 +226,8 @@ test('social meetup controls keep invitations, cancellation and busy-state check
  const room={current:{layout:2,phoneMessages:[]}};
  const options={state,room,sleeping:false,visitorAvailable:true,hostPlanned:false,isBedtime:()=>undefined,timeZone:'Asia/Singapore',onMessage:message=>messages.push(message),onPondSketch:()=>{}};
  let controls=useSocialMeetups(options);
+ state.setRememberedParkActivity=kind=>{state.rememberedParkActivity=kind;};
+ assert.equal(controls.startMeetup('luna','park',false,{choice:{id:'dated-plan',owner:'luna',recipient:'mana',activity:'park',parkActivity:'read',fact:'A dated accepted plan.'},text:'Agreed.'},false),true);assert.equal(messages.length,0,'dispatching an accepted gathering does not send duplicate consent messages');assert.equal(state.rememberedParkActivity,'read');state.meetup=undefined;
  assert.equal(controls.startMeetup('lyra','cafe'),true);
  assert.equal(state.meetup,'lyra');assert.equal(state.meetupPlace,'cafe');
  assert.equal(messages.map(message=>message.kind).join(','),'cafe-invite,cafe-accepted');
@@ -7157,4 +7159,65 @@ test('familiar quiet company gently changes visits without forcing silence or ch
  assert.equal(f.friendshipQuietCompanyChance([],'mana','lyra',now),.5);
  const chance=f.friendshipQuietCompanyChance(memories,'mana','lyra',now);assert.equal(chance,.65);assert.equal(f.friendshipQuietCompanyChance(memories,'mana','luna',now),.5);
  assert.equal(q.chooseQuietCompany(()=>.6,chance),true);assert.equal(q.chooseQuietCompany(()=>.8,chance),false);assert.equal(q.chooseQuietCompany(()=>.6),false);assert.equal(q.QUIET_COMPANY_MS,12000);
+});
+
+test('character gathering slots respect work, bedtime, calendar conflicts and one-time persistence',()=>{
+ const load=loader(),g=load('src/core/characterGatherings.ts'),r=load('src/core/companionRoom.ts'),clock=load('src/core/clock.ts'),now=new Date('2026-11-24T01:00:00Z');
+ const slots=g.gatheringSlots('mana','luna','Asia/Singapore',[],now);assert.ok(slots.length);assert.ok(slots.length<=12);
+ for(const slot of slots){assert.ok(Date.parse(slot.startsAt)>=now.getTime()+30*60000);assert.equal(Date.parse(slot.endsAt)-Date.parse(slot.startsAt),30*60000);assert.ok(g.gatheringWindowAvailable('mana','luna',slot.startsAt,slot.endsAt,'Asia/Singapore',[]));const local=clock.journalClock(new Date(slot.startsAt),'Asia/Singapore');assert.ok(local.time>='10:00'&&local.time<'20:00');}
+ assert.equal(g.gatheringWindowAvailable('mana','luna','2026-11-24T01:00:00Z','2026-11-24T01:30:00Z','Asia/Singapore',[]),false,'office hours stay in charge');
+ assert.equal(g.gatheringWindowAvailable('luna','lyra','2026-11-24T14:00:00Z','2026-11-24T14:30:00Z','Asia/Singapore',[]),false,'no night gatherings');
+ const slot=slots[0],date=clock.journalClock(new Date(slot.startsAt),'Asia/Singapore').date,local=clock.journalClock(new Date(slot.startsAt),'Asia/Singapore');
+ const event={id:'conflict',title:'Town event',date:'2000-'+date.slice(5),start:local.time,end:clock.journalClock(new Date(slot.endsAt),'Asia/Singapore').time};
+ assert.equal(g.gatheringWindowAvailable('mana','luna',slot.startsAt,slot.endsAt,'Asia/Singapore',[event]),false);
+ const short={...event,start:clock.journalClock(new Date(Date.parse(slot.startsAt)+5*60000),'Asia/Singapore').time,end:clock.journalClock(new Date(Date.parse(slot.startsAt)+6*60000),'Asia/Singapore').time};assert.equal(g.gatheringWindowAvailable('mana','luna',slot.startsAt,slot.endsAt,'Asia/Singapore',[short]),false,'even a one-minute event blocks an overlapping gathering');
+ const plan={id:'plan',host:'mana',guest:'luna',kind:slot.kind,message:'Would you like to join?',reply:'Yes, I would.',createdAt:now.toISOString(),startsAt:slot.startsAt,endsAt:slot.endsAt,status:'planned'};
+ const restored=r.validateRoom({characterGatherings:[plan],gatheringProposedAt:now.toISOString()});assert.equal(restored.characterGatherings.length,1);assert.equal(restored.characterGatherings[0].startsAt,slot.startsAt);assert.equal(restored.gatheringProposedAt,now.toISOString());assert.equal(restored.townEvents,undefined,'one-time plans never become annual events');
+ assert.equal(g.validateCharacterGatherings([{...plan,status:'completed'}]).length,0);assert.equal(g.validateCharacterGatherings([{...plan,host:'aishi'}]).length,0);assert.equal(g.readGatheringProposal('{"id":"invented","text":"Come along."}',slots),undefined);
+ assert.equal(g.readGatheringReply('{"accepted":false,"text":"I will rest instead."}').accepted,false);
+});
+
+test('only the matching completed shared activity can finish an organized gathering',()=>{
+ const g=loader()('src/core/characterGatherings.ts'),start=Date.parse('2026-11-29T04:00:00Z');
+ const plan={id:'plan',host:'luna',guest:'lyra',kind:'read',message:'Read together?',reply:'Yes.',createdAt:new Date(start-3600000).toISOString(),startsAt:new Date(start).toISOString(),endsAt:new Date(start+30*60000).toISOString(),status:'going',startedAt:new Date(start).toISOString()};
+ for(const [action,outcome,people,at] of [['invitation','Read together.',['luna','lyra'],start+60000],['resident-park-meetup','sketched together',['luna','lyra'],start+60000],['resident-park-meetup','read together',['mana','lyra'],start+60000],['resident-park-meetup','read together',['luna','lyra'],start+31*60000]])assert.equal(g.finishCharacterGathering([plan],action,outcome,people,new Date(at))[0],plan);
+ const done=g.finishCharacterGathering([plan],'resident-park-meetup','Luna and Lyra read together.',['luna','lyra'],new Date(start+60000))[0];assert.equal(done.status,'completed');assert.equal(g.validateCharacterGatherings([done]).length,1);
+ assert.equal(g.finishCharacterGathering([{...plan,status:'planned',startedAt:undefined}],'resident-park-meetup','read together',['luna','lyra'],new Date(start+60000))[0].status,'planned');
+});
+
+test('organized gatherings need both AI decisions, travel at the due time and never replay a loaded journey',async()=>{
+ let now=Date.parse('2026-11-29T02:00:00Z'),tasks=[],effects=[],timers=[],saved=0,started=0,active=false;
+ class ClockDate extends Date{constructor(...args){super(...(args.length?args:[now]));}static now(){return now;}}
+ const math=Object.create(Math);math.random=()=>.1;
+ const react={useRef:current=>({current}),useState:initial=>[typeof initial==='function'?initial():initial,()=>{}],useEffect:effect=>effects.push(effect)};
+ const load=loader({react,'./useSceneTask':{useSceneTask:(_e,_r,_i,_l,task)=>tasks.push(task)},'../core/companionRoom':{saveRoom:()=>saved++}},{Date:ClockDate,Math:math,document:{visibilityState:'visible'},window:{setInterval:callback=>{timers.push(callback);return timers.length;},clearInterval(){}}});
+ const core=load('src/core/characterGatherings.ts'),hook=load('src/components/useCharacterGatherings.ts').useCharacterGatherings,room={current:{}};
+ const options={room,enabled:true,ready:true,busy:false,sheltering:false,timeZone:'Asia/Singapore',events:[],lease:{current:undefined},socialAllowed:()=>true,free:()=>true,decide:async(_owner,prompt)=>{if(prompt.includes('organize a small')){const slot=core.gatheringSlots('mana','luna','Asia/Singapore',[],new Date(now))[0];return JSON.stringify({id:slot.id,text:'Would you like a sketch afternoon?'});}return '{"accepted":true,"text":"I would like that."}';},start:()=>{started++;active=true;return true;},running:()=>active,cancel:()=>{active=false;}};
+ const api=hook(options);effects.forEach(effect=>effect());await tasks[0](new AbortController().signal);assert.equal(room.current.characterGatherings.length,1);assert.equal(started,0,'acceptance never teleports anyone');assert.equal(room.current.characterGatherings[0].status,'planned');
+ now=Date.parse(room.current.characterGatherings[0].startsAt);options.socialAllowed=()=>false;timers[0]();assert.equal(started,1,'a later free-time preference does not cancel an accepted plan');assert.equal(room.current.characterGatherings[0].status,'going');
+ api.record('park-meetup','Mana and Luna sketched together.',['mana','luna']);assert.equal(room.current.characterGatherings[0].status,'completed');timers[0]();assert.equal(started,1);
+ const going={...room.current.characterGatherings[0],status:'going',completedAt:undefined};room.current={characterGatherings:[going]};effects=[];tasks=[];timers=[];hook(options);effects[0]();assert.equal(room.current.characterGatherings[0].status,'cancelled');assert.equal(started,1,'loaded travel is not restarted');
+ for(const decline of [true,false]){room.current={};effects=[];tasks=[];timers=[];options.socialAllowed=()=>true;options.decide=async(_owner,prompt)=>{if(prompt.includes('organize a small')){const slot=core.gatheringSlots('mana','luna','Asia/Singapore',[],new Date(now))[0];return JSON.stringify({id:slot.id,text:'Join me?'});}return decline?'{"accepted":false,"text":"I will rest."}':'not json';};hook(options);await tasks[0](new AbortController().signal);assert.equal(room.current.characterGatherings,undefined,'declines and malformed responses never post a plan');assert.ok(room.current.gatheringProposedAt,'attempt cooldown survives reopening');}
+});
+
+
+test('accepted gathering reservations protect their time and own context never implies attendance',()=>{
+ const g=loader()('src/core/characterGatherings.ts'),at=Date.parse('2026-11-29T04:00:00Z');
+ const plan={id:'plan',host:'luna',guest:'lyra',kind:'read',title:'Reading circle',message:'Read together?',reply:'Yes.',createdAt:new Date(at-3600000).toISOString(),startsAt:new Date(at).toISOString(),endsAt:new Date(at+30*60000).toISOString(),status:'planned'};
+ assert.equal(g.characterGatheringReserved([plan],at-16*60000),false);assert.equal(g.characterGatheringReserved([plan],at-15*60000),true);assert.equal(g.characterGatheringReserved([plan],at+31*60000),false);
+ assert.equal(g.characterGatheringReserved([{...plan,status:'cancelled'}],at),false);assert.equal(g.characterGatheringContext([plan],'mana',at),'');
+ assert.match(g.characterGatheringContext([plan],'luna',at),/Planned means both agreed, never that anyone arrived/);
+ assert.equal(g.gatheringWindowAvailable('mana','luna','bad','bad','Asia/Singapore',[]),false);
+});
+
+test('gathering execution waits while busy, honours visibility and cancels missed plans without completion',()=>{
+ let now=Date.parse('2026-11-29T04:00:00Z'),effects=[],timer,starts=0;
+ class ClockDate extends Date{constructor(...args){super(...(args.length?args:[now]));}static now(){return now;}}
+ const doc={visibilityState:'visible'},react={useRef:current=>({current}),useState:initial=>[typeof initial==='function'?initial():initial,()=>{}],useEffect:effect=>effects.push(effect)};
+ const load=loader({react,'./useSceneTask':{useSceneTask(){}},'../core/companionRoom':{saveRoom(){}}},{Date:ClockDate,document:doc,window:{setInterval:callback=>{timer=callback;return 1;},clearInterval(){}}});
+ const plan={id:'plan',host:'luna',guest:'lyra',kind:'read',title:'Reading circle',message:'Read together?',reply:'Yes.',createdAt:new Date(now-3600000).toISOString(),startsAt:new Date(now).toISOString(),endsAt:new Date(now+30*60000).toISOString(),status:'planned'},room={current:{characterGatherings:[plan]}};
+ const options={room,enabled:true,ready:true,busy:true,sheltering:false,timeZone:'Asia/Singapore',events:[],lease:{current:undefined},socialAllowed:()=>true,free:()=>true,decide:async()=>'',start:()=>{starts++;return true;},running:()=>true,cancel(){}};
+ load('src/components/useCharacterGatherings.ts').useCharacterGatherings(options);effects.forEach(effect=>effect());assert.equal(starts,0);
+ options.busy=false;options.free=()=>false;timer();assert.equal(starts,0,'current walking or work must finish before departure');options.free=()=>true;doc.visibilityState='hidden';timer();assert.equal(starts,0);
+ now+=11*60000;doc.visibilityState='visible';timer();assert.equal(starts,0);assert.equal(room.current.characterGatherings[0].status,'cancelled');assert.equal(room.current.characterGatherings[0].completedAt,undefined);
 });

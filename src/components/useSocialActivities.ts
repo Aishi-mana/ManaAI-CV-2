@@ -42,16 +42,18 @@ export function useSocialMeetups({state,room,sleeping,visitorAvailable,hostPlann
  state:TownSocialState;room:RefObject<RoomState>;sleeping:boolean;visitorAvailable:boolean;hostPlanned:boolean;
  isBedtime:()=>string|undefined;timeZone:string;onMessage:(message:PhoneMessage)=>void;onPondSketch:(status:PondSketchGoal['status'])=>void;
 }){
- function startMeetup(contact:RoomContact,place:'park'|'cafe',sketch=false,invitation?:Invitation){
+ function startMeetup(contact:RoomContact,place:'park'|'cafe',sketch=false,invitation?:Invitation,announce=true){
   if(sheltering&&place==='park')return;
   if(state.meetup||state.friendMeetup||sleeping||isBedtime()||!visitorAvailable||hostPlanned||pendingVisitRequest(room.current.phoneMessages??[]))return;
   if(sketch&&(room.current.pondSketch?.status!=='invited'||!pondSketchDue(room.current.pondSketch,new Date(),timeZone)))return;
   state.sketchMeetup.current=sketch;
   state.setRememberedParkActivity(invitation?.choice.parkActivity);
   state.meetupRequestedAt.current=Date.now();
-  if(invitation)onMessage({...phoneMessage(contact,place==='cafe'?'cafe-request':'park-request'),text:invitation.text,detail:invitation.choice.fact});
-  else if(!sketch)onMessage(phoneMessage(contact,place==='cafe'?'cafe-invite':'park-invite'));
-  onMessage(phoneMessage(contact,sketch?'sketch-accepted':invitation?(place==='cafe'?'cafe-request-accepted':'park-request-accepted'):place==='cafe'?'cafe-accepted':'park-accepted'));
+  if(announce){
+   if(invitation)onMessage({...phoneMessage(contact,place==='cafe'?'cafe-request':'park-request'),text:invitation.text,detail:invitation.choice.fact});
+   else if(!sketch)onMessage(phoneMessage(contact,place==='cafe'?'cafe-invite':'park-invite'));
+   onMessage(phoneMessage(contact,sketch?'sketch-accepted':invitation?(place==='cafe'?'cafe-request-accepted':'park-request-accepted'):place==='cafe'?'cafe-accepted':'park-accepted'));
+  }
   state.setMeetupPlace(place);
   state.setMeetup(contact);
   return true;

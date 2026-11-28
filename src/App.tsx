@@ -1,3 +1,4 @@
+import {characterGatheringContext} from './core/characterGatherings';
 import {freeTimePrompt,readFreeTimeChoice} from './core/freeTimeChoices';
 import {projectCreationPrompt,readProjectCreation} from './core/projectCreations';
 import {aishiCheckInPrompt,aishiPhonePrompt,readAishiPhoneReply} from './core/aishiPhone';
@@ -471,7 +472,7 @@ export default function App() {
       if(!quickGreeting&&channel!=='invitation'&&channel!=='creation'){
         const room=loadRoom();
         const preferenceCore=speaker==='mana'?manaPreferenceMemories(memories):room[residentProfiles[speaker].memory.coreKey]??[];
-        system+=(privateScene?'':sharedMemoryContext(room.sharedMemories??[],speaker))+townGoalContext(room.personalGoals??[],speaker,new Date(),journalRef.current.timeZone)+activityPreferenceContext(speaker,room.activityPreferences??{},preferenceCore)+friendshipHabitContext(speaker,room.sharedMemories??[]);
+        system+=(privateScene?'':sharedMemoryContext(room.sharedMemories??[],speaker))+townGoalContext(room.personalGoals??[],speaker,new Date(),journalRef.current.timeZone)+characterGatheringContext(room.characterGatherings??[],speaker)+activityPreferenceContext(speaker,room.activityPreferences??{},preferenceCore)+friendshipHabitContext(speaker,room.sharedMemories??[]);
       }
       if(replyProject&&pending)system+=projectFollowupReplyPrompt(pending.line,replyProject);
       else if(followup)system+=projectFollowupPrompt(followup,recall);
@@ -2038,7 +2039,7 @@ export default function App() {
       + clockContext(new Date(now), journalRef.current.timeZone, history, companion.state.lastConversationAt)
       + internalStateContext(stateForReply)
       + memoryContext(memories, text, recentUserText, settings.charName, settings.userName, replyMemories)
-      + (lessonFocus||social?'':episodeContext(episodes,text)+roomEventContext(events,journalRef.current.timeZone,text,!!room)+sharedMemoryContext(loadRoom().sharedMemories??[],'mana')+townGoalContext(loadRoom().personalGoals??[],'mana',new Date(),journalRef.current.timeZone))
+      + (lessonFocus||social?'':episodeContext(episodes,text)+roomEventContext(events,journalRef.current.timeZone,text,!!room)+sharedMemoryContext(loadRoom().sharedMemories??[],'mana')+townGoalContext(loadRoom().personalGoals??[],'mana',new Date(),journalRef.current.timeZone)+characterGatheringContext(loadRoom().characterGatherings??[],'mana'))
       + narrativeGuide
       + (social?socialReplyContext(social):'')
       + (room?`\nThe user is speaking to your mini avatar in Manaverse. Current scene: ${room.context}. Answer in one or two short sentences for a speech bubble. Use your normal shared memories and do not invent what happened in the room.`:'')
@@ -2273,6 +2274,7 @@ export default function App() {
       <SceneVoice.Provider value={{ready:mainLayout!==1&&!showSinging&&!showSongbook&&!showSavedImages&&!showSketchbook&&!showGameDev&&llama.status==='ready'&&!busy&&!reflecting&&!diaryArtId&&!showImageGeneration&&!autoOutfitRunning&&!storage.error,speak:speakInRoom}}>
       <CompanionRoom onForgetManaMemory={id=>setMemories(previous=>previous.filter(memory=>memory.id!==id))} episodes={episodes} memories={memories} events={events} onActivity={recordRoomActivity} timeZone={journal.timeZone} onEditingChange={setRoomEditorOpen}
        manaSpeechReady={llama.status==='ready'&&!busy&&!reflecting&&!diaryArtId&&!showImageGeneration&&!autoOutfitRunning&&!storage.error}
+       onGatheringDecision={(owner,prompt,signal)=>speakInRoom(prompt,signal,owner,undefined,'invitation')}
        onChooseFreeTime={async(owner,context,signal)=>{
         const raw=await speakInRoom(freeTimePrompt(owner,context),signal,owner,undefined,'invitation');
         return readFreeTimeChoice(raw,context);

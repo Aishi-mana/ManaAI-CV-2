@@ -1,3 +1,4 @@
+import CharacterGatheringList from './CharacterGatheringList';
 import {useEffect,useId,useRef,useState} from 'react';
 import {ROOM_CONTACTS,pendingHostVisit,pendingVisitRequest,type PhoneMessage,type RoomContact} from '../core/roomPhone';
 import TownEventGrid,{type TownEventGridProps} from './TownEventGrid';
@@ -83,7 +84,8 @@ export default function TownNoticeBoard({messages,meetup,meetupPlace,meetupStart
    ):page==='decorations'?<TownDecorationControls settings={decorationSettings} onChange={onDecorationChange} clock={calendar.townEventClock}
     events={townEventsForMonth(calendar.townEventClock.date.slice(0,7),calendar.customTownEvents,calendar.townEventClock).filter(event=>event.active)}/>:<>
    <h4>Town Square events</h4>
-   {open&&<TownEventGrid {...calendar}/>}
+   {open&&<TownEventGrid {...calendar} gatheringTimeZone={timeZone}/>}
+   <CharacterGatheringList plans={calendar.characterGatherings??[]} timeZone={timeZone}/>
    <h4>Meetups and visits</h4>
    {notices.length===0?<p>No upcoming meetups or visits.</p>:<ul>
     {notices.map(notice=><li key={notice.id}>
