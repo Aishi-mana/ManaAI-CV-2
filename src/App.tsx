@@ -1,4 +1,4 @@
-import {aishiPhonePrompt,readAishiPhoneReply} from './core/aishiPhone';
+import {aishiCheckInPrompt,aishiPhonePrompt,readAishiPhoneReply} from './core/aishiPhone';
 import {aishiHangoutPrompt} from './core/aishiHangouts';
 import {townGoalPrompt,readTownGoal,townGoalContext} from './core/townPersonalGoals';
 import {activityPreferencePrompt,readActivityPreference,activityPreferenceContext,manaPreferenceMemories} from './core/activityPreferences';
@@ -2286,6 +2286,10 @@ export default function App() {
        }}
        onAishiPhoneReply={async(contact,history,context,signal)=>{
         const raw=await speakInRoom(aishiPhonePrompt(contact,history,context,loadRoom().sharedMemories??[]),signal,contact,undefined,'invitation');
+        return readAishiPhoneReply(raw);
+       }}
+       onAishiPhoneCheckIn={async(contact,history,context,signal)=>{
+        const raw=await speakInRoom(aishiCheckInPrompt(contact,history,context,loadRoom().personalGoals??[]),signal,contact,undefined,'invitation');
         return readAishiPhoneReply(raw);
        }}
        onPhoneText={async(message,history,signal)=>{

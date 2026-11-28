@@ -126,7 +126,7 @@ function activityTarget(activity:Activity,objects:readonly RoomObject[]){
  return roomPosition(placed.mirrored?placed.x+placed.width-(point.x-original.x):point.x+dx,point.y+dy,objects);
 }
 
-export default function CompanionRoom({episodes,memories,visible,timeZone,onActivity:recordActivity,projects,onOpenGameDev,events,onEditingChange,canGenerateFurniture,beforeFurnitureGeneration,petBotReady,onPetBotReply,manaSpeechReady,onManaThought,onManaRoomChat,onResidentRoomChat,onPhoneText,onAishiPhoneReply,onForgetManaMemory,onChooseInvitation,onAskGroupToJoin,onAskAishiHangout,onChoosePersonalGoal,onChooseActivityPreference}:{
+export default function CompanionRoom({episodes,memories,visible,timeZone,onActivity:recordActivity,projects,onOpenGameDev,events,onEditingChange,canGenerateFurniture,beforeFurnitureGeneration,petBotReady,onPetBotReply,manaSpeechReady,onManaThought,onManaRoomChat,onResidentRoomChat,onPhoneText,onAishiPhoneReply,onAishiPhoneCheckIn,onForgetManaMemory,onChooseInvitation,onAskGroupToJoin,onAskAishiHangout,onChoosePersonalGoal,onChooseActivityPreference}:{
  onChooseActivityPreference:(owner:SharedMemory['owner'],memories:string[],signal:AbortSignal)=>Promise<ActivityPreference|undefined>;
  onChoosePersonalGoal:(owner:MemoryInvitation['owner'],memories:SharedMemory[],signal:AbortSignal)=>Promise<TownPersonalGoal|undefined>;
  onAskAishiHangout:(owner:SharedMemory['owner'],kind:AishiHangoutKind,context:string,signal:AbortSignal)=>Promise<{accepted:boolean;text:string}|undefined>;
@@ -143,6 +143,7 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
  onResidentRoomChat:(resident:RoomContact,message:string,context:string,signal:AbortSignal)=>Promise<{reply:string;memory?:string}>;
  onPhoneText:(message:PhoneMessage,history:readonly PhoneMessage[],signal:AbortSignal)=>Promise<string>;
  onAishiPhoneReply:(contact:TownPersonalGoal['owner'],history:readonly AishiPhoneMessage[],context:string,signal:AbortSignal)=>Promise<string>;
+ onAishiPhoneCheckIn:(contact:TownPersonalGoal['owner'],history:readonly AishiPhoneMessage[],context:string,signal:AbortSignal)=>Promise<string>;
 }){
  const [room]=useState(loadRoom);
  const social=useTownSocialState();
@@ -1440,8 +1441,14 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
   choose:onChooseInvitation,join:activity=>dive.joinActivity(activity),onComplete:(action,title,outcome,owner)=>{
    rememberTogether(action,title,outcome,['aishi',owner]);recordActivity(action,title,outcome);
   }});
+ function freeForAishiCheckIn(contact:TownPersonalGoal['owner']){
+  if(contact==='mana')return !manaStreetTrip&&!officeTrip&&!officeWorking&&!workshopWorking&&!active&&!(manaArea==='park'&&park.moving);
+  const outing=contact==='luna'?lunaOuting:lyraOuting,visitor=contact==='luna'?lunaPark:lyraPark;
+  return !outing?.trip&&!outing?.homeExit&&!outing?.libraryLeaving&&(!outing?.inPark||!!visitor?.bench)&&(!outing?.cafeStage||outing.cafeStage==='inside');
+ }
  const aishiPhone=useAishiPhone({room:current,enabled:visible&&!editing&&dive.active,ready:manaSpeechReady&&phoneCanSend(new Date(),timeZone),canReply:()=>phoneCanSend(new Date(),timeZone),reply:onAishiPhoneReply,
-  context:contact=>`Town time: ${calendar.clock.date} ${calendar.clock.time}. Your current location: ${contact==='mana'?manaArea:residentMapArea(contact,contact==='luna'?lunaOuting:lyraOuting)}. Aishi is texting remotely; no physical meeting is implied.`
+  proactive:{enabled:!sleeping&&!sheltering&&!eveningWindDown(new Date(),timeZone)&&!nearbyHangoutOffer&&!aishiHangout&&!aishiJoining&&!hangouts.pending&&!smallFavor.favor&&!townGathering&&!meetup&&!friendMeetup&&!hostVisit&&!hostPlan&&!invitation&&!visitorPreparing&&!awayVisitor&&!aishiInvitation&&!manaSpeechRoom,lease:invitationRequest,free:freeForAishiCheckIn,write:onAishiPhoneCheckIn},
+  context:contact=>`Town time: ${calendar.clock.date} ${calendar.clock.time}. Your current location: ${contact==='mana'?manaArea:residentMapArea(contact,contact==='luna'?lunaOuting:lyraOuting)}. Current activity: ${contact==='mana'?manaActivity:residentMapActivity(contact,contact==='luna'?lunaOuting:lyraOuting).activity}. Aishi is texting remotely; no physical meeting is implied.`
  });
  const previousAishiOffer=useRef<CharacterHangoutOffer|undefined>(undefined);
  useEffect(()=>{
@@ -1454,11 +1461,7 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
   enabled:visible&&!editing&&!sleeping&&dive.active&&!sheltering&&!projectReaction&&!activityReaction&&!aishiHangout&&!aishiJoining&&!hangouts.pending&&!smallFavor.favor&&!townGathering&&!meetup&&!friendMeetup&&!hostVisit&&!hostPlan&&!invitation&&!visitorPreparing&&!awayVisitor&&!aishiInvitation&&!manaSpeechRoom,
   ready:manaSpeechReady,timeZone,walking:dive.walking,room:current,root:dive.root,lease:invitationRequest,
   offer:nearbyHangoutOffer,setOffer:setNearbyHangoutOffer,
-    free:owner=>{
-   if(owner==='mana')return !manaStreetTrip&&!officeTrip&&!officeWorking&&!workshopWorking&&!active&&!(manaArea==='park'&&park.moving);
-   const outing=owner==='luna'?lunaOuting:lyraOuting,visitor=owner==='luna'?lunaPark:lyraPark;
-   return !outing?.trip&&!outing?.homeExit&&!outing?.libraryLeaving&&(!outing?.inPark||!!visitor?.bench)&&(!outing?.cafeStage||outing.cafeStage==='inside');
-  },
+  free:freeForAishiCheckIn,
   context:owner=>`Current town time: ${calendar.clock.date} ${calendar.clock.time}. Current location: ${owner==='mana'?manaArea:residentMapArea(owner,owner==='luna'?lunaOuting:lyraOuting)}. Existing schedules, work, visits, bedtime and shelter take priority.`,
   choose:onChooseInvitation,start:hangouts.acceptOffer
  });
