@@ -210,6 +210,16 @@ Pages derive from retained Manaverse event history and shared memories, includin
 
 The book is read-only and uses existing saved history, saves/backups and existing location artwork. It does not create additional event copies, trigger image/model jobs, invent illustrated scenes, change core memories, or alter character schedules. It is a separate town keepsake view from Mana’s scheduled imaginative-drawing workspace. Deleting/pruning a source record removes its sketchbook copy when no corresponding retained record remains; another retained event or shared-memory copy can still supply that moment.
 
+### Pair-specific friendship habits
+
+Each pair's retained completed shared memories can now suggest familiar activities: sketching, reading, quiet company, café breaks, workbench time or stargazing. Activity habits count separated sessions at least six hours apart, deduplicate reciprocal records, and need at least two sessions before they influence preference. Dialogue about a project, cancelled/declined invitations and future records cannot establish an activity habit. Generic park meetings use their recorded completed outcome; unrelated conversation text is not scanned into a claimed activity.
+
+A bounded weight gently favors familiar activities among supplied, available choices; every alternative remains possible and very recent repetition gets less weight. Existing AI invitation choices can be reordered as suggestions, preserving all original choice objects and evidence. The AI may choose another option or decline. Project requirements, rest/quiet intentions, shelter, accepted plans and schedules keep their priority. No extra model timer, new destination, teleport or autonomous gift is introduced.
+
+After two days apart, known friends receive a small catch-up weighting, capped at 12% after seven days. No prior history means no catch-up boost. This never creates a debt, inferred loneliness, affection score, automatic acceptance or a reason to interrupt work/sleep. In Mana's existing home visits, repeated quiet company gently raises the chance of another quiet break from 50% to at most 65%; conversations remain possible and visit routes/durations stay unchanged.
+
+Phone Plans → Friendship habits shows often-shared activities, separated-session counts, the last recorded shared date in the town timezone, and a neutral catch-up opportunity. Dialogue context exposes only the speaker's own surviving records, not another character's private copy. All habits are derived on demand from existing memory storage and disappear when the supporting history is forgotten; save and backup schemas are unchanged.
+
 ### Personal free-time choices
 
 Mana, Luna and Lyra can choose a session-only direction for their next free-time opportunities: project time, friends, a quiet break or rest. A shared-lease AI task checks every two minutes and attempts at most one decision per character per 30 minutes. It runs only in an active, awake town, outside wind-down, without an event, accepted visit/hangout, pending visit request or town travel. Decisions are requested while the character is free at home. Existing memory-supported activity preferences and personality supply the fallback when the model is unavailable or declines.

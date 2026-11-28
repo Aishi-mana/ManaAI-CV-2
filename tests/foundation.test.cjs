@@ -7107,3 +7107,54 @@ test('free-time AI waits for a free actor and discards late choices after interr
   await run(controller.signal);assert.equal(late.get('mana'),undefined,interrupt);
  }
 });
+
+test('pair-specific activity habits count separate shared sessions, retain variety and forget cleanly',()=>{
+ const load=loader(),f=load('src/core/friendshipHabits.ts'),r=load('src/core/residentRelationships.ts'),now=Date.parse('2026-11-29T04:00:00Z');let memories=[];
+ for(let day=23;day<=25;day++){
+  memories=r.rememberSharedActivity(memories,'sketch-'+day,'Sketching','Mana and Luna sketched together.',['mana','luna'],new Date(`2026-11-${day}T04:00:00Z`));
+  memories=r.rememberSharedActivity(memories,'reading-'+day,'Reading','Mana and Lyra read together.',['mana','lyra'],new Date(`2026-11-${day}T05:00:00Z`));
+ }
+ const profile=f.friendshipActivityProfile(memories,'mana','luna',now);assert.equal(profile[0].activity,'sketch');assert.equal(profile[0].sessions,3,'reciprocal memories do not double-count');
+ assert.equal(f.friendshipActivityProfile(memories,'mana','lyra',now)[0].activity,'read');
+ const sample=(rows,partner)=>Array.from({length:1000},(_,i)=>f.chooseFriendActivity(rows,'mana',partner,['sketch','read'],(i+.5)/1000,now));
+ const sketch=sample(memories,'luna'),reading=sample(memories,'lyra');assert.ok(sketch.filter(x=>x==='sketch').length>500);assert.ok(reading.filter(x=>x==='read').length>500);assert.equal(new Set(sketch).size,2);assert.ok(sketch.filter(x=>x==='sketch').length<650);
+ const repeated=Array.from({length:100},(_,i)=>({...memories[0],id:`repeat-${i}:mana:luna`}));assert.equal(f.friendshipActivityProfile(repeated,'mana','luna',now)[0].sessions,1);
+ assert.deepEqual(sample([],'luna'),sample([],'lyra'));assert.equal(f.chooseFriendActivity(memories,'mana','luna',[],.5,now),undefined);
+ assert.equal(f.chooseFriendActivity(memories,'mana','luna',['read'],.1,now),'read','a habit never adds an unsupported activity');
+ const boundary=[{...memories[0],at:'2026-11-25T05:59:00Z'},{...memories[0],id:'next:mana:luna',at:'2026-11-25T06:01:00Z'}];assert.equal(f.friendshipActivityProfile(boundary,'mana','luna',now)[0].sessions,1,'crossing a clock bucket does not create a separate session');
+ const recent=r.rememberSharedActivity(memories,'recent','Sketching','Sketched together.',['mana','luna'],new Date(now-1000));
+ assert.ok(sample(recent,'luna').filter(x=>x==='sketch').length<sketch.filter(x=>x==='sketch').length,'recent repetition gives variety room');
+ const summary=f.friendshipHabitSummaries(memories,now).find(row=>row.second==='luna');assert.ok(summary.catchingUp);assert.equal(summary.lastTogether,'2026-11-25T04:00:00.000Z');
+ assert.match(f.friendshipHabitContext('mana',memories,now),/familiarActivities/);assert.match(f.friendshipHabitContext('mana',memories,now),/never imply anyone missed/);
+ assert.equal(f.friendshipActivityProfile(memories.filter(m=>m.owner==='lyra'),'mana','luna',now).length,0);
+});
+
+test('dialogue, future meetings and declined invitations cannot create shared activity preferences',()=>{
+ const load=loader(),f=load('src/core/friendshipHabits.ts'),m=load('src/core/memoryInvitations.ts'),now=Date.parse('2026-11-29T04:00:00Z');
+ const base={owner:'luna',with:'lyra',at:new Date(now-3600000).toISOString(),activity:'Conversation',fact:'We talked about sketching, reading and the workshop.'};
+ const rows=[{...base,id:'chat:luna:lyra'},{...base,id:'project-news:goal:luna',activity:'project-update:goal'},{...base,id:'invite:luna:lyra',activity:'Invitation'},{...base,id:'cancelled:luna:lyra',activity:'Cancelled meetup'},{...base,id:'future:luna:lyra',activity:'Sketching',at:new Date(now+3600000).toISOString()}];
+ assert.equal(f.friendshipActivityProfile(rows,'luna','lyra',now).length,0);
+ const choices=m.residentFriendChoices(rows.filter(row=>row.id!=='chat:luna:lyra'&&row.activity!=='project-update:goal'),'luna',now);
+ assert.ok(choices.every(choice=>!choice.memoryId),'uncompleted or future visits never become invitation memories');
+ const own=[{...base,id:'real:luna:lyra',activity:'Reading',fact:'We read together.'}];
+ const original=m.residentFriendChoices(own,'luna',now),ranked=m.friendshipInvitationChoices(own,'luna',original,.8,now);
+ assert.equal(ranked.length,original.length);assert.ok(ranked.every(choice=>original.includes(choice)),'recommendations retain original evidence records');
+ const responding=[{...original[0],responding:true}];assert.equal(m.friendshipInvitationChoices(own,'luna',responding)[0],responding[0]);
+});
+
+test('catch-up weighting grows gently with time apart without treating unfamiliar people as neglected friends',()=>{
+ const load=loader(),f=load('src/core/friendshipHabits.ts'),r=load('src/core/residentRelationships.ts'),at=Date.parse('2026-11-20T04:00:00Z'),pair={first:'mana',second:'luna'};
+ const memories=r.rememberSharedActivity([],'reading','Reading','Read together.',['mana','luna'],new Date(at));
+ const soon=f.friendshipPairWeight(memories,pair,at+24*3600000),later=f.friendshipPairWeight(memories,pair,at+7*24*3600000);
+ assert.ok(later>soon);assert.ok(later/soon<=1.121);assert.equal(f.friendshipPairWeight(memories,pair,at+100*24*3600000),later,'time apart is bounded, not a growing debt');
+ assert.equal(f.friendshipPairWeight([],pair,at+100*24*3600000),1);
+});
+
+
+test('familiar quiet company gently changes visits without forcing silence or changing their duration',()=>{
+ const load=loader(),f=load('src/core/friendshipHabits.ts'),r=load('src/core/residentRelationships.ts'),q=load('src/core/quietCompanionship.ts'),now=Date.parse('2026-11-29T04:00:00Z');let memories=[];
+ for(let day=20;day<=25;day++)memories=r.rememberSharedActivity(memories,'quiet-company-'+day,'Quiet company','Mana and Lyra took a quiet break together.',['mana','lyra'],new Date(`2026-11-${day}T04:00:00Z`));
+ assert.equal(f.friendshipQuietCompanyChance([],'mana','lyra',now),.5);
+ const chance=f.friendshipQuietCompanyChance(memories,'mana','lyra',now);assert.equal(chance,.65);assert.equal(f.friendshipQuietCompanyChance(memories,'mana','luna',now),.5);
+ assert.equal(q.chooseQuietCompany(()=>.6,chance),true);assert.equal(q.chooseQuietCompany(()=>.8,chance),false);assert.equal(q.chooseQuietCompany(()=>.6),false);assert.equal(q.QUIET_COMPANY_MS,12000);
+});

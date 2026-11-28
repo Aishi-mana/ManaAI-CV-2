@@ -24,7 +24,7 @@ import {useActivityPreferences} from './useActivityPreferences';
 import {useSmallFavors} from './useSmallFavors';
 import SmallFavorPanel from './SmallFavorPanel';
 import {manaPreferenceMemories,type ActivityPreference} from '../core/activityPreferences';
-import {chooseFriendshipPair} from '../core/friendshipHabits';
+import {chooseFriendshipPair,friendshipQuietCompanyChance} from '../core/friendshipHabits';
 import {eveningWindDown,eveningGoodnightPrompt,EVENING_TIDY_MS} from '../core/eveningWindDown';
 import {townProjectCompletionPrompt,type TownPersonalGoal} from '../core/townPersonalGoals';
 import {officeWorkApproach} from '../core/officeWalk';
@@ -1832,7 +1832,7 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
    </div>
    </section>}
   </aside>}
-  <LivingSpace onVisitorPresent={setLivingGuest} petBot={botRoom==='living'?homeBot:null} position={current.current.livingPosition??livingSpaceEntry}
+  <LivingSpace quietCompanyChance={contact=>friendshipQuietCompanyChance(current.current.sharedMemories??[],'mana',contact)} onVisitorPresent={setLivingGuest} petBot={botRoom==='living'?homeBot:null} position={current.current.livingPosition??livingSpaceEntry}
    renderSpeech={canSpeakHere&&area==='living'?(feet,activity)=>manaSpeech('living',feet.x,feet.y-145,`You are in your living space. ${activity}`):undefined}
    phoneVisit={phoneVisit} onVisitAvailability={setVisitorAvailable} onManaIdle={setLivingIdle} onActivityStatus={setLivingActivity}
    onVisitorAway={setAwayVisitor} onVisitorPreparing={contact=>{setVisitorPreparing(contact);if(!contact)setVisitorAtDoor(null);}} visitorAtDoor={visitorAtDoor} onStreetGuest={setStreetGuest}

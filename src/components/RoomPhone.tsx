@@ -228,7 +228,7 @@ export default function RoomPhone({activityKeepsakes=[],birthdayVisits=[],onStar
      onView={destination=>{onChooseArea(destination);close();}}/>}
     {screen==='plans'&&<div className="room-phone-list room-phone-plans">
      <TownDailyIntentions goals={personalGoals} timeZone={timeZone} now={now}/>
-     <FriendshipHabits memories={sharedMemories}/>
+     <FriendshipHabits memories={sharedMemories} timeZone={timeZone}/>
      <TownPersonalGoals goals={personalGoals}/>
      {!!preferenceSummaries.length&&<section aria-label="Free-time preferences"><h3>Free-time preferences</h3>
       {preferenceSummaries.map(preference=><article key={preference.owner}>

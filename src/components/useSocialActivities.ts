@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState,type RefObject} from 'react';
-import {memoryInvitations,residentFriendChoices,type MemoryInvitation} from '../core/memoryInvitations';
+import {memoryInvitations,residentFriendChoices,friendshipInvitationChoices,type MemoryInvitation} from '../core/memoryInvitations';
 import {parkGroupJoinPoint,type AishiActivity} from '../core/aishiActivities';
 import {residentProfiles} from '../core/residentProfiles';
 import {ROOM_CONTACTS,pendingVisitRequest,phoneMessage,type PhoneMessage,type RoomContact} from '../core/roomPhone';
@@ -11,7 +11,7 @@ import type {ParkChat} from './useParkChat';
 import type {useManaversePlayer} from './useManaversePlayer';
 import type {useTownPersonalGoals} from './useTownPersonalGoals';
 import {useSceneTask} from './useSceneTask';
-import {availableFriendshipPairs,chooseFriendshipPair} from '../core/friendshipHabits';
+import {availableFriendshipPairs,chooseFriendshipPair,chooseFriendActivity} from '../core/friendshipHabits';
 
 export function useTownSocialState(){
  const invitationRequest=useRef<AbortController|undefined>(undefined);
@@ -111,11 +111,11 @@ export function useSocialActivities(options:SocialOptions){
   const choices=memoryInvitations(current.current.sharedMemories??[],contact,'mana')
    .filter(choice=>(!sheltering||choice.activity==='cafe')&&(choice.parkActivity!=='stars'||lighting==='night'));
   if(!choices.length){
-   if(startMeetup(contact,sheltering?'cafe':Math.random()<.5?'park':'cafe'))lastAutonomousMeetup.current=Date.now();
+   if(startMeetup(contact,sheltering?'cafe':chooseFriendActivity(current.current.sharedMemories??[],'mana',contact,['quiet','cafe'])==='cafe'?'cafe':'park'))lastAutonomousMeetup.current=Date.now();
    return;
   }
   lastAutonomousMeetup.current=Date.now();
-  const invitation=await invitationWriter.current(contact,choices,signal);
+  const invitation=await invitationWriter.current(contact,friendshipInvitationChoices(current.current.sharedMemories??[],contact,choices),signal);
   if(signal.aborted||!invitation||!invitationGate.current.npc||!socialAllowed('mana')||!socialAllowed(contact)||
    !(current.current.sharedMemories??[]).some(memory=>memory.id===invitation.choice.memoryId))return;
   const place=invitation.choice.activity;
@@ -189,7 +189,7 @@ export function useSocialActivities(options:SocialOptions){
   const guest:RoomContact=host==='luna'?'lyra':'luna';
   const available=residentFriendChoices(current.current.sharedMemories??[],host);
   const preferred=personalGoals.preferred(host,true)??personalGoals.preferred(guest,true);
-  const choices=preferred==='sketch'||preferred==='read'?available.filter(choice=>choice.parkActivity===preferred):available;
+  const choices=preferred==='sketch'||preferred==='read'?available.filter(choice=>choice.parkActivity===preferred):friendshipInvitationChoices(current.current.sharedMemories??[],host,available);
   const choose=invitationWriter.current;
   lastFriendOffer.current=Date.now();
   const offer=await choose(host,choices,signal);

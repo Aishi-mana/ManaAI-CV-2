@@ -450,6 +450,7 @@ Consolidated 2026-11-29 against the current implementation. Checked items descri
 - [ ] Emergent AI society/world
 - [x] First reviewable little-project outputs: saved AI-written digital pages with bounded illustrations, home/phone previews and SVG export (2026-11-29). Rich generated artwork, playable project results, physical crafting and in-world gift delivery remain future work.
 - [x] First personal free-time intentions: AI chooses project/friends/quiet/rest from own evidence; bounded home activity weights and optional invitations honor this for 30 minutes. Existing schedules and routes stay authoritative (2026-11-29).
+- [x] Pair-specific familiar activities, bounded catch-up weighting and familiar quiet-company visits from retained shared memories; phone Plans displays these habits without friendship scores (2026-11-29).
 - [ ] Broader supported personal planning and deeper experience-driven relationships.
 - [ ] Bounded, explicitly recorded offline progression; no invented closed-app conversations.
 

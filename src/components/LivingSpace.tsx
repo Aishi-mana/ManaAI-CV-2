@@ -200,8 +200,8 @@ function useLivingVisitor(manaPresent:boolean,sleeping:boolean,memories:Partial<
 
 type LivingActivity='water'|'read'|'sleep';
 
-export default function LivingSpace({petBot,renderSpeech,position,onPosition,onBedroom,onStreet,shown,present,returning,onReturn,sleeping,memories,onRemember,scheduledActivity,scheduledKind='water',onActivityDone,phoneVisit,onVisitAvailability,onManaIdle,onActivityStatus,onVisitorAway,onVisitorPresent,onVisitorPreparing,visitorAtDoor,onStreetGuest,streetExit}:{
- petBot?:ReactNode;
+export default function LivingSpace({petBot,quietCompanyChance,renderSpeech,position,onPosition,onBedroom,onStreet,shown,present,returning,onReturn,sleeping,memories,onRemember,scheduledActivity,scheduledKind='water',onActivityDone,phoneVisit,onVisitAvailability,onManaIdle,onActivityStatus,onVisitorAway,onVisitorPresent,onVisitorPreparing,visitorAtDoor,onStreetGuest,streetExit}:{
+ petBot?:ReactNode;quietCompanyChance?:(contact:RoomContact)=>number;
  renderSpeech?:(feet:{x:number;y:number},activity:string)=>ReactNode;
  position:RoomPosition;onPosition:(position:RoomPosition)=>void;onBedroom:()=>void;
  onStreet:()=>void;
@@ -257,7 +257,7 @@ export default function LivingSpace({petBot,renderSpeech,position,onPosition,onB
 
  useEffect(()=>{
   if(!meeting)return;
-  setQuietCompany(chooseQuietCompany());
+  setQuietCompany(chooseQuietCompany(Math.random,quietCompanyChance?.(visitor.contact)));
   startMeeting.current();
   const timeout=window.setTimeout(()=>finishMeeting.current(),40_000);
   return ()=>{clearTimeout(timeout);setChatLine(undefined);};

@@ -4,6 +4,8 @@ Manaverse update — 2026-11-29: newly completed little projects with full sessi
 
 Manaverse free-time update — 2026-11-29: Mana, Luna and Lyra can make temporary AI choices for project time, friends, quiet or rest. Their own core facts and recent recorded activity inform the choice. It affects only supported home activity weights and new optional social invitations, expires after 30 minutes, resets on restart, and never becomes completion evidence. Phone Plans shows the current intention and reason. Checks: 714 frontend tests passed, two optional skips; desktop build passed. Live AI choice/transition acceptance remains pending.
 
+Manaverse friendship update — 2026-11-29: pair-specific familiar activities now gently influence existing optional invitations; known friends receive bounded catch-up weighting after time apart. Repeated quiet company can slightly increase quiet breaks during existing Mana home visits. Phone Plans shows often-shared activities and the last shared date. Habits derive from retained memories, with no new save schema or AI loop. Checks: 718 frontend tests passed, two optional skips; desktop build passed. Live acceptance remains pending.
+
 ## At a glance — 2026-11-12
 
 **V1.x is the current milestone. Cover work is closed at the user's request.** Create Cover and Edit Tracks share the source-guided Rock, Jazz, Pop and Country backing options. The current workflow includes selectable leads, Follow guitar, Follow piano, Follow keys, Follow vocal melody, independent Follow bass groove, whole-song previews up to six minutes, and a five-part preview mixer with explicit save. **Open in Edit Tracks** opens the saved cover with New accompaniment expanded. The previous Style suggestions menu only displayed replacement hints.
