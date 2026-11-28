@@ -1,4 +1,7 @@
 import AishiHangoutPanel from './AishiHangoutPanel';
+import AishiPhone from './AishiPhone';
+import {useAishiPhone} from './useAishiPhone';
+import {aishiOfferId,type AishiPhoneMessage} from '../core/aishiPhone';
 import {useAishiHangouts} from './useAishiHangouts';
 import {aishiHangoutKinds,completedAishiHangout,hangoutName,type AishiHangout,type AishiHangoutKind} from '../core/aishiHangouts';
 import {DEFAULT_TOWN_DECORATIONS,type TownDecorationSettings} from '../core/townFestivities';
@@ -123,7 +126,7 @@ function activityTarget(activity:Activity,objects:readonly RoomObject[]){
  return roomPosition(placed.mirrored?placed.x+placed.width-(point.x-original.x):point.x+dx,point.y+dy,objects);
 }
 
-export default function CompanionRoom({episodes,memories,visible,timeZone,onActivity:recordActivity,projects,onOpenGameDev,events,onEditingChange,canGenerateFurniture,beforeFurnitureGeneration,petBotReady,onPetBotReply,manaSpeechReady,onManaThought,onManaRoomChat,onResidentRoomChat,onPhoneText,onForgetManaMemory,onChooseInvitation,onAskGroupToJoin,onAskAishiHangout,onChoosePersonalGoal,onChooseActivityPreference}:{
+export default function CompanionRoom({episodes,memories,visible,timeZone,onActivity:recordActivity,projects,onOpenGameDev,events,onEditingChange,canGenerateFurniture,beforeFurnitureGeneration,petBotReady,onPetBotReply,manaSpeechReady,onManaThought,onManaRoomChat,onResidentRoomChat,onPhoneText,onAishiPhoneReply,onForgetManaMemory,onChooseInvitation,onAskGroupToJoin,onAskAishiHangout,onChoosePersonalGoal,onChooseActivityPreference}:{
  onChooseActivityPreference:(owner:SharedMemory['owner'],memories:string[],signal:AbortSignal)=>Promise<ActivityPreference|undefined>;
  onChoosePersonalGoal:(owner:MemoryInvitation['owner'],memories:SharedMemory[],signal:AbortSignal)=>Promise<TownPersonalGoal|undefined>;
  onAskAishiHangout:(owner:SharedMemory['owner'],kind:AishiHangoutKind,context:string,signal:AbortSignal)=>Promise<{accepted:boolean;text:string}|undefined>;
@@ -139,6 +142,7 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
  onManaRoomChat:(message:string,context:string,onReply:(reply:string)=>void)=>Promise<void>;
  onResidentRoomChat:(resident:RoomContact,message:string,context:string,signal:AbortSignal)=>Promise<{reply:string;memory?:string}>;
  onPhoneText:(message:PhoneMessage,history:readonly PhoneMessage[],signal:AbortSignal)=>Promise<string>;
+ onAishiPhoneReply:(contact:TownPersonalGoal['owner'],history:readonly AishiPhoneMessage[],context:string,signal:AbortSignal)=>Promise<string>;
 }){
  const [room]=useState(loadRoom);
  const social=useTownSocialState();
@@ -1436,6 +1440,16 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
   choose:onChooseInvitation,join:activity=>dive.joinActivity(activity),onComplete:(action,title,outcome,owner)=>{
    rememberTogether(action,title,outcome,['aishi',owner]);recordActivity(action,title,outcome);
   }});
+ const aishiPhone=useAishiPhone({room:current,enabled:visible&&!editing&&dive.active,ready:manaSpeechReady&&phoneCanSend(new Date(),timeZone),canReply:()=>phoneCanSend(new Date(),timeZone),reply:onAishiPhoneReply,
+  context:contact=>`Town time: ${calendar.clock.date} ${calendar.clock.time}. Your current location: ${contact==='mana'?manaArea:residentMapArea(contact,contact==='luna'?lunaOuting:lyraOuting)}. Aishi is texting remotely; no physical meeting is implied.`
+ });
+ const previousAishiOffer=useRef<CharacterHangoutOffer|undefined>(undefined);
+ useEffect(()=>{
+  const previous=previousAishiOffer.current;
+  if(previous&&(!nearbyHangoutOffer||aishiOfferId(previous)!==aishiOfferId(nearbyHangoutOffer)))aishiPhone.invitationStatus(aishiOfferId(previous),'expired');
+  if(nearbyHangoutOffer)aishiPhone.rememberOffer(nearbyHangoutOffer);
+  previousAishiOffer.current=nearbyHangoutOffer;
+ },[nearbyHangoutOffer]);
  const characterInvitations=useCharacterHangoutInvitations({
   enabled:visible&&!editing&&!sleeping&&dive.active&&!sheltering&&!projectReaction&&!activityReaction&&!aishiHangout&&!aishiJoining&&!hangouts.pending&&!smallFavor.favor&&!townGathering&&!meetup&&!friendMeetup&&!hostVisit&&!hostPlan&&!invitation&&!visitorPreparing&&!awayVisitor&&!aishiInvitation&&!manaSpeechRoom,
   ready:manaSpeechReady,timeZone,walking:dive.walking,room:current,root:dive.root,lease:invitationRequest,
@@ -1448,6 +1462,14 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
   context:owner=>`Current town time: ${calendar.clock.date} ${calendar.clock.time}. Current location: ${owner==='mana'?manaArea:residentMapArea(owner,owner==='luna'?lunaOuting:lyraOuting)}. Existing schedules, work, visits, bedtime and shelter take priority.`,
   choose:onChooseInvitation,start:hangouts.acceptOffer
  });
+ function acceptCharacterInvitation(){
+  const offer=nearbyHangoutOffer;if(!offer)return;
+  const accepted=characterInvitations.accept();aishiPhone.invitationStatus(aishiOfferId(offer),accepted?'accepted':'expired');
+ }
+ function declineCharacterInvitation(){
+  if(nearbyHangoutOffer)aishiPhone.invitationStatus(aishiOfferId(nearbyHangoutOffer),'declined');
+  characterInvitations.decline();
+ }
  const {groupJoinPoint,askToJoinGroup,groupReplySpeaker,invitationSpeaker}=useSocialActivities({
   smallFavorActive:!!smallFavor.favor,favorCooldownUntil:smallFavor.cooldownUntil,windDown:!!nearbyHangoutOffer||!!aishiHangout||!!eveningWindDown(new Date(),timeZone),
   state:social,room:current,visible,editing,sleeping,night:!!bedtime(),manaSpeechReady,lighting,sheltering,
@@ -1599,7 +1621,7 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
   {invitationSpeaker&&aishiInvitation&&createPortal(<p className="manaverse-player-greeting scene-invitation-line" role="status">{aishiInvitation.text}</p>,invitationSpeaker)}
   {groupReplySpeaker&&groupJoinReply&&createPortal(<p className="manaverse-player-greeting scene-invitation-line" role="status">{groupJoinReply.text}</p>,groupReplySpeaker)}
   {dive.active&&<div className="manaverse-player-activity-controls">
-   <AishiHangoutPanel offer={nearbyHangoutOffer} onAccept={characterInvitations.accept} onDecline={characterInvitations.decline} hangout={aishiHangout} nearby={hangouts.nearby} pending={hangouts.pending} message={hangouts.message} ready={manaSpeechReady} onInvite={(owner,kind)=>void hangouts.invite(owner,kind)} onCancel={()=>hangouts.cancel()}/>
+   <AishiHangoutPanel offer={nearbyHangoutOffer} onAccept={acceptCharacterInvitation} onDecline={declineCharacterInvitation} hangout={aishiHangout} nearby={hangouts.nearby} pending={hangouts.pending} message={hangouts.message} ready={manaSpeechReady} onInvite={(owner,kind)=>void hangouts.invite(owner,kind)} onCancel={()=>hangouts.cancel()}/>
    <SmallFavorPanel favor={smallFavor.favor} speaker={smallFavor.speaker} onAccept={smallFavor.accept} onAnswer={smallFavor.answer} onDismiss={smallFavor.dismiss}/>
    {groupJoinError&&groupJoinPoint&&<p role="status">{groupJoinError}</p>}
    {(groupJoinPoint||groupJoinPending)&&!aishiJoining&&<button type="button" className="btn" disabled={groupJoinPending||!manaSpeechReady} onClick={()=>void askToJoinGroup()}>{groupJoinPending?'Asking…':'Ask to join'}</button>}
@@ -1610,12 +1632,15 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
   </div>}
   <div className="companion-room-status-bar" hidden={editing}>
    {statsPanel}
+   <AishiPhone visible={visible&&!editing&&dive.active} state={aishiPhone.state} ready={manaSpeechReady&&phoneCanSend(new Date(),timeZone)} busy={aishiPhone.busy} status={aishiPhone.status} timeZone={timeZone}
+    characters={mapCharacters} area={dive.playerArea??area} calendar={{townEventClock:calendar.clock,customTownEvents,onAddTownEvent:addTownEvent,onUpdateTownEvent:editTownEvent,onDeleteTownEvent:removeTownEvent}} memories={sharedMemories}
+    offer={nearbyHangoutOffer} hangout={aishiHangout} onAccept={acceptCharacterInvitation} onDecline={declineCharacterInvitation} onEnd={()=>hangouts.cancel()} onMapOpenChange={setMapOpen} onChooseArea={enterView} onSend={aishiPhone.send} onRead={aishiPhone.markRead}/>
    <RoomPhone activityKeepsakes={activityKeepsakes} birthdayVisits={guestbookVisits} onStartTownProject={personalGoals.start} preferenceSummaries={freeTimePreferences.summaries} today={{
     characters:mapCharacters,activeEvents:calendar.active,goals:personalGoals.goals,
     meetup:meetup?{contact:meetup,place:meetupPlace}:undefined,
     friends:friendMeetup?{host:friendMeetup.host,activity:friendMeetup.activity,ready:!!friendChat,joining:!!groupJoining}:undefined,
     offer:aishiInvitation?{owner:aishiInvitation.choice.owner,activity:aishiInvitation.choice.activity,text:aishiInvitation.text}:undefined,
-   }} personalGoals={personalGoals.goals} visible={!editing} sleeping={sleeping} messages={phoneMessages} events={events} projects={projects}
+   }} personalGoals={personalGoals.goals} visible={!editing&&!dive.active} backgroundActive={visible&&!editing} sleeping={sleeping} messages={phoneMessages} events={events} projects={projects}
     area={area} characters={mapCharacters} onChooseArea={enterView} diving={dive.active} onMapOpenChange={setMapOpen}
     meetup={meetup} meetupPlace={meetupPlace} pondSketch={pondSketch}
     manaKeepsake={manaKeepsake} sharedKeepsake={sharedKeepsake} libraryStory={libraryStory}

@@ -54,8 +54,8 @@ function PhoneAppIcon({app,unread}:{app:PhoneApp;unread:boolean}){
  </span>;
 }
 
-export default function RoomPhone({activityKeepsakes=[],birthdayVisits=[],onStartTownProject,preferenceSummaries=[],visible,sleeping,messages,onSend,readMessages,onReadMessages,timeZone,events,projects,meetup,meetupPlace,area,characters,onChooseArea,onMapOpenChange,diving,pondSketch,libraryStory,manaKeepsake,sharedKeepsake,coreMemories,onForgetMemory,sharedMemories,onForgetSharedMemory,petBotMemories,onForgetPetMemory,manaMemories,onForgetManaMemory,petBotFriends,onForgetPetFriend,personalGoals,today}:{
- activityKeepsakes?:ActivityKeepsake[];birthdayVisits?:TownGuestbookVisit[];
+export default function RoomPhone({activityKeepsakes=[],birthdayVisits=[],onStartTownProject,preferenceSummaries=[],backgroundActive,visible,sleeping,messages,onSend,readMessages,onReadMessages,timeZone,events,projects,meetup,meetupPlace,area,characters,onChooseArea,onMapOpenChange,diving,pondSketch,libraryStory,manaKeepsake,sharedKeepsake,coreMemories,onForgetMemory,sharedMemories,onForgetSharedMemory,petBotMemories,onForgetPetMemory,manaMemories,onForgetManaMemory,petBotFriends,onForgetPetFriend,personalGoals,today}:{
+ backgroundActive?:boolean;activityKeepsakes?:ActivityKeepsake[];birthdayVisits?:TownGuestbookVisit[];
  onStartTownProject?:(owner:TownCharacter,choice:TownGoalId)=>boolean;
  preferenceSummaries?:{owner:TownCharacter;likes:string[];reason?:string}[];
  readMessages:PhoneReadState;onReadMessages:(read:PhoneReadState)=>void;
@@ -77,6 +77,7 @@ export default function RoomPhone({activityKeepsakes=[],birthdayVisits=[],onStar
  area:ManaverseArea;characters:MapCharacters;onChooseArea:(area:ManaverseArea)=>void;onMapOpenChange:(open:boolean)=>void;
  pondSketch?:PondSketchGoal;libraryStory?:LibraryStory;manaKeepsake?:ManaKeepsake;sharedKeepsake?:ManaKeepsake;
 }){
+ const phoneActive=backgroundActive??visible;
  const [open,setOpen]=useState(false);
  const [screen,setScreen]=useState<'home'|'thread'|'memory-details'|'town-sketchbook-day'|'town-project-detail'|'keepsake-owner'|PhoneApp['id']>('home');
  const [albumOwner,setAlbumOwner]=useState<TownCharacter>('mana');
@@ -131,7 +132,7 @@ export default function RoomPhone({activityKeepsakes=[],birthdayVisits=[],onStar
   if(open&&end.current?.parentElement)end.current.parentElement.scrollTop=end.current.parentElement.scrollHeight;
  },[open,screen,contact,latest]);
  useEffect(()=>{
-  if(!visible)return;
+  if(!phoneActive)return;
   let timers:ReturnType<typeof window.setTimeout>[]=[];
   const schedule=()=>{
    timers.forEach(clearTimeout);
@@ -146,7 +147,7 @@ export default function RoomPhone({activityKeepsakes=[],birthdayVisits=[],onStar
   schedule();
   const wakeCheck=window.setInterval(schedule,15_000);
   return ()=>{timers.forEach(clearTimeout);clearInterval(wakeCheck);};
- },[visible,sleeping,timeZone,messages]);
+ },[phoneActive,sleeping,timeZone,messages]);
  const launch=(destination:'home'|PhoneApp['id'],trigger:HTMLButtonElement)=>{
   launcher.current=trigger;
   setScreen(destination);

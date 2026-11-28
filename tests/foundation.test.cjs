@@ -4136,6 +4136,54 @@ test('Aishi hangouts wait for both arrivals, complete once, and discard late or 
  for(const slot of slots)slot?.cleanup?.();
 });
 
+test('Aishi phone keeps its own inbox, contacts, read markers and invitations through room saves',()=>{
+ const load=loader(),p=load('src/core/aishiPhone.ts'),r=load('src/core/companionRoom.ts');
+ const at='2026-11-28T08:00:00.000Z';
+ const own={messages:[{id:'aishi-one',contact:'mana',from:'aishi',at,text:'How are you?'},{id:'mana-one',contact:'mana',from:'contact',at,text:'I am enjoying a quiet break.'}],read:{}};
+ const restored=r.validateRoom({aiPhone:true,phoneMessages:[{contact:'luna',from:'contact',kind:'host-invite',at,text:'Would you like to visit, Mana?'}],phoneReadMessages:{luna:'mana-private-read'},aishiPhone:own});
+ assert.equal(restored.phoneMessages[0].contact,'luna');assert.equal(restored.aishiPhone.messages[1].contact,'mana');
+ assert.equal(restored.aishiPhone.messages.some(message=>message.text.includes('visit, Mana')),false);
+ assert.equal(p.aishiUnreadContacts(restored.aishiPhone).join(','),'mana');
+ const read=p.validateAishiPhone({...own,read:{mana:'mana-one',luna:'mana-private-read'}});
+ assert.equal(p.aishiUnreadContacts(read).length,0);assert.equal(read.read.luna,undefined);
+ assert.equal(restored.phoneReadMessages.luna,'mana-private-read');
+ assert.equal(p.validateAishiPhone({messages:[...own.messages,own.messages[0],{id:'bad',contact:'aishi',from:'contact',at,text:'Invalid'}]}).messages.length,2);
+ const offer={owner:'lyra',kind:'read',text:'Would you like to read by the pond?',expires:Date.now()+45000};
+ const invitation=p.aishiInvitationMessage(offer);assert.equal(invitation.id,p.aishiOfferId(offer));assert.equal(invitation.invitation.status,'pending');
+ const prompt=p.aishiPhonePrompt('mana',own.messages,'Mana is at home.',[]);assert.match(prompt,/texting Aishi on HIS phone/);assert.match(prompt,/not a physical meeting/);assert.doesNotMatch(prompt,/visit, Mana/);
+ assert.equal(p.readAishiPhoneReply('{"text":"Hello, Aishi!"}'),'Hello, Aishi!');assert.equal(p.readAishiPhoneReply('I am outside.'),'');
+});
+
+test('Aishi phone opens its own contacts and thread, marks only its own read state and closes on diving out',()=>{
+ let cursor=0,slots=[],effects=[],reads=[];
+ const jsx=(type,props)=>({type,props});
+ const react={useState(initial){const id=cursor++;if(!Object.hasOwn(slots,id))slots[id]=typeof initial==='function'?initial():initial;return [slots[id],value=>slots[id]=typeof value==='function'?value(slots[id]):value];},useRef(current){const id=cursor++;return slots[id]??(slots[id]={current});},useEffect(fn,deps){const id=cursor++,old=slots[id];if(old&&deps.every((v,i)=>Object.is(v,old.deps[i])))return;slots[id]={deps};effects.push(()=>{old?.cleanup?.();slots[id].cleanup=fn();});}};
+ const load=loader({react,'react/jsx-runtime':{jsx,jsxs:jsx,Fragment:'fragment'},'react-dom':{createPortal:node=>node},'./ManaverseMap':{default:()=>null},'./TownEventGrid':{default:()=>null},'./TownWeather':{default:()=>null}}),Phone=load('src/components/AishiPhone.tsx').default;
+ const props={visible:true,state:{messages:[{id:'own',contact:'mana',from:'contact',at:'2026-11-28T08:00:00.000Z',text:'Hello Aishi!'}],read:{}},ready:true,busy:false,status:'',timeZone:'Asia/Singapore',characters:{},area:'street',calendar:{},memories:[],onAccept(){},onDecline(){},onEnd(){},onMapOpenChange(){},onChooseArea(){},onSend:async()=>{},onRead:(...args)=>reads.push(args)};
+ function render(){cursor=0;effects=[];const nodes=[];function visit(node){if(Array.isArray(node)){node.forEach(visit);return;}if(!node||typeof node!=='object')return;nodes.push(node);visit(node.props?.children);}visit(Phone(props));effects.forEach(fn=>fn());return nodes;}
+ const text=node=>{if(typeof node==='string')return node;if(Array.isArray(node))return node.map(text).join(' ');return node&&typeof node==='object'?text(node.props?.children):'';};
+ let nodes=render(),launcher=nodes.find(node=>node.type==='button');launcher.props.ref.current={closest:()=>({}),focus(){}};launcher.props.onClick();nodes=render();assert.ok(nodes.some(node=>node.type==='h2'&&node.props.children==='Aishi’s phone'));
+ nodes.find(node=>node.type==='button'&&text(node).trim()==='Messages').props.onClick();nodes=render();assert.equal(nodes.filter(node=>node.props?.className==='room-phone-row').length,3,'Mana is a contact alongside Luna and Lyra');
+ nodes.find(node=>node.props?.className==='room-phone-row'&&text(node).includes('Mana')).props.onClick();nodes=render();assert.ok(nodes.some(node=>node.type==='p'&&node.props.children==='Hello Aishi!'));assert.equal(reads[0].join(','),'mana,own');
+ assert.equal(nodes.some(node=>node.props?.children==='Mana’s phone'),false);
+ props.visible=false;nodes=render();assert.equal(nodes.some(node=>node.props?.role==='dialog'),false);
+});
+
+test('Aishi phone replies preserve user text, ignore late replies after diving out and keep invitation status separate',async()=>{
+ let cursor=0,slots=[],effects=[],resolve,saves=0;
+ const react={useState(initial){const id=cursor++;if(!Object.hasOwn(slots,id))slots[id]=typeof initial==='function'?initial():initial;return [slots[id],value=>slots[id]=typeof value==='function'?value(slots[id]):value];},useRef(current){const id=cursor++;return slots[id]??(slots[id]={current});},useEffect(fn,deps){const id=cursor++,old=slots[id];if(old&&deps.every((v,i)=>Object.is(v,old.deps[i])))return;slots[id]={deps};effects.push(()=>{old?.cleanup?.();slots[id].cleanup=fn();});}};
+ const load=loader({react,'../core/companionRoom':{saveRoom:()=>saves++}}),usePhone=load('src/components/useAishiPhone.ts').useAishiPhone;
+ const options={room:{current:{phoneMessages:[{text:'Mana private inbox'}]}},enabled:true,ready:true,context:()=> 'At home.',reply:()=>new Promise(done=>resolve=done)};
+ function render(){cursor=0;effects=[];const ui=usePhone(options);effects.forEach(fn=>fn());return ui;}
+ let ui=render();const late=ui.send('luna','Hello Luna');ui=render();assert.equal(ui.busy,true);assert.equal(ui.state.messages.length,1);options.enabled=false;render();resolve('Hello Aishi');await late;ui=render();assert.equal(ui.state.messages.length,1,'leaving Dive in discards the late reply');
+ options.enabled=true;options.reply=async()=> 'Good morning, Aishi.';ui=render();await ui.send('luna');ui=render();assert.equal(ui.state.messages.length,2,'retry does not duplicate user text');assert.equal(ui.state.messages[1].from,'contact');
+ ui.markRead('luna',ui.state.messages[1].id);ui=render();assert.equal(load('src/core/aishiPhone.ts').aishiUnreadContacts(ui.state).length,0);
+ const offer={owner:'mana',kind:'cafe',text:'Take a café break with me?',expires:Date.now()+45000};ui.rememberOffer(offer);ui.rememberOffer(offer);ui=render();assert.equal(ui.state.messages.length,3);
+ const id=load('src/core/aishiPhone.ts').aishiOfferId(offer);ui.invitationStatus(id,'accepted');ui.invitationStatus(id,'expired');ui=render();assert.equal(ui.state.messages[2].invitation.status,'accepted','expiry cannot overwrite acceptance');
+ assert.equal(options.room.current.phoneMessages[0].text,'Mana private inbox');assert.ok(saves>0);
+ options.reply=()=>new Promise(done=>resolve=done);let awake=true;options.canReply=()=>awake;ui=render();const bedtime=ui.send('lyra','Good evening');awake=false;resolve('Good evening, Aishi');await bedtime;ui=render();assert.equal(ui.state.messages.filter(message=>message.contact==='lyra').length,1,'a reply arriving after bedtime is not delivered');
+});
+
 test('nearby character hangout offers wait for consent, persist cooldown and discard stale proposals',async()=>{
  let cursor=0,slots=[],effects=[],run,checks=[],nearby=true,night=false,windDown=false,calls=0,starts=0,saves=0,resolve;
  const react={useRef(current){const id=cursor++;return slots[id]??(slots[id]={current});},useEffect(fn,deps){const id=cursor++,old=slots[id];if(old&&deps.every((v,i)=>Object.is(v,old.deps[i])))return;slots[id]={deps};effects.push(()=>{old?.cleanup?.();slots[id].cleanup=fn();});}};

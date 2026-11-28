@@ -1,3 +1,4 @@
+import {aishiPhonePrompt,readAishiPhoneReply} from './core/aishiPhone';
 import {aishiHangoutPrompt} from './core/aishiHangouts';
 import {townGoalPrompt,readTownGoal,townGoalContext} from './core/townPersonalGoals';
 import {activityPreferencePrompt,readActivityPreference,activityPreferenceContext,manaPreferenceMemories} from './core/activityPreferences';
@@ -2282,6 +2283,10 @@ export default function App() {
        onResidentRoomChat={async(resident,message,context,signal)=>{
         const result=readRememberingReply(await speakInRoom(context,signal,resident,message));
         return {...result,reply:cleanReply(result.reply,residentProfiles[resident].name).text.trim()};
+       }}
+       onAishiPhoneReply={async(contact,history,context,signal)=>{
+        const raw=await speakInRoom(aishiPhonePrompt(contact,history,context,loadRoom().sharedMemories??[]),signal,contact,undefined,'invitation');
+        return readAishiPhoneReply(raw);
        }}
        onPhoneText={async(message,history,signal)=>{
         const scheduledTime=message.scheduledFor?new Intl.DateTimeFormat(undefined,{timeZone:journal.timeZone,dateStyle:'medium',timeStyle:'short'}).format(new Date(message.scheduledFor)):undefined;
