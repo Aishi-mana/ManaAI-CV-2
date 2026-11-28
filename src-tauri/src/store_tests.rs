@@ -527,3 +527,15 @@ fn songbook_drafts_can_be_saved_and_restored_without_touching_music_files() {
     assert_eq!(restored["mana.songbook.v1"], metadata);
     assert!(!restored.contains_key("mana.unknown.v1"));
 }
+
+#[test]
+fn manaverse_return_checkpoint_persists_without_creating_memories_or_activities() {
+    let mut db = open(Path::new(":memory:")).unwrap();
+    let checkpoint = r#"{"checkpoint":{"at":"2026-11-29T04:00:00.000Z","timeZone":"Asia/Singapore"}}"#;
+    save(&mut db, &values(&[("mana.manaverse-return.v1", checkpoint)])).unwrap();
+    let loaded = initialize(&mut db, &BTreeMap::new()).unwrap();
+    assert_eq!(loaded["mana.manaverse-return.v1"], checkpoint);
+    assert!(!loaded.contains_key("mana.events.v1"));
+    assert!(!loaded.contains_key("mana.companion_room.v1"));
+    assert!(!loaded.contains_key("mana.memories.v1"));
+}

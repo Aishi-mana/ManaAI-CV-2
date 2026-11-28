@@ -7221,3 +7221,82 @@ test('gathering execution waits while busy, honours visibility and cancels misse
  options.busy=false;options.free=()=>false;timer();assert.equal(starts,0,'current walking or work must finish before departure');options.free=()=>true;doc.visibilityState='hidden';timer();assert.equal(starts,0);
  now+=11*60000;doc.visibilityState='visible';timer();assert.equal(starts,0);assert.equal(room.current.characterGatherings[0].status,'cancelled');assert.equal(room.current.characterGatherings[0].completedAt,undefined);
 });
+
+test('Manaverse return updates only routine state and a bounded scheduled-rest allowance, never completed history',()=>{
+ const load=loader(),r=load('src/core/manaverseReturn.ts'),base=load('src/core/companionRoom.ts');
+ const now=new Date('2026-11-24T00:00:00Z'),from='2026-11-23T14:00:00.000Z';
+ const room=base.validateRoom({energy:20,sleep:{night:'2026-11-23',startedAt:from},sharedMemories:[{id:'real',owner:'mana',with:'luna',at:from,activity:'Reading',fact:'We read together.'}],furnitureUses:{read:2},lastActivity:'read'});
+ const result=r.prepareManaverseReturn(room,{checkpoint:{at:from,timeZone:'Asia/Singapore'}},'Asia/Singapore',now);
+ assert.ok(result.reconciled);assert.equal(result.room.energy,55);assert.equal(result.room.sleep,undefined);assert.equal(result.targets.mana,'office');assert.equal(result.state.report.energyAdded,35);assert.equal(room.energy,20,'preparation is pure');
+ for(const key of ['sharedMemories','furnitureUses','personalGoals','activityKeepsakes','townGuestbook','phoneReadMessages','lastActivity'])assert.equal(result.room[key],room[key],key);
+ assert.equal(result.room.phoneMessages,room.phoneMessages);
+ assert.equal(r.scheduledRestMinutes(Date.parse(from),now.getTime(),'Asia/Singapore'),480);
+ assert.equal(r.scheduledRestMinutes(Date.parse(from),now.getTime(),'Asia/Singapore','2026-11-23'),0);
+ assert.ok(r.scheduledRestMinutes(Date.parse('2020-01-01T00:00:00Z'),now.getTime(),'Asia/Singapore')<=480);
+ const checkpoint={at:now.toISOString(),timeZone:'Asia/Singapore'};
+ const replay=r.prepareManaverseReturn(result.room,{...result.state,checkpoint},'Asia/Singapore',new Date(now.getTime()+60000));assert.equal(replay.reconciled,false);assert.equal(replay.room.energy,55,'refresh cannot claim the same rest twice');
+});
+
+test('first launch, clock changes and timezone changes never fabricate offline work or extra rest',()=>{
+ const load=loader(),r=load('src/core/manaverseReturn.ts'),base=load('src/core/companionRoom.ts'),room=base.validateRoom({energy:40}),now=new Date('2026-11-29T04:00:00Z');
+ assert.equal(r.prepareManaverseReturn(room,{},'Asia/Singapore',now).reconciled,false);
+ assert.equal(r.prepareManaverseReturn(room,{checkpoint:{at:'2026-12-01T00:00:00Z',timeZone:'Asia/Singapore'}},'Asia/Singapore',now).reconciled,false);
+ const changed=r.prepareManaverseReturn(room,{checkpoint:{at:'2026-11-28T00:00:00Z',timeZone:'UTC'}},'Asia/Singapore',now);assert.ok(changed.reconciled);assert.equal(changed.room.energy,40);assert.equal(changed.state.report.zoneChanged,true);
+ const night=r.prepareManaverseReturn(room,{checkpoint:{at:'2026-11-29T12:00:00Z',timeZone:'Asia/Singapore'}},'Asia/Singapore',new Date('2026-11-29T15:00:00Z'));assert.equal(night.room.sleep.night,'2026-11-29');assert.equal(night.room.sleep.startedAt,'2026-11-29T15:00:00.000Z');assert.equal(night.targets.lyra,'lyra-room');assert.equal(night.targets.luna,'luna-home');
+ const skipped=r.prepareManaverseReturn({...room,skipSleepNight:'2026-11-29'},{checkpoint:{at:'2026-11-29T12:00:00Z',timeZone:'Asia/Singapore'}},'Asia/Singapore',new Date('2026-11-29T15:00:00Z'));assert.equal(skipped.room.sleep,undefined);assert.equal(skipped.state.report.energyAdded,0);
+});
+
+test('offline return expires missed plans as status, keeps future plans, and never generates cancellation dialogue',()=>{
+ const load=loader(),r=load('src/core/manaverseReturn.ts'),phone=load('src/core/roomPhone.ts'),base=load('src/core/companionRoom.ts');
+ const now=new Date('2026-11-29T04:00:00Z'),from='2026-11-29T00:00:00.000Z';
+ const plan={id:'missed',host:'mana',guest:'luna',kind:'read',message:'Read together?',reply:'Yes.',createdAt:from,startsAt:'2026-11-29T01:00:00.000Z',endsAt:'2026-11-29T01:30:00.000Z',status:'planned'};
+ const messages=[phone.phoneMessage('luna','visit-request',from),phone.phoneMessage('lyra','host-invite',from)];messages[0].text='May I visit?';messages[1].text='Would you like to come over?';
+ const room=base.validateRoom({characterGatherings:[plan,{...plan,id:'future',startsAt:'2026-11-29T05:00:00.000Z',endsAt:'2026-11-29T05:30:00.000Z'}],phoneMessages:messages,pondSketch:{status:'invited',updatedAt:from}});
+ const result=r.prepareManaverseReturn(room,{checkpoint:{at:from,timeZone:'Asia/Singapore'}},'Asia/Singapore',now);
+ assert.equal(result.room.characterGatherings[0].status,'cancelled');assert.equal(result.room.characterGatherings[0].completedAt,undefined);assert.equal(result.room.characterGatherings[1].status,'planned');assert.equal(result.state.report.missedGatherings,1);
+ assert.equal(result.room.phoneMessages.length,2);assert.equal(result.room.phoneMessages[0].text,'May I visit?');assert.ok(result.room.phoneMessages.every(message=>message.expiredAt));assert.equal(result.state.report.expiredVisits,2);
+ assert.equal(phone.pendingVisitRequest(result.room.phoneMessages),undefined);assert.equal(phone.pendingHostVisit(result.room.phoneMessages),undefined);assert.equal(result.room.pondSketch.status,'deferred');
+ const restored=base.validateRoom(result.room);assert.ok(restored.phoneMessages.every(message=>message.expiredAt));
+ const future=r.prepareManaverseReturn(base.validateRoom({phoneMessages:[{...messages[0],scheduledFor:'2026-11-29T05:00:00.000Z'}]}),{checkpoint:{at:from,timeZone:'Asia/Singapore'}},'Asia/Singapore',now);assert.ok(phone.pendingVisitRequest(future.room.phoneMessages));
+});
+
+test('return reports validate separately and heartbeat/dismissal preserve the newest checkpoint across rerenders',()=>{
+ let now=Date.parse('2026-11-29T04:00:00Z'),slots=[],cursor=0,effects=[],tick,saved=[];
+ class ClockDate extends Date{constructor(...args){super(...(args.length?args:[now]));}static now(){return now;}}
+ const react={useState(initial){const i=cursor++;if(!(i in slots))slots[i]=typeof initial==='function'?initial():initial;return [slots[i],next=>{slots[i]=next;}];},useRef(initial){const i=cursor++;return slots[i]??(slots[i]={current:initial});},useEffect(effect){cursor++;effects.push(effect);}};
+ const load=loader({react,'../core/companionRoom':{saveRoom(){}},'../core/manaverseReturn':{MANAVERSE_CHECKPOINT_EVENT:'checkpoint',saveManaverseReturn:state=>saved.push(JSON.parse(JSON.stringify(state))) }},{Date:ClockDate,window:{setInterval:callback=>{tick=callback;return 1;},clearInterval(){},addEventListener(){},removeEventListener(){}},document:{visibilityState:'visible',addEventListener(){},removeEventListener(){}}});
+ const hook=load('src/components/useManaverseReturn.ts').useManaverseReturn;
+ const initial={checkpoint:{at:'2026-11-29T00:00:00.000Z',timeZone:'Asia/Singapore'},report:{from:'2026-11-29T00:00:00.000Z',to:new Date(now).toISOString(),timeZone:'Asia/Singapore',energyAdded:0,missedGatherings:0,expiredVisits:0,targets:{mana:'cafe',luna:'luna-home',lyra:'library'},sleeping:false,zoneChanged:false}};
+ const room={current:{}};let api=hook(room,initial,'Asia/Singapore');effects[0]();now+=60000;tick();cursor=0;effects=[];api=hook(room,initial,'Asia/Singapore');api.dismiss();assert.equal(saved.at(-1).checkpoint.at,new Date(now).toISOString());assert.equal(saved.at(-1).report.dismissed,true);
+ const r=loader()('src/core/manaverseReturn.ts');assert.equal(r.validateManaverseReturn(saved.at(-1)).report.dismissed,true);assert.deepEqual(JSON.parse(JSON.stringify(r.validateManaverseReturn({checkpoint:{at:'bad',timeZone:'bogus'}}))),{});assert.equal(r.validateManaverseReturn({report:{...initial.report,energyAdded:100}}).report,undefined);
+});
+
+test('offline routine seeds use shared entrances and never create a live travel or completion record',()=>{
+ const react={useState:initial=>[typeof initial==='function'?initial():initial,()=>{}],useRef:current=>({current}),useEffect(){}};
+ const load=loader({react}),doors=load('src/core/manaversePassage.ts');
+ const travel=load('src/components/useManaTravel.ts').useManaTravel(undefined,undefined,()=>{},()=>{},'office');
+ assert.equal(travel.manaArea,'office');assert.deepEqual(JSON.parse(JSON.stringify(travel.officePosition)),JSON.parse(JSON.stringify(doors.manaversePassage('district','office').entry)));assert.equal(travel.officeTrip,undefined);assert.equal(travel.manaStreetTrip,undefined);
+ const normal=load('src/components/useManaTravel.ts').useManaTravel(undefined,undefined,()=>{},()=>{});assert.equal(normal.manaArea,'bedroom');
+ const resident=load('src/components/useResidentOuting.ts').useResidentOuting('luna',false,'Asia/Singapore',{date:'2026-11-29',time:'11:30'},undefined,false,false,true,false,false,false,false,'park');
+ assert.equal(resident.outing.inPark,true);assert.equal(resident.outing.trip,undefined);assert.deepEqual(JSON.parse(JSON.stringify(resident.outing.position)),JSON.parse(JSON.stringify(doors.manaversePassage('street','park').entry)));
+});
+
+test('returning during the night restores a sleeping resident without replaying the bedtime activity',()=>{
+ for(const resident of ['luna','lyra']){
+  let slots=[],cursor=0,effects=[],timers=[],frames=[],completions=0,status='';
+  class ClockDate extends Date{constructor(...args){super(...(args.length?args:['2026-11-29T19:00:00Z']));}static now(){return Date.parse('2026-11-29T19:00:00Z');}}
+  const react={useState(initial){const id=cursor++;if(!(id in slots))slots[id]=typeof initial==='function'?initial():initial;return [slots[id],value=>{slots[id]=typeof value==='function'?value(slots[id]):value;}];},useRef(initial){const id=cursor++;return slots[id]??(slots[id]={current:initial});},useEffect(effect){cursor++;effects.push(effect);}};
+  const jsx=(type,props)=>({type,props}),stub={__esModule:true,default:()=>null};
+  const load=loader({react,'react/jsx-runtime':{jsx,jsxs:jsx},'./ActivityKeepsake':stub,'./MapTransferArrow':stub,'./SceneViewport':stub,'./CharacterGesture':stub,'./ResidentSprite':stub,'./ManaSprite':stub,'./ManaRoomSpeech':stub,'./SceneVoice':{useSceneLine:()=>undefined}},{Date:ClockDate,window:{matchMedia:()=>({matches:true}),setTimeout:(fn,ms)=>{timers.push({fn,ms});return timers.length;},setInterval:()=>1},clearTimeout(){},clearInterval(){},requestAnimationFrame:fn=>{frames.push(fn);return frames.length;},cancelAnimationFrame(){},document:{visibilityState:'visible',addEventListener(){},removeEventListener(){}}});
+  const Room=load('src/components/ResidentRoom.tsx').default,props={restoreRoutine:true,resident,shown:true,away:false,outdoors:false,timeZone:'Asia/Singapore',manaPresent:false,onActivityDone:()=>completions++,onActivityStatus:text=>status=text,onStreet(){}};
+  Room(props);effects.forEach(effect=>effect());const start=timers.find(timer=>timer.ms===1800);assert.ok(start);start.fn();let count=0;while(frames.length){const batch=frames;frames=[];batch.forEach(frame=>frame(++count));assert.ok(count<30);}
+  cursor=0;effects=[];Room(props);effects.forEach(effect=>effect());assert.equal(completions,0);assert.match(status,/asleep|sleeping/i,'restored sleep does not replay stargazing');
+ }
+});
+
+test('return checkpoints and summaries round-trip through backups while older backups get an empty baseline',()=>{
+ const key='mana.manaverse-return.v1',state={checkpoint:{at:'2026-11-29T04:00:00.000Z',timeZone:'Asia/Singapore'},report:{from:'2026-11-28T20:00:00.000Z',to:'2026-11-29T04:00:00.000Z',timeZone:'Asia/Singapore',energyAdded:20,missedGatherings:1,expiredVisits:0,targets:{mana:'cafe',luna:'luna-home',lyra:'library'},sleeping:false,zoneChanged:false}};
+ const load=loader({'./persistence':{readStored:readKey=>readKey===key?JSON.stringify(state):null}}),backup=load('src/core/backup.ts');
+ const snapshot=backup.snapshotBackup();assert.deepEqual(JSON.parse(JSON.stringify(snapshot.data[key])),state);assert.ok(backup.validateBackup(JSON.stringify(snapshot)).data[key].report);
+ const old=JSON.parse(JSON.stringify(snapshot));delete old.data[key];assert.deepEqual(JSON.parse(JSON.stringify(backup.validateBackup(JSON.stringify(old)).data[key])),{});
+});

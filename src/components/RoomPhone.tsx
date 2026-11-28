@@ -1,3 +1,5 @@
+import WhileAway from './WhileAway';
+import type {AwayReport} from '../core/manaverseReturn';
 import CharacterGatheringList from './CharacterGatheringList';
 import type {CharacterGathering} from '../core/characterGatherings';
 import {townActors,townActorIds} from '../core/townCharacters';
@@ -52,12 +54,13 @@ function PhoneAppIcon({app,unread}:{app:PhoneApp;unread:boolean}){
  </span>;
 }
 
-export default function RoomPhone({characterGatherings=[],activityKeepsakes=[],birthdayVisits=[],onStartTownProject,preferenceSummaries=[],backgroundActive,visible,sleeping,messages,onSend,readMessages,onReadMessages,timeZone,events,projects,meetup,meetupPlace,area,characters,onChooseArea,onMapOpenChange,diving,pondSketch,libraryStory,manaKeepsake,sharedKeepsake,coreMemories,onForgetMemory,sharedMemories,onForgetSharedMemory,petBotMemories,onForgetPetMemory,manaMemories,onForgetManaMemory,petBotFriends,onForgetPetFriend,personalGoals,today}:{
+export default function RoomPhone({awayReport,characterGatherings=[],activityKeepsakes=[],birthdayVisits=[],onStartTownProject,preferenceSummaries=[],backgroundActive,visible,sleeping,messages,onSend,readMessages,onReadMessages,timeZone,events,projects,meetup,meetupPlace,area,characters,onChooseArea,onMapOpenChange,diving,pondSketch,libraryStory,manaKeepsake,sharedKeepsake,coreMemories,onForgetMemory,sharedMemories,onForgetSharedMemory,petBotMemories,onForgetPetMemory,manaMemories,onForgetManaMemory,petBotFriends,onForgetPetFriend,personalGoals,today}:{
  backgroundActive?:boolean;activityKeepsakes?:ActivityKeepsake[];birthdayVisits?:TownGuestbookVisit[];
  onStartTownProject?:(owner:TownCharacter,choice:TownGoalId)=>boolean;
  preferenceSummaries?:{owner:TownCharacter;likes:string[];reason?:string;forNow?:string;choiceReason?:string}[];
  readMessages:PhoneReadState;onReadMessages:(read:PhoneReadState)=>void;
  today:TownTodayState;
+ awayReport?:AwayReport;
  characterGatherings?:readonly CharacterGathering[];
  personalGoals:TownPersonalGoal[];
  petBotFriends:PetBotFriends;
@@ -231,6 +234,7 @@ export default function RoomPhone({characterGatherings=[],activityKeepsakes=[],b
      onView={destination=>{onChooseArea(destination);close();}}/>}
     {screen==='plans'&&<div className="room-phone-list room-phone-plans">
      <TownDailyIntentions goals={personalGoals} timeZone={timeZone} now={now}/>
+     <WhileAway report={awayReport}/>
      <CharacterGatheringList plans={characterGatherings} timeZone={timeZone}/>
      <FriendshipHabits memories={sharedMemories} timeZone={timeZone}/>
      <TownPersonalGoals goals={personalGoals}/>
@@ -347,7 +351,8 @@ export default function RoomPhone({characterGatherings=[],activityKeepsakes=[],b
     {thread.length===0&&<p>No messages yet.</p>}
     {thread.map((message,index)=><article key={`${message.at}-${index}`} data-from={message.from}>
      <small>{message.from==='mana'?'Mana':ROOM_CONTACTS[message.contact].name} · <time dateTime={message.at}>{clock.format(new Date(message.at))}</time></small>
-     <p>{message.text??'Waiting for AI message…'}</p>
+     <p>{message.text??(message.expiredAt?'No message was sent.':'Waiting for AI message…')}</p>
+     {message.expiredAt&&<small>Plan expired while the app was away.</small>}
     </article>)}
     <div ref={end}/>
    </div>

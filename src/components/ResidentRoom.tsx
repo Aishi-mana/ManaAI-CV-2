@@ -22,7 +22,7 @@ import {residentProfiles,type ResidentActivity,type ResidentId} from '../core/re
 import {chooseResidentFreeActivity,type ActivityPreferences} from '../core/activityPreferences';
 import {eveningWindDown,residentEveningActivity,eveningGoodnightPrompt,EVENING_TIDY_MS} from '../core/eveningWindDown';
 
-export default function ResidentRoom({eveningCompleted,onEveningComplete,preferences={},coreMemories=[],preferredPose,freeTimeMode,onActivityDone,keepsake,resident,shown,away,outdoors,leavingHome=false,onResidentExit,onStreet,timeZone,manaPresent,manaLeaving=false,onManaExit,lunaVisiting=false,lunaLeaving=false,onLunaExit,storyLine,upstairs=false,onStairs,onActivityStatus,sharingActivity=false,chat}:{eveningCompleted?:string;onEveningComplete?:(resident:ResidentId,key:string,outcome:string)=>void;preferences?:ActivityPreferences;coreMemories?:string[];preferredPose?:string;freeTimeMode?:FreeTimeMode;onActivityDone:(resident:ResidentId,pose:string)=>void;keepsake?:Keepsake;resident:ResidentId;shown:boolean;away:boolean;outdoors:boolean;leavingHome?:boolean;onResidentExit?:()=>void;onStreet:()=>void;timeZone:string;manaPresent:boolean;manaLeaving?:boolean;onManaExit?:()=>void;lunaVisiting?:boolean;lunaLeaving?:boolean;onLunaExit?:()=>void;storyLine?:string;upstairs?:boolean;onStairs?:()=>void;onActivityStatus:(status:string)=>void;sharingActivity?:boolean;
+export default function ResidentRoom({restoreRoutine=false,eveningCompleted,onEveningComplete,preferences={},coreMemories=[],preferredPose,freeTimeMode,onActivityDone,keepsake,resident,shown,away,outdoors,leavingHome=false,onResidentExit,onStreet,timeZone,manaPresent,manaLeaving=false,onManaExit,lunaVisiting=false,lunaLeaving=false,onLunaExit,storyLine,upstairs=false,onStairs,onActivityStatus,sharingActivity=false,chat}:{restoreRoutine?:boolean;eveningCompleted?:string;onEveningComplete?:(resident:ResidentId,key:string,outcome:string)=>void;preferences?:ActivityPreferences;coreMemories?:string[];preferredPose?:string;freeTimeMode?:FreeTimeMode;onActivityDone:(resident:ResidentId,pose:string)=>void;keepsake?:Keepsake;resident:ResidentId;shown:boolean;away:boolean;outdoors:boolean;leavingHome?:boolean;onResidentExit?:()=>void;onStreet:()=>void;timeZone:string;manaPresent:boolean;manaLeaving?:boolean;onManaExit?:()=>void;lunaVisiting?:boolean;lunaLeaving?:boolean;onLunaExit?:()=>void;storyLine?:string;upstairs?:boolean;onStairs?:()=>void;onActivityStatus:(status:string)=>void;sharingActivity?:boolean;
  chat?:{ready:boolean;onSend:(message:string,context:string,onReply:(reply:string)=>void,signal:AbortSignal)=>Promise<void>};
 }){
  const goalActivity=useRef({preferredPose,onActivityDone,preferences,coreMemories,freeTimeMode});
@@ -44,7 +44,8 @@ export default function ResidentRoom({eveningCompleted,onEveningComplete,prefere
  const nightActivity=sleep.activity;
  const isLyra=resident==='lyra';
  const [night,setNight]=useState(()=>roomSleepNight(new Date(),timeZone));
- const [feet,setFeet]=useState(()=>isLyra&&night?lyraRoomLanding:entrance);
+ const restoredSleepNight=useRef(restoreRoutine?night:undefined);
+ const [feet,setFeet]=useState(()=>restoreRoutine&&night?nightActivity.position:isLyra&&night?lyraRoomLanding:entrance);
  const location=useRef(feet);
  const [walking,setWalking]=useState(false);
  const moving=useRef(false);
@@ -52,7 +53,7 @@ export default function ResidentRoom({eveningCompleted,onEveningComplete,prefere
  sharing.current=sharingActivity;
  const [placementRevision,setPlacementRevision]=useState(0);
  const [facing,setFacing]=useState(1);
- const [activity,setActivity]=useState<ResidentActivity>();
+ const [activity,setActivity]=useState<ResidentActivity|undefined>(()=>restoreRoutine&&night?nightActivity:undefined);
  const [residentFloor,setResidentFloor]=useState<'library'|'lyra-room'|'luna-home'>(()=>isLyra&&night?'lyra-room':home);
  const locationFloor=useRef(residentFloor);
  const residentExit=useRef(onResidentExit);
@@ -84,7 +85,7 @@ export default function ResidentRoom({eveningCompleted,onEveningComplete,prefere
    setFeet(location.current);
   }
   let frame=0,timer=0,previousPose:string|undefined;
-  let finishedStargazing=false;
+  let finishedStargazing=!!night&&restoredSleepNight.current===night;
   const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   function walk(target:StreetPoint,onArrival:()=>void){

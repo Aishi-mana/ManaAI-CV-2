@@ -1,3 +1,4 @@
+import {MANAVERSE_RETURN_KEY,validateManaverseReturn} from './manaverseReturn';
 import {GAME_DEV_KEY,validateGameDev} from "./gameDev";
 import {ROOM_KEY,validateRoom} from "./companionRoom";
 import {validateStudio} from './musicStudio';
@@ -37,6 +38,7 @@ import {SKETCHBOOK_KEY,validateSketchbook} from './sketchbook';
 import {SONGBOOK_KEY,validateSongbook} from './songbook';
 
 const validators:Record<string,(value:unknown)=>unknown>={
+ [MANAVERSE_RETURN_KEY]:validateManaverseReturn,
  [MUSIC_DRAFTS_KEY]:validateMusicDrafts,
  [GAME_DEV_KEY]:validateGameDev,
  [ROOM_KEY]:validateRoom,
@@ -74,6 +76,7 @@ export function validateBackup(raw:string):Backup {
  const data={...value.data};
  if(!Object.prototype.hasOwnProperty.call(data,GAME_DEV_KEY))data[GAME_DEV_KEY]=validateGameDev(null);
  if(!Object.prototype.hasOwnProperty.call(data,ROOM_KEY))data[ROOM_KEY]=validateRoom(null);
+ if(!Object.prototype.hasOwnProperty.call(data,MANAVERSE_RETURN_KEY))data[MANAVERSE_RETURN_KEY]=validateManaverseReturn(null);
  const room=data[ROOM_KEY];
  if(isRecord(room)&&room.layout===undefined&&isRecord(room.position)){
    const {u,v}=room.position;

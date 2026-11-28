@@ -11,11 +11,11 @@ type StreetDestination=StreetDoor|'street'|'district'|'square-from-district'|Tow
 type OutdoorTrip=StreetTrip&{room:'street'|'square'|'district';door?:StreetDestination;roaming?:boolean};
 type InteriorTrip=StreetTrip&{room:TownInterior;destination:TownInterior|'district'|'square';remaining:StreetPoint[]};
 
-export function useManaTravel(layout:OfficeLayout|undefined,paused:number|undefined,onLivingArrival:()=>void,onViewRoom:(area:ManaverseArea)=>void){
- const [manaArea,setManaArea]=useState<Exclude<ManaverseArea,'lyra-room'>>('bedroom');
- const [manaStreetPosition,setManaStreetPosition]=useState(streetDoors.living);
+export function useManaTravel(layout:OfficeLayout|undefined,paused:number|undefined,onLivingArrival:()=>void,onViewRoom:(area:ManaverseArea)=>void,initialArea?:ManaverseArea){
+ const [manaArea,setManaArea]=useState<Exclude<ManaverseArea,'lyra-room'>>(initialArea&&initialArea!=='lyra-room'?initialArea:'bedroom');
+ const [manaStreetPosition,setManaStreetPosition]=useState(initialArea==='square'?squareEntry:streetDoors.living);
  const [manaStreetTrip,setManaStreetTrip]=useState<OutdoorTrip>();
- const [officePosition,setOfficePosition]=useState<StreetPoint>({x:50,y:79});
+ const [officePosition,setOfficePosition]=useState<StreetPoint>(()=>initialArea&&isTownBuilding(initialArea)?manaversePassage(townBuildingStreet(initialArea),initialArea)?.entry??{x:50,y:79}:{x:50,y:79});
  const [officeTrip,setOfficeTrip]=useState<InteriorTrip>();
  const [residentExit,setResidentExit]=useState<'library'|'luna-home'>();
  const events=useRef({onLivingArrival,onViewRoom});

@@ -1,6 +1,6 @@
 # Manaverse town layout
 
-Current-cast foundation reviewed 2026-11-29. The design remains a hybrid: existing schedules and routes control movement, the shared local model supplies dialogue and supported choices, and recorded completions supply history. Saved state is not a closed-app simulation.
+Current-cast foundation reviewed 2026-11-29. The design remains a hybrid: existing schedules and routes control movement, the shared local model supplies dialogue and supported choices, and recorded completions supply history. Saved state supports bounded routine restoration, not a closed-app social or project simulation.
 
 ## Shared character foundation
 
@@ -27,7 +27,7 @@ Current-cast foundation reviewed 2026-11-29. The design remains a hybrid: existi
 
 The existing three AI characters have connected homes and park/café routes, individual memory stores and supported projects. Their identities now share one cast source across the common surfaces above. Aishi and Pet Bot retain their deliberate role exceptions. Automated contract checks cover identities, contact/goal coverage, memory validation, birthdays, home connectivity, stairs and local artwork; the broader suite covers movement, interruptions, phones and activity completion.
 
-Special home/outing controllers, group activities, project/action identifiers and some scene orchestration still contain character-specific adapters. These require an explicit onboarding review and behavioral tests when adding a resident; this refactor does not claim arbitrary actors are plug-and-play. The Community Garden, richer little-project creations beyond the supported digital pages, broader personal agency/relationships, larger resident-organized events beyond hosted pair meetups and bounded offline progression remain the next gaps.
+Special home/outing controllers, group activities, project/action identifiers and some scene orchestration still contain character-specific adapters. These require an explicit onboarding review and behavioral tests when adding a resident; this refactor does not claim arbitrary actors are plug-and-play. The Community Garden, richer little-project creations beyond the supported digital pages, broader personal agency/relationships, larger resident-organized events beyond hosted pair meetups and broader offline simulation beyond routine restoration remain future gaps.
 
 ### Live acceptance checklist
 
@@ -209,6 +209,18 @@ Phone → Town Sketchbook opens a daily keepsake grid with place-art covers, cha
 Pages derive from retained Manaverse event history and shared memories, including shared sketches/reading, visits, small-favor answers, workshop trinkets, photo-board keepsakes, and evening wind-downs. Reciprocal memories are merged by their original shared-event id; an event-log copy and its corresponding shared memories become one moment. Event text is preferred when both sources exist. Group participants come from structured shared-memory metadata or known completed-action types, not names mentioned in quotes. Proposals, cancelled/declined activities, future-dated entries, unrelated background actions, and sleeping-visit followups do not become sketchbook moments. Calendar grouping and timestamps follow the configured town timezone.
 
 The book is read-only and uses existing saved history, saves/backups and existing location artwork. It does not create additional event copies, trigger image/model jobs, invent illustrated scenes, change core memories, or alter character schedules. It is a separate town keepsake view from Mana’s scheduled imaginative-drawing workspace. Deleting/pruning a source record removes its sketchbook copy when no corresponding retained record remains; another retained event or shared-memory copy can still supply that moment.
+
+### While you were away and offline routines
+
+The first launch of this version establishes a separate Manaverse checkpoint. After at least five minutes away on a later launch, a pure return reconciliation updates the current routine snapshot before the scene is displayed. A small “While you were away” summary appears above the room; Got it dismisses that banner, while both phones retain the latest report in Plans. Reports use the town timezone, state their update timestamp, and describe current routine assignments rather than claiming unobserved activities happened.
+
+Mana resumes at the current scheduled location, respecting shelter and skip-bedtime settings. Luna and Lyra resume their current home/outing routine; nighttime restoration uses their established sleep poses and does not replay Luna's pre-bed stargazing. The initialization uses shared map entry points and current furniture placement; it never replaces live walking/door rules or creates a travel-completion record. Pet Bot starts at home with its existing roaming/charging controller, without permission to follow Mana outside.
+
+Scheduled night rest can grant Mana a bounded energy allowance: up to 35 points for eight scheduled rest hours, capped at 100 total energy. Calculation inspects at most the last seven days and never credits more than eight hours; skipped nights are excluded. No offline energy loss, skills, money, friendship gain, chores, work sessions or project creations are awarded. A timezone change skips the rest allowance. First launch, short gaps and backwards/future-clock checkpoints do not apply catch-up rewards. Repeating a refresh after the checkpoint advances cannot apply the same allowance twice.
+
+Interrupted or overdue character gatherings are marked cancelled/missed, with future accepted plans preserved. Old pending visits more than 30 minutes overdue gain an expired status on the original record; no character cancellation dialogue is invented, and undelivered expired drafts are not sent on reopening. Previously invited pond-sketch plans defer rather than restart. Existing histories, read markers, shared/core memories, guestbook attendance and project evidence remain intact. Live current-time attendance or activities may resume normally after reopening.
+
+The dedicated `mana.manaverse-return.v1` checkpoint/report key is whitelisted in the desktop store and included in backups, with an empty baseline for older backup files. A one-minute foreground heartbeat, visibility/page-hide handlers and a checkpoint before the desktop close flush keep it current; crashes may fall back to the last heartbeat. Reconciliation commits the updated room before advancing the checkpoint. These startup changes do not fast-forward a running scene or fabricate past social events. Live close/reopen, backup-restore and day/night acceptance still need an in-app check.
 
 ### Character-organized gatherings
 

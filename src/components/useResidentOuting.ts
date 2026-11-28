@@ -1,3 +1,4 @@
+import type {ManaverseArea} from './ManaverseMap';
 import {useEffect,useRef,useState} from 'react';
 import {squareSpots,streetTripDuration,type StreetPoint,type StreetTrip} from '../core/manaverseStreet';
 import {manaversePassage} from '../core/manaversePassage';
@@ -14,11 +15,11 @@ const cafeDoor=manaversePassage('district','cafe')!;
 const libraryDoor=manaversePassage('street','library')!;
 const parkDoor=manaversePassage('street','park')!;
 
-export function useResidentOuting(resident:ResidentId,away:boolean,timeZone:string,clock:{date:string;time:string},pauseUntil?:number,meetup=false,expectingGuest=false,libraryOpen=false,cafeMeetup=false,townGathering=false,cafePause=false,sheltering=false){
+export function useResidentOuting(resident:ResidentId,away:boolean,timeZone:string,clock:{date:string;time:string},pauseUntil?:number,meetup=false,expectingGuest=false,libraryOpen=false,cafeMeetup=false,townGathering=false,cafePause=false,sheltering=false,initialArea?:ManaverseArea){
  const {home}=residentProfiles[resident];
- const [outing,setOuting]=useState<Outing>();
+ const [outing,setOuting]=useState<Outing|undefined>(()=>initialArea==='park'?{position:parkDoor.entry,inPark:true}:initialArea==='cafe'?{position:cafeDoor.entry,cafeStage:'inside'}:initialArea==='library'&&home!=='library'?{position:libraryDoor.entry,inLibrary:true}:initialArea==='square'?{position:squareDoor.entry,squareStops:0}:undefined);
  const entrance=manaversePassage(home,'street')!.entry;
- const lastOuting=useRef('');
+ const lastOuting=useRef(initialArea?residentOutingSlot(resident,clock)?.key??'':'');
  const previousShelter=useRef(sheltering);
  useEffect(()=>{
   if(previousShelter.current&&!sheltering)lastOuting.current='';

@@ -453,7 +453,8 @@ Consolidated 2026-11-29 against the current implementation. Checked items descri
 - [x] First personal free-time intentions: AI chooses project/friends/quiet/rest from own evidence; bounded home activity weights and optional invitations honor this for 30 minutes. Existing schedules and routes stay authoritative (2026-11-29).
 - [x] Pair-specific familiar activities, bounded catch-up weighting and familiar quiet-company visits from retained shared memories; phone Plans displays these habits without friendship scores (2026-11-29).
 - [ ] Broader supported personal planning and deeper experience-driven relationships.
-- [ ] Bounded, explicitly recorded offline progression; no invented closed-app conversations.
+- [x] Bounded offline routine restoration and a replayable “While you were away” summary: current schedule/sleep placement, capped scheduled-rest allowance and missed-plan statuses, without invented closed-app conversations or project work (2026-11-29).
+- [ ] Broader offline simulation beyond routine restoration.
 
 ---
 

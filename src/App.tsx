@@ -1,3 +1,4 @@
+import {MANAVERSE_CHECKPOINT_EVENT} from './core/manaverseReturn';
 import {characterGatheringContext} from './core/characterGatherings';
 import {freeTimePrompt,readFreeTimeChoice} from './core/freeTimeChoices';
 import {projectCreationPrompt,readProjectCreation} from './core/projectCreations';
@@ -1011,6 +1012,7 @@ export default function App() {
         event.preventDefault();
         abortRef.current?.abort();
         saveChat(messagesRef.current);
+        window.dispatchEvent(new Event(MANAVERSE_CHECKPOINT_EVENT));
         try { await flushPersistence(); await appWindow.destroy(); }
         catch { /* Keep the window open; the persistence banner offers Retry. */ }
       });

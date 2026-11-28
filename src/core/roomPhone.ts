@@ -10,7 +10,7 @@ export interface PhoneMessage {
  from:'contact'|'mana';
  kind:PhoneMessageKind;
  at:string;
- scheduledFor?:string;
+ scheduledFor?:string;expiredAt?:string;
  text?:string;
  detail?:string;
 }
@@ -115,6 +115,7 @@ export function validatePhone(value:unknown):PhoneMessage[]{
    const scheduled=new Date(item.scheduledFor);
    if(Number.isFinite(scheduled.getTime())&&scheduled.toISOString()===item.scheduledFor)message.scheduledFor=item.scheduledFor;
   }
+  if(typeof item.expiredAt==='string'&&Number.isFinite(Date.parse(item.expiredAt))&&Date.parse(item.expiredAt)>=Date.parse(item.at))message.expiredAt=item.expiredAt;
   if(typeof item.detail==='string'&&item.detail.trim())message.detail=item.detail.slice(0,400);
   if(typeof item.text==='string'&&item.text.length>0&&item.text.length<=240&&!ungroundedPhoneText(message,item.text))message.text=item.text;
   return [message];
@@ -134,13 +135,13 @@ export function latestVisitRequest(messages:readonly PhoneMessage[]){
 export function pendingVisitRequest(messages:readonly PhoneMessage[]){
  const request=latestVisitRequest(messages);
  const accepted=request?.kind==='home-invite'?'home-invite-accepted':'visit-accepted';
- return request&&!messages.slice(messages.indexOf(request)+1).some(message=>message.contact===request.contact&&(message.kind===accepted||message.kind==='home-visit-cancelled'))
+ return request&&!request.expiredAt&&!messages.slice(messages.indexOf(request)+1).some(message=>message.contact===request.contact&&(message.kind===accepted||message.kind==='home-visit-cancelled'))
   ?request:undefined;
 }
 
 export function pendingHostVisit(messages:readonly PhoneMessage[]){
  const request=[...messages].reverse().find(message=>message.kind==='host-invite'||message.kind==='library-story-invite');
- if(!request)return;
+ if(!request||request.expiredAt)return;
  const updates=messages.slice(messages.indexOf(request)+1).filter(message=>message.contact===request.contact);
  if(updates.some(message=>message.kind==='host-completed'||message.kind==='host-cancelled'))return;
  return {...request,confirmed:updates.some(message=>message.kind==='host-accepted')};
