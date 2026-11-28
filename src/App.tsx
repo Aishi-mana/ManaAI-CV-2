@@ -1,4 +1,5 @@
 import {aishiCheckInPrompt,aishiPhonePrompt,readAishiPhoneReply} from './core/aishiPhone';
+import {mergeManaPhoneFact} from './core/aishiPhoneMemories';
 import {aishiHangoutPrompt} from './core/aishiHangouts';
 import {townGoalPrompt,readTownGoal,townGoalContext} from './core/townPersonalGoals';
 import {activityPreferencePrompt,readActivityPreference,activityPreferenceContext,manaPreferenceMemories} from './core/activityPreferences';
@@ -2285,9 +2286,11 @@ export default function App() {
         return {...result,reply:cleanReply(result.reply,residentProfiles[resident].name).text.trim()};
        }}
        onAishiPhoneReply={async(contact,history,context,signal)=>{
-        const raw=await speakInRoom(aishiPhonePrompt(contact,history,context,loadRoom().sharedMemories??[]),signal,contact,undefined,'invitation');
+        const room=loadRoom(),core=contact==='mana'?memories.filter(memory=>memory.category==='user').map(memory=>memory.content):room[residentProfiles[contact].memory.coreKey]??[];
+        const raw=await speakInRoom(aishiPhonePrompt(contact,history,context,room.sharedMemories??[],core),signal,contact,undefined,'invitation');
         return readAishiPhoneReply(raw);
        }}
+       onRememberManaPhoneFact={(fact,sourceId)=>setMemories(previous=>mergeManaPhoneFact(previous,fact,sourceId))}
        onAishiPhoneCheckIn={async(contact,history,context,signal)=>{
         const raw=await speakInRoom(aishiCheckInPrompt(contact,history,context,loadRoom().personalGoals??[]),signal,contact,undefined,'invitation');
         return readAishiPhoneReply(raw);

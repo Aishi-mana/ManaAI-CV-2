@@ -2307,3 +2307,5 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .aishi-phone-compose{padding:.7rem .85rem;border-top:1px solid var(--line);flex-shrink:0;max-height:35%;overflow:auto}.aishi-phone-compose label{display:grid;gap:.35rem}.aishi-phone-compose textarea{width:100%;min-height:3.5rem;max-height:7rem;resize:vertical;font:inherit}.aishi-phone-compose .btn{margin:.3rem .3rem 0 0}.aishi-phone-compose small{display:block}
 
 .aishi-phone-reply{display:block;margin-top:.35rem;border:0;background:transparent;color:var(--ink);font:inherit;font-size:.75rem;text-decoration:underline;cursor:pointer}.aishi-phone-reply-context{display:block;margin-top:.35rem;padding:.35rem .5rem;border-left:3px solid var(--mist-deep);font-size:.8rem;overflow-wrap:anywhere}.aishi-phone-compose .aishi-phone-reply-context{display:flex;align-items:center;gap:.3rem}.aishi-phone-compose .aishi-phone-reply-context small{flex:1}
+
+.aishi-phone-facts article{padding:.7rem 0;border-bottom:1px solid var(--mist-deep)}.aishi-phone-facts article p{margin:.4rem 0;overflow-wrap:anywhere}.aishi-phone-facts details{margin:.5rem 0}

@@ -2,9 +2,10 @@ import {useEffect,useRef,useState,type RefObject} from 'react';
 import {saveRoom,type RoomState} from '../core/companionRoom';
 import {aishiCheckInCandidates,aishiReplyAnchor,aishiInvitationMessage,validateAishiPhone,type AishiPhoneMessage,type AishiPhoneState} from '../core/aishiPhone';
 import {useSceneTask} from './useSceneTask';
+import {phoneFact,phoneFactKey,type PhoneFact} from '../core/aishiPhoneMemories';
 import type {CharacterHangoutOffer} from '../core/aishiHangouts';
 import type {TownCharacter} from '../core/residentRelationships';
-type Options={room:RefObject<RoomState>;enabled:boolean;ready:boolean;canReply?:()=>boolean;context:(contact:TownCharacter)=>string;reply:(contact:TownCharacter,history:readonly AishiPhoneMessage[],context:string,signal:AbortSignal)=>Promise<string>;
+type Options={room:RefObject<RoomState>;enabled:boolean;ready:boolean;canReply?:()=>boolean;onFact?:(fact:PhoneFact)=>void;onForgetFact?:(fact:PhoneFact)=>void;context:(contact:TownCharacter)=>string;reply:(contact:TownCharacter,history:readonly AishiPhoneMessage[],context:string,signal:AbortSignal)=>Promise<string>;
  proactive?:{enabled:boolean;lease:RefObject<AbortController|undefined>;free:(contact:TownCharacter)=>boolean;write:(contact:TownCharacter,history:readonly AishiPhoneMessage[],context:string,signal:AbortSignal)=>Promise<string>}};
 export function useAishiPhone(options:Options){
  const latest=useRef(options);latest.current=options;
@@ -47,11 +48,23 @@ export function useAishiPhone(options:Options){
    if(last?.id!==outgoing.id)return;
    if(!reply.trim()||reply.length>240){setStatus('No reply yet. You can retry when the AI is available.');return;}
    change({...phone,messages:[...phone.messages,{id:`aishi-reply-${outgoing.id}`,contact,from:'contact',at:new Date().toISOString(),text:reply.trim(),replyTo:outgoing.id}]});
+   const fact=phoneFact(outgoing),saved=current();
+   if(fact&&latest.current.onFact&&!saved.facts?.some(old=>old.sourceId===fact.sourceId)){
+    latest.current.onFact(fact);
+    const updated=current();change({...updated,facts:[...(updated.facts??[]),fact]});
+   }
   }catch{if(!controller.signal.aborted)setStatus('The message is saved. You can retry the reply.');}
   finally{if(request.current===controller){request.current=undefined;setBusy(false);}}
  }
  function rememberOffer(offer:CharacterHangoutOffer){const phone=current(),message=aishiInvitationMessage(offer);if(!phone.messages.some(old=>old.id===message.id))change({...phone,messages:[...phone.messages,message]});}
  function invitationStatus(id:string,status:NonNullable<AishiPhoneMessage['invitation']>['status']){const phone=current();if(!phone.messages.some(message=>message.id===id&&message.invitation?.status==='pending'))return;change({...phone,messages:phone.messages.map(message=>message.id===id&&message.invitation?.status==='pending'?{...message,invitation:{...message.invitation,status}}:message)});}
  function markRead(contact:TownCharacter,id:string){const phone=current();if(phone.read[contact]!==id)change({...phone,read:{...phone.read,[contact]:id}});}
- return {state,busy,status,send,rememberOffer,invitationStatus,markRead};
+ function forgetFact(sourceId:string){const phone=current(),fact=phone.facts?.find(item=>item.sourceId===sourceId&&!item.forgotten);if(!fact)return;latest.current.onForgetFact?.(fact);const next=current();
+  const facts=(next.facts??[]).map(item=>item.contact===fact.contact&&phoneFactKey(item.fact)===phoneFactKey(fact.fact)?{...item,forgotten:true as const}:item);
+  // Forget wins over a repeated statement whose reply is still pending.
+  const outgoing=next.messages.filter(message=>message.contact===fact.contact).slice(-1)[0],pending=outgoing&&phoneFact(outgoing);
+  if(pending&&phoneFactKey(pending.fact)===phoneFactKey(fact.fact)&&!facts.some(item=>item.sourceId===pending.sourceId))facts.push({...pending,forgotten:true});
+  change({...next,facts});
+ }
+ return {state,busy,status,send,rememberOffer,invitationStatus,markRead,forgetFact};
 }

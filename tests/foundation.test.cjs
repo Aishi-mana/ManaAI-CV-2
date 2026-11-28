@@ -4168,6 +4168,9 @@ test('Aishi phone opens its own contacts and thread, marks only its own read sta
  assert.equal(nodes.some(node=>node.props?.children==='Mana’s phone'),false);
  nodes.find(node=>node.type==='button'&&node.props.children==='Reply to this').props.onClick();nodes=render();assert.ok(nodes.some(node=>node.props?.['aria-label']==='Cancel selected reply'));
  nodes.find(node=>node.type==='textarea').props.onChange({target:{value:'Hello, picking this up later.'}});nodes=render();nodes.find(node=>node.type==='form').props.onSubmit({preventDefault(){}});assert.equal(sent[0].join('|'),'mana|Hello, picking this up later.|own');
+ const forgotten=[];props.facts=[{sourceId:'phone-fact',contact:'mana',fact:'Likes tea.'}];props.onForgetFact=id=>forgotten.push(id);props.state.messages.push({id:'phone-fact',contact:'mana',from:'aishi',at:'2026-11-28T08:01:00.000Z',text:'I like tea.'});
+ nodes.find(node=>node.props?.['aria-label']==='Phone home').props.onClick();nodes=render();nodes.find(node=>node.type==='button'&&text(node).trim()==='Memories').props.onClick();nodes=render();assert.ok(nodes.some(node=>node.props?.['aria-label']==='Whose phone memories?'));assert.equal(nodes.some(node=>node.type==='p'&&node.props.children==='Likes tea.'),false,'facts stay on a separate character detail page');
+ nodes.find(node=>node.type==='button'&&text(node).includes('Mana')&&text(node).includes('1 fact')).props.onClick();nodes=render();assert.ok(nodes.some(node=>node.type==='p'&&node.props.children==='Likes tea.'));nodes.find(node=>node.type==='button'&&node.props.children==='Forget').props.onClick();assert.equal(forgotten[0],'phone-fact');
  props.visible=false;nodes=render();assert.equal(nodes.some(node=>node.props?.role==='dialog'),false);
 });
 
@@ -4204,6 +4207,26 @@ test('Aishi phone replies preserve user text, ignore late replies after diving o
  assert.equal(options.room.current.phoneMessages[0].text,'Mana private inbox');assert.ok(saves>0);
  options.reply=()=>new Promise(done=>resolve=done);let awake=true;options.canReply=()=>awake;ui=render();const bedtime=ui.send('lyra','Good evening');awake=false;resolve('Good evening, Aishi');await bedtime;ui=render();assert.equal(ui.state.messages.filter(message=>message.contact==='lyra').length,1,'a reply arriving after bedtime is not delivered');
  awake=true;options.reply=async()=> 'Glad to pick this up.';ui=render();const anchor=ui.state.messages.find(message=>message.from==='contact'&&message.contact==='luna').id;await ui.send('luna','Picking up your earlier note.',anchor);ui=render();assert.equal(ui.state.messages.slice(-2)[0].replyTo,anchor);assert.equal(ui.state.messages.slice(-1)[0].replyTo,ui.state.messages.slice(-2)[0].id);
+ const remembered=[],forgotten=[];options.onFact=fact=>remembered.push(fact);options.onForgetFact=fact=>forgotten.push(fact);ui=render();await ui.send('luna','My favorite snack is mochi.');ui=render();assert.equal(remembered.length,1);assert.equal(ui.state.facts[0].fact,'Favorite snack is mochi.');const sourceId=ui.state.facts[0].sourceId;ui.forgetFact(sourceId);ui=render();assert.equal(forgotten.length,1);assert.equal(ui.state.facts[0].forgotten,true);
+ options.room.current.aishiPhone.messages=options.room.current.aishiPhone.messages.filter(message=>message.id!==`aishi-reply-${sourceId}`);ui=render();await ui.send('luna');ui=render();assert.equal(remembered.length,1,'retrying a forgotten source cannot remember it again');
+ options.reply=()=>new Promise(done=>resolve=done);ui=render();const cancelledFact=ui.send('lyra','My favorite color is blue.');options.enabled=false;render();resolve('That is a lovely color.');await cancelledFact;assert.equal(remembered.length,1,'a discarded reply never saves a fact');
+ options.enabled=true;options.reply=async()=> 'Understood.';ui=render();await ui.send('luna','My favorite snack is mochi.');ui=render();assert.equal(remembered.length,2,'a fresh explicit statement can be remembered again');const activeFact=ui.state.facts.find(fact=>!fact.forgotten);
+ options.reply=()=>new Promise(done=>resolve=done);ui=render();const repeating=ui.send('luna','My favorite snack is mochi.');ui=render();ui.forgetFact(activeFact.sourceId);resolve('I hear you.');await repeating;ui=render();assert.equal(remembered.length,2,'forget wins over an in-flight reply to the same fact');assert.equal(ui.state.facts.some(fact=>!fact.forgotten),false);
+});
+
+test('phone core facts use only clear user statements and merge into existing character memory stores',()=>{
+ const load=loader(),f=load('src/core/aishiPhoneMemories.ts'),p=load('src/core/aishiPhone.ts'),r=load('src/core/companionRoom.ts'),c=load('src/core/character.ts');
+ const source={id:'fact-source',contact:'luna',from:'aishi',at:'2026-11-28T08:00:00.000Z',text:'My favorite snack is mochi.'};
+ const fact=f.phoneFact(source);assert.equal(fact.fact,'Favorite snack is mochi.');assert.equal(fact.contact,'luna');
+ for(const text of ['Hello!','Maybe I like mochi.','Do I like mochi?','I like mochi today.','I might work as a nurse.','I want to make a game.','She said I like mochi.'])assert.equal(f.phoneFact({...source,text}),undefined,text);
+ assert.equal(f.phoneFact({...source,from:'contact'}),undefined,'AI replies never become user facts');
+ assert.equal(f.phoneFact({...source,text:'Please remember that I like tea.'}).fact,'Likes tea.');
+ const project=f.phoneFact({...source,text:"I'm working on a puzzle game."});assert.equal(project.fact,'Working on a puzzle game.');assert.equal(f.residentPhoneFact(project.fact),'Aishi is working on a puzzle game.');
+ const previous=["Aishi's favorite snack is cookies.",'Lyra likes old books.'];const npc=f.mergePhoneCoreFacts(previous,fact.fact);assert.equal(npc.length,2);assert.equal(npc.includes(previous[0]),false);assert.ok(npc.includes("Aishi's favorite snack is mochi."));assert.equal(f.mergePhoneCoreFacts(npc,fact.fact),npc);
+ const app=f.mergeManaPhoneFact([c.newMemory('Favorite snack is cookies.','user',3),c.newMemory('Likes reading.','mana',3)],fact.fact,source.id);assert.equal(app.length,2);assert.ok(app.some(memory=>memory.category==='user'&&memory.content===fact.fact));assert.equal(f.mergeManaPhoneFact(app,fact.fact,'another-source'),app);
+ const restored=r.validateRoom({lunaCoreMemories:npc,aishiPhone:{messages:[source],read:{},facts:[fact,{...fact,contact:'lyra'}]}});assert.equal(restored.aishiPhone.facts.length,1);assert.ok(restored.lunaCoreMemories.includes(f.residentPhoneFact(fact.fact)));
+ const forged=p.validateAishiPhone({messages:[source],facts:[{...fact,fact:'Favorite snack is chocolate.'}]});assert.equal(forged.facts,undefined,'review provenance must match the actual statement');
+ assert.match(p.aishiPhonePrompt('luna',[],'At home.',[],restored.lunaCoreMemories),/Aishi's favorite snack is mochi/);
 });
 
 test('Aishi check-in policy blocks unread, recent and unanswered messages and grounds news in own real sessions',()=>{
