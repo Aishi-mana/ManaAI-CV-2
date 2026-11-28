@@ -1,3 +1,4 @@
+import type {FreeTimeMode} from '../core/freeTimeChoices';
 import ActivityKeepsake from './ActivityKeepsake';
 import type {ActivityKeepsake as Keepsake} from '../core/activityKeepsakes';
 import MapTransferArrow from './MapTransferArrow';
@@ -21,11 +22,11 @@ import {residentProfiles,type ResidentActivity,type ResidentId} from '../core/re
 import {chooseResidentFreeActivity,type ActivityPreferences} from '../core/activityPreferences';
 import {eveningWindDown,residentEveningActivity,eveningGoodnightPrompt,EVENING_TIDY_MS} from '../core/eveningWindDown';
 
-export default function ResidentRoom({eveningCompleted,onEveningComplete,preferences={},coreMemories=[],preferredPose,onActivityDone,keepsake,resident,shown,away,outdoors,leavingHome=false,onResidentExit,onStreet,timeZone,manaPresent,manaLeaving=false,onManaExit,lunaVisiting=false,lunaLeaving=false,onLunaExit,storyLine,upstairs=false,onStairs,onActivityStatus,sharingActivity=false,chat}:{eveningCompleted?:string;onEveningComplete?:(resident:ResidentId,key:string,outcome:string)=>void;preferences?:ActivityPreferences;coreMemories?:string[];preferredPose?:string;onActivityDone:(resident:ResidentId,pose:string)=>void;keepsake?:Keepsake;resident:ResidentId;shown:boolean;away:boolean;outdoors:boolean;leavingHome?:boolean;onResidentExit?:()=>void;onStreet:()=>void;timeZone:string;manaPresent:boolean;manaLeaving?:boolean;onManaExit?:()=>void;lunaVisiting?:boolean;lunaLeaving?:boolean;onLunaExit?:()=>void;storyLine?:string;upstairs?:boolean;onStairs?:()=>void;onActivityStatus:(status:string)=>void;sharingActivity?:boolean;
+export default function ResidentRoom({eveningCompleted,onEveningComplete,preferences={},coreMemories=[],preferredPose,freeTimeMode,onActivityDone,keepsake,resident,shown,away,outdoors,leavingHome=false,onResidentExit,onStreet,timeZone,manaPresent,manaLeaving=false,onManaExit,lunaVisiting=false,lunaLeaving=false,onLunaExit,storyLine,upstairs=false,onStairs,onActivityStatus,sharingActivity=false,chat}:{eveningCompleted?:string;onEveningComplete?:(resident:ResidentId,key:string,outcome:string)=>void;preferences?:ActivityPreferences;coreMemories?:string[];preferredPose?:string;freeTimeMode?:FreeTimeMode;onActivityDone:(resident:ResidentId,pose:string)=>void;keepsake?:Keepsake;resident:ResidentId;shown:boolean;away:boolean;outdoors:boolean;leavingHome?:boolean;onResidentExit?:()=>void;onStreet:()=>void;timeZone:string;manaPresent:boolean;manaLeaving?:boolean;onManaExit?:()=>void;lunaVisiting?:boolean;lunaLeaving?:boolean;onLunaExit?:()=>void;storyLine?:string;upstairs?:boolean;onStairs?:()=>void;onActivityStatus:(status:string)=>void;sharingActivity?:boolean;
  chat?:{ready:boolean;onSend:(message:string,context:string,onReply:(reply:string)=>void,signal:AbortSignal)=>Promise<void>};
 }){
- const goalActivity=useRef({preferredPose,onActivityDone,preferences,coreMemories});
- goalActivity.current={preferredPose,onActivityDone,preferences,coreMemories};
+ const goalActivity=useRef({preferredPose,onActivityDone,preferences,coreMemories,freeTimeMode});
+ goalActivity.current={preferredPose,onActivityDone,preferences,coreMemories,freeTimeMode};
  const [chatOpen,setChatOpen]=useState(false);
  const [eveningLine,setEveningLine]=useState<string>();
  const eveningDone=useRef(eveningCompleted);
@@ -128,7 +129,7 @@ export default function ResidentRoom({eveningCompleted,onEveningComplete,prefere
    const tidying=!!eveningKey&&eveningDone.current!==eveningKey;
    const choice:ResidentActivity=night
     ?(beforeBed??nightActivity)
-    :eveningKey?residentEveningActivity(resident,tidying):chooseResidentFreeActivity(resident,goalActivity.current.preferences,goalActivity.current.coreMemories,previousPose,goalActivity.current.preferredPose);
+    :eveningKey?residentEveningActivity(resident,tidying):chooseResidentFreeActivity(resident,goalActivity.current.preferences,goalActivity.current.coreMemories,previousPose,goalActivity.current.preferredPose,Math.random(),goalActivity.current.freeTimeMode);
    previousPose=choice.pose;
    walk(choice.position,()=>{
     setActivity(choice);

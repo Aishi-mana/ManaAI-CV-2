@@ -2,7 +2,7 @@ import {validateProjectCreation,type ProjectCreation} from '../core/projectCreat
 import {townCharacterIds} from '../core/townCharacters';
 import {useRef,useState,type RefObject} from 'react';
 import {saveRoom,roomSleepNight,type RoomState} from '../core/companionRoom';
-import {canChooseTownGoal,progressTownGoals,townGoalChoice,validateTownPersonalGoals,startTownProject,townProjectMilestone,type TownPersonalGoal,type TownGoalId} from '../core/townPersonalGoals';
+import {canChooseTownGoal,townDailyIntention,progressTownGoals,townGoalChoice,validateTownPersonalGoals,startTownProject,townProjectMilestone,type TownPersonalGoal,type TownGoalId} from '../core/townPersonalGoals';
 import {eveningWindDown} from '../core/eveningWindDown';
 import type {SharedMemory,TownCharacter} from '../core/residentRelationships';
 import {useSceneTask} from './useSceneTask';
@@ -61,7 +61,7 @@ export function useTownPersonalGoals(room:RefObject<RoomState>,enabled:boolean,r
  }
  function preferred(owner:TownCharacter,shared=false){
   const goal=goals.find(goal=>goal.owner===owner&&!goal.completedAt);
-  if(!goal)return;
+  if(!goal||townDailyIntention([goal],owner,new Date(),options.timeZone??'Asia/Singapore')?.done)return;
   const activity=townGoalChoice(goal).activity;
   if(!shared&&activity.startsWith('shared-'))return;
   return activity.replace('shared-','');

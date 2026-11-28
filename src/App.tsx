@@ -1,3 +1,4 @@
+import {freeTimePrompt,readFreeTimeChoice} from './core/freeTimeChoices';
 import {projectCreationPrompt,readProjectCreation} from './core/projectCreations';
 import {aishiCheckInPrompt,aishiPhonePrompt,readAishiPhoneReply} from './core/aishiPhone';
 import {mergeManaPhoneFact} from './core/aishiPhoneMemories';
@@ -2272,6 +2273,10 @@ export default function App() {
       <SceneVoice.Provider value={{ready:mainLayout!==1&&!showSinging&&!showSongbook&&!showSavedImages&&!showSketchbook&&!showGameDev&&llama.status==='ready'&&!busy&&!reflecting&&!diaryArtId&&!showImageGeneration&&!autoOutfitRunning&&!storage.error,speak:speakInRoom}}>
       <CompanionRoom onForgetManaMemory={id=>setMemories(previous=>previous.filter(memory=>memory.id!==id))} episodes={episodes} memories={memories} events={events} onActivity={recordRoomActivity} timeZone={journal.timeZone} onEditingChange={setRoomEditorOpen}
        manaSpeechReady={llama.status==='ready'&&!busy&&!reflecting&&!diaryArtId&&!showImageGeneration&&!autoOutfitRunning&&!storage.error}
+       onChooseFreeTime={async(owner,context,signal)=>{
+        const raw=await speakInRoom(freeTimePrompt(owner,context),signal,owner,undefined,'invitation');
+        return readFreeTimeChoice(raw,context);
+       }}
        onCreateProject={async(goal,signal)=>{
         const raw=await speakInRoom(projectCreationPrompt(goal),signal,goal.owner,undefined,'creation');
         return readProjectCreation(raw,goal);

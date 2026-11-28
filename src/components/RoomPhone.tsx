@@ -53,7 +53,7 @@ function PhoneAppIcon({app,unread}:{app:PhoneApp;unread:boolean}){
 export default function RoomPhone({activityKeepsakes=[],birthdayVisits=[],onStartTownProject,preferenceSummaries=[],backgroundActive,visible,sleeping,messages,onSend,readMessages,onReadMessages,timeZone,events,projects,meetup,meetupPlace,area,characters,onChooseArea,onMapOpenChange,diving,pondSketch,libraryStory,manaKeepsake,sharedKeepsake,coreMemories,onForgetMemory,sharedMemories,onForgetSharedMemory,petBotMemories,onForgetPetMemory,manaMemories,onForgetManaMemory,petBotFriends,onForgetPetFriend,personalGoals,today}:{
  backgroundActive?:boolean;activityKeepsakes?:ActivityKeepsake[];birthdayVisits?:TownGuestbookVisit[];
  onStartTownProject?:(owner:TownCharacter,choice:TownGoalId)=>boolean;
- preferenceSummaries?:{owner:TownCharacter;likes:string[];reason?:string}[];
+ preferenceSummaries?:{owner:TownCharacter;likes:string[];reason?:string;forNow?:string;choiceReason?:string}[];
  readMessages:PhoneReadState;onReadMessages:(read:PhoneReadState)=>void;
  today:TownTodayState;
  personalGoals:TownPersonalGoal[];
@@ -234,9 +234,10 @@ export default function RoomPhone({activityKeepsakes=[],birthdayVisits=[],onStar
       {preferenceSummaries.map(preference=><article key={preference.owner}>
        <strong>{preference.owner==='mana'?'Mana':ROOM_CONTACTS[preference.owner].name}</strong>
        <p>Usually enjoys: {preference.likes.join(', ')}.</p>
+       {preference.forNow&&<p><strong>For now: {preference.forNow}.</strong> {preference.choiceReason}</p>}
        <p>{preference.reason??'Her usual interests; saved memories may shape these over time.'}</p>
       </article>)}
-      <p>These gently influence spare-time choices. Appointments, sleep, and travel still follow the town schedule.</p>
+      <p>“For now” is a temporary intention, not a completed activity. These gently influence spare-time choices. Appointments, sleep, and travel still follow the town schedule.</p>
      </section>}
      {manaKeepsake&&<article>
       <strong>Mana’s photo board keepsake</strong>

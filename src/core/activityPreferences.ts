@@ -1,3 +1,4 @@
+import {freeTimeActivityWeight,type FreeTimeMode} from './freeTimeChoices';
 import {townCharacterIds} from './townCharacters';
 import {isRecord} from './validation';
 import {residentProfiles,type ResidentActivity,type ResidentId} from './residentProfiles';
@@ -41,9 +42,9 @@ export function activityPreferenceContext(owner:TownCharacter,preferences:Activi
  const labels=(ids:string[])=>preferenceOptions(owner).filter(option=>ids.includes(option.id)).map(option=>option.label);
  return `\nYour current memory-supported free-time preferences (not completed activities): ${JSON.stringify({enjoys:labels(saved.likes),lessOften:labels(saved.avoid),reason:saved.reason})}. Mention these only when asked or directly relevant. Do not claim you acted on them, finished a project, or changed your schedule.\n`;
 }
-export function chooseResidentFreeActivity(owner:ResidentId,preferences:ActivityPreferences,memories:readonly string[],previous?:string,goal?:string,roll=Math.random()){
+export function chooseResidentFreeActivity(owner:ResidentId,preferences:ActivityPreferences,memories:readonly string[],previous?:string,goal?:string,roll=Math.random(),mode?:FreeTimeMode){
  const choices:readonly ResidentActivity[]=residentProfiles[owner].activities;
- const weights=choices.map(choice=>activityPreferenceWeight(owner,choice.pose,preferences,memories)*(choice.pose===previous? .2:1)*(choice.pose===goal?1.8:1)*(choice.shortPause? .65:1));
+ const weights=choices.map(choice=>freeTimeActivityWeight(mode,choice.pose,goal,choice.shortPause)*activityPreferenceWeight(owner,choice.pose,preferences,memories)*(choice.pose===previous? .2:1)*(choice.pose===goal?1.8:1)*(choice.shortPause? .65:1));
  let remaining=Math.max(0,Math.min(.999999,roll))*weights.reduce((a,b)=>a+b,0);
  return choices.find((_,i)=>(remaining-=weights[i])<0)??choices[0];
 }

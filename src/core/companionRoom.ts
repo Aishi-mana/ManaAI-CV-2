@@ -1,10 +1,11 @@
+import {freeTimeActivityWeight,type FreeTimeChoice} from './freeTimeChoices';
 import {validateAishiPhone,type AishiPhoneState} from './aishiPhone';
 import {validateTownWeather,type TownWeatherSettings} from './townWeather';
 import {validateActivityPreferences,activityPreferenceWeight,type ActivityPreferences} from './activityPreferences';
 import {validateEveningWindDown,type EveningWindDownDates} from './eveningWindDown';
 import {validatePhoneReadState,type PhoneReadState} from './phoneReadState';
 import {validateTownDecorations,type TownDecorationSettings} from './townFestivities';
-import {validateTownPersonalGoals,type TownPersonalGoal} from './townPersonalGoals';
+import {townGoalChoice,validateTownPersonalGoals,type TownPersonalGoal} from './townPersonalGoals';
 import {validatePetBotFriends,type PetBotFriends} from './petBot';
 import {validateActivityKeepsakes,type ActivityKeepsake} from './activityKeepsakes';
 import {validateSharedMemories,type SharedMemory} from './residentRelationships';
@@ -88,7 +89,7 @@ export function roomEnergyState(energy:number,recovering=false){
  if(energy<=35)return 'Low energy';
  return 'Getting tired';
 }
-export function chooseRoomActivity(state:RoomState,now:Date,timeZone:string,roll=Math.random(),memories:readonly string[]=[],available:readonly RoomActivity[]=ROOM_ACTIVITIES):RoomActivity{
+export function chooseRoomActivity(state:RoomState,now:Date,timeZone:string,roll=Math.random(),memories:readonly string[]=[],available:readonly RoomActivity[]=ROOM_ACTIVITIES,freeTime?:FreeTimeChoice):RoomActivity{
  const {time}=journalClock(now,timeZone);
  const morning=time>='06:00'&&time<'12:00';
  const afternoon=time>='12:00'&&time<'18:00';
@@ -110,7 +111,8 @@ export function chooseRoomActivity(state:RoomState,now:Date,timeZone:string,roll
  const stats=roomEffectStats(state);
  if(stats.focus<=30){weights.read++;weights.think++;}
  if(stats.happiness<=35){weights.window++;weights.play++;}
- for(const activity of ROOM_ACTIVITIES)weights[activity]*=activityPreferenceWeight('mana',activity,state.activityPreferences??{},memories)*(state.lastActivity===activity? .6:1);
+ const project=freeTime?.mode==='project'?(state.personalGoals??[]).find(goal=>goal.id===freeTime.projectId&&!goal.completedAt):undefined;
+ for(const activity of ROOM_ACTIVITIES)weights[activity]*=freeTimeActivityWeight(freeTime?.mode,activity,project?townGoalChoice(project).activity:undefined)*activityPreferenceWeight('mana',activity,state.activityPreferences??{},memories)*(state.lastActivity===activity? .6:1);
  const choices=ROOM_ACTIVITIES.filter(activity=>available.includes(activity));
  let remaining=roll*choices.reduce((total,activity)=>total+weights[activity],0);
  for(const activity of choices){

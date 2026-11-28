@@ -6906,6 +6906,8 @@ test('friendship-influenced meetups keep sleep and availability gates and do not
  options.night=false;options.windDown=true;render();await jobs[1](new AbortController().signal);assert.equal(requests.length,0,'wind-down pauses new social invitations');options.windDown=false;
  options.night=false;options.editing=true;render();await jobs[1](new AbortController().signal);assert.equal(friendPlans.length,0);
  options.editing=false;roll=.99;render();await jobs[1](new AbortController().signal);assert.equal(requests.length,2,'both friends decide through the existing AI invitation flow');assert.equal(friendPlans.length,1);assert.equal(room.current.sharedMemories.length,0,'a planned visit is not a completed shared moment');
+ options.socialAllowed=()=>false;now+=30*60_000;render();await jobs[0](new AbortController().signal);await jobs[1](new AbortController().signal);assert.equal(meetups.length,1);assert.equal(friendPlans.length,1,'quiet/rest intentions suppress only new optional plans');assert.equal(requests.length,2);
+ options.socialAllowed=()=>true;render();await jobs[1](new AbortController().signal);assert.equal(friendPlans.length,2,'ordinary optional planning resumes after the intention ends');
 });
 
 test('evening wind-down follows the town timezone, ends at bedtime and persists only valid once-per-evening dates',()=>{
@@ -7050,4 +7052,58 @@ test('failed creation remains pending with cooldown and restores without backfil
  assert.equal(calls,1);assert.equal(saved,0);assert.equal(room.current.personalGoals[0].creationPending,true);
  assert.equal(g.validateTownPersonalGoals(room.current.personalGoals)[0].creationPending,true);
  assert.equal(g.validateTownPersonalGoals([{...done,creationPending:undefined}])[0].creationPending,undefined);
+});
+
+test('free-time intentions use only own available evidence and expire without becoming memories',()=>{
+ const load=loader(),f=load('src/core/freeTimeChoices.ts'),g=load('src/core/townPersonalGoals.ts');
+ const now=new Date('2026-11-29T04:00:00Z');
+ const goal=g.readTownGoal('{"choice":"sketch-collection","reason":"A sketch collection."}','luna',new Date(now.getTime()-3600000));
+ const shared=[{id:'own',owner:'luna',with:'mana',fact:'We read together.',at:new Date(now.getTime()-600000).toISOString(),activity:'Reading'},{id:'private',owner:'lyra',with:'mana',fact:'A private Lyra memory.',at:now.toISOString(),activity:'Reading'},{id:'future',owner:'luna',with:'mana',fact:'A future meeting.',at:new Date(now.getTime()+60000).toISOString(),activity:'Reading'}];
+ const context=f.freeTimeContext('luna',['I enjoy drawing.'],[goal],shared,'Asia/Singapore',now);
+ assert.equal(f.freeTimeContext('luna',[],[{...goal,createdAt:new Date(now.getTime()+60000).toISOString()}],[],'Asia/Singapore',now).project,undefined);
+ assert.equal(context.sources.length,2);assert.ok(context.project);assert.ok(!JSON.stringify(context).includes('private Lyra'));assert.ok(!JSON.stringify(context).includes('future meeting'));
+ const choice=f.readFreeTimeChoice('{"mode":"project","reason":"I want another little sketch session.","sourceIndexes":[0]}',context,now);
+ assert.ok(choice);assert.equal(choice.projectId,goal.id);assert.equal(Date.parse(choice.expiresAt)-Date.parse(choice.createdAt),30*60000);
+ assert.equal(f.effectiveFreeTimeChoice(choice,context,now.getTime()),choice);
+ assert.equal(f.effectiveFreeTimeChoice(choice,context,now.getTime()+30*60000),undefined);
+ assert.equal(f.effectiveFreeTimeChoice(choice,{...context,sources:[]},now.getTime()),undefined);
+ assert.equal(f.effectiveFreeTimeChoice(choice,{...context,project:undefined},now.getTime()),undefined);
+ for(const raw of ['null','{"mode":["rest"],"reason":"Rest.","sourceIndexes":[]}','{"mode":"teleport","reason":"Go!","sourceIndexes":[]}','{"mode":"rest","reason":"Rest.","sourceIndexes":[99]}'])assert.equal(f.readFreeTimeChoice(raw,context,now),undefined);
+ assert.equal(f.readFreeTimeChoice('{"mode":"project","reason":"Continue.","sourceIndexes":[]}',{sources:[]},now),undefined);
+ const personality=f.readFreeTimeChoice('{"mode":"quiet","reason":"A quiet moment sounds nice.","sourceIndexes":[]}',{sources:[]},now);
+ assert.ok(personality);assert.equal(f.freeTimeSocialAllowed(personality),false);assert.equal(f.freeTimeSocialAllowed(undefined),true);
+ assert.match(f.freeTimePrompt('luna',context),/not a new schedule/);
+ const doneToday=g.progressTownGoals([goal],'session','home-sketch','A real sketch session.',['luna'],now)[0];
+ assert.equal(f.freeTimeContext('luna',[],[doneToday],[],'Asia/Singapore',now).project,undefined,'daily quota stops project pressure');
+});
+
+test('free-time choices bias supported activities without turning home ideas into workshop progress',()=>{
+ const load=loader(),f=load('src/core/freeTimeChoices.ts'),p=load('src/core/activityPreferences.ts'),r=load('src/core/companionRoom.ts');
+ assert.ok(f.freeTimeActivityWeight('project','sketch','sketch')>f.freeTimeActivityWeight('project','window','sketch'));
+ assert.equal(f.freeTimeActivityWeight('project','think','tinker'),1);
+ assert.equal(f.freeTimeActivityWeight('project','sketch','shared-sketch'),1);
+ assert.ok(f.freeTimeActivityWeight('rest','window')>f.freeTimeActivityWeight('rest','sketch'));
+ assert.ok(f.freeTimeActivityWeight('quiet','read')>f.freeTimeActivityWeight('quiet','play'));
+ const counts=mode=>{let n=0;for(let i=0;i<1000;i++){const activity=p.chooseResidentFreeActivity('luna',{},[],undefined,'sketch',i/1000,mode);if(activity.pose==='sketch')n++;}return n;};
+ assert.ok(counts('project')>counts(undefined));assert.ok(counts('rest')<counts(undefined));
+ const rest={mode:'rest',reason:'Rest.',basedOn:[],createdAt:'2026-11-29T04:00:00Z',expiresAt:'2026-11-29T04:30:00Z'};
+ for(const roll of [0,.25,.75,.999])assert.equal(r.chooseRoomActivity({layout:2,position:{u:0,v:0},energy:100},new Date('2026-11-29T04:05:00Z'),'Asia/Singapore',roll,[],['read'],rest),'read','weights cannot select an unsupported activity');
+});
+
+test('free-time AI waits for a free actor and discards late choices after interruptions or forgetting',async()=>{
+ let run,free=true,enabled=true,core=['I like reading.'],calls=0;
+ const react={useRef:current=>({current}),useState:initial=>[typeof initial==='function'?initial():initial,()=>{}]};
+ const load=loader({react,'./useSceneTask':{useSceneTask:(_e,_r,_i,_l,task)=>{run=task;}},'../core/companionRoom':{roomSleepNight:()=>false},'../core/eveningWindDown':{eveningWindDown:()=>undefined}},{document:{visibilityState:'visible'}});
+ const f=load('src/core/freeTimeChoices.ts'),hook=load('src/components/useFreeTimeChoices.ts');
+ const options={room:{current:{}},enabled,ready:true,timeZone:'Asia/Singapore',lease:{current:undefined},core:()=>core,free:owner=>free&&owner==='mana',choose:async(_owner,context)=>{calls++;return f.readFreeTimeChoice('{"mode":"rest","reason":"A little pause.","sourceIndexes":[0]}',context);}};
+ const api=hook.useFreeTimeChoices(options);
+ free=false;await run(new AbortController().signal);assert.equal(calls,0);
+ free=true;await run(new AbortController().signal);assert.equal(calls,1);assert.equal(api.get('mana').mode,'rest');assert.equal(api.socialAllowed('mana'),false);
+ await run(new AbortController().signal);assert.equal(calls,1,'no repeated model calls while an intention is current');
+ core=[];assert.equal(api.get('mana'),undefined);assert.equal(api.socialAllowed('mana'),true,'forgetting restores normal fallback');
+ for(const interrupt of ['busy','forget','abort']){
+  core=['I like reading.'];free=true;const controller=new AbortController();
+  const late=hook.useFreeTimeChoices({...options,choose:async(_owner,context)=>{const choice=f.readFreeTimeChoice('{"mode":"quiet","reason":"A pause.","sourceIndexes":[0]}',context);if(interrupt==='busy')free=false;if(interrupt==='forget')core=[];if(interrupt==='abort')controller.abort();return choice;}});
+  await run(controller.signal);assert.equal(late.get('mana'),undefined,interrupt);
+ }
 });

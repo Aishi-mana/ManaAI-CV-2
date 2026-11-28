@@ -67,6 +67,7 @@ export function useSocialMeetups({state,room,sleeping,visitorAvailable,hostPlann
 }
 
 type SocialOptions={
+ socialAllowed?:(owner:MemoryInvitation['owner'])=>boolean;
  windDown?:boolean;
  smallFavorActive?:boolean;favorCooldownUntil?:number;
  sheltering?:boolean;
@@ -86,6 +87,8 @@ export function useSocialActivities(options:SocialOptions){
   visitorAvailable,awayVisitor,visitorPreparing,hostPlan,invitation,cafeEncounter,friendChat,dive,availableJoin,
   sharedMemories,personalGoals,onChooseInvitation,onAskGroupToJoin,startMeetup}=options;
  const sheltering=options.sheltering===true;
+ const socialAllowed=(owner:MemoryInvitation['owner'])=>options.socialAllowed?.(owner)??true;
+ const socialPairs=(pairs:ReturnType<typeof availableFriendshipPairs>)=>pairs.filter(pair=>socialAllowed(pair.first)&&socialAllowed(pair.second));
  const {invitationRequest,groupJoining,setGroupJoining,groupJoinPending,setGroupJoinPending,
   groupJoinError,setGroupJoinError,groupJoinReply,setGroupJoinReply,friendMeetup,setFriendMeetup,
   aishiInvitation,setAishiInvitation,meetup,aishiJoining,parkChat}=state;
@@ -102,7 +105,7 @@ export function useSocialActivities(options:SocialOptions){
  useSceneTask(visible,manaSpeechReady,60_000,invitationRequest,async signal=>{
   if(hasTownEvent||Date.now()-lastAutonomousMeetup.current<12*60_000||
    !invitationGate.current.npc||current.current.pondSketch?.status==='invited'||Math.random()>=.35)return;
-  const pair=chooseFriendshipPair(current.current.sharedMemories??[],availableFriendshipPairs(!!invitationGate.current.npc,!!invitationGate.current.friends));
+  const pair=chooseFriendshipPair(current.current.sharedMemories??[],socialPairs(availableFriendshipPairs(!!invitationGate.current.npc,!!invitationGate.current.friends)));
   if(!pair||pair.first!=='mana')return;
   const contact=pair.second as RoomContact;
   const choices=memoryInvitations(current.current.sharedMemories??[],contact,'mana')
@@ -113,7 +116,7 @@ export function useSocialActivities(options:SocialOptions){
   }
   lastAutonomousMeetup.current=Date.now();
   const invitation=await invitationWriter.current(contact,choices,signal);
-  if(signal.aborted||!invitation||!invitationGate.current.npc||
+  if(signal.aborted||!invitation||!invitationGate.current.npc||!socialAllowed('mana')||!socialAllowed(contact)||
    !(current.current.sharedMemories??[]).some(memory=>memory.id===invitation.choice.memoryId))return;
   const place=invitation.choice.activity;
   if(place==='park'&&invitationGate.current.sheltering)return;
@@ -180,7 +183,7 @@ export function useSocialActivities(options:SocialOptions){
  const lastFriendOffer=useRef(Date.now());
  useSceneTask(visible,manaSpeechReady,60_000,invitationRequest,async signal=>{
   if(!invitationGate.current.friends||Date.now()-lastFriendOffer.current<10*60_000)return;
-  const pair=chooseFriendshipPair(current.current.sharedMemories??[],availableFriendshipPairs(!!invitationGate.current.npc,true));
+  const pair=chooseFriendshipPair(current.current.sharedMemories??[],socialPairs(availableFriendshipPairs(!!invitationGate.current.npc,true)));
   if(!pair||pair.first==='mana')return;
   const host:RoomContact=Math.random()<.5?'luna':'lyra';
   const guest:RoomContact=host==='luna'?'lyra':'luna';
@@ -190,11 +193,11 @@ export function useSocialActivities(options:SocialOptions){
   const choose=invitationWriter.current;
   lastFriendOffer.current=Date.now();
   const offer=await choose(host,choices,signal);
-  if(signal.aborted||!offer||!invitationGate.current.friends)return;
+  if(signal.aborted||!offer||!invitationGate.current.friends||!socialAllowed(host)||!socialAllowed(guest))return;
   const replyChoice:MemoryInvitation={...offer.choice,id:'accept-'+offer.choice.id,owner:guest,recipient:host,
    responding:true,fact:`${residentProfiles[host].name} invited you to ${offer.choice.parkActivity} by the park pond. Their message: ${offer.text}`};
   const answer=await choose(guest,[replyChoice],signal);
-  if(signal.aborted||!answer||!invitationGate.current.friends)return;
+  if(signal.aborted||!answer||!invitationGate.current.friends||!socialAllowed(host)||!socialAllowed(guest))return;
   const activity=offer.choice.parkActivity;
   if(activity==='sketch'||activity==='read')setFriendMeetup({host,activity,text:offer.text,reply:answer.text,at:Date.now()});
  });
@@ -208,11 +211,12 @@ export function useSocialActivities(options:SocialOptions){
   const activity=invitationGate.current.aishi;
   if(!activity||aishiInvitation||Date.now()-lastAishiInvitation.current<12*60_000)return;
   const owner={sketch:'luna',read:'lyra',tinker:'mana'} as const;
+  if(!socialAllowed(owner[activity]))return;
   const choices=memoryInvitations(current.current.sharedMemories??[],owner[activity],'aishi',activity);
   if(!choices.length)return;
   lastAishiInvitation.current=Date.now();
   const offer=await invitationWriter.current(owner[activity],choices,signal);
-  if(signal.aborted||!offer||invitationGate.current.aishi!==activity||
+  if(signal.aborted||!offer||invitationGate.current.aishi!==activity||!socialAllowed(owner[activity])||
    !(current.current.sharedMemories??[]).some(memory=>memory.id===offer.choice.memoryId))return;
   setAishiInvitation(offer);
  });

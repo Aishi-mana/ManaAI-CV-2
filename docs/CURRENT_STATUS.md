@@ -2,6 +2,8 @@
 
 Manaverse update — 2026-11-29: newly completed little projects with full session evidence can save AI-written digital pages with simple illustrated designs. Pages persist in room backups, appear in Little Projects, the Keepsake Album and home displays, and export as SVG. Old completions remain session mementos. Checks: 711 frontend tests passed, two skipped; native SVG export test and desktop debug build passed. Live model generation and export acceptance remain to be tried in the app.
 
+Manaverse free-time update — 2026-11-29: Mana, Luna and Lyra can make temporary AI choices for project time, friends, quiet or rest. Their own core facts and recent recorded activity inform the choice. It affects only supported home activity weights and new optional social invitations, expires after 30 minutes, resets on restart, and never becomes completion evidence. Phone Plans shows the current intention and reason. Checks: 714 frontend tests passed, two optional skips; desktop build passed. Live AI choice/transition acceptance remains pending.
+
 ## At a glance — 2026-11-12
 
 **V1.x is the current milestone. Cover work is closed at the user's request.** Create Cover and Edit Tracks share the source-guided Rock, Jazz, Pop and Country backing options. The current workflow includes selectable leads, Follow guitar, Follow piano, Follow keys, Follow vocal melody, independent Follow bass groove, whole-song previews up to six minutes, and a five-part preview mixer with explicit save. **Open in Edit Tracks** opens the saved cover with New accompaniment expanded. The previous Style suggestions menu only displayed replacement hints.
