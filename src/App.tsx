@@ -2279,8 +2279,8 @@ export default function App() {
         const raw=await speakInRoom(activityPreferencePrompt(owner,memories),signal,owner,undefined,'invitation');
         return readActivityPreference(raw,owner,memories);
        }}
-       onAskAishiHangout={async(owner,kind,context,signal)=>{
-        const raw=await speakInRoom(aishiHangoutPrompt(owner,kind,context,loadRoom().sharedMemories??[]),signal,owner,undefined,'invitation');
+       onAskAishiHangout={async(owner,kind,context,signal,remote)=>{
+        const raw=await speakInRoom(aishiHangoutPrompt(owner,kind,context,loadRoom().sharedMemories??[],remote),signal,owner,undefined,'invitation');
         return readGroupJoinReply(raw);
        }}
        onAskGroupToJoin={async(host,activity,memories,signal)=>{

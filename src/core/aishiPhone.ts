@@ -5,7 +5,7 @@ import {sharedMemoryContext,type SharedMemory,type TownCharacter} from './reside
 import {townGoalChoice,type TownPersonalGoal} from './townPersonalGoals';
 import {phoneFact,type PhoneFact} from './aishiPhoneMemories';
 export const aishiContacts=['mana','luna','lyra'] as const;
-export type AishiPhoneMessage={id:string;contact:TownCharacter;from:'aishi'|'contact';at:string;text:string;replyTo?:string;checkIn?:true;invitation?:{kind:AishiHangoutKind;expires:number;status:'pending'|'accepted'|'declined'|'expired'}};
+export type AishiPhoneMessage={id:string;contact:TownCharacter;from:'aishi'|'contact';at:string;text:string;replyTo?:string;checkIn?:true;hangoutRequest?:{kind:AishiHangoutKind;expires:number;status:'pending'|'accepted'|'declined'|'expired';hangoutId?:string};invitation?:{kind:AishiHangoutKind;expires:number;status:'pending'|'accepted'|'declined'|'expired'}};
 export type AishiPhoneState={messages:AishiPhoneMessage[];read:Partial<Record<TownCharacter,string>>;facts?:PhoneFact[];checkInAttemptAt?:string;checkInContact?:TownCharacter};
 export function validateAishiPhone(value:unknown):AishiPhoneState{
  const messages:AishiPhoneMessage[]=[],ids=new Set<string>();
@@ -15,6 +15,8 @@ export function validateAishiPhone(value:unknown):AishiPhoneState{
   if(typeof item.replyTo==='string'&&messages.some(previous=>previous.id===item.replyTo&&previous.contact===message.contact&&previous.from!==message.from&&!previous.invitation&&Date.parse(previous.at)<=Date.parse(message.at)))message.replyTo=item.replyTo;
   if(message.from==='contact'&&item.checkIn===true)message.checkIn=true;
   const invitation=item.invitation;
+  const request=item.hangoutRequest;
+  if(message.from==='aishi'&&isRecord(request)&&Object.prototype.hasOwnProperty.call(aishiHangoutKinds,String(request.kind))&&typeof request.expires==='number'&&Number.isFinite(request.expires)&&['pending','accepted','declined','expired'].includes(String(request.status)))message.hangoutRequest={kind:request.kind as AishiHangoutKind,expires:request.expires,status:request.status as NonNullable<AishiPhoneMessage['hangoutRequest']>['status'],...(typeof request.hangoutId==='string'&&request.hangoutId.length<=100?{hangoutId:request.hangoutId}:{})};
   if(message.from==='contact'&&isRecord(invitation)&&Object.prototype.hasOwnProperty.call(aishiHangoutKinds,String(invitation.kind))&&typeof invitation.expires==='number'&&Number.isFinite(invitation.expires)&&['pending','accepted','declined','expired'].includes(String(invitation.status)))message.invitation={kind:invitation.kind as AishiHangoutKind,expires:invitation.expires,status:invitation.status as NonNullable<AishiPhoneMessage['invitation']>['status']};
   ids.add(message.id);messages.push(message);
  }
@@ -56,7 +58,7 @@ export function aishiConversationContext(history:readonly AishiPhoneMessage[],co
  const thread=history.filter(message=>message.contact===contact&&Date.parse(message.at)<=now.getTime());
  const last=thread[thread.length-1];
  const anchor=last?.from==='aishi'?aishiReplyAnchor(thread,contact,last.replyTo):undefined;
- const data=(message:AishiPhoneMessage)=>({id:message.id,from:message.from==='aishi'?'Aishi':hangoutName(contact),at:message.at,text:message.text,...(message.replyTo?{replyTo:message.replyTo}:{}),...(message.invitation?{invitationStatus:message.invitation.status==='pending'&&message.invitation.expires<=now.getTime()?'expired':message.invitation.status}: {})});
+ const data=(message:AishiPhoneMessage)=>({id:message.id,from:message.from==='aishi'?'Aishi':hangoutName(contact),at:message.at,text:message.text,...(message.replyTo?{replyTo:message.replyTo}:{}),...(message.hangoutRequest?{hangoutRequest:message.hangoutRequest.kind,requestStatus:message.hangoutRequest.status==='pending'&&message.hangoutRequest.expires<=now.getTime()?'expired':message.hangoutRequest.status}:{}),...(message.invitation?{invitationStatus:message.invitation.status==='pending'&&message.invitation.expires<=now.getTime()?'expired':message.invitation.status}: {})});
  return {now:now.toISOString(),recentMessages:thread.slice(-8).map(data),...(anchor?{replyingTo:data(anchor),elapsedMinutesSinceEarlierMessage:Math.floor((now.getTime()-Date.parse(anchor.at))/60_000)}:{})};
 }
 export function aishiPhonePrompt(contact:TownCharacter,history:readonly AishiPhoneMessage[],context:string,memories:SharedMemory[],coreFacts:readonly string[]=[]){

@@ -4136,6 +4136,22 @@ test('Aishi hangouts wait for both arrivals, complete once, and discard late or 
  for(const slot of slots)slot?.cleanup?.();
 });
 
+test('remote hangout invitations use schedule facts, wait for confirmation and expire without completing',async()=>{
+ let stamp=Date.parse('2026-11-29T08:00:00Z'),cursor=0,slots=[],effects=[],pulse,free=true,resolve,completed=0,goes=0;
+ class ClockDate extends Date{constructor(...args){super(...(args.length?args:[stamp]));}static now(){return stamp;}}
+ const react={useState(initial){const id=cursor++;if(!Object.hasOwn(slots,id))slots[id]=typeof initial==='function'?initial():initial;return [slots[id],v=>slots[id]=typeof v==='function'?v(slots[id]):v];},useRef(current){const id=cursor++;return slots[id]??(slots[id]={current});},useEffect(fn,deps){const id=cursor++,old=slots[id];if(old&&deps.every((v,i)=>Object.is(v,old.deps[i])))return;slots[id]={deps};effects.push(()=>{old?.cleanup?.();slots[id].cleanup=fn();});}};
+ const load=loader({react,'../core/companionRoom':{roomSleepNight:()=>false},'../core/eveningWindDown':{eveningWindDown:()=>undefined}},{Date:ClockDate,document:{visibilityState:'visible'},window:{setInterval:fn=>{pulse=fn;return 1;},setTimeout:()=>2,clearTimeout(){}},clearInterval(){}}),useHangouts=load('src/components/useAishiHangouts.ts').useAishiHangouts;
+ const options={enabled:true,ready:true,busy:false,sheltering:false,timeZone:'Asia/Singapore',root:{current:{querySelector:()=>null}},lease:{current:undefined},hangout:undefined,setHangout:value=>options.hangout=value,area:'bedroom',point:{x:50,y:80},walking:false,joining:false,ownerReady:()=>false,remoteAvailable:()=>free,context:()=> 'Luna is at home.',ask:async(owner,kind,context,signal,remote)=>{assert.equal(remote,true);assert.match(context,/Schedule availability: free/);return {accepted:true,text:'Let’s meet at the café.'};},go:next=>{goes++;options.area=next;options.walking=true;},join:()=>false,stop(){},onComplete:()=>completed++};
+ function render(){cursor=0;effects=[];const ui=useHangouts(options);effects.forEach(fn=>fn());return ui;}
+ let ui=render();const answer=await ui.invite('luna','cafe',true);ui=render();assert.equal(answer.accepted,true);assert.equal(options.hangout,undefined,'AI acceptance alone is a proposal until the phone confirms it is still valid');assert.equal(goes,0);
+ const plan=ui.startPhoneHangout('luna','cafe',answer.text);assert.ok(plan);assert.equal(plan.expires,stamp+10*60000);render();assert.equal(options.area,'living','remote meetings still start at the shared adjacent doorway');assert.equal(completed,0);
+ stamp=plan.expires+1;pulse();ui=render();assert.equal(options.hangout,undefined);assert.equal(completed,0);
+ options.walking=false;free=false;options.ask=async()=>({accepted:true,text:'Yes.'});ui=render();assert.equal(await ui.invite('luna','park',true),undefined,'an AI cannot override a busy schedule');assert.equal(ui.startPhoneHangout('luna','park','Yes.'),undefined);
+ free=true;options.ask=()=>new Promise(done=>resolve=done);ui=render();const controller=new AbortController(),pending=ui.invite('luna','park',true,controller.signal);controller.abort();resolve({accepted:true,text:'Yes.'});assert.equal(await pending,undefined);render();assert.equal(options.hangout,undefined);
+ ui=render();const late=ui.invite('luna','park',true);stamp+=91000;resolve({accepted:true,text:'Yes.'});assert.equal(await late,undefined);render();assert.equal(options.hangout,undefined);assert.equal(options.lease.current,undefined);
+ const prompt=load('src/core/aishiHangouts.ts').aishiHangoutPrompt('luna','cafe','Schedule availability: busy.',[],true);assert.match(prompt,/different places/);assert.match(prompt,/availability is busy, decline/);assert.doesNotMatch(prompt,/Aishi is nearby/);
+});
+
 test('Aishi phone keeps its own inbox, contacts, read markers and invitations through room saves',()=>{
  const load=loader(),p=load('src/core/aishiPhone.ts'),r=load('src/core/companionRoom.ts');
  const at='2026-11-28T08:00:00.000Z';
@@ -4155,7 +4171,7 @@ test('Aishi phone keeps its own inbox, contacts, read markers and invitations th
 });
 
 test('Aishi phone opens its own contacts and thread, marks only its own read state and closes on diving out',()=>{
- let cursor=0,slots=[],effects=[],reads=[],sent=[];
+ let cursor=0,slots=[],effects=[],reads=[],sent=[],invited=[];
  const jsx=(type,props)=>({type,props});
  const react={useState(initial){const id=cursor++;if(!Object.hasOwn(slots,id))slots[id]=typeof initial==='function'?initial():initial;return [slots[id],value=>slots[id]=typeof value==='function'?value(slots[id]):value];},useRef(current){const id=cursor++;return slots[id]??(slots[id]={current});},useEffect(fn,deps){const id=cursor++,old=slots[id];if(old&&deps.every((v,i)=>Object.is(v,old.deps[i])))return;slots[id]={deps};effects.push(()=>{old?.cleanup?.();slots[id].cleanup=fn();});}};
  const load=loader({react,'react/jsx-runtime':{jsx,jsxs:jsx,Fragment:'fragment'},'react-dom':{createPortal:node=>node},'./ManaverseMap':{default:()=>null},'./TownEventGrid':{default:()=>null},'./TownWeather':{default:()=>null}}),Phone=load('src/components/AishiPhone.tsx').default;
@@ -4168,6 +4184,7 @@ test('Aishi phone opens its own contacts and thread, marks only its own read sta
  assert.equal(nodes.some(node=>node.props?.children==='Mana’s phone'),false);
  nodes.find(node=>node.type==='button'&&node.props.children==='Reply to this').props.onClick();nodes=render();assert.ok(nodes.some(node=>node.props?.['aria-label']==='Cancel selected reply'));
  nodes.find(node=>node.type==='textarea').props.onChange({target:{value:'Hello, picking this up later.'}});nodes=render();nodes.find(node=>node.type==='form').props.onSubmit({preventDefault(){}});assert.equal(sent[0].join('|'),'mana|Hello, picking this up later.|own');
+ props.inviteReady=true;props.onInvite=async(...args)=>invited.push(args);nodes=render();nodes.find(node=>node.props?.['aria-label']==='Phone hangout activity').props.onChange({target:{value:'cafe'}});nodes=render();nodes.find(node=>node.type==='button'&&node.props.children==='Send invitation').props.onClick();assert.equal(invited[0].join(','),'mana,cafe');
  const forgotten=[];props.facts=[{sourceId:'phone-fact',contact:'mana',fact:'Likes tea.'}];props.onForgetFact=id=>forgotten.push(id);props.state.messages.push({id:'phone-fact',contact:'mana',from:'aishi',at:'2026-11-28T08:01:00.000Z',text:'I like tea.'});
  nodes.find(node=>node.props?.['aria-label']==='Phone home').props.onClick();nodes=render();nodes.find(node=>node.type==='button'&&text(node).trim()==='Memories').props.onClick();nodes=render();assert.ok(nodes.some(node=>node.props?.['aria-label']==='Whose phone memories?'));assert.equal(nodes.some(node=>node.type==='p'&&node.props.children==='Likes tea.'),false,'facts stay on a separate character detail page');
  nodes.find(node=>node.type==='button'&&text(node).includes('Mana')&&text(node).includes('1 fact')).props.onClick();nodes=render();assert.ok(nodes.some(node=>node.type==='p'&&node.props.children==='Likes tea.'));nodes.find(node=>node.type==='button'&&node.props.children==='Forget').props.onClick();assert.equal(forgotten[0],'phone-fact');
@@ -4212,6 +4229,20 @@ test('Aishi phone replies preserve user text, ignore late replies after diving o
  options.reply=()=>new Promise(done=>resolve=done);ui=render();const cancelledFact=ui.send('lyra','My favorite color is blue.');options.enabled=false;render();resolve('That is a lovely color.');await cancelledFact;assert.equal(remembered.length,1,'a discarded reply never saves a fact');
  options.enabled=true;options.reply=async()=> 'Understood.';ui=render();await ui.send('luna','My favorite snack is mochi.');ui=render();assert.equal(remembered.length,2,'a fresh explicit statement can be remembered again');const activeFact=ui.state.facts.find(fact=>!fact.forgotten);
  options.reply=()=>new Promise(done=>resolve=done);ui=render();const repeating=ui.send('luna','My favorite snack is mochi.');ui=render();ui.forgetFact(activeFact.sourceId);resolve('I hear you.');await repeating;ui=render();assert.equal(remembered.length,2,'forget wins over an in-flight reply to the same fact');assert.equal(ui.state.facts.some(fact=>!fact.forgotten),false);
+});
+
+test('phone invitations commit only valid AI agreements and never replay pending requests after reopening',async()=>{
+ let stamp=Date.parse('2026-11-29T08:00:00Z'),cursor=0,slots=[],effects=[],starts=0,resolve;
+ class ClockDate extends Date{constructor(...args){super(...(args.length?args:[stamp]));}static now(){return stamp;}}
+ const react={useState(initial){const id=cursor++;if(!Object.hasOwn(slots,id))slots[id]=typeof initial==='function'?initial():initial;return [slots[id],v=>slots[id]=typeof v==='function'?v(slots[id]):v];},useRef(current){const id=cursor++;return slots[id]??(slots[id]={current});},useEffect(fn,deps){const id=cursor++,old=slots[id];if(old&&deps.every((v,i)=>Object.is(v,old.deps[i])))return;slots[id]={deps};effects.push(()=>{old?.cleanup?.();slots[id].cleanup=fn();});}};
+ const load=loader({react,'./useSceneTask':{useSceneTask(){}},'../core/companionRoom':{saveRoom(){}}},{Date:ClockDate,window:{addEventListener(){},removeEventListener(){}}}),usePhone=load('src/components/useAishiPhone.ts').useAishiPhone;
+ const options={room:{current:{}},enabled:true,ready:true,canReply:()=>true,context:()=> 'At home.',reply:async()=>{throw Error('plain chat must not handle invitations');},invite:async()=>({accepted:false,text:'I’m busy for now.'}),startInvite:()=>{starts++;return {hangoutId:`plan-${starts}`,expires:stamp+600000};}};
+ function render(){cursor=0;effects=[];const ui=usePhone(options);effects.forEach(fn=>fn());return ui;}
+ let ui=render();await ui.invite('lyra','read');ui=render();assert.equal(starts,0);assert.equal(ui.state.messages[0].hangoutRequest.status,'declined');assert.equal(ui.state.messages[1].text,'I’m busy for now.');
+ options.invite=async()=>({accepted:true,text:'Meet you there.'});ui=render();await ui.invite('luna','park');ui=render();assert.equal(starts,1);assert.equal(ui.state.messages[2].hangoutRequest.hangoutId,'plan-1');assert.equal(ui.state.messages[2].hangoutRequest.status,'accepted');assert.equal(ui.state.facts,undefined);
+ options.invite=()=>new Promise(done=>resolve=done);ui=render();const pending=ui.invite('mana','cafe');ui=render();options.enabled=false;render();resolve({accepted:true,text:'Yes.'});await pending;ui=render();assert.equal(starts,1);assert.equal(ui.state.messages.slice(-1)[0].hangoutRequest.status,'expired');
+ options.enabled=true;ui=render();const late=ui.invite('mana','cafe');stamp+=91000;resolve({accepted:true,text:'Yes.'});await late;ui=render();assert.equal(starts,1);assert.equal(ui.state.messages.slice(-1)[0].hangoutRequest.status,'expired');
+ const messages=options.room.current.aishiPhone.messages;messages.push({id:'orphan',contact:'mana',from:'aishi',at:new ClockDate().toISOString(),text:'A pending invitation.',hangoutRequest:{kind:'cafe',expires:stamp+90000,status:'pending'}});slots=[];render();ui=render();assert.equal(ui.state.messages.slice(-1)[0].hangoutRequest.status,'expired');assert.equal(starts,1,'loading history never restarts a meeting');await ui.send('mana');assert.equal(starts,1);
 });
 
 test('phone core facts use only clear user statements and merge into existing character memory stores',()=>{

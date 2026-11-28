@@ -2309,3 +2309,5 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .aishi-phone-reply{display:block;margin-top:.35rem;border:0;background:transparent;color:var(--ink);font:inherit;font-size:.75rem;text-decoration:underline;cursor:pointer}.aishi-phone-reply-context{display:block;margin-top:.35rem;padding:.35rem .5rem;border-left:3px solid var(--mist-deep);font-size:.8rem;overflow-wrap:anywhere}.aishi-phone-compose .aishi-phone-reply-context{display:flex;align-items:center;gap:.3rem}.aishi-phone-compose .aishi-phone-reply-context small{flex:1}
 
 .aishi-phone-facts article{padding:.7rem 0;border-bottom:1px solid var(--mist-deep)}.aishi-phone-facts article p{margin:.4rem 0;overflow-wrap:anywhere}.aishi-phone-facts details{margin:.5rem 0}
+
+.aishi-phone-invite{margin-top:.6rem;padding:.45rem;border:1px solid var(--mist-deep);border-radius:8px}.aishi-phone-invite select{max-width:100%;font:inherit}.aishi-phone-invite legend{font-size:.85rem}
