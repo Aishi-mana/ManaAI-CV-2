@@ -6981,3 +6981,73 @@ test('town sketchbook filters characters and text, opens a day and uses normal p
  nodes.find(node=>node.props?.['aria-label']==='Sketchbook character').props.onChange({target:{value:'lyra'}});nodes=render();assert.equal(nodes.filter(node=>node.props?.className==='town-sketchbook-moment').length,1);nodes.find(node=>node.type==='button'&&node.props?.children?.includes('Library')).props.onClick();assert.equal(viewed,'library');
  nodes.find(node=>node.props?.['aria-label']==='Find a sketchbook moment').props.onChange({target:{value:'never recorded'}});nodes=render();assert.equal(nodes.filter(node=>node.props?.className==='town-sketchbook-moment').length,0);
 });
+
+test('project creations require completed session evidence, bind to their project, and survive room restoration',()=>{
+ const load=loader(),g=load('src/core/townPersonalGoals.ts'),c=load('src/core/projectCreations.ts'),room=load('src/core/companionRoom.ts');
+ const start=new Date('2026-11-28T03:00:00Z'),end=new Date('2026-11-29T03:00:00Z');
+ const initial=g.readTownGoal('{"choice":"shared-workbench","reason":"A tiny star design."}','mana',start);
+ assert.equal(c.readProjectCreation('{"title":"Star","lines":["A gentle glow."],"design":"star"}',initial,end),undefined);
+ const done=g.progressTownGoals([initial],'actual-work','aishi-tinker','Finished.',['mana','aishi'],end)[0];
+ assert.equal(done.creationPending,true);assert.equal(done.creation,undefined);
+ const creation=c.readProjectCreation('{"title":"Pocket star","lines":["A little glow for a quiet desk."],"design":"star"}',done,end);
+ assert.ok(creation);assert.equal(creation.projectId,done.id);assert.equal(creation.sessionIds.join(','),'actual-work');
+ const restored=room.validateRoom({personalGoals:[{...done,creation}]});
+ assert.equal(restored.personalGoals[0].creation.title,'Pocket star');assert.equal(restored.personalGoals[0].creationPending,undefined);
+ for(const patch of [{projectId:'another-project'},{sessionIds:['invented']},{kind:'notes'},{design:'<script>'},{lines:[]},{title:'x'.repeat(65)},{createdAt:start.toISOString()}])assert.equal(c.validateProjectCreation({...creation,...patch},done),undefined);
+ assert.equal(c.readProjectCreation('not json',done,end),undefined);
+ const legacy={...done,sessions:undefined,creationPending:undefined};
+ assert.equal(g.validateTownPersonalGoals([{...legacy,creation}])[0].creation,undefined);
+ assert.equal(g.validateTownPersonalGoals([legacy])[0].creationPending,undefined,'old records never fabricate new creations');
+ assert.match(g.townGoalContext([{...done,creation}],'mana',end),/Pocket star/);
+ assert.match(load('src/core/projectFollowups.ts').projectFollowupReplyPrompt('What did you make?',{...done,creation}),/Pocket star/);
+ const keepsake=load('src/core/activityKeepsakes.ts').homeDisplayKeepsakes([],[{...done,creation}],end.getTime())[0];
+ assert.equal(keepsake.project.creation.title,'Pocket star');
+ assert.match(load('src/core/activityKeepsakes.ts').projectKeepsakeReflection(keepsake),/saved digital creation/);
+ const album=load('src/core/keepsakeAlbum.ts').keepsakeAlbumEntries([],[{...done,creation}],[],[],[],'Asia/Singapore',end.getTime());
+ assert.equal(album[0].project.creation.title,'Pocket star');
+});
+
+test('all project choices produce bounded escaped illustrated pages without accepting raw model markup',()=>{
+ const load=loader(),g=load('src/core/townPersonalGoals.ts'),c=load('src/core/projectCreations.ts');
+ const designs={'sketch-collection':'pond','sketch-with-friends':'flowers','reading-notes':'book','reading-afternoon':'bookmark','bottle-catalogue':'bottles','wind-up-collection':'star','shared-workbench':'moon'};
+ for(const owner of ['luna','lyra','mana'])for(const choice of g.townGoalChoices[owner]){
+  let goal=g.readTownGoal(JSON.stringify({choice:choice.id,reason:'Try a small project.'}),owner,new Date('2026-11-20T01:00:00Z'));
+  for(let i=0;i<choice.target;i++)goal=g.progressTownGoals([goal],`session-${i}`,choice.activity.includes('sketch')?'aishi-sketch':choice.activity.includes('read')?'aishi-read':choice.activity==='bottle'?'home-bottle':'aishi-tinker','Completed.',[owner,'aishi'],new Date(`2026-11-${21+i}T03:00:00Z`))[0];
+  const creation=c.readProjectCreation(JSON.stringify({title:'<image onload="x">',lines:['A <script> & quiet thought.'],design:designs[choice.id],svg:'<script>bad</script>'}),goal,new Date('2026-11-25T03:00:00Z'));
+  assert.ok(creation,choice.id);assert.equal(creation.svg,undefined);
+  const svg=c.projectCreationSvg(creation,'Luna & friends');assert.match(svg,/&lt;script&gt;/);assert.ok(!svg.includes('<script>'));assert.ok(!svg.includes('<image'));assert.match(svg,/Luna &amp; friends/);assert.ok(svg.length<50000);
+  assert.match(c.projectCreationPrompt(goal),/Return ONLY JSON/);
+ }
+});
+
+test('background creation saves once, waits for real completion, and ignores cancelled or replaced work',async()=>{
+ let tasks=[],saved=0,created=0,calls=0;
+ const react={useRef:current=>({current}),useState:initial=>[typeof initial==='function'?initial():initial,()=>{}]};
+ const load=loader({react,'./useSceneTask':{useSceneTask:(_enabled,_ready,interval,_lease,run)=>{if(interval===45000)tasks.push(run);}},'../core/companionRoom':{saveRoom:()=>saved++,roomSleepNight:()=>false}});
+ const g=load('src/core/townPersonalGoals.ts'),c=load('src/core/projectCreations.ts'),hook=load('src/components/useTownPersonalGoals.ts');
+ const goal=g.readTownGoal('{"choice":"shared-workbench","reason":"Try a star."}','mana',new Date(Date.now()-60000));
+ const room={current:{personalGoals:[goal]}},controller=new AbortController();
+ const api=hook.useTownPersonalGoals(room,true,true,{current:undefined},async()=>undefined,{onCreated:()=>{created++;assert.ok(room.current.personalGoals[0].creation);},create:async pending=>{calls++;return c.readProjectCreation('{"title":"A little star","lines":["A digital star design."],"design":"star"}',pending);}});
+ await tasks[0](controller.signal);assert.equal(calls,0);
+ api.record('finished','aishi-tinker','Finished.',['mana','aishi']);await tasks[0](controller.signal);
+ assert.equal(calls,1);assert.equal(saved,2);assert.equal(created,1);
+ await tasks[0](controller.signal);assert.equal(calls,1,'saved results never regenerate');
+ for(const cancelled of [true,false]){
+  tasks=[];const copy={current:{personalGoals:[g.progressTownGoals([goal],'new-work','aishi-tinker','Finished.',['mana','aishi'])[0]]}},abort=new AbortController();
+  hook.useTownPersonalGoals(copy,true,true,{current:undefined},async()=>undefined,{create:async pending=>{const result=c.readProjectCreation('{"title":"Star","lines":["Quiet."],"design":"star"}',pending);if(cancelled)abort.abort();else copy.current.personalGoals=[];return result;}});
+  await tasks[0](abort.signal);assert.equal(copy.current.personalGoals[0]?.creation,undefined);assert.equal(saved,2);
+ }
+});
+
+test('failed creation remains pending with cooldown and restores without backfilling old work',async()=>{
+ let run,calls=0,saved=0;
+ const react={useRef:current=>({current}),useState:initial=>[typeof initial==='function'?initial():initial,()=>{}]};
+ const load=loader({react,'./useSceneTask':{useSceneTask:(_e,_r,interval,_l,task)=>{if(interval===45000)run=task;}},'../core/companionRoom':{saveRoom:()=>saved++,roomSleepNight:()=>false}}),g=load('src/core/townPersonalGoals.ts');
+ const goal=g.readTownGoal('{"choice":"shared-workbench","reason":"Try."}','mana',new Date(Date.now()-60000)),done=g.progressTownGoals([goal],'work','aishi-tinker','Finished.',['mana','aishi'])[0];
+ const room={current:{personalGoals:[done]}};
+ load('src/components/useTownPersonalGoals.ts').useTownPersonalGoals(room,true,true,{current:undefined},async()=>undefined,{create:async()=>{calls++;return undefined;}});
+ await run(new AbortController().signal);await run(new AbortController().signal);
+ assert.equal(calls,1);assert.equal(saved,0);assert.equal(room.current.personalGoals[0].creationPending,true);
+ assert.equal(g.validateTownPersonalGoals(room.current.personalGoals)[0].creationPending,true);
+ assert.equal(g.validateTownPersonalGoals([{...done,creationPending:undefined}])[0].creationPending,undefined);
+});

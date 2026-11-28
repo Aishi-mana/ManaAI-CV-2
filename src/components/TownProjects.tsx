@@ -1,3 +1,4 @@
+import ProjectCreationView from './ProjectCreationView';
 import {townActors,townCharacterIds,townCharacterName} from '../core/townCharacters';
 
 import {townGoalChoices,townGoalChoice,townProjectStages,townProjectNextStep,canChooseTownGoal,type TownPersonalGoal,type TownGoalId} from '../core/townPersonalGoals';
@@ -15,13 +16,14 @@ export default function TownProjects({goals,owner,timeZone,onOpenOwner,onStart}:
    </button>;
   })}
  </div></div>;
- const active=goals.find(goal=>goal.owner===owner&&!goal.completedAt),finished=goals.filter(goal=>goal.owner===owner&&goal.completedAt).slice(-3).reverse();
+ const active=goals.find(goal=>goal.owner===owner&&!goal.completedAt),finished=goals.filter(goal=>goal.owner===owner&&goal.completedAt).slice().reverse();
  const card=(project:TownPersonalGoal)=>{
   const choice=townGoalChoice(project);
   return <article className="town-project-card" key={project.id}>
    <h3>{choice.title}</h3><p>{project.reason}</p><p className="hint-soft">{project.startedBy==='aishi'?'Chosen by you':`Chosen by ${name(owner)}`}</p>
    <progress value={project.evidence.length} max={choice.target} aria-label="Completed project sessions"/>
    <p>{project.completedAt?'All planned work sessions are complete.':`${project.evidence.length} of ${choice.target} sessions · Next: ${townProjectNextStep(project)}`}</p>
+   {project.creation?<ProjectCreationView creation={project.creation} owner={project.owner}/>:project.creationPending?<p role="status">Work is complete. A digital creation will be made when the AI is free.</p>:project.completedAt?<p className="hint-soft">This older project has a session memento; no digital creation was saved.</p>:null}
    <ol className="town-project-stages">{townProjectStages(project).map((stage,index)=><li key={index} data-done={stage.done}>
     <span aria-hidden="true">{stage.done?'✓':'○'}</span> {stage.label}
     {stage.at&&<time dateTime={stage.at}>{new Intl.DateTimeFormat(undefined,{timeZone,dateStyle:'medium'}).format(new Date(stage.at))}</time>}

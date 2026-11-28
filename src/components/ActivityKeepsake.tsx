@@ -1,3 +1,4 @@
+import ProjectCreationView from './ProjectCreationView';
 import {useEffect,useRef,useState,type CSSProperties} from 'react';
 import {createPortal} from 'react-dom';
 import {activityKeepsakeNames,projectKeepsakeReflection,type ActivityKeepsake as Keepsake} from '../core/activityKeepsakes';
@@ -24,11 +25,17 @@ export default function ActivityKeepsake({keepsake,timeZone,style,reflect=false}
    <section className="activity-keepsake-details" role="dialog" aria-modal="true" aria-label={title}
    onClick={event=>event.stopPropagation()} onKeyDown={event=>{
     if(event.key==='Escape'){event.preventDefault();close();}
-    if(event.key==='Tab')event.preventDefault();
+    if(event.key==='Tab'){
+     const controls=Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'));
+     const first=controls[0],last=controls[controls.length-1];
+     if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}
+     else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}
+    }
     event.stopPropagation();
    }}>
    <header><strong>{title}</strong><button ref={closeButton} type="button" className="btn" onClick={close}>Close</button></header>
    <p>{keepsake.moment}</p>
+   {keepsake.project?.creation&&<ProjectCreationView creation={keepsake.project.creation} owner={keepsake.owner}/>}
    {thought&&<p className="activity-keepsake-reflection" role="status">{thought}</p>}
    {keepsake.kind==='trinket'&&<p className="activity-keepsake-location">Displayed on Mana’s bedroom desk.</p>}
    <p>{keepsake.birthday?'Celebrated with':keepsake.project?'By':'With'} {participants}</p>

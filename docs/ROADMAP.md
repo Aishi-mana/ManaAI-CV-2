@@ -448,7 +448,7 @@ Consolidated 2026-11-29 against the current implementation. Checked items descri
 - [x] Social interactions
 - [x] Shared activities
 - [ ] Emergent AI society/world
-- [ ] Actual reviewable outputs from the supported little projects, beyond session records and symbolic keepsakes.
+- [x] First reviewable little-project outputs: saved AI-written digital pages with bounded illustrations, home/phone previews and SVG export (2026-11-29). Rich generated artwork, playable project results, physical crafting and in-world gift delivery remain future work.
 - [ ] Broader supported personal planning and deeper experience-driven relationships.
 - [ ] Bounded, explicitly recorded offline progression; no invented closed-app conversations.
 

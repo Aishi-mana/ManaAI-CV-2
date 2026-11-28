@@ -20,14 +20,14 @@ Current-cast foundation reviewed 2026-11-29. The design remains a hybrid: existi
 3. Provide routines, supported activities, idle/walk/held/sleep behavior and interruptions for weather, appointments, bedtime and wind-down. Complete controller-specific integration before exposing a new resident in live scenes.
 4. Keep core facts, shared events and phone text distinct. Persist/read/forget through the existing validators; an invitation, inferred preference, AI line or loaded save never proves an activity happened.
 5. Support the character's actual phone role, contact-specific context, read markers, cooldowns, late-reply cancellation and private audience rules. Aishi's interface does not expose Mana's inbox.
-6. Register supported project choices and their real completion events, birthdays, relevant keepsakes and map status. Session-count projects remain session records until a later feature supplies real artifacts.
+6. Register supported project choices and their real completion events, birthdays, relevant keepsakes and map status. Sessions alone remain session records. Completed projects with full session evidence can request a saved digital creation; only that validated result is a viewable artifact.
 7. Pass the cast contract and applicable travel, activity, sleep, interruption, phone, memory and restore regressions. Adding a profile alone is not a complete character implementation.
 
 ### Current audit and boundaries
 
 The existing three AI characters have connected homes and park/café routes, individual memory stores and supported projects. Their identities now share one cast source across the common surfaces above. Aishi and Pet Bot retain their deliberate role exceptions. Automated contract checks cover identities, contact/goal coverage, memory validation, birthdays, home connectivity, stairs and local artwork; the broader suite covers movement, interruptions, phones and activity completion.
 
-Special home/outing controllers, group activities, project/action identifiers and some scene orchestration still contain character-specific adapters. These require an explicit onboarding review and behavioral tests when adding a resident; this refactor does not claim arbitrary actors are plug-and-play. The Community Garden, actual little-project creations, broader personal agency/relationships, resident-organized events and bounded offline progression remain the next gaps.
+Special home/outing controllers, group activities, project/action identifiers and some scene orchestration still contain character-specific adapters. These require an explicit onboarding review and behavioral tests when adding a resident; this refactor does not claim arbitrary actors are plug-and-play. The Community Garden, richer little-project creations beyond the supported digital pages, broader personal agency/relationships, resident-organized events and bounded offline progression remain the next gaps.
 
 ### Live acceptance checklist
 
@@ -212,13 +212,19 @@ The book is read-only and uses existing saved history, saves/backups and existin
 
 ### Little ongoing projects
 
+New projects finishing with complete session evidence queue a small digital page. The existing shared model writes a short title and one to four original lines and chooses an allowed illustration design: nature sketch cards for Luna, reading reflections or an imagined bottle catalogue for Lyra, and digital trinket designs for Mana. Trusted vector shapes provide the simple illustration; this is not image-model artwork, a sourced book summary, a physical gift, a working mechanism, or a game.
+
+Creation runs only while the town is active, awake, and the shared AI lease is free. It does not change movement or schedules. Busy, invalid or failed attempts retain a pending status and retry no more than every 30 minutes per project during the current session. Abort, changed evidence, or removed projects cannot save a late result. A successful page is bound to the project and actual session IDs, saved once, restored/validated with room backups, and never regenerated on load. Older completed projects retain their original session mementos without automatic backfill.
+
+Saved pages appear in Little Projects, the Keepsake Album, and the home display dialog. Export creation saves a standalone SVG in `exports/town-creations` in the desktop app (download in browser preview). Exporting allows the user to share the image; it is not an in-world delivery or an automatic message. Owners may describe their saved page through existing project dialogue. Other residents learn through actual dialogue, never through global artifact knowledge. The completion history records a saved digital page only after persistence.
+
 The phone's Little Projects app opens a character grid, then a separate project page. Aishi can choose a supported project, or the character can choose through the existing AI goal system. Projects reuse personal goals and their saved evidence rather than introducing a second progress store.
 
 Only completed matching activities advance a project, at most once per project per town day in the configured timezone. Existing schedules, routes, visits and bedtime remain authoritative. New sessions retain their actual action and timestamp; older saved evidence stays valid without invented historical dates. Completed projects have a 24-hour pause before another can start.
 
 Progress milestones enter the Town Sketchbook through the existing activity recorder. Loading a save does not generate milestones. The AI receives recorded progress and the next session in its existing context; a completed session is not proof that a generated illustration, book or playable game exists.
 
-Project finishing touches: a newly completed project can trigger one short AI speech bubble when Aishi is in the scene with its owner. It uses the saved completion record, does not replay from loaded goals, and expires or cancels when leaving the view. Existing ambient activity bubbles yield while this completion bubble is shown. No new AI timer or project artifact is created; the existing 24-hour project break remains in effect.
+Project finishing touches: a newly completed project can trigger one short AI speech bubble when Aishi is in the scene with its owner. It uses the saved completion record, does not replay from loaded goals, and expires or cancels when leaving the view. Existing ambient activity bubbles yield while this completion bubble is shown. The completion bubble still describes the work sessions, not a creation that has not been saved yet. The existing 24-hour project break remains in effect.
 
 ### Remembering shared moments in conversation
 
@@ -234,7 +240,7 @@ Existing paired encounters can occasionally ask about a friend's little project 
 
 ### Personal touches at home
 
-Each existing home keepsake spot displays its owner's latest completed personal project, derived from saved goals rather than copied into another save field. Incomplete or future completions do not qualify. The original activity keepsake remains saved and is used when there is no completed project. Sketch, notes and trinket icons serve as symbolic mementos of completed work sessions; they are not generated artifacts. Selecting one shows the project, owner and completion timestamp. When the owner is home and awake, the existing scene voice may supply a short reflection on demand. No background model loop, invented participant list, extra furniture collision or new display placement is added. Mana's display continues following her editable bedroom desk.
+Each existing home keepsake spot displays its owner's latest completed personal project, derived from saved goals rather than copied into another save field. Incomplete or future completions do not qualify. The original activity keepsake remains saved and is used when there is no completed project. Sketch, notes and trinket icons remain symbolic display markers. Selecting one shows the project, owner and completion timestamp, plus a saved digital creation when present. Older projects remain session mementos. When the owner is home and awake, the existing scene voice may supply a short reflection on demand. The display reflection does not add a background model loop, invented participant list, furniture collision or new placement; digital page generation uses the separate shared-lease task described above. Mana's display continues following her editable bedroom desk.
 
 ### Small favors: quiet company and open-ended offers
 

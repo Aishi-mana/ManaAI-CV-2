@@ -9,6 +9,7 @@ mod character;
 mod store;
 mod conversation_export;
 mod game_export;
+mod town_creation_export;
 mod image_generation;
 mod outfit_prototype;
 mod generated_outfits;
@@ -42,6 +43,11 @@ fn export_activity(content: String) -> Result<String, String> {
 #[tauri::command]
 fn export_work(content: String) -> Result<String, String> {
     conversation_export::write_named(Path::new(r"C:\AI\ManaAI-CV-2\exports\work"), &content, "Mana-work")
+}
+
+#[tauri::command]
+fn export_town_creation(content:String)->Result<String,String>{
+    town_creation_export::write(Path::new(r"C:\AI\ManaAI-CV-2\exports\town-creations"),&content)
 }
 
 #[tauri::command]
@@ -636,6 +642,7 @@ pub fn run() {
             export_diary,
             export_activity,
             export_work,
+            export_town_creation,
             export_game,
             export_playtest,
             read_backup_file,

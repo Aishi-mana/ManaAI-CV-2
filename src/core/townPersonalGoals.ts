@@ -1,3 +1,4 @@
+import {validateProjectCreation,projectCreationContext,type ProjectCreation} from './projectCreations';
 import {isRecord} from './validation';
 import {residentProfiles} from './residentProfiles';
 import type {SharedMemory,TownCharacter} from './residentRelationships';
@@ -18,7 +19,7 @@ export type TownProjectSession={eventId:string;at:string;action:string};
 export interface TownPersonalGoal {
  id:string;owner:TownCharacter;choice:Choice['id'];reason:string;createdAt:string;
  evidence:string[];completedAt?:string;
- sessions?:TownProjectSession[];startedBy?:'aishi';
+ sessions?:TownProjectSession[];startedBy?:'aishi';creationPending?:true;creation?:ProjectCreation;
 }
 export function townGoalChoice(goal:TownPersonalGoal){
  return townGoalChoices[goal.owner].find(choice=>choice.id===goal.choice)!;
@@ -45,7 +46,11 @@ export function validateTownPersonalGoals(value:unknown):TownPersonalGoal[]{
    sessionIds.add(session.eventId);return [{eventId:session.eventId,at:session.at,action:session.action}];
   }):[];
   ids.add(item.id);
-  goals.push({id:item.id.slice(0,220),owner,choice:choice.id,reason:item.reason.trim().slice(0,180),createdAt:item.createdAt,evidence,...(completedAt?{completedAt}:{}),...(sessions.length?{sessions}:{}),...(item.startedBy==='aishi'?{startedBy:'aishi' as const}:{})});
+  const goal:TownPersonalGoal={id:item.id.slice(0,220),owner,choice:choice.id,reason:item.reason.trim().slice(0,180),createdAt:item.createdAt,evidence,...(completedAt?{completedAt}:{}),...(sessions.length?{sessions}:{}),...(item.startedBy==='aishi'?{startedBy:'aishi' as const}:{})};
+  const creation=validateProjectCreation(item.creation,goal);
+  if(creation)goal.creation=creation;
+  else if(completedAt&&sessions.length===evidence.length&&item.creationPending===true)goal.creationPending=true;
+  goals.push(goal);
  }
  return [...goals.filter(goal=>!goal.completedAt),...goals.filter(goal=>goal.completedAt)];
 }
@@ -81,7 +86,7 @@ export function progressTownGoals(goals:TownPersonalGoal[],eventId:string,action
   if(goal.sessions?.some(session=>journalClock(new Date(session.at),timeZone).date===day))return goal;
   changed=true;
   const evidence=[...goal.evidence,eventId];
-  return {...goal,evidence,sessions:[...(goal.sessions??[]),{eventId,at:now.toISOString(),action}],...(evidence.length>=choice.target?{completedAt:now.toISOString()}:{})};
+  return {...goal,evidence,sessions:[...(goal.sessions??[]),{eventId,at:now.toISOString(),action}],...(evidence.length>=choice.target?{completedAt:now.toISOString(),...((goal.sessions?.length??0)+1===evidence.length?{creationPending:true as const}:{})}:{})};
  });
  return changed?next:goals;
 }
@@ -101,7 +106,7 @@ export function townDailyIntention(goals:TownPersonalGoal[],owner:TownCharacter,
 }
 export function townGoalContext(goals:TownPersonalGoal[],owner:TownCharacter,now=new Date(),timeZone='Asia/Singapore'){
  const current=goals.filter(goal=>goal.owner===owner).sort((a,b)=>Date.parse(b.createdAt)-Date.parse(a.createdAt)).slice(0,2);
- return current.length?`\nYour daily intention: ${JSON.stringify(townDailyIntention(goals,owner,now,timeZone)??null)}. This is a small step in your existing project, not another commitment. An unfinished step carries forward gently, without guilt or a deadline. You may mention it naturally when relevant, without repeating it in every greeting. Only done=true means a matching session actually finished today. It does not mean the whole project is finished. Keep your existing schedule, bedtime, shelter and visits; never teleport or invent an activity to fulfil an intention.\nYour personal goals and ongoing projects (recorded state): ${JSON.stringify(current.map(goal=>({title:townGoalChoice(goal).title,reason:goal.reason,progress:goal.evidence.length,target:townGoalChoice(goal).target,completed:!!goal.completedAt,startedBy:goal.startedBy==='aishi'?'Aishi':'you',nextStep:townProjectNextStep(goal)})))}. Mention a project only when asked or directly relevant. After a matching activity you may briefly reflect on the actual progress and next step. Counted sessions do not prove a book was written, a picture was generated, or a complex machine/game was finished. Do not claim unrecorded progress or change your schedule to pursue a project.\n`:'';
+ return current.length?`\nYour daily intention: ${JSON.stringify(townDailyIntention(goals,owner,now,timeZone)??null)}. This is a small step in your existing project, not another commitment. An unfinished step carries forward gently, without guilt or a deadline. You may mention it naturally when relevant, without repeating it in every greeting. Only done=true means a matching session actually finished today. It does not mean the whole project is finished. Keep your existing schedule, bedtime, shelter and visits; never teleport or invent an activity to fulfil an intention.\nYour personal goals and ongoing projects (recorded state): ${JSON.stringify(current.map(goal=>({title:townGoalChoice(goal).title,reason:goal.reason,progress:goal.evidence.length,target:townGoalChoice(goal).target,completed:!!goal.completedAt,startedBy:goal.startedBy==='aishi'?'Aishi':'you',nextStep:townProjectNextStep(goal),creation:projectCreationContext(goal)||undefined})))}. Mention a project only when asked or directly relevant. After a matching activity you may briefly reflect on the actual progress and next step. Counted sessions alone do not prove a book was written, a picture was generated, or a complex machine/game was finished. Only a saved digital creation in the project state may be described; pending creation means no result exists yet. Do not claim unrecorded progress or change your schedule to pursue a project.\n`:'';
 }
 
 export function townProjectStages(goal:TownPersonalGoal){

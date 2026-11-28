@@ -1,3 +1,4 @@
+import type {ProjectCreation} from '../core/projectCreations';
 import {mergePhoneCoreFacts,phoneFactKey,residentPhoneFact,type PhoneFact} from '../core/aishiPhoneMemories';
 import AishiHangoutPanel from './AishiHangoutPanel';
 import AishiPhone from './AishiPhone';
@@ -127,8 +128,9 @@ function activityTarget(activity:Activity,objects:readonly RoomObject[]){
  return roomPosition(placed.mirrored?placed.x+placed.width-(point.x-original.x):point.x+dx,point.y+dy,objects);
 }
 
-export default function CompanionRoom({episodes,memories,visible,timeZone,onActivity:recordActivity,projects,onOpenGameDev,events,onEditingChange,canGenerateFurniture,beforeFurnitureGeneration,petBotReady,onPetBotReply,manaSpeechReady,onManaThought,onManaRoomChat,onResidentRoomChat,onPhoneText,onAishiPhoneReply,onAishiPhoneCheckIn,onRememberManaPhoneFact,onForgetManaMemory,onChooseInvitation,onAskGroupToJoin,onAskAishiHangout,onChoosePersonalGoal,onChooseActivityPreference}:{
+export default function CompanionRoom({episodes,memories,visible,timeZone,onActivity:recordActivity,projects,onOpenGameDev,events,onEditingChange,canGenerateFurniture,beforeFurnitureGeneration,petBotReady,onPetBotReply,manaSpeechReady,onManaThought,onManaRoomChat,onResidentRoomChat,onPhoneText,onAishiPhoneReply,onAishiPhoneCheckIn,onRememberManaPhoneFact,onForgetManaMemory,onChooseInvitation,onAskGroupToJoin,onAskAishiHangout,onChoosePersonalGoal,onCreateProject,onChooseActivityPreference}:{
  onChooseActivityPreference:(owner:SharedMemory['owner'],memories:string[],signal:AbortSignal)=>Promise<ActivityPreference|undefined>;
+ onCreateProject:(goal:TownPersonalGoal,signal:AbortSignal)=>Promise<ProjectCreation|undefined>;
  onChoosePersonalGoal:(owner:MemoryInvitation['owner'],memories:SharedMemory[],signal:AbortSignal)=>Promise<TownPersonalGoal|undefined>;
  onAskAishiHangout:(owner:SharedMemory['owner'],kind:AishiHangoutKind,context:string,signal:AbortSignal,remote?:boolean)=>Promise<{accepted:boolean;text:string}|undefined>;
  onAskGroupToJoin:(host:RoomContact,activity:'sketch'|'read',memories:SharedMemory[],signal:AbortSignal)=>Promise<{accepted:boolean;text:string}|undefined>;
@@ -526,7 +528,7 @@ export default function CompanionRoom({episodes,memories,visible,timeZone,onActi
   saveRoom(current.current);
   setSharedMemories(next);
  }
- const personalGoals=useTownPersonalGoals(current,visible&&!editing&&!sleeping,manaSpeechReady,invitationRequest,onChoosePersonalGoal,{timeZone,onMilestone:milestone=>recordActivity(milestone.action,milestone.title,milestone.outcome),onCompleted:goal=>{
+ const personalGoals=useTownPersonalGoals(current,visible&&!editing&&!sleeping,manaSpeechReady,invitationRequest,onChoosePersonalGoal,{timeZone,create:onCreateProject,onCreated:goal=>recordActivity(`town-creation-${goal.id}`,'A saved digital creation',`${goal.owner==='mana'?'Mana':residentProfiles[goal.owner].name} saved a digital ${goal.creation!.kind} page, “${goal.creation!.title}”, after completing their project. This is a digital page, not a physical object or a delivered gift.`),onMilestone:milestone=>recordActivity(milestone.action,milestone.title,milestone.outcome),onCompleted:goal=>{
   const name=goal.owner==='mana'?'Mana':residentProfiles[goal.owner].name;
   const context=townProjectCompletionPrompt(goal);
   if(context&&dive.active&&visible&&!editing&&!sleeping&&dive.root.current?.querySelector(`.companion-room-body:not([hidden]) .character-gesture:has(button[aria-label="Interact with ${name}"])`)){

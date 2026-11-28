@@ -2311,3 +2311,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .aishi-phone-facts article{padding:.7rem 0;border-bottom:1px solid var(--mist-deep)}.aishi-phone-facts article p{margin:.4rem 0;overflow-wrap:anywhere}.aishi-phone-facts details{margin:.5rem 0}
 
 .aishi-phone-invite{margin-top:.6rem;padding:.45rem;border:1px solid var(--mist-deep);border-radius:8px}.aishi-phone-invite select{max-width:100%;font:inherit}.aishi-phone-invite legend{font-size:.85rem}
+
+.project-creation { margin: .8rem 0; }
+.project-creation img { display: block; width: 100%; max-width: 36rem; height: auto; border-radius: 12px; }
+.project-creation h4 { margin: .5rem 0; }
+.project-creation-transcript { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.activity-keepsake-details:has(.project-creation) { max-height: 80vh; overflow-y: auto; }

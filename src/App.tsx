@@ -1,3 +1,4 @@
+import {projectCreationPrompt,readProjectCreation} from './core/projectCreations';
 import {aishiCheckInPrompt,aishiPhonePrompt,readAishiPhoneReply} from './core/aishiPhone';
 import {mergeManaPhoneFact} from './core/aishiPhoneMemories';
 import {choosePersonalFact,personalFactDialoguePrompt} from './core/personalFactDialogue';
@@ -427,7 +428,7 @@ export default function App() {
     personalFactAttempts.current[speaker]=Date.now();
     return personalFactDialoguePrompt(fact);
   }
-  async function speakInRoom(context:string,signal:AbortSignal,speaker:SceneSpeaker='mana',message?:string,channel:'scene'|'phone'|'invitation'='scene'){
+  async function speakInRoom(context:string,signal:AbortSignal,speaker:SceneSpeaker='mana',message?:string,channel:'scene'|'phone'|'invitation'|'creation'='scene'){
     if(llama.status!=='ready'||abortRef.current||busy||reflecting||mediaOccupied()||storage.error)return '';
     signal.throwIfAborted();
     const controller=new AbortController();
@@ -449,7 +450,7 @@ export default function App() {
         )+`\nManaverse context: ${context}\nSpeak in first person. ${channel==='scene'?'Use at most one short sentence and avoid questions. ':''}Only mention remembered facts if they naturally fit. Do not invent activity, memories, or dialogue from others.`;
       let text='';
       let system=fillTemplate(settings.systemPrompt,settings)+guide;
-      if(channel==='invitation'){system=context;}else if(channel==='phone'){
+      if(channel==='invitation'||channel==='creation'){system=context;}else if(channel==='phone'){
         const style=speaker==='mana'?identity.personality.slice(0,500):ROOM_CONTACTS[speaker].description;
         system=`Sender voice (style only): ${style}\n${context}`;
       }else if(quickGreeting){
@@ -466,7 +467,7 @@ export default function App() {
         const {visitKey,coreKey}=residentProfiles[speaker].memory;
         system=residentPrompt(speaker,context,room[visitKey]??[],recorded,room[coreKey],!!message);
       }
-      if(!quickGreeting&&channel!=='invitation'){
+      if(!quickGreeting&&channel!=='invitation'&&channel!=='creation'){
         const room=loadRoom();
         const preferenceCore=speaker==='mana'?manaPreferenceMemories(memories):room[residentProfiles[speaker].memory.coreKey]??[];
         system+=(privateScene?'':sharedMemoryContext(room.sharedMemories??[],speaker))+townGoalContext(room.personalGoals??[],speaker,new Date(),journalRef.current.timeZone)+activityPreferenceContext(speaker,room.activityPreferences??{},preferenceCore)+friendshipHabitContext(speaker,room.sharedMemories??[]);
@@ -475,8 +476,8 @@ export default function App() {
       else if(followup)system+=projectFollowupPrompt(followup,recall);
       else if(recall)system+=sharedMomentRecallPrompt(recall);
       if(channel==='scene'&&!privateScene&&!quickGreeting)system+=personalCue(speaker,context,!!message||/\bAishi (?:has arrived|just joined|is here|is present)\b/i.test(context),message);
-      await streamChat({port:llama.port,temperature:.65,maxTokens:message?160:channel!=='scene'?180:70,signal:controller.signal,
-        messages:[{role:'system',content:system},{role:'user',content:message??(channel==='phone'?'Write the phone text for this event.':privateScene?'Write the next spoken line to the named character.':'Say one short line for your in-world speech bubble.')}],
+      await streamChat({port:llama.port,temperature:.65,maxTokens:channel==='creation'?450:message?160:channel!=='scene'?180:70,signal:controller.signal,
+        messages:[{role:'system',content:system},{role:'user',content:message??(channel==='creation'?'Create the digital page as the requested JSON only.':channel==='phone'?'Write the phone text for this event.':privateScene?'Write the next spoken line to the named character.':'Say one short line for your in-world speech bubble.')}],
         onToken:token=>{text+=token;}});
       if(controller.signal.aborted)return '';
       if(message||channel!=='scene')return text;
@@ -2271,6 +2272,10 @@ export default function App() {
       <SceneVoice.Provider value={{ready:mainLayout!==1&&!showSinging&&!showSongbook&&!showSavedImages&&!showSketchbook&&!showGameDev&&llama.status==='ready'&&!busy&&!reflecting&&!diaryArtId&&!showImageGeneration&&!autoOutfitRunning&&!storage.error,speak:speakInRoom}}>
       <CompanionRoom onForgetManaMemory={id=>setMemories(previous=>previous.filter(memory=>memory.id!==id))} episodes={episodes} memories={memories} events={events} onActivity={recordRoomActivity} timeZone={journal.timeZone} onEditingChange={setRoomEditorOpen}
        manaSpeechReady={llama.status==='ready'&&!busy&&!reflecting&&!diaryArtId&&!showImageGeneration&&!autoOutfitRunning&&!storage.error}
+       onCreateProject={async(goal,signal)=>{
+        const raw=await speakInRoom(projectCreationPrompt(goal),signal,goal.owner,undefined,'creation');
+        return readProjectCreation(raw,goal);
+       }}
        onChoosePersonalGoal={async(owner,memories,signal)=>{
         const raw=await speakInRoom(townGoalPrompt(owner,memories),signal,owner,undefined,'invitation');
         return readTownGoal(raw,owner);
