@@ -1,6 +1,6 @@
 import {useEffect,useRef,useState,type RefObject} from 'react';
 import {saveRoom,type RoomState} from '../core/companionRoom';
-import {aishiCheckInCandidates,aishiInvitationMessage,validateAishiPhone,type AishiPhoneMessage,type AishiPhoneState} from '../core/aishiPhone';
+import {aishiCheckInCandidates,aishiReplyAnchor,aishiInvitationMessage,validateAishiPhone,type AishiPhoneMessage,type AishiPhoneState} from '../core/aishiPhone';
 import {useSceneTask} from './useSceneTask';
 import type {CharacterHangoutOffer} from '../core/aishiHangouts';
 import type {TownCharacter} from '../core/residentRelationships';
@@ -35,10 +35,10 @@ export function useAishiPhone(options:Options){
   if(next.messages[next.messages.length-1]?.id!==baseline)return;
   change({...next,messages:[...next.messages,{id:`aishi-check-in-${contact}-${Date.now()}`,contact,from:'contact',at:new Date().toISOString(),text:text.trim(),checkIn:true}]});
  });
- async function send(contact:TownCharacter,text?:string){
+ async function send(contact:TownCharacter,text?:string,replyTo?:string){
   const s=latest.current;if(!s.enabled||!s.ready||s.canReply?.()===false||request.current)return;
   let next=current();
-  if(text!==undefined){if(!text.trim()||text.trim().length>1000)return;next={...next,messages:[...next.messages,{id:`aishi-text-${Date.now()}-${Math.random().toString(36).slice(2,10)}`,contact,from:'aishi',at:new Date().toISOString(),text:text.trim()}]};change(next);}
+  if(text!==undefined){if(!text.trim()||text.trim().length>1000)return;const anchor=aishiReplyAnchor(next.messages,contact,replyTo);if(replyTo&&!anchor)return;next={...next,messages:[...next.messages,{id:`aishi-text-${Date.now()}-${Math.random().toString(36).slice(2,10)}`,contact,from:'aishi',at:new Date().toISOString(),text:text.trim(),...(anchor?{replyTo:anchor.id}:{})}]};change(next);}
   const outgoing=next.messages.filter(message=>message.contact===contact).slice(-1)[0];if(outgoing?.from!=='aishi')return;
   const controller=new AbortController();request.current=controller;setBusy(true);setStatus('');
   try{const reply=await s.reply(contact,next.messages,s.context(contact),controller.signal);
@@ -46,7 +46,7 @@ export function useAishiPhone(options:Options){
    const phone=current(),last=phone.messages.filter(message=>message.contact===contact).slice(-1)[0];
    if(last?.id!==outgoing.id)return;
    if(!reply.trim()||reply.length>240){setStatus('No reply yet. You can retry when the AI is available.');return;}
-   change({...phone,messages:[...phone.messages,{id:`aishi-reply-${outgoing.id}`,contact,from:'contact',at:new Date().toISOString(),text:reply.trim()}]});
+   change({...phone,messages:[...phone.messages,{id:`aishi-reply-${outgoing.id}`,contact,from:'contact',at:new Date().toISOString(),text:reply.trim(),replyTo:outgoing.id}]});
   }catch{if(!controller.signal.aborted)setStatus('The message is saved. You can retry the reply.');}
   finally{if(request.current===controller){request.current=undefined;setBusy(false);}}
  }
